@@ -3,6 +3,7 @@
 //   npm run db:migrate -- --dir /path/to/data                      read another data folder
 //   npm run db:migrate -- --dry                                    count what would be copied, write nothing
 //   npm run db:migrate -- --overwrite                              replace rows that already exist (default: keep what the database has)
+//   npm run db:migrate -- --only pictures,story                    copy only some parts: accounts, ledger, story, audit, pictures (default: all)
 // Safe to run again: existing rows are kept, so a second run never puts an old save over a newer one. DATABASE_URL on the command
 // line wins over .env.local. Passwords were never stored in clear, so players keep their password; sessions carry over too.
 try { (process as any).loadEnvFile('.env.local'); } catch {}
@@ -15,6 +16,12 @@ const args = process.argv.slice(2);
 const flag = (n: string) => args.includes(n);
 const DIR = path.resolve(args.includes('--dir') ? args[args.indexOf('--dir') + 1] : 'data');
 const dry = flag('--dry'), over = flag('--overwrite');
+// --only pictures,story   copy just those parts (default: everything). Parts: accounts (logins, sessions, saved games, ranking), ledger, story, audit, pictures
+const PARTS = ['accounts', 'ledger', 'story', 'audit', 'pictures'];
+const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',').map((s) => s.trim()).filter(Boolean) : PARTS;
+const bad = only.filter((p) => !PARTS.includes(p));
+if (bad.length) { console.error(`unknown part: ${bad.join(', ')}. Parts: ${PARTS.join(', ')}`); process.exit(1); }
+const want = (p: string) => only.includes(p);
 const readJson = (f: string): any => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
 const count: Record<string, number> = {};
 const bump = (k: string, n = 1) => { count[k] = (count[k] || 0) + n; };
@@ -132,7 +139,11 @@ async function pictures() {
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) { console.error('DATABASE_URL is not set'); process.exit(1); }
   const target = (process.env.DATABASE_URL || process.env.POSTGRES_URL)!.replace(/\/\/[^@]*@/, '//***@');
   console.log(`${dry ? 'DRY RUN, nothing is written. ' : ''}from ${DIR} to ${target}${over ? ' (overwriting existing rows)' : ''}`);
-  await auth(); await accounts(); await ranking(); await ledger(); await story(); await audit(); await pictures();
+  if (want('accounts')) { await auth(); await accounts(); await ranking(); }
+  if (want('ledger')) await ledger();
+  if (want('story')) await story();
+  if (want('audit')) await audit();
+  if (want('pictures')) await pictures();
   console.log(dry ? 'would copy:' : 'copied (rows written; rows that already existed are not counted):', JSON.stringify(count));
   await closeDb();
 })().catch((e) => { console.error('FAILED:', e); process.exit(1); });
