@@ -1,6 +1,7 @@
 import './globals.css';
 import type { ReactNode } from 'react';
 import type { Viewport } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import { FxProvider } from '@/components/fx/FxProvider';
 import { TooltipHost } from '@/components/ds/TooltipHost';
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           {children}
           <TooltipHost />
         </FxProvider>
+        <Analytics />
       </body>
     </html>
   );
