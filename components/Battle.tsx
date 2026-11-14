@@ -9,7 +9,7 @@ import { ElIcon } from './Icons';
 // "H1 Ngươi · Kim Quang Trảm: 66 bạo kích (x1.00, cùng hệ)"; those are read back into the same shape, minus what they never recorded.
 type Open = { t: 'open'; f: string; fe: string[]; fh: number; ph: number; pm: number };
 // w: p = you, b = your Linh Thú, m = the foe, u = unknown (old save)
-type Act = { r: number; w: 'p' | 'b' | 'm' | 'u'; n: string; k?: string; e?: string; to?: string; d: number; c: number; x: number; s: number; h?: number; hm?: number };
+type Act = { r: number; w: 'p' | 'b' | 'm' | 'u'; u?: number; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; to?: string; d: number; c: number; x: number; s: number; h?: number; hm?: number };
 type Line = { kind: 'open'; o: Open } | { kind: 'act'; a: Act } | { kind: 'text'; text: string };
 
 const SKILL_EL: Record<string, string> = {};
@@ -58,11 +58,21 @@ function why(a: Act): { cls: string; text: string; tip: string }[] {
   const out: { cls: string; text: string; tip: string }[] = [];
   if (a.x > 1) out.push({ cls: 'strong', text: `Khắc chế ×${a.x.toFixed(2)}`, tip: 'Hệ của chiêu thức khắc hệ của người bị đánh: sát thương tăng.' });
   else if (a.x < 1) out.push({ cls: 'weak', text: `Bị chế ×${a.x.toFixed(2)}`, tip: 'Hệ của chiêu thức bị hệ của người bị đánh chế ngự: sát thương giảm.' });
+  if (a.u && a.u > 1) out.push({ cls: 'same', text: `${a.u} đòn`, tip: 'Chiêu này bắn nhiều đòn trong một lượt; sát thương là tổng các đòn.' });
   if (a.s) out.push({ cls: 'same', text: 'Bản mệnh ×1.2', tip: 'Chiêu thức cùng hệ với Linh Căn của ngươi: sát thương tăng thêm 20%.' });
   if (a.c) out.push({ cls: 'crit', text: 'Bạo kích', tip: 'Đòn đánh trúng chỗ hiểm: sát thương nhân lên theo Bạo Thương.' });
   return out;
 }
 
+// A support skill (heal, guard, buff, weakening, stun) or a lost turn, instead of a hit: what the log line says and the short label on the right.
+export const FX_LABEL: Record<string, (a: number) => string> = {
+  heal: (a) => `+${num(a)} sinh lực`, guard: (a) => `Hộ thể −${a}%`, atkUp: (a) => `Công +${a}%`, critUp: (a) => `Bạo kích +${a}%`,
+  atkDown: (a) => `Địch yếu −${a}%`, defDown: (a) => `Phá giáp −${a}%`, stun: (a) => `Choáng ${a} lượt`, skip: () => 'Mất lượt',
+};
+const FX_TIP: Record<string, string> = {
+  heal: 'Hồi sinh lực cho bản thân.', guard: 'Giảm sát thương nhận vào trong vài hiệp.', atkUp: 'Tăng công kích trong vài hiệp.', critUp: 'Tăng tỉ lệ bạo kích trong vài hiệp.',
+  atkDown: 'Làm địch đánh yếu đi trong vài hiệp.', defDown: 'Làm giáp của địch mỏng đi trong vài hiệp.', stun: 'Địch bị choáng, mất lượt đánh.', skip: 'Bị choáng nên mất lượt này.',
+};
 const ROLE = { p: 'Ngươi', b: 'Linh Thú', m: 'Đối thủ', u: '' } as const;
 
 export function BattleLog({ log, foe }: { log: string[]; foe?: string }) {
@@ -98,18 +108,19 @@ export function BattleLog({ log, foe }: { log: string[]; foe?: string }) {
           <div key={i}>
             {head && <div className="bround"><span>Hiệp {ROMAN[a.r] || a.r}</span></div>}
             <div className={`bact ${a.w} ${a.c ? 'crit' : ''}`} style={{ '--el': elColor(a.e) } as CSSProperties}>
-              <span className="bseal" title={a.e ? `Hệ ${a.e}` : 'Không thuộc hệ nào'}>{a.e ? <ElIcon el={a.e} size={18} /> : <Icon name={me ? 'atk' : a.w === 'b' ? 'paw' : 'flame'} size={18} />}</span>
+              <span className="bseal" title={a.e ? `Hệ ${a.e}` : 'Không thuộc hệ nào'}>{a.e ? <ElIcon el={a.e} size={18} /> : <Icon name={a.f ? (a.f === 'heal' ? 'lotus' : 'sparkle') : me ? 'atk' : a.w === 'b' ? 'paw' : 'flame'} size={18} />}</span>
               <div className="bmain">
                 <div className="bsay">
                   <b className="bname">{a.n}</b>
                   {ROLE[a.w] && !me && <span className="brole">{ROLE[a.w]}</span>}
-                  {a.k ? <> thi triển <span className="bskill">«{a.k}»</span></> : ' ra đòn'}
-                  {target && <> trúng <b className="bname">{target}</b></>}
+                  {a.f === 'skip' ? <> bị choáng, mất lượt</> : a.k ? <> thi triển <span className="bskill">«{a.k}»</span></> : ' ra đòn'}
+                  {a.f && a.f !== 'skip' ? (target && target !== a.n ? <> lên <b className="bname">{target}</b></> : null) : target && <> trúng <b className="bname">{target}</b></>}
                 </div>
+                {a.f && FX_TIP[a.f] && <div className="btags"><em className={`btag ${a.f === 'heal' || a.f === 'guard' || a.f === 'atkUp' || a.f === 'critUp' ? 'strong' : 'weak'}`} title={FX_TIP[a.f]}>{FX_TIP[a.f]}</em></div>}
                 {tags.length > 0 && <div className="btags">{tags.map((t) => <em key={t.cls} className={`btag ${t.cls}`} title={t.tip}>{t.text}</em>)}</div>}
-                {a.h != null && a.hm ? <div className="bleft"><Hp now={a.h} max={a.hm} side={foeSide ? 'you' : 'foe'} /><small>{a.h > 0 ? `${target} còn ${num(a.h)}/${num(a.hm)}` : `${target} gục ngã`}</small></div> : null}
+                {a.h != null && a.hm ? (() => { const sideYou = a.ts ? a.ts === 'p' : foeSide, who = a.ts ? (a.ts === 'p' ? 'Ngươi' : foeName || 'đối thủ') : target; return <div className="bleft"><Hp now={a.h} max={a.hm} side={sideYou ? 'you' : 'foe'} /><small>{a.h > 0 ? `${who} còn ${num(a.h)}/${num(a.hm)}` : `${who} gục ngã`}</small></div>; })() : null}
               </div>
-              <span className="bdmg" title={`Sát thương gây ra${a.x !== 1 ? ` (đã nhân ×${a.x.toFixed(2)} theo hệ)` : ''}`}>{a.c ? <i className="bstamp">Bạo</i> : null}−{num(a.d)}</span>
+              {a.f ? <span className="bdmg fx" title={FX_TIP[a.f]}>{(FX_LABEL[a.f] || (() => ''))(a.a ?? 0)}</span> : <span className="bdmg" title={`Sát thương gây ra${a.x !== 1 ? ` (đã nhân ×${a.x.toFixed(2)} theo hệ)` : ''}`}>{a.c ? <i className="bstamp">Bạo</i> : null}−{num(a.d)}</span>}
             </div>
           </div>
         );

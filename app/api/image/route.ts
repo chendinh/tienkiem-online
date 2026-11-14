@@ -1,14 +1,19 @@
-import { info, request } from '@/lib/imagegen';
+import { after } from 'next/server';
+import { idle, info, request } from '@/lib/imagegen';
 import { json, requireUser, guard } from '@/lib/server/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export async function GET() { return Response.json(info()); }
+export const maxDuration = 300;   // a picture is drawn after the answer is sent: the function must stay alive until it is saved
+export async function GET() { return guard(async () => json(await info())); }
 // Drawing costs money, so only a signed-in player may ask for a new picture.
 export async function POST(req: Request) {
   return guard(async () => {
     await requireUser(req);
     let spec: any = null;
     try { spec = await req.json(); } catch {}
-    return json(request(spec));
+    const res = await request(spec);
+    // Serverless hosting freezes the function once the answer is sent. Keep it running until the queued pictures are finished and saved.
+    if (res.status === 'pending') after(() => idle());
+    return json(res);
   });
 }

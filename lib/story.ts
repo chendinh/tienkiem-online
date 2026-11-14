@@ -1,12 +1,11 @@
-import fsp from 'node:fs/promises';
-import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import * as C from './content';
+import lore from '../content/lore.json';
 import { ask, budget, llmEnabled, parseJson } from './llm';
+import { query } from './server/db';
 
 // Biography and diary chapters. Prompts are built here from validated attributes only (no free text from clients).
-const DIR = path.join(process.cwd(), 'data', 'story');
+// Finished texts are cached in the story_cache table, shared by every server instance.
 const VER = 1;
 const MODEL = () => process.env.STORY_MODEL || 'claude-haiku-5-5';
 const bad = (): never => { throw new Error('bad'); };
@@ -16,7 +15,7 @@ const textOk = (v: any) => (typeof v === 'string' && v.length <= 160 && /^[\p{L}
 
 function lorePack(): string {
   try {
-    const l = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'content', 'lore.json'), 'utf8'));
+    const l: any = lore;
     return `Thế giới: ${l.worldName}. ${l.tagline}\n${(l.prologue || [])[0] || ''}\nMối họa: ${l.threat || ''}\nPhe phái: ${(l.factions || []).map((f: any) => `${f.name}: ${f.text}`).join(' | ')}\nNơi khởi đầu: ${l.regions?.[0]?.name}: ${l.regions?.[0]?.text}`;
   } catch { return ''; }
 }
@@ -48,8 +47,7 @@ export async function storyRequest(b: any): Promise<StoryResult> {
   } catch { return { status: 'invalid' }; }
 
   const id = crypto.createHash('sha1').update(`${VER}|${MODEL()}|${JSON.stringify(key)}`).digest('hex').slice(0, 20);
-  const file = path.join(DIR, `${id}.json`);
-  try { return JSON.parse(await fsp.readFile(file, 'utf8')); } catch {}
+  try { const hit = (await query<{ value: StoryResult }>('SELECT value FROM story_cache WHERE id = $1', [id])).rows[0]; if (hit) return hit.value; } catch {}
   try {
     const raw = await ask({ model: MODEL(), system: system(), content: user, maxTokens: key.k === 'bio' ? 900 : 350, tag: 'story', maxPerHour: Number(process.env.STORY_MAX_PER_HOUR || 60) });
     let out: any;
@@ -58,8 +56,7 @@ export async function storyRequest(b: any): Promise<StoryResult> {
       ? { status: 'ready', bio: String(out.bio || '').slice(0, 1600), motto: String(out.motto || '').slice(0, 160), secret: String(out.secret || '').slice(0, 260) }
       : { status: 'ready', text: String(out.text || '').slice(0, 700) };
     if (key.k === 'bio' ? !(res as any).bio : !(res as any).text) return { status: 'failed' };
-    await fsp.mkdir(DIR, { recursive: true });
-    await fsp.writeFile(file, JSON.stringify(res));
+    try { await query('INSERT INTO story_cache (id, value) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO NOTHING', [id, JSON.stringify(res)]); } catch (e: any) { console.warn('[story] could not cache', String(e?.message || e).slice(0, 120)); }
     return res;
   } catch (e: any) {
     const m = String(e?.message || e);
@@ -67,4 +64,4 @@ export async function storyRequest(b: any): Promise<StoryResult> {
     return { status: m === 'rate' || m === 'budget' ? 'limited' : 'failed' };
   }
 }
-export const storyInfo = () => ({ enabled: llmEnabled(), model: MODEL(), ...budget() });
+export const storyInfo = async () => ({ enabled: llmEnabled(), model: MODEL(), ...(await budget()) });

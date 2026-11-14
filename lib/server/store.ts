@@ -1,38 +1,25 @@
-// File store: JSON files written atomically (temp file + rename) and a per-key lock so that requests of one account run one at a time.
-// Single server process assumed (a database replaces this when the game scales past one process).
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
+// Storage helpers shared by the server modules. Everything is kept in Postgres (see db.ts); this file holds the pieces the
+// auth, game and ranking code use: the per-key lock, the append-only logs, and the account rows.
+import { query, withLock } from './db';
 
-const g = globalThis as any;
-const locks: Map<string, Promise<unknown>> = g.__tutienLocks || (g.__tutienLocks = new Map());
+export { withLock };
 
-export const dataDir = () => process.env.TUTIEN_DATA_DIR || path.join(process.cwd(), 'data');
+export interface AccountFile { id: string; email: string; created: number; state: any | null }
 
-export async function readJson<T>(file: string, fallback: T): Promise<T> {
-  try { return JSON.parse(await fs.readFile(file, 'utf8')) as T; } catch (e: any) { if (e && e.code === 'ENOENT') return fallback; throw e; }
-}
-export async function writeJson(file: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(value), { mode: 0o600 });
-  await fs.rename(tmp, file);
-}
-export async function removeFile(file: string) { try { await fs.unlink(file); } catch (e: any) { if (!e || e.code !== 'ENOENT') throw e; } }
+// audit.log and outbox.log of the file version: one row per line.
 export async function appendLog(name: string, entry: unknown) {
-  const file = path.join(dataDir(), name);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.appendFile(file, JSON.stringify(entry) + '\n', { mode: 0o600 });
+  await query('INSERT INTO logs (name, entry) VALUES ($1, $2::jsonb)', [name, JSON.stringify(entry)]);
 }
 
-// Run `fn` after every earlier call with the same key has finished (one order for concurrent requests, Requirement 2.9).
-export function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const prev = locks.get(key) || Promise.resolve();
-  const run = prev.then(fn, fn);
-  const tail = run.then(() => undefined, () => undefined);
-  locks.set(key, tail);
-  tail.then(() => { if (locks.get(key) === tail) locks.delete(key); });
-  return run;
+export async function loadAccount(id: string): Promise<AccountFile | null> {
+  const r = await query<{ id: string; email: string; created: number; state: string | null }>('SELECT id, email, created, state FROM accounts WHERE id = $1', [id]);
+  const a = r.rows[0];
+  return a ? { id: a.id, email: a.email, created: a.created, state: a.state ? JSON.parse(a.state) : null } : null;
 }
-
-export const accountFile = (id: string) => path.join(dataDir(), 'accounts', `${id}.json`);
-export const authFile = () => path.join(dataDir(), 'auth.json');
+export async function saveAccount(a: AccountFile) {
+  await query(
+    'INSERT INTO accounts (id, email, created, state) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, state = EXCLUDED.state',
+    [a.id, a.email, a.created, a.state === null ? null : JSON.stringify(a.state)],
+  );
+}
+export async function removeAccount(id: string) { await query('DELETE FROM accounts WHERE id = $1', [id]); }

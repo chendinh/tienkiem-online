@@ -8,11 +8,13 @@
 //   npm run pregen                       draw everything that is missing
 //   npx tsx scripts/pregen.ts --dry      list what would be drawn and the estimated cost (no API calls)
 //   npx tsx scripts/pregen.ts --only intro | monsters | shop | zones
-//   npx tsx scripts/pregen.ts --force    redraw even when the file exists (unchanged prompts are free: disk cache)
+//   npx tsx scripts/pregen.ts --force    redraw even when the file exists (unchanged prompts are free: the picture cache in the database)
+// Needs DATABASE_URL (the pictures are cached there): for a local run see "npm run db:dev" in the README.
 try { (process as any).loadEnvFile('.env.local'); } catch {}
 import fs from 'node:fs';
 import path from 'node:path';
-import { request, provider, fileFor, idFromUrl, info, estimateCost } from '../lib/imagegen';
+import { request, provider, idFromUrl, info, estimateCost } from '../lib/imagegen';
+import { getImage } from '../lib/server/images';
 import { buildPlan } from '../lib/imageprompt';
 import { introSpec, monsterSpec, propSpec, placeSpec } from '../lib/avatarSpec';
 import * as C from '../lib/content';
@@ -50,28 +52,27 @@ try { manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8')); } catch {}
   let lastLogged = -1;
   while (left.size) {
     for (const [name, j] of [...left]) {
-      const r = request(j.spec);
+      const r = await request(j.spec);
       if (r.status === 'ready') {
-        const id = idFromUrl(r.url!), f = fileFor(id);
+        const id = idFromUrl(r.url!), f = await getImage(id);
         if (!f) { failed.push(name); left.delete(name); continue; }
         if (f.ext !== 'jpg') console.warn(`warning: ${name} came back as .${f.ext}; it is saved as ${j.dest} anyway`);
         fs.mkdirSync(path.dirname(abs(j.dest)), { recursive: true });
-        fs.copyFileSync(f.file, abs(j.dest));
-        let meta: any = {};
-        try { meta = JSON.parse(fs.readFileSync(f.file.replace(/\.\w+$/, '.json'), 'utf8')); } catch {}
+        fs.writeFileSync(abs(j.dest), f.data);
+        const meta: any = f.meta || {};
         manifest[j.dest.replace('/art/', '')] = { kind: meta.kind, provider: meta.provider, model: meta.model, seed: meta.seed, attempt: meta.attempt, requestId: meta.requestId, cost: meta.cost, date: meta.date, cacheId: id, refCacheId: meta.ref, prompt: meta.prompt, editPrompt: meta.editPrompt };
         fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1));
         left.delete(name);
         console.log('drawn', j.dest);
       } else if (r.status === 'failed') { failed.push(name); left.delete(name); console.log('failed', j.dest); }
-      else if (r.status === 'limited') { console.log('Stopped: image budget reached, hourly cap hit, or the provider refused (403).', JSON.stringify(info())); process.exit(1); }
+      else if (r.status === 'limited') { console.log('Stopped: image budget reached, hourly cap hit, or the provider refused (403).', JSON.stringify(await info())); process.exit(1); }
       else if (r.status === 'disabled' || r.status === 'invalid') { console.log(`Cannot draw ${name}: ${r.status}`); process.exit(1); }
     }
     if (left.size !== lastLogged) { console.log('remaining', left.size, new Date().toISOString().slice(11, 19)); lastLogged = left.size; }
     if (left.size) await sleep(4000);
   }
   const spent = Object.values(manifest).reduce((a: number, m: any) => a + (m.cost || 0), 0);
-  console.log(failed.length ? `DONE with ${failed.length} failed: ${failed.join(', ')} (see the log above; run again later)` : 'DONE', `| cost recorded in manifest $${spent.toFixed(3)} | ledger`, JSON.stringify(info().budget));
+  console.log(failed.length ? `DONE with ${failed.length} failed: ${failed.join(', ')} (see the log above; run again later)` : 'DONE', `| cost recorded in manifest $${spent.toFixed(3)} | ledger`, JSON.stringify((await info()).budget));
   try { (await import('node:child_process')).execSync('npx tsx scripts/thumbs.ts', { stdio: 'inherit' }); } catch {}
   process.exit(failed.length ? 2 : 0);
 })();

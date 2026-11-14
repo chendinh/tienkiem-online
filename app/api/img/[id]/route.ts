@@ -1,39 +1,44 @@
-import fs from 'node:fs/promises';
-import { fileFor } from '@/lib/imagegen';
+import { getImage, getSmall, putSmall } from '@/lib/server/images';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MIME: Record<string, string> = { png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg' };
-// A small copy for lists, made on first request and kept next to the original (data/gen/<kind>/<id>.sm.jpg). Popups use the original picture.
+// A small copy for lists, made on first request and kept in the database next to the original. Popups use the original picture.
 const SIZES: Record<string, { px: number; q: number }> = { sm: { px: 128, q: 72 } };
-const pending = new Map<string, Promise<string | null>>();
+const pending = new Map<string, Promise<Buffer | null>>();
 
-async function variant(file: string, name: string): Promise<string | null> {
-  const spec = SIZES[name], out = file.replace(/\.(jpg|png|webp)$/, `.${name}.jpg`);
-  try { await fs.access(out); return out; } catch {}
-  let job = pending.get(out);
+async function variant(id: string, data: Buffer, name: string): Promise<Buffer | null> {
+  const spec = SIZES[name], key = `${id}.${name}`;
+  const have = await getSmall(id);
+  if (have) return have;
+  let job = pending.get(key);
   if (!job) {
     job = (async () => {
       try {
         const sharp = (await import('sharp')).default;
-        const tmp = `${out}.${process.pid}.tmp`;
-        await sharp(file).resize(spec.px, spec.px, { fit: 'cover' }).jpeg({ quality: spec.q, mozjpeg: true }).toFile(tmp);
-        await fs.rename(tmp, out);
+        const out = await sharp(data).resize(spec.px, spec.px, { fit: 'cover' }).jpeg({ quality: spec.q, mozjpeg: true }).toBuffer();
+        await putSmall(id, out);
         return out;
       } catch { return null; }   // no image library: the original is served instead
-    })().finally(() => pending.delete(out));
-    pending.set(out, job);
+    })().finally(() => pending.delete(key));
+    pending.set(key, job);
   }
   return job;
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const f = fileFor(id);
-  if (!f) return new Response('not found', { status: 404 });
-  const size = new URL(req.url).searchParams.get('s') || '';
-  let file = f.file, ext = f.ext;
-  if (size in SIZES) { const v = await variant(f.file, size); if (v) { file = v; ext = 'jpg'; } }
-  const buf = await fs.readFile(file);
-  return new Response(new Uint8Array(buf), { headers: { 'Content-Type': MIME[ext] || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable' } });
+  if (!/^[a-f0-9]{20}$/.test(id)) return new Response('not found', { status: 404 });
+  try {
+    const pic = await getImage(id);
+    if (!pic) return new Response('not found', { status: 404 });
+    const size = new URL(req.url).searchParams.get('s') || '';
+    let body: Buffer = pic.data, ext = pic.ext;
+    if (size in SIZES) { const v = await variant(id, pic.data, size); if (v) { body = v; ext = 'jpg'; } }
+    // The id is a hash of everything that went into the picture, so a picture never changes: browsers and the CDN may keep it for ever.
+    return new Response(new Uint8Array(body), { headers: { 'Content-Type': MIME[ext] || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' } });
+  } catch (e) {
+    console.error('[tutien] picture', id, e);
+    return new Response('error', { status: 500 });
+  }
 }

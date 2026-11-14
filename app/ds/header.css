@@ -1,0 +1,97 @@
+/* ==========================================================================
+   SHELL: the header and the responsive page layout.
+   - 1600px and wider: three columns (Nhân vật | Hành trình | Kho báu).
+   - 721 to 1599px: two columns. Kho báu leaves the grid and opens as a drawer from the header button.
+   - 720px and narrower: one column, the drawer becomes a bottom sheet.
+   The header has a fixed height, no blur and no size animation, so scrolling costs nothing.
+   ========================================================================== */
+@layer game {
+  .app { --topH: 62px; }
+
+  /* ---- header ---------------------------------------------------------- */
+  .top { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; gap: var(--sp-3); height: var(--topH); margin: 0 calc(var(--pad) * -1) var(--sp-4); padding: 0 var(--pad); background: linear-gradient(180deg, rgb(6 14 21 / 0.98), rgb(5 12 18 / 0.93)); border-bottom: 1px solid var(--line-gold); box-shadow: 0 12px 26px -20px #000; }
+  .top::after { content: ''; position: absolute; left: 10%; right: 10%; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-300), transparent); opacity: 0.5; pointer-events: none; }
+  .brand { display: flex; align-items: center; flex: none; }
+  .brand h1.wm { display: flex; line-height: 0; margin: 0; }
+  .brand .lkWide { width: 112px; height: auto; filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--gold-400) 28%, transparent)); }
+  .brand .lkMark { display: none; }
+  .topMid { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; margin-left: var(--sp-3); }
+  .top-chip { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.3); font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.05em; color: var(--jade-200); white-space: nowrap; }
+  .top .seg > button { display: inline-flex; align-items: center; gap: 6px; }
+  .topNav { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .orbs { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+
+  /* feature buttons: each has its own colour (data-tone) and a round medallion for the icon; Phong Thần is the gold one */
+  .nav { --t: var(--gold-300); display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 5px; border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--t) 30%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--t) 12%, rgb(9 20 29)), rgb(8 18 26)); color: var(--text-1); font: 600 var(--fs-sm) / 1 var(--font-text); letter-spacing: 0.02em; white-space: nowrap; cursor: pointer; transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast), box-shadow var(--dur-base); }
+  .nav[data-tone='gold'] { --t: var(--gold-300); }
+  .nav[data-tone='jade'] { --t: var(--jade-300); }
+  .nav[data-tone='azure'] { --t: var(--azure-300); }
+  .nav[data-tone='violet'] { --t: var(--violet-300); }
+  .nav[data-tone='cinnabar'] { --t: var(--cinnabar-300); }
+  .navIco { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; color: var(--t); background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--t) 34%, transparent), color-mix(in srgb, var(--t) 8%, rgb(0 0 0 / 0.45))); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--t) 42%, transparent); }
+  .nav:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--t) 75%, transparent); box-shadow: 0 8px 18px -10px var(--t); }
+  .nav:active { transform: scale(0.97); transition-duration: var(--dur-instant); }
+  .nav:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
+  .nav.feat { color: #2b1c05; border-color: var(--gold-200); background: var(--gold-lacquer); text-shadow: 0 1px 0 rgb(255 255 255 / 0.4); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), 0 8px 20px -12px var(--gold-400); }
+  .nav.feat .navIco { color: #5a3a08; background: rgb(255 255 255 / 0.32); box-shadow: inset 0 0 0 1px rgb(90 58 8 / 0.35); }
+  .nav.feat:hover { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 10px 24px -10px var(--gold-300); }
+  .nav.kho { display: none; }
+  .nav.kho.on { border-color: var(--t); box-shadow: 0 0 0 1px var(--t), 0 8px 18px -10px var(--t); }
+  .popNav { display: none; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-2); }
+
+  /* ---- drawer parts (hidden while the third column sits in the grid) ------ */
+  .sideHead { display: none; align-items: center; justify-content: space-between; margin: -2px 0 var(--sp-3); font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; letter-spacing: 0.06em; color: var(--gold-300); }
+  .sideHead b { display: inline-flex; align-items: center; gap: var(--sp-2); }
+  .scrim { display: none; }
+}
+
+@layer game {
+  /* ---- laptop and tablet: two columns, Kho báu as a drawer ------------------ */
+  @media (max-width: 1599px) {
+    .main { grid-template-columns: 380px minmax(0, 1fr); }
+    .main > .panel.sidePanel { position: fixed; z-index: var(--z-popover); top: var(--topH); right: 0; bottom: 0; width: min(440px, 100vw); margin: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--r-lg) 0 0 var(--r-lg); background: linear-gradient(180deg, #10262f, #09151d); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: -24px 0 60px -20px #000; animation: none; visibility: hidden; transform: translateX(104%); transition: transform var(--dur-slow) var(--ease-out), visibility 0s linear var(--dur-slow); }
+    .main.sideOpen > .panel.sidePanel { visibility: visible; transform: none; transition: transform var(--dur-slow) var(--ease-out), visibility 0s; }
+    .sideHead { display: flex; }
+    .scrim { display: block; position: fixed; inset: var(--topH) 0 0 0; z-index: calc(var(--z-popover) - 1); border: 0; padding: 0; background: rgb(2 6 10 / 0.6); cursor: pointer; animation: enter-fade var(--dur-base) both; }
+    .nav.kho { display: inline-flex; }
+    .nav.alt { padding: 0 5px; }
+    .nav.alt .lbl { display: none; }
+    /* the drawer scrolls as a whole, so the lists inside it do not need their own height limit */
+    .eqPanel, .grid.eq, .grid.pen, .grid.dex, .shopScroll { max-height: none; }
+  }
+  @media (max-width: 1099px) {
+    .top-chip { display: none; }
+  }
+  @media (max-width: 900px) {
+    .nav { width: 40px; padding: 0; justify-content: center; }
+    .nav .lbl, .top .seg > button .lbl { display: none; }
+  }
+}
+
+@layer game {
+  /* ---- phone: one column, Kho báu is a bottom sheet ---------------------- */
+  @media (max-width: 720px) {
+    .app { --topH: 56px; }
+    .top { gap: var(--sp-2); }
+    .brand .lkWide, .topMid .top-chip { display: none; }
+    .brand .lkMark { display: block; width: 36px; height: 36px; }
+    .topMid { margin-left: 0; }
+    .top .seg > button { padding: 5px 10px; }
+    .top .seg > button .lbl { display: none; }
+    .topNav { gap: 6px; }
+    .nav { width: 40px; padding: 0; justify-content: center; }
+    .nav .lbl { display: none; }
+    .nav.alt { display: none; }
+    .orbs { gap: 6px; }
+    .popNav { display: flex; }
+    .pop-body { position: fixed; left: 12px; right: 12px; top: calc(var(--topH) + 6px); width: auto !important; max-width: none; }
+    .pop-body::before { display: none; }
+
+    .main { grid-template-columns: 1fr; }
+    .heroPanel .hero { max-width: 300px; margin-inline: auto; }
+    .feed { max-height: none; }
+    .main > .panel.sidePanel { top: 12vh; left: 0; right: 0; width: auto; border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(104%); box-shadow: 0 -24px 60px -20px #000; }
+    .main.sideOpen > .panel.sidePanel { transform: none; }
+    .scrim { inset: 0; }
+  }
+}

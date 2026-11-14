@@ -1,65 +1,54 @@
-// Bảng Phong Thần: the player ranking. A small index of one line per account, kept in memory and in data/ranking.json,
-// is refreshed whenever an account is saved. Lists come from the index; a profile is built from the saved account on demand.
+// Bảng Phong Thần: the player ranking. One row per account in rank_entries, refreshed whenever an account is saved.
+// Lists are sorted here from those rows and cached for a few seconds in each server instance; a profile is built from the saved account on demand.
 // Nothing here exposes an email or an account id: players are shown by a public id derived from a server secret.
-import { createHmac, randomBytes } from 'node:crypto';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
+import { createHmac } from 'node:crypto';
 import * as G from '../game';
 import * as C from '../content';
-import { dataDir, readJson, writeJson, accountFile } from './store';
+import { query } from './db';
+import { loadAccount } from './store';
 
 export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number }
-interface Index { secret: string; entries: Record<string, RankEntry> }
 export type Board = 'cult' | 'power';
 
 const g = globalThis as any;
-const S: { idx?: Index; ready?: Promise<Index>; dirty: boolean; timer: any; sorted: Record<string, { at: number; list: RankEntry[] }> } = g.__tutienRank || (g.__tutienRank = { dirty: false, timer: null, sorted: {} });
-const file = () => path.join(dataDir(), 'ranking.json');
-const pidOf = (idx: Index, acc: string) => createHmac('sha256', idx.secret).update(acc).digest('hex').slice(0, 12);
+const S: { secret?: Promise<string>; sorted: Record<string, { at: number; list: RankEntry[] }>; last: Map<string, { sig: string; at: number }> } = g.__tutienRank || (g.__tutienRank = { sorted: {}, last: new Map() });
+const pidOf = (secret: string, acc: string) => createHmac('sha256', secret).update(acc).digest('hex').slice(0, 12);
 
 export function entryOf(st: G.GameState, pid: string, acc: string, now: number): RankEntry {
   const p = st.player;
   return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now };
 }
 
-// First use: load the file, or build the index once from every saved account.
-function load(): Promise<Index> {
-  if (S.idx) return Promise.resolve(S.idx);
-  if (!S.ready) {
-    S.ready = (async () => {
-      let idx = await readJson<Index | null>(file(), null);
-      if (!idx) {
-        idx = { secret: randomBytes(24).toString('hex'), entries: {} };
-        let names: string[] = [];
-        try { names = await fs.readdir(path.join(dataDir(), 'accounts')); } catch {}
-        for (const n of names) {
-          if (!n.endsWith('.json')) continue;
-          const acc = n.slice(0, -5), a = await readJson<any>(accountFile(acc), null);
-          if (a && a.state && a.state.player) { try { idx.entries[acc] = entryOf(a.state, pidOf(idx, acc), acc, Date.now()); } catch {} }
+const upsert = (e: RankEntry) => query('INSERT INTO rank_entries (acc, entry) VALUES ($1, $2::jsonb) ON CONFLICT (acc) DO UPDATE SET entry = EXCLUDED.entry', [e.acc, JSON.stringify(e)]);
+
+// The secret that turns an account id into a public id (created with the tables, see db.ts).
+// An empty board with saved accounts behind it (first start after moving from files) is filled once from those accounts.
+function secret(): Promise<string> {
+  if (!S.secret) {
+    S.secret = (async () => {
+      const sec = (await query<{ v: string }>(`SELECT value #>> '{}' AS v FROM kv WHERE key = 'rank.secret'`)).rows[0].v;
+      if (!(await query('SELECT 1 FROM rank_entries LIMIT 1')).rowCount) {
+        for (const a of (await query<{ id: string; state: string | null }>('SELECT id, state FROM accounts WHERE state IS NOT NULL')).rows) {
+          try { const st = JSON.parse(a.state!); if (st && st.player) await upsert(entryOf(st, pidOf(sec, a.id), a.id, Date.now())); } catch {}
         }
-        await writeJson(file(), idx);
       }
-      S.idx = idx;
-      return idx;
-    })();
+      return sec;
+    })().catch((e) => { S.secret = undefined; throw e; });
   }
-  return S.ready;
-}
-function flushSoon() {
-  S.dirty = true;
-  if (S.timer) return;
-  S.timer = setTimeout(async () => { S.timer = null; if (S.dirty && S.idx) { S.dirty = false; try { await writeJson(file(), S.idx); } catch {} } }, 10000);
-  if (S.timer.unref) S.timer.unref();
+  return S.secret;
 }
 
 export async function publish(acc: string, st: G.GameState, now: number) {
-  const idx = await load();
-  idx.entries[acc] = entryOf(st, idx.entries[acc]?.pid || pidOf(idx, acc), acc, now);
-  flushSoon();
+  const e = entryOf(st, pidOf(await secret(), acc), acc, now);
+  // a player online changes the account every few seconds: write the row again only when something shown on the board changed, or after a minute
+  const { t: _t, ...rest } = e, sig = JSON.stringify(rest), prev = S.last.get(acc);
+  if (prev && prev.sig === sig && now - prev.at < 60000) return;
+  await upsert(e);
+  S.last.set(acc, { sig, at: now });
 }
 export async function unpublish(acc: string) {
-  const idx = await load();
-  if (idx.entries[acc]) { delete idx.entries[acc]; S.sorted = {}; flushSoon(); }
+  await query('DELETE FROM rank_entries WHERE acc = $1', [acc]);
+  S.last.delete(acc); S.sorted = {};
 }
 
 const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
@@ -67,9 +56,11 @@ const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
   power: (a, b) => b.power - a.power || b.level - a.level || a.t - b.t,
 };
 async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
-  const idx = await load(), hit = S.sorted[board];
+  await secret();
+  const hit = S.sorted[board];
   if (hit && now - hit.at < 5000) return hit.list;
-  const list = Object.values(idx.entries).filter((e) => !e.hide).sort(cmp[board]);
+  const rows = (await query<{ entry: RankEntry }>('SELECT entry FROM rank_entries')).rows;
+  const list = rows.map((r) => r.entry).filter((e) => !e.hide).sort(cmp[board]);
   S.sorted[board] = { at: now, list };
   return list;
 }
@@ -84,12 +75,12 @@ export async function board(b: Board, meAcc: string, now: number, top = 100) {
 
 // A player's open page: stats, worn items and the Linh Thú that go into battle.
 export async function profile(pid: string, now: number) {
-  const idx = await load();
-  const e = Object.values(idx.entries).find((x) => x.pid === pid);
+  await secret();
+  const e = (await query<{ entry: RankEntry }>(`SELECT entry FROM rank_entries WHERE entry->>'pid' = $1`, [pid])).rows[0]?.entry;
   if (!e || e.hide) return null;
-  const a = await readJson<any>(accountFile(e.acc), null);
+  const a = await loadAccount(e.acc);
   const st: G.GameState | null = a && a.state;
-  if (!st) { if (!a) { delete idx.entries[e.acc]; S.sorted = {}; flushSoon(); } return null; }   // the account is gone: drop its line
+  if (!st) { if (!a) await unpublish(e.acc); return null; }   // the account is gone: drop its line
   const S_ = G.pstats(st), p = st.player;
   const rankOf = async (b: Board) => (await sortedBoard(b, now)).findIndex((x) => x.pid === pid) + 1;
   return {

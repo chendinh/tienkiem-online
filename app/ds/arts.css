@@ -1,0 +1,132 @@
+/* ==========================================================================
+   THẦN THÔNG: cards that say what a technique does, and wear the colour of their rarity.
+   Hoàng (--tier-1, green), Huyền (--tier-2, blue), Địa (--tier-3, purple), Thiên (--tier-4, orange); the basic attack is Phàm (--tier-0, grey).
+   These are the same colours the items use, so "green < blue < purple < orange" reads the same everywhere.
+   Also: the Kho báu tabs, which no longer spill over the side of the panel.
+   ========================================================================== */
+@layer game {
+  /* ---- Kho báu tabs: icon over label, five equal columns ------------------ */
+  .sidePanel .tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+  .sidePanel .tabs > button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; min-width: 0; padding: 8px 2px 9px; font-size: 0.78rem; letter-spacing: 0; line-height: 1.15; text-align: center; overflow-wrap: break-word; }
+  .sidePanel .tabs > button em { font-style: normal; font-family: var(--font-text); font-weight: 600; font-size: 0.66rem; letter-spacing: 0; color: var(--text-3); }
+  .sidePanel .tabs > button.on em { color: var(--gold-300); }
+  .sidePanel .tabs > button svg { flex: none; }
+
+  /* any segmented control that is wider than its box scrolls instead of spilling out */
+  .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .seg::-webkit-scrollbar { display: none; }
+  .slotTile .sname, .slotTile .sname small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cleanRow .inp { min-width: 0; }
+
+  /* ---- panel ---------------------------------------------------------------- */
+  .artsPanel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+  .artsPanel > .seg { display: flex; width: 100%; overflow: hidden; }
+  .artsPanel > .seg > button { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 4px; overflow: hidden; }
+  .artsPanel > .seg > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .artsPanel > .seg > button em { margin-left: 4px; font-style: normal; font-size: var(--fs-xs); opacity: 0.75; }
+  .artsPanel .hint { margin: 0; }
+
+  .artGuide { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px dashed var(--line-gold); background: color-mix(in srgb, var(--gold-400) 5%, rgb(0 0 0 / 0.25)); font-size: var(--fs-sm); }
+  .artGuide > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; color: var(--gold-300); }
+  .artGuide > summary::-webkit-details-marker { display: none; }
+  .artGuide ol { display: grid; gap: 6px; margin: var(--sp-2) 0 0; padding: 0; list-style: none; counter-reset: g; color: var(--text-2); line-height: 1.5; }
+  .artGuide li { position: relative; padding-left: 28px; counter-increment: g; }
+  .artGuide li::before { content: counter(g); position: absolute; left: 0; top: 1px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: var(--fs-xs); font-weight: 700; color: #2b1c05; background: var(--gold-lacquer); }
+  .artGuide li b { color: var(--text-1); }
+  .rarLegend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+  .rarLegend span { display: inline-flex; align-items: center; gap: 6px; }
+  .rarLegend i { width: 9px; height: 9px; border-radius: 2px; rotate: 45deg; background: var(--rc); box-shadow: 0 0 6px var(--rc); }
+
+  /* ---- pick one of the eight môn ---------------------------------------------- */
+  .artPicks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .artPick { position: relative; display: grid; justify-items: center; gap: 2px; min-width: 0; padding: 6px 2px 5px; border-radius: var(--r-md); border: 1px solid var(--line); background: rgb(5 12 18 / 0.5); color: var(--text-2); cursor: pointer; font: inherit; transition: border-color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast) var(--ease-out); }
+  .artPick:hover { border-color: var(--line-gold-strong); transform: translateY(-1px); }
+  .artPick:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 1px; }
+  .artPick.on { color: var(--gold-200); border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 14%, rgb(5 12 18 / 0.6)); box-shadow: 0 0 16px -6px var(--gold-400); }
+  .artPick .pickImg { width: 100%; max-width: 46px; aspect-ratio: 1; border-radius: var(--r-sm); object-fit: cover; }
+  .artPick b { font-family: var(--font-display); font-size: var(--fs-md); line-height: 1.1; }
+  .artPick small { font-size: var(--fs-2xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .curMark { position: absolute; top: 3px; right: 3px; z-index: 1; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; color: #052018; background: var(--jade-300); }
+
+  .artHead { display: flex; gap: var(--sp-3); align-items: center; }
+  .artBook { width: 72px; height: 72px; border-radius: var(--r-md); object-fit: cover; border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.4); flex: none; }
+  .artBookSm { width: 40px; height: 40px; border-radius: var(--r-sm); object-fit: cover; border: 1px solid var(--line-gold); flex: none; }
+  .ahInfo { display: grid; gap: 4px; min-width: 0; }
+  .ahInfo h4 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); color: var(--gold-300); }
+  .curTag { padding: 0 8px; border-radius: var(--r-pill); font-family: var(--font-text); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.06em; color: var(--jade-200); border: 1px solid color-mix(in srgb, var(--jade-300) 55%, transparent); background: color-mix(in srgb, var(--jade-400) 14%, transparent); }
+  .ahInfo > small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
+  .slotMeter { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--text-3); }
+  .slotMeter i { width: 18px; height: 8px; border-radius: 4px; background: rgb(255 255 255 / 0.1); border: 1px solid var(--line); }
+  .slotMeter i.on { background: var(--gold-lacquer); border-color: var(--gold-300); box-shadow: 0 0 8px -2px var(--gold-400); }
+  .slotMeter b { color: var(--gold-300); font-variant-numeric: tabular-nums; }
+
+  /* ---- the card: left rail, tinted background and name in the colour of its rarity ------ */
+  .artList { display: grid; gap: var(--sp-3); }
+  .artCard, .artTile, .bookRow, .methodNow { --rc: var(--tier-0); }
+  .artCard { position: relative; overflow: hidden; display: grid; gap: 8px; min-width: 0; padding: 12px 14px 12px 18px; border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--rc) 40%, transparent); background: linear-gradient(100deg, color-mix(in srgb, var(--rc) 13%, rgb(5 12 18 / 0.75)), rgb(5 12 18 / 0.55) 70%); }
+  .artCard::before, .artTile::before, .bookRow::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rc); box-shadow: 0 0 14px var(--rc); }
+  .artCard.r3 { box-shadow: inset 0 0 20px -10px var(--rc); }
+  .artCard.r4 { box-shadow: inset 0 0 24px -8px color-mix(in srgb, var(--rc) 60%, transparent), 0 0 22px -12px var(--rc); }
+  .artCard.locked { filter: saturate(0.6); }
+  .artCard.locked .acName b { color: color-mix(in srgb, var(--rc) 70%, var(--text-3)); }
+  .artCard.on { outline: 1.5px solid var(--jade-300); outline-offset: -1px; }
+  .acTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
+  .acName { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .acName b { font-family: var(--font-display); font-size: var(--fs-lg); line-height: 1.2; letter-spacing: 0.02em; color: var(--rc); overflow-wrap: anywhere; }
+  .rarTag { padding: 0 8px; border-radius: var(--r-pill); font-size: var(--fs-2xs); line-height: 1.7; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; color: var(--rc); border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent); background: color-mix(in srgb, var(--rc) 12%, transparent); }
+  .pips { display: inline-flex; gap: 4px; flex: none; padding-top: 5px; }
+  .pips i { width: 8px; height: 8px; rotate: 45deg; border-radius: 2px; background: rgb(255 255 255 / 0.13); }
+  .pips i.on { background: var(--rc); box-shadow: 0 0 6px var(--rc); }
+  .acTags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .acTags .chip, .acStats .acStat { margin: 0; }
+  .chip.st { gap: 4px; }
+  .chip.st.on { color: var(--jade-200); border-color: color-mix(in srgb, var(--jade-300) 55%, transparent); background: color-mix(in srgb, var(--jade-400) 14%, transparent); }
+  .chip.st.known { color: var(--gold-300); border-color: var(--line-gold); }
+  .chip.st.locked { color: var(--text-3); }
+  .chip.lv.low { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+  .acText { margin: 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--text-2); }
+  .acStats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .acStat { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.3); font-size: var(--fs-xs); white-space: nowrap; }
+  .acStat svg { color: var(--rc); }
+  .acStat small { color: var(--text-3); font-size: inherit; }
+  .acStat b { color: var(--text-1); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .acFoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .acFoot .btn { height: auto; min-height: 32px; max-width: 100%; white-space: normal; text-align: center; line-height: 1.25; }
+  .acNote { display: inline-flex; align-items: flex-start; gap: 5px; font-size: var(--fs-xs); line-height: 1.45; color: var(--text-3); }
+  .acNote svg { flex: none; margin-top: 2px; }
+
+  /* ---- Sổ chiêu: compact tiles ---------------------------------------------------- */
+  .artSec h4 { margin: var(--sp-2) 0; font-family: var(--font-display); }
+  .artSec h4 small { color: var(--text-3); font-weight: 400; }
+  .artSec h4 .cur { color: var(--jade-300); }
+  .techGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-2); align-items: start; }
+  .artTile { position: relative; overflow: hidden; display: grid; gap: 6px; min-width: 0; padding: 9px 10px 9px 14px; text-align: left; font: inherit; color: var(--text-1); cursor: pointer; border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--rc) 40%, transparent); background: linear-gradient(100deg, color-mix(in srgb, var(--rc) 12%, rgb(5 12 18 / 0.75)), rgb(5 12 18 / 0.55) 75%); transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast); }
+  .artTile:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--rc) 75%, transparent); }
+  .artTile:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 1px; }
+  .artTile .acTop b { font-family: var(--font-display); font-size: var(--fs-md); line-height: 1.2; color: var(--rc); overflow-wrap: anywhere; }
+  .artTile.r4 { box-shadow: 0 0 18px -10px var(--rc); }
+  .artTile.unknown { filter: saturate(0.55); opacity: 0.82; }
+  .artTile.unknown .acTop b { color: color-mix(in srgb, var(--rc) 65%, var(--text-3)); }
+  .artTile.slotted { outline: 1.5px solid var(--jade-300); outline-offset: -1px; }
+  .tileFoot { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+  .tileFoot small { font-size: var(--fs-xs); color: var(--text-3); line-height: 1.3; }
+  .tileMore { display: grid; gap: 6px; margin-top: 2px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: var(--fs-xs); line-height: 1.5; color: var(--text-2); }
+
+  /* ---- Bí Công / kinh in the bag ---------------------------------------------------- */
+  .artBooks { display: grid; gap: 8px; }
+  .artBooksTitle { display: flex; align-items: center; gap: 6px; margin: var(--sp-2) 0 0; font-family: var(--font-display); color: var(--gold-300); }
+  .artBooksTitle small { color: var(--text-3); font-weight: 400; font-family: var(--font-text); }
+  .bookRow { position: relative; overflow: hidden; display: flex; align-items: center; gap: var(--sp-3); min-width: 0; padding: 8px 10px 8px 16px; border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--rc) 40%, transparent); background: linear-gradient(100deg, color-mix(in srgb, var(--rc) 12%, rgb(5 12 18 / 0.75)), rgb(5 12 18 / 0.55) 75%); }
+  .bookRow .artBookSm { border-color: color-mix(in srgb, var(--rc) 55%, transparent); }
+  .bkInfo { flex: 1; display: grid; gap: 1px; min-width: 0; }
+  .bkInfo b { font-family: var(--font-display); font-size: var(--fs-md); color: var(--rc); overflow-wrap: anywhere; }
+  .bkInfo b small { color: var(--text-3); font-family: var(--font-text); font-weight: 400; }
+  .bkInfo > small { font-size: var(--fs-xs); line-height: 1.4; color: var(--text-3); }
+  .bookRow .btn { flex: none; }
+
+  /* ---- Công Pháp now in use ------------------------------------------------------------ */
+  .methodNow { position: relative; display: grid; gap: 6px; padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--rc) 60%, transparent); background: linear-gradient(100deg, color-mix(in srgb, var(--rc) 16%, rgb(5 12 18 / 0.75)), rgb(5 12 18 / 0.55) 75%); box-shadow: 0 0 22px -12px var(--rc); }
+  .methodNow > small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
+  .mnLbl { letter-spacing: 0.14em; text-transform: uppercase; color: var(--jade-300) !important; font-size: var(--fs-2xs) !important; }
+  .methodNow .acName b { font-size: var(--fs-xl); }
+}

@@ -3,7 +3,8 @@ import * as G from '../game';
 import * as C from '../content';
 import { BALANCE as B } from '../balance';
 import { type ErrCode } from '../strings';
-import { appendLog, accountFile, readJson, withLock, writeJson } from './store';
+import { appendLog, loadAccount, saveAccount, withLock } from './store';
+import { savepoint } from './db';
 import { type AccountFile, ApiError } from './auth';
 import { randomInt } from 'node:crypto';
 import { publish } from './ranking';
@@ -51,10 +52,14 @@ function upgrade(st: G.GameState | null): G.GameState | null {
   if (st.breakSnooze === undefined) st.breakSnooze = 0;
   if (st.set.autoFight === undefined) st.set.autoFight = B.defaults.autoFight;
   if (st.set.hideRank === undefined) st.set.hideRank = false;
+  if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
+  if (!st.inv.books) st.inv.books = {};
+  if (!st.arts) { st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); }   // an old save starts with the Hoàng technique of the môn of its weapon
+  if (st.arts && !st.arts.methods) G.initArts(st);   // a save from before Công Pháp starts with the first one
   return st;
 }
 async function readAcct(id: string): Promise<AccountFile | null> {
-  const a = await readJson<AccountFile | null>(accountFile(id), null);
+  const a = await loadAccount(id);
   if (a) a.state = upgrade(a.state);
   return a;
 }
@@ -111,11 +116,14 @@ const INTENTS: Record<string, Handler> = {
   pill: (st, b) => G.useHpPill(st, b.grade),
   break: (st, b) => G.attemptBreakthrough(st, { pill: b.pill === true, trib: b.trib === true, src: 'player' }),
   ack: (st, b) => { const r = st.reports.find((x) => x.id === b.id); if (!r) return G.fail('E_NOT_FOUND'); r.seen = true; return G.ok(''); },
+  learn: (st, b) => G.learnBook(st, b.name),
+  loadout: (st, b) => G.setLoadout(st, b.cls, b.names),
+  method: (st, b) => G.setMethod(st, b.name),
   cosmetic: (st, b) => cosmetic(st, b),
 };
 const READ_ONLY = new Set(['preview']);
 
-async function commit(id: string, acct: AccountFile, st: G.GameState) { acct.state = st; await writeJson(accountFile(id), acct); try { await publish(id, st, Date.now()); } catch (e) { console.error('[tutien] ranking', e); } }
+async function commit(id: string, acct: AccountFile, st: G.GameState) { acct.state = st; await saveAccount(acct); try { await savepoint(() => publish(id, st, Date.now())); } catch (e) { console.error('[tutien] ranking', e); } }
 async function drainAudit(id: string, st: G.GameState, now: number) {
   const q = st.auditQ; st.auditQ = [];
   for (const e of q) await appendLog('audit.log', { at: now, acc: id, ...e, versions: G.versions() });

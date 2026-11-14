@@ -17,17 +17,23 @@
     "ci": "npm run check && npm run typecheck && npm test && next build",
     "prebuild": "npm run check",
     "econ": "tsx scripts/econ.ts",
-    "thumbs": "tsx scripts/thumbs.ts"
+    "thumbs": "tsx scripts/thumbs.ts",
+    "db:dev": "tsx scripts/dev-db.ts",
+    "db:migrate": "tsx scripts/migrate-to-db.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.1",
     "next": "^15.1.0",
+    "pg": "^8.23.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "^0.35.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@electric-sql/pglite-socket": "^0.2.19",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tsx": "^4.19.0",

@@ -1,6 +1,7 @@
 // Game engine: pure functions over GameState. It runs only on the server (lib/server/service.ts); the browser imports types and read-only helpers from here.
 import { type Streams, newStreams, next, int, pick, weighted, truncNormal, shuffle } from './rng';
 import * as C from './content';
+import * as A from './arts';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -29,15 +30,17 @@ export interface Report {
 }
 export interface TameFilter { species: string[]; newOnly: boolean; alwaysMut: boolean; sizes: number[]; grade: number }
 export interface Settings {
-  mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; hideRank: boolean;
+  mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; hideRank: boolean; autoLearn: boolean;
   retreatPct: number; resumePct: number; dissolveMax: number; tame: TameFilter;
 }
-export interface Stacks { taming: number[]; hp: number[]; bt: number[]; trib: number; mat: Record<string, number> }
+export interface Stacks { taming: number[]; hp: number[]; bt: number[]; trib: number; mat: Record<string, number>; books: Record<string, number> }
+// Môn pháp (lib/arts.ts): techniques learned from Bí Công, and which of them sit in each môn's slots.
+export interface Arts { learned: string[]; loadout: Record<string, string[]>; methods: string[]; method: string }
 export interface LedgerRow { t: number; reason: string; amt: number; src: string }
 export interface LedgerDaily { day: string; reason: string; amt: number; n: number }
 export interface GameState {
   v: number; seed: number; streams: Streams; tick: number; clock: number; uid: number; settleSeq: number;
-  player: Player; bag: Item[]; stash: Item[]; eq: Record<string, Item | null>;
+  player: Player; arts: Arts; bag: Item[]; stash: Item[]; eq: Record<string, Item | null>;
   beasts: Beast[]; best: Record<string, BestEntry>; stones: number; inv: Stacks; pity: { mut: number; item: number };
   set: Settings; recovery: boolean; zone: string; feed: FeedEntry[]; recent: string[]; kills: number;
   pend: Record<string, number>; ledger: LedgerRow[]; ledgerBase: number; ledgerDaily: LedgerDaily[];
@@ -97,15 +100,17 @@ export const phenomenonAt = (zoneId: string, ms: number) => phenomenonInSlot(zon
 
 // ---------- stats
 // The read-only helpers below also run in the browser on the view the server sends, which has no seeds.
-export type Sheet = Pick<GameState, 'player' | 'eq'>;
+export type Sheet = Pick<GameState, 'player' | 'eq'> & { arts?: Pick<Arts, 'method'> };
 export function pstats(st: Sheet) {
   const L = levelOf(st.player);
   const add: Record<string, number> = { hp: 0, spirit: 0, atk: 0, def: 0, spd: 0, crit: 0, critdmg: 0, luck: 0, cult: 0 };
   for (const it of Object.values(st.eq)) if (it) { add[it.impl.stat] += it.impl.value; for (const a of it.affixes) add[a.stat] += a.value; }
+  // the Công Pháp in use adds a share of the base stat to the stats it favours (Method_Stat_Bias)
+  const bias = (key: 'hp' | 'spirit' | 'atk' | 'def' | 'spd', i: number) => (st.arts && A.methodOf(st.arts.method).bias.includes(key) ? Math.round(baseStat(L, i) * B.methodStatBias) : 0);
   const f = (st.player.injury || 0) > 0 ? B.injuryFactor : 1;   // Thương Thế
   return {
-    maxHp: Math.round(baseStat(L, 0)) + add.hp, maxSpirit: Math.round(baseStat(L, 1)) + add.spirit, atk: Math.round((Math.round(baseStat(L, 2)) + add.atk) * f),
-    def: Math.round((Math.round(baseStat(L, 3)) + add.def) * f), spd: Math.round((Math.round(baseStat(L, 4)) + add.spd) * f), crit: Math.min(B.critCap * 100, B.baseCrit + add.crit), critdmg: B.baseCritDmg + add.critdmg, luck: add.luck, cult: add.cult,
+    maxHp: Math.round(baseStat(L, 0)) + add.hp + bias('hp', 0), maxSpirit: Math.round(baseStat(L, 1)) + add.spirit + bias('spirit', 1), atk: Math.round((Math.round(baseStat(L, 2)) + add.atk + bias('atk', 2)) * f),
+    def: Math.round((Math.round(baseStat(L, 3)) + add.def + bias('def', 3)) * f), spd: Math.round((Math.round(baseStat(L, 4)) + add.spd + bias('spd', 4)) * f), crit: Math.min(B.critCap * 100, B.baseCrit + add.crit), critdmg: B.baseCritDmg + add.critdmg, luck: add.luck, cult: add.cult,
   };
 }
 export const outfitTier = (st: Sheet) => (st.eq.Robe ? st.eq.Robe.tier : 0);
@@ -433,7 +438,7 @@ const isBool = (x: any) => typeof x === 'boolean';
 export function setSettings(st: GameState, patch: any): Res {
   if (!patch || typeof patch !== 'object') return fail('E_BAD_REQUEST');
   const cur = st.set, next_: Settings = { ...cur, tame: { ...cur.tame } };
-  for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'hideRank'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
+  for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'hideRank', 'autoLearn'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
   for (const k of ['retreatPct', 'resumePct'] as const) if (k in patch) { if (!Number.isInteger(patch[k])) return fail('E_BAD_THRESHOLDS'); next_[k] = patch[k]; }
   if (!(next_.retreatPct > 0 && next_.retreatPct < next_.resumePct && next_.resumePct <= 100)) return fail('E_BAD_THRESHOLDS');
   if ('dissolveMax' in patch) { if (!Number.isInteger(patch.dissolveMax) || patch.dissolveMax < -1 || patch.dissolveMax > 5) return fail('E_BAD_SETTING'); next_.dissolveMax = patch.dissolveMax; }
@@ -521,6 +526,93 @@ export function attemptBreakthrough(st: GameState, opt: { pill?: boolean; trib?:
   return { ok: true, msg: text, data: { success } };  // the attempt took place; `data.success` tells how it ended
 }
 
+// ---------- môn pháp: techniques, Bí Công and slots (lib/arts.ts)
+// A new character knows the Hoàng technique of the môn of its starting weapon and has it slotted; an old save gets the same (service.ts upgrade).
+export function initArts(st: Pick<GameState, 'eq' | 'arts'>) {
+  if (!st.arts.methods || !st.arts.methods.length) { st.arts.methods = [A.STARTER_METHOD]; st.arts.method = A.STARTER_METHOD; }
+  const cls = classOf(st);
+  if (!cls || st.arts.learned.length) return;
+  const t = A.attackTechs(cls)[0];
+  st.arts.learned.push(t.name); st.arts.loadout[cls] = [t.name];
+}
+// Learn the technique of a Bí Công. A technique already known turns into Linh Thạch. Returns false when the player is too low a Level (the book stays).
+function learnTech(st: GameState, name: string, rep?: Report): { known: boolean; stones?: number } | null {
+  const t = A.TECHS[name];
+  if (levelOf(st.player) < t.minLevel) return null;
+  if (st.arts.learned.includes(name)) return { known: true, stones: earn(st, B.dupBookStones[t.tier], 'drop', rep) };
+  st.arts.learned.push(name);
+  const slots = st.arts.loadout[t.cls] || (st.arts.loadout[t.cls] = []);
+  if (slots.length < A.slotsAt(st.player.realm)) slots.push(name);   // a free slot takes it at once
+  return { known: false };
+}
+// A Bí Công dropped after a win. With Auto Learn it is learned at once; otherwise (or when the Level is too low) it waits in the bag.
+function rollBook(st: GameState, src: { el?: string; cls?: string; boost: number }, level: number, rep: Report | undefined, chips: string[]) {
+  const g = st.streams;
+  if (next(g, 'loot') >= B.bookDropP * src.boost) return;
+  const cls = src.cls || pick(g, 'loot', A.CLASSES_BY_EL[src.el || 'Kim']);
+  const pool = A.techsOf(cls).filter((t) => t.minLevel <= level + 2);
+  const t = pool[weighted(g, 'loot', pool.map((x) => B.bookTierWeights[x.tier]))];   // the higher the tier, the rarer
+  let line = `Nhặt được Bí Công «${t.name}» (${A.ART(t.cls).name})`;
+  const learned = st.set.autoLearn ? learnTech(st, t.name, rep) : null;
+  if (learned) line += learned.known ? `, đã biết chiêu này nên đổi lấy ${learned.stones} Linh Thạch` : ', đã học ngay';
+  else { st.inv.books[t.name] = (st.inv.books[t.name] || 0) + 1; line += ', cất vào túi'; }
+  chips.push(`Bí Công: ${t.name}`);
+  feed(st, { kind: 'book', text: line, chips: [] });
+  if (rep) rep.highlights.push({ prio: 55 + t.tier * 10, kind: 'book', text: line });
+}
+// The player reads a Bí Công from the bag.
+export function learnBook(st: GameState, name: string): Res {
+  if (typeof name !== 'string' || !(A.isTech(name) || A.isMethod(name))) return fail('E_BAD_SKILL');
+  if (!(st.inv.books[name] > 0)) return fail('E_NO_BOOK');
+  if (A.isMethod(name)) {
+    const x = A.methodOf(name);
+    if (levelOf(st.player) < x.minLevel) return fail('E_LEVEL_TOO_LOW', `${x.name} cần Lv${x.minLevel}, ngươi mới Lv${levelOf(st.player)}.`);
+    const r = learnMethod(st, name)!;
+    st.inv.books[name]--; if (st.inv.books[name] <= 0) delete st.inv.books[name];
+    return ok(r.known ? `Đã biết «${name}» từ trước, đổi cuốn kinh lấy ${r.stones} Linh Thạch.` : `Đã học Công Pháp «${name}». Vào tab Thần Thông để đổi sang dùng.`);
+  }
+  const t = A.TECHS[name];
+  if (levelOf(st.player) < t.minLevel) return fail('E_LEVEL_TOO_LOW', `${t.name} cần Lv${t.minLevel}, ngươi mới Lv${levelOf(st.player)}.`);
+  const r = learnTech(st, name)!;
+  st.inv.books[name]--; if (st.inv.books[name] <= 0) delete st.inv.books[name];
+  return ok(r.known ? `Đã biết «${name}» từ trước, đổi Bí Công lấy ${r.stones} Linh Thạch.` : `Đã học «${name}» (${A.ART(t.cls).name}).`);
+}
+// ---------- Công Pháp (Requirement 18.5 to 18.15): learned from a scroll, one is in use at a time; a change takes effect from the next tick.
+function learnMethod(st: GameState, name: string, rep?: Report): { known: boolean; stones?: number } | null {
+  const x = A.methodOf(name);
+  if (levelOf(st.player) < x.minLevel) return null;
+  if (st.arts.methods.includes(name)) return { known: true, stones: earn(st, B.dupBookStones[x.tier], 'drop', rep) };
+  st.arts.methods.push(name);
+  return { known: false };
+}
+function rollMethod(st: GameState, level: number, rep: Report | undefined, chips: string[]) {
+  const g = st.streams;
+  if (next(g, 'loot') >= B.methodDropP) return;
+  const pool = A.METHODS.filter((x) => x.minLevel <= level + 2);
+  const x = pool[weighted(g, 'loot', pool.map((y) => B.bookTierWeights[y.tier]))];
+  let line = `Nhặt được cuốn kinh Công Pháp «${x.name}» (${A.METHOD_TIER[x.tier]})`;
+  const learned = st.set.autoLearn ? learnMethod(st, x.name, rep) : null;
+  if (learned) line += learned.known ? `, đã biết nên đổi lấy ${learned.stones} Linh Thạch` : ', đã học ngay';
+  else { st.inv.books[x.name] = (st.inv.books[x.name] || 0) + 1; line += ', cất vào túi'; }
+  chips.push(`Công Pháp: ${x.name}`);
+  feed(st, { kind: 'book', text: line, chips: [] });
+  if (rep) rep.highlights.push({ prio: 60 + x.tier * 10, kind: 'book', text: line });
+}
+export function setMethod(st: GameState, name: any): Res {
+  if (typeof name !== 'string' || !st.arts.methods.includes(name)) return fail('E_BAD_SKILL');
+  st.arts.method = name;
+  return ok(`Đã đổi sang Công Pháp «${name}».`);
+}
+// Choose the techniques of one môn (Requirement 18.10 and 18.11): only known techniques of that môn, no repeats, no more than the slots of the Realm. Nothing changes on an error.
+export function setLoadout(st: GameState, cls: string, names: any): Res {
+  if (typeof cls !== 'string' || !A.ARTS.some((a) => a.id === cls) || !Array.isArray(names)) return fail('E_BAD_REQUEST');
+  if (new Set(names).size !== names.length) return fail('E_BAD_SKILL');
+  for (const n of names) if (typeof n !== 'string' || !A.isTech(n) || A.TECHS[n].cls !== cls || !st.arts.learned.includes(n)) return fail('E_BAD_SKILL');
+  if (names.length > A.slotsAt(st.player.realm)) return fail('E_SKILL_SLOTS');
+  st.arts.loadout[cls] = names;
+  return ok('Đã lưu bộ chiêu.');
+}
+
 // ---------- combat (Requirement 8). `foe` has stats [maxHp, maxSpirit, atk, def, spd] and a list of Elements.
 interface Foe { name: string; stats: number[]; el: string[]; skills?: string[]; level?: number }
 // One combat log line. Lines that start with '~' are a JSON record the client draws as a card (components/Battle.tsx); anything else is plain text from older saves.
@@ -528,19 +620,45 @@ interface Foe { name: string; stats: number[]; el: string[]; skills?: string[]; 
 // to = who was hit, d = damage, c = critical, x = element multiplier, s = same-element bonus, h/hm = the target's HP left and its maximum.
 const rec = (o: Record<string, unknown>) => '~' + JSON.stringify(o);
 // One fighter's skills, Spirit and cooldowns for the length of a fight (Requirement 18). Spirit starts full and comes back a little every round.
-interface Caster { defs: C.SkillDef[]; els: string[]; lv: number; sp: number; max: number; last: Map<string, number> }
-const caster = (names: string[], els: string[], lv: number, max: number): Caster => ({ defs: [...new Set([...names, C.NEUTRAL_SKILL])].map(C.skillDef), els, lv, sp: max, max, last: new Map() });
-// The strongest skill that can be used now (level reached, cooldown over, enough Spirit); the free neutral skill is always there as the fallback.
-// Its score is its power times the element multiplier, so a skill that is weak against this foe loses to a plainer one.
-function pickSkill(c: Caster, r: number, foeEls: string[]) {
-  let best = C.skillDef(C.NEUTRAL_SKILL), bs = -1;
+// `fx` holds the status effects that sit on this fighter (a guard it cast, a weakening the foe cast on it) and `skip` the actions it still loses to a stun.
+interface Eff { amt: number; until: number; team?: boolean }
+interface Side { fx: Partial<Record<'guard' | 'atkUp' | 'critUp' | 'atkDown' | 'defDown', Eff>>; skip: number }
+interface Caster { defs: C.SkillDef[]; els: string[]; lv: number; sp: number; max: number; last: Map<string, number>; side: Side }
+const caster = (names: string[], els: string[], lv: number, max: number): Caster => ({ defs: [...new Set([...names, C.NEUTRAL_SKILL])].map(A.skillOf), els, lv, sp: max, max, last: new Map(), side: { fx: {}, skip: 0 } });
+const live = (e: Eff | undefined, r: number) => (e && r <= e.until ? e : undefined);
+// What the picker needs to know about the fight: its own health, and the foe's state.
+interface Ctx { hp: number; max: number; foe: Side; foeHp: number }
+// The best skill that can be used now (level reached, cooldown over, enough Spirit); the free neutral skill is always there as the fallback.
+// An attack scores its power times the element multiplier, so a skill that is weak against this foe loses to a plainer one.
+// A support skill scores a fixed value, and only when it is useful: heal when hurt, a buff or a guard when it is not already on, a weakening or a stun on a foe that is not yet affected.
+function pickSkill(c: Caster, r: number, foeEls: string[], x: Ctx) {
+  let best = A.skillOf(C.NEUTRAL_SKILL), bs = -1;
+  const hurt = x.hp / Math.max(1, x.max), endgame = x.foeHp < 0.2;
   for (const d of c.defs) {
     if (d.minLevel > c.lv || c.sp < d.spirit || r <= (c.last.get(d.name) ?? -99) + d.cd) continue;
-    const sc = d.coef * (d.el && !c.els.includes(d.el) ? B.offElementPenalty : 1) * (d.el ? elemMult(d.el, foeEls) : B.neutralMult);
+    let sc: number;
+    if (d.fx) {
+      const k = d.fx.kind;
+      if (k === 'heal') { if (hurt >= 0.5) continue; sc = 1.2 + (0.5 - hurt) * 3; }
+      else if (endgame) continue;
+      else if (k === 'guard') { if (live(c.side.fx.guard, r) || x.foe.skip > 0) continue; sc = 1.3; }
+      else if (k === 'atkUp') { if (live(c.side.fx.atkUp, r)) continue; sc = 1.4; }
+      else if (k === 'critUp') { if (live(c.side.fx.critUp, r)) continue; sc = 1.25; }
+      else if (k === 'atkDown') { if (live(x.foe.fx.atkDown, r)) continue; sc = 1.2; }
+      else if (k === 'defDown') { if (live(x.foe.fx.defDown, r)) continue; sc = 1.3; }
+      else { if (x.foe.skip > 0) continue; sc = 1.6; }
+    } else sc = d.coef * (d.hits || 1) * (d.el && !c.els.includes(d.el) ? B.offElementPenalty : 1) * (d.el ? elemMult(d.el, foeEls) : B.neutralMult);
     if (sc > bs) { bs = sc; best = d; }
   }
   c.sp -= best.spirit; c.last.set(best.name, r);
   return { def: best, off: best.el && !c.els.includes(best.el) ? B.offElementPenalty : 1 };
+}
+// The môn of the weapon in hand, and the skills it gives: the môn's free basic attack plus the techniques the player slotted (and knows).
+export const classOf = (st: Pick<GameState, 'eq'>) => A.weaponClass(st.eq.Weapon && st.eq.Weapon.base);
+export function playerSkills(st: Pick<GameState, 'eq' | 'arts'>): string[] {
+  const cls = classOf(st);
+  if (!cls) return [C.NEUTRAL_SKILL];
+  return [A.ART(cls).basic, ...(st.arts.loadout[cls] || []).filter((n) => st.arts.learned.includes(n))];
 }
 function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: Beast[], reduce = 1) {
   const g = st.streams, p = st.player, log: string[] = [];
@@ -549,14 +667,30 @@ function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: B
   const monster = m.skills && m.skills.length ? m.skills : m.el.flatMap((e) => C.SKILLS[e] || []);
   const foe = caster(monster, m.el, m.level ?? 99, m.stats[1] || 0);
   push(rec({ t: 'open', f: m.name, fe: m.el, fh: m.stats[0], ph: p.hp, pm: S.maxHp }));
-  const you = caster(p.linh.slice(0, 3).flatMap((e) => C.SKILLS[e]), p.linh, levelOf(p), S.maxSpirit);
+  const you = caster(playerSkills(st), p.linh, levelOf(p), S.maxSpirit);
   const pals = party.map((b) => ({ b, el: SP(b.sp).el, c: caster(b.skills, SP(b.sp).el, b.level, b.stats[1] || 0) }));
   const V = B.damageVariance;
-  const hit = (atk: number, def: number, coef: number, mult: number, crit: number, cd: number) => {
-    const v = 1 - V + next(g, 'combat') * 2 * V, c = next(g, 'combat') < crit / 100;
-    return { d: Math.max(B.minDamage, Math.round(atk * coef * mult * v * (atk / (atk + def)) * (c ? cd / 100 : 1) * B.combatPace)), c };
+  // One technique: `hits` strikes (a bow shoots twice), each ignoring `pierce` of the defence; the numbers are added into one log line.
+  const hit = (atk: number, def: number, coef: number, mult: number, crit: number, cd: number, hits = 1, pierce = 0) => {
+    let d = 0, c = false;
+    for (let k = 0; k < hits; k++) {
+      const v = 1 - V + next(g, 'combat') * 2 * V, cr = next(g, 'combat') < crit / 100;
+      d += Math.max(B.minDamage, Math.round(atk * coef * mult * v * (atk / (atk + def * (1 - pierce))) * (cr ? cd / 100 : 1) * B.combatPace));
+      c = c || cr;
+    }
+    return { d, c };
   };
   const regen = (c: Caster) => { c.sp = Math.min(c.max, c.sp + Math.round(c.max * B.spiritRegenPct)); };
+  // Apply a support skill. `me` is the caster's side and `them` the other one; returns what the log line shows.
+  const cast = (def: C.SkillDef, r: number, me: Caster, them: Caster, atk: number) => {
+    const fx = def.fx!;
+    const until = r + fx.turns - 1;
+    if (fx.kind === 'heal') return Math.round(atk * def.coef * B.combatPace * B.healScale);
+    if (fx.kind === 'guard' || fx.kind === 'atkUp' || fx.kind === 'critUp') me.side.fx[fx.kind] = { amt: fx.amount, until, team: fx.team };
+    else if (fx.kind === 'atkDown' || fx.kind === 'defDown') them.side.fx[fx.kind] = { amt: fx.amount, until };
+    else them.side.skip += fx.turns;
+    return fx.kind === 'stun' ? fx.turns : fx.kind === 'critUp' ? fx.amount : Math.round(fx.amount * 100);
+  };
   let rounds = 0;
   for (let r = 1; r <= B.maxCombatRounds && mhp > 0 && p.hp > 0; r++) {
     rounds = r;
@@ -564,24 +698,47 @@ function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: B
     for (const who of S.spd >= m.stats[4] ? ['p', 'm'] : ['m', 'p']) {
       if (mhp <= 0 || p.hp <= 0) break;
       if (who === 'p') {
-        const { def, off } = pickSkill(you, r, m.el);
-        const mult = def.el ? elemMult(def.el, m.el) : B.neutralMult, same = def.el && p.linh.includes(def.el) ? B.sameElementBonus : 1;
-        const h = hit(S.atk, m.stats[3], def.coef * off * same, mult, S.crit, S.critdmg);
-        mhp -= h.d;
-        push(rec({ r, w: 'p', n: 'Ngươi', k: def.name, e: def.el, to: m.name, d: h.d, c: h.c ? 1 : 0, x: +mult.toFixed(2), s: same > 1 ? 1 : 0, h: Math.max(0, mhp), hm: m.stats[0] }));
+        if (you.side.skip > 0) { you.side.skip--; push(rec({ r, w: 'p', n: 'Ngươi', k: 'Choáng váng', e: '', to: 'Ngươi', d: 0, c: 0, x: 1, s: 0, f: 'skip', ts: 'p', h: p.hp, hm: S.maxHp })); continue; }
+        const up = live(you.side.fx.atkUp, r), down = live(you.side.fx.atkDown, r), cu = live(you.side.fx.critUp, r);
+        const atk = S.atk * (1 + (up ? up.amt : 0)) * (1 - (down ? down.amt : 0));
+        const { def, off } = pickSkill(you, r, m.el, { hp: p.hp, max: S.maxHp, foe: foe.side, foeHp: mhp / m.stats[0] });
+        if (def.fx) {
+          const a = cast(def, r, you, foe, atk);
+          if (def.fx.kind === 'heal') p.hp = Math.min(S.maxHp, p.hp + a);
+          const self = def.fx.kind === 'heal';
+          push(rec({ r, w: 'p', n: 'Ngươi', k: def.name, e: '', to: self || def.target !== 'Kẻ Địch' ? 'Ngươi' : m.name, d: 0, c: 0, x: 1, s: 0, f: def.fx.kind, a, ts: self ? 'p' : 'm', h: self ? p.hp : Math.max(0, mhp), hm: self ? S.maxHp : m.stats[0] }));
+        } else {
+          const dd = m.stats[3] * (1 - (live(foe.side.fx.defDown, r)?.amt || 0));
+          const mult = def.el ? elemMult(def.el, m.el) : B.neutralMult, same = def.el && p.linh.includes(def.el) ? B.sameElementBonus : 1;
+          const h = hit(atk, dd, def.coef * off * same * B.playerCoefScale, mult, S.crit + (cu ? cu.amt : 0) + (def.crit || 0), S.critdmg, def.hits || 1, def.pierce || 0);
+          mhp -= h.d;
+          push(rec({ r, w: 'p', n: 'Ngươi', k: def.name, e: def.el, to: m.name, d: h.d, c: h.c ? 1 : 0, x: +mult.toFixed(2), s: same > 1 ? 1 : 0, u: def.hits && def.hits > 1 ? def.hits : undefined, h: Math.max(0, mhp), hm: m.stats[0] }));
+        }
         for (const x of pals) {
           if (mhp <= 0) break;
-          const sk = pickSkill(x.c, r, m.el), bm = sk.def.el ? elemMult(sk.def.el, m.el) : B.neutralMult;
-          const bh = hit(x.b.stats[2], m.stats[3], sk.def.coef * sk.off * B.beastCoefScale, bm, 5, 150);
+          const sk = pickSkill(x.c, r, m.el, { hp: 1, max: 1, foe: foe.side, foeHp: mhp / m.stats[0] }), bm = sk.def.el ? elemMult(sk.def.el, m.el) : B.neutralMult;
+          const tu = live(you.side.fx.atkUp, r), team = tu && tu.team ? 1 + tu.amt : 1;
+          const bh = hit(x.b.stats[2] * team, m.stats[3] * (1 - (live(foe.side.fx.defDown, r)?.amt || 0)), sk.def.coef * sk.off * B.beastCoefScale, bm, 5, 150);
           mhp -= bh.d;
           push(rec({ r, w: 'b', n: x.b.name, k: sk.def.name, e: sk.def.el || x.el[0], to: m.name, d: bh.d, c: 0, x: +bm.toFixed(2), s: 0, h: Math.max(0, mhp), hm: m.stats[0] }));
         }
       } else {
-        const { def, off } = pickSkill(foe, r, p.linh);
-        const em = def.el ? elemMult(def.el, p.linh) : B.neutralMult, h = hit(m.stats[2], S.def, def.coef * off * B.foeCoefScale, em, 5, 150);
-        const dmg = Math.max(B.minDamage, Math.round(h.d * reduce));
-        p.hp -= dmg;
-        push(rec({ r, w: 'm', n: m.name, k: def.name, e: def.el || m.el[0], to: 'Ngươi', d: dmg, c: h.c ? 1 : 0, x: +em.toFixed(2), s: 0, h: Math.max(0, p.hp), hm: S.maxHp }));
+        if (foe.side.skip > 0) { foe.side.skip--; push(rec({ r, w: 'm', n: m.name, k: 'Choáng váng', e: '', to: m.name, d: 0, c: 0, x: 1, s: 0, f: 'skip', ts: 'm', h: Math.max(0, mhp), hm: m.stats[0] })); continue; }
+        const up = live(foe.side.fx.atkUp, r), down = live(foe.side.fx.atkDown, r);
+        const atk = m.stats[2] * (1 + (up ? up.amt : 0)) * (1 - (down ? down.amt : 0));
+        const { def, off } = pickSkill(foe, r, p.linh, { hp: mhp, max: m.stats[0], foe: you.side, foeHp: p.hp / S.maxHp });
+        if (def.fx) {
+          const a = cast(def, r, foe, you, atk);
+          if (def.fx.kind === 'heal') mhp = Math.min(m.stats[0], mhp + a);
+          const self = def.fx.kind === 'heal';
+          push(rec({ r, w: 'm', n: m.name, k: def.name, e: '', to: self || def.target !== 'Kẻ Địch' ? m.name : 'Ngươi', d: 0, c: 0, x: 1, s: 0, f: def.fx.kind, a, ts: self ? 'm' : 'p', h: self ? Math.max(0, mhp) : p.hp, hm: self ? m.stats[0] : S.maxHp }));
+        } else {
+          const guard = live(you.side.fx.guard, r), dd = S.def * (1 - (live(you.side.fx.defDown, r)?.amt || 0));
+          const em = def.el ? elemMult(def.el, p.linh) : B.neutralMult, h = hit(atk, dd, def.coef * off * B.foeCoefScale, em, 5 + (def.crit || 0), 150, def.hits || 1, def.pierce || 0);
+          const dmg = Math.max(B.minDamage, Math.round(h.d * reduce * (1 - (guard ? guard.amt : 0))));
+          p.hp -= dmg;
+          push(rec({ r, w: 'm', n: m.name, k: def.name, e: def.el || m.el[0], to: 'Ngươi', d: dmg, c: h.c ? 1 : 0, x: +em.toFixed(2), s: 0, u: def.hits && def.hits > 1 ? def.hits : undefined, h: Math.max(0, p.hp), hm: S.maxHp }));
+        }
       }
     }
   }
@@ -660,10 +817,11 @@ function dropOnce(st: GameState, zone: C.Zone, srcLevel: number, luckBonus: numb
 }
 const rollDrops = (st: GameState, zone: C.Zone, srcLevel: number, n: number, luckBonus: number, rep: Report | undefined, from: string, chips: string[]) => { for (let k = 0; k < n; k++) dropOnce(st, zone, srcLevel, luckBonus, rep, from, chips); };
 
-function victory(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, level: number, rep: Report | undefined, chips: string[], mult = 1) {
+function victory(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, level: number, rep: Report | undefined, chips: string[], mult = 1, book?: { el?: string; cls?: string; boost: number }) {
   st.kills++; if (rep) rep.wins++;
   const v = earn(st, Math.round(B.victoryRewardPerLevel * level * mult), 'victory', rep); chips.push(`+${v} Linh Thạch`);
   rollDrops(st, zone, level, B.dropRollCount + (mult > 1 ? 1 : 0), (ph && ph.luck) || 0, rep, '', chips);
+  if (book) { rollBook(st, book, level, rep, chips); rollMethod(st, level, rep, chips); }
 }
 function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: Report) {
   const S = pstats(st), L = levelOf(st.player);
@@ -671,7 +829,7 @@ function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: 
   if (rep) { rep.encounters++; rep.enc.monster++; if (m.mut) rep.highlights.push({ prio: 90, kind: 'mutation', text: `Gặp ${m.name} Dị Biến!`, beast: m }); }
   const r = fightCore(st, S, { name: m.name, stats: m.stats, el: sp.el, skills: m.skills, level: m.level }, bestParty(st));
   const chips: string[] = [];
-  if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1); tryTame(st, m, sp, chips, rep, r.log); }
+  if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1, { el: sp.el[0], boost: m.elite || m.mut ? B.bookEliteMult : 1 }); tryTame(st, m, sp, chips, rep, r.log); }
   else if (r.outcome === 'lose') { defeated(st); if (rep) rep.losses++; } else if (rep) rep.draws++;
   feed(st, { kind: 'monster', text: '', beast: m, outcome: r.outcome, chips, log: r.log });
 }
@@ -692,9 +850,9 @@ function makeNpc(st: GameState, zone: C.Zone): NpcFoe {
 function fightNpc(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, npc: NpcFoe, rep?: Report) {
   const S = pstats(st);
   if (rep) { rep.encounters++; rep.enc.npc++; }
-  const r = fightCore(st, S, { name: npc.name, stats: npc.stats, el: npc.el, level: npc.level }, bestParty(st));
+  const r = fightCore(st, S, { name: npc.name, stats: npc.stats, el: npc.el, level: npc.level, skills: A.npcSkills(npc.name, npc.el) }, bestParty(st));
   const chips: string[] = [];
-  if (r.outcome === 'win') victory(st, zone, ph, npc.level, rep, chips, B.npcRewardMult * (npc.elite ? 1.3 : 1));
+  if (r.outcome === 'win') victory(st, zone, ph, npc.level, rep, chips, B.npcRewardMult * (npc.elite ? 1.3 : 1), { cls: A.npcClass(npc.name), boost: npc.elite ? B.bookEliteMult : 1 });
   else if (r.outcome === 'lose') {
     defeated(st); if (rep) rep.losses++;
     const lost = Math.min(st.stones, Math.floor(st.stones * B.robPctOnNpcDefeat));
@@ -781,7 +939,7 @@ export function tick(st: GameState, rep?: Report) {
     else if (!st.recovery && p.hp < (S.maxHp * st.set.retreatPct) / 100) st.recovery = true;
   } else st.recovery = false;
   // Tu Vi at the end of the tick, from the state at its start
-  let g = cultRate(L0) * B.linhSpeedByCount[p.linh.length - 1] * p.purity * (1 + S0.cult / 100) * zone.density * ((ph && ph.cult) || 1)
+  let g = cultRate(L0) * B.linhSpeedByCount[p.linh.length - 1] * p.purity * (1 + S0.cult / 100) * A.methodSpeed(st.arts.method, p.linh) * zone.density * ((ph && ph.cult) || 1)
     * (mode0 === 'retreat' ? B.retreatCultFactor : B.adventureCultFactor) * (epi ? B.epiphanyMult : 1) * (demon ? B.heartDemonFactor : 1);
   g = Math.round(g);
   if (epi) { feed(st, { kind: 'event', text: 'Đốn Ngộ! Tu vi tăng vọt trong khoảnh khắc.' }); if (rep) { rep.epiphanies++; rep.highlights.push({ prio: 10, kind: 'epiphany', text: 'Đốn Ngộ trong lúc bế quan.' }); } }
@@ -802,7 +960,7 @@ export function tick(st: GameState, rep?: Report) {
 // ---------- state
 export function defaultSettings(): Settings {
   const d = B.defaults;
-  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, hideRank: false, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0 } };
+  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, hideRank: false, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0 } };
 }
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now()): GameState {
   const streams = newStreams(seed);
@@ -817,13 +975,14 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
   };
   const st: GameState = {
     v: 2, seed, streams, tick: 0, clock: now, uid: 0, settleSeq: 0, player, bag: [], stash: [], eq: Object.fromEntries(C.SLOTS.map((s) => [s, null])), beasts: [], best: {},
-    stones: 0, inv: { taming: [0, 0, 0, 0], hp: [0, 0, 0], bt: [0, 0, 0, 0], trib: 0, mat: {} }, pity: { mut: 0, item: 0 }, set: defaultSettings(), recovery: false, zone: C.START_ZONE,
+    stones: 0, inv: { taming: [0, 0, 0, 0], hp: [0, 0, 0], bt: [0, 0, 0, 0], trib: 0, mat: {}, books: {} }, arts: { learned: [], loadout: {}, methods: [A.STARTER_METHOD], method: A.STARTER_METHOD }, pity: { mut: 0, item: 0 }, set: defaultSettings(), recovery: false, zone: C.START_ZONE,
     feed: [], recent: [], kills: 0, pend: {}, ledger: [], ledgerBase: 0, ledgerDaily: [], reqs: {}, reports: [], auditQ: [], decision: null, breakSnooze: 0,
   };
   const origin = C.ORIGINS[player.origin];
   earn(st, B.startingStones + origin.stones, 'starting_grant');
   st.inv.taming[0] = B.startingTaming + origin.talis; st.inv.hp[0] = B.startingHpPills;
   st.eq.Weapon = genItem(st, 1, 0, 'Weapon', 0, true); st.eq.Robe = genItem(st, 1, 0, 'Robe', 0, true);
+  initArts(st);
   player.hp = pstats(st).maxHp;
   feed(st, { kind: 'system', text: `${player.name} bắt đầu hành trình tu tiên.` });
   flushLedger(st, 'create', now);

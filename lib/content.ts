@@ -124,7 +124,10 @@ export const NEUTRAL_SKILL = 'Thần Thức Kích';
 // Skill catalog (Requirement 18.1). Only the Tấn Công group exists so far; the other five groups need status effects (not built yet).
 // Each element has three attack skills: a free basic one, a stronger one with a short cooldown, and a finisher that costs a lot of Spirit and waits longer.
 export type SkillGroup = 'Tấn Công' | 'Phòng Thủ' | 'Hồi Phục' | 'Cường Hóa' | 'Suy Yếu' | 'Khống Chế';
-export interface SkillDef { name: string; el: string; group: SkillGroup; spirit: number; cd: number; coef: number; target: 'Kẻ Địch' | 'Bản Thân' | 'Một Đồng Minh' | 'Cả Đội'; minLevel: number }
+// A status effect (Requirement 18.1): heal = restore Skill_Power of Sinh Lực; guard = take less damage; atkUp / critUp = hit harder; atkDown / defDown = the foe hits softer / guards worse; stun = the foe loses `turns` actions.
+export type FxKind = 'heal' | 'guard' | 'atkUp' | 'critUp' | 'atkDown' | 'defDown' | 'stun';
+export interface SkillFx { kind: FxKind; amount: number; turns: number; team?: boolean }
+export interface SkillDef { name: string; el: string; group: SkillGroup; spirit: number; cd: number; coef: number; target: 'Kẻ Địch' | 'Bản Thân' | 'Một Đồng Minh' | 'Cả Đội'; minLevel: number; hits?: number; pierce?: number; crit?: number; fx?: SkillFx }
 const SKILL_TIERS = [{ coef: 1.0, spirit: 0, cd: 0, minLevel: 1 }, { coef: 1.45, spirit: 8, cd: 1, minLevel: 1 }, { coef: 2.0, spirit: 20, cd: 3, minLevel: 5 }];
 export const SKILL_DEFS: Record<string, SkillDef> = Object.fromEntries([
   ...Object.entries(SKILLS).flatMap(([el, names]) => names.map((name, i): [string, SkillDef] => [name, { name, el, group: 'Tấn Công', target: 'Kẻ Địch', ...SKILL_TIERS[i] }])),
@@ -156,7 +159,7 @@ export const BODY_AT: Record<string, { x: number; y: number; w: number; h: numbe
   Accessory: { x: 50, y: 38, w: 34, h: 8 }, Weapon: { x: 77, y: 56, w: 24, h: 30 }, Ring: { x: 24, y: 52, w: 20, h: 14 }, Footwear: { x: 50, y: 88, w: 44, h: 16 },
 };
 export const SLOT_BASE: Record<string, string[]> = {
-  Weapon: ['Trường Kiếm', 'Đoản Kiếm', 'Phất Trần', 'Cổ Cầm', 'Ngọc Tiêu', 'Trường Thương'],
+  Weapon: ['Trường Kiếm', 'Đoản Kiếm', 'Phất Trần', 'Cổ Cầm', 'Ngọc Tiêu', 'Trường Thương', 'Trường Cung', 'Linh Cung', 'Tỳ Bà', 'Trảm Đao', 'Liễu Diệp Đao', 'Quyền Sáo', 'Hổ Trảo'],
   Headwear: ['Ngọc Quan', 'Kim Quan', 'Phát Trâm', 'Đấu Lạp', 'Khăn Vân'],
   Robe: ['Đạo Bào', 'Vũ Y', 'Hạc Sưởng', 'Pháp Bào', 'Tiên Quần', 'Thanh Sam'],
   Footwear: ['Vân Hài', 'Phong Ngoa', 'Tuyết Ngoa'],
@@ -164,6 +167,11 @@ export const SLOT_BASE: Record<string, string[]> = {
   Accessory: ['Ngọc Bội', 'Hương Nang', 'Linh Ấn', 'Chuông Bạc'],
   Ring: ['Giới Chỉ', 'Linh Giới', 'Càn Khôn Giới'],
   Talisman: ['Hộ Phù', 'Linh Phù', 'Trấn Hồn Phù'],
+};
+// Môn pháp (weapon class) of every weapon base: it decides which techniques the player can use while holding it (see lib/arts.ts).
+export const WEAPON_CLASS: Record<string, string> = {
+  'Trường Kiếm': 'kiem', 'Đoản Kiếm': 'kiem', 'Trường Thương': 'thuong', 'Trường Cung': 'cung', 'Linh Cung': 'cung', 'Trảm Đao': 'dao', 'Liễu Diệp Đao': 'dao',
+  'Quyền Sáo': 'quyen', 'Hổ Trảo': 'quyen', 'Cổ Cầm': 'cam', 'Tỳ Bà': 'cam', 'Ngọc Tiêu': 'tieu', 'Phất Trần': 'phat',
 };
 export const SLOT_IMPL: Record<string, { stat: string; r: [number, number] }> = {
   Weapon: { stat: 'atk', r: [6, 12] }, Headwear: { stat: 'def', r: [3, 6] }, Robe: { stat: 'hp', r: [40, 80] }, Footwear: { stat: 'spd', r: [1, 3] },
@@ -195,7 +203,7 @@ export const EVENTS: EventTemplate[] = [
   { id: 'bitang', text: 'Dưới rễ cổ thụ lộ ra một bí tàng cổ xưa.', lv: [1, 36], out: [{ w: 1, drops: 1 }] },
   { id: 'tansu', text: 'Một tán tu hào sảng tặng ngươi túi linh thạch.', lv: [1, 36], out: [{ w: 3, stonesPerLv: [2, 6] }, { w: 1, stonesPerLv: [4, 8], drops: 1 }] },
   { id: 'dongphu', text: 'Lạc vào một động phủ vô chủ, thu được bảo vật.', lv: [1, 36], rare: true, out: [{ w: 1, drops: 2 }] },
-  { id: 'linhduoc', text: 'Hái được mấy cây linh dược quý, luyện thành Khế Ước Phù.', lv: [1, 36], out: [{ w: 1, taming: [2, 5] }] },
+  { id: 'linhduoc', text: 'Hái được mấy cây linh dược quý, luyện thành Khế Ước Phù.', lv: [1, 36], out: [{ w: 1, taming: [1, 2] }] },
   { id: 'ngodao', text: 'Nhìn hoa rơi nước chảy, bỗng đốn ngộ một tia đại đạo.', lv: [1, 36], out: [{ w: 1, cpTicks: 80 }] },
   { id: 'thiennu', text: 'Một thiên nữ cưỡi hạc bay qua, rải xuống linh quang.', lv: [1, 36], rare: true, out: [{ w: 1, stonesPerLv: [8, 20] }] },
   { id: 'phucco', text: 'Sa vào ổ phục kích của yêu thú, bị thương nặng mới thoát được.', lv: [1, 36], bad: true, out: [{ w: 1, hurtPct: 0.35, injure: 150 }] },
@@ -216,8 +224,8 @@ export type DropEntry =
   | { kind: 'item'; w: number } | { kind: 'stones'; w: number; q: [number, number] } | { kind: 'taming'; w: number; grade: number; q: [number, number] }
   | { kind: 'pill'; w: number; grade: number; q: [number, number] } | { kind: 'material'; w: number; q: [number, number] } | { kind: 'none'; w: number };
 export const DROP_TABLE: DropEntry[] = [
-  { kind: 'item', w: 22 }, { kind: 'stones', w: 14, q: [1, 4] }, { kind: 'taming', w: 8, grade: 0, q: [1, 2] },
-  { kind: 'pill', w: 5, grade: 0, q: [1, 2] }, { kind: 'material', w: 11, q: [1, 2] }, { kind: 'none', w: 40 },
+  { kind: 'item', w: 34 }, { kind: 'stones', w: 16, q: [1, 4] }, { kind: 'taming', w: 3, grade: 0, q: [1, 1] },
+  { kind: 'pill', w: 3, grade: 0, q: [1, 1] }, { kind: 'material', w: 14, q: [1, 2] }, { kind: 'none', w: 30 },
 ];
 
 // ---------- Zone_Phenomenon (Thiên Địa Dị Tượng). Only these fields may change (Requirement 6.11): cult factor, Luck bonus, Encounter_Type weights, species weights.
@@ -272,6 +280,9 @@ export const SIZE_T = [0.65, 0.85, 1.15, 1.5];
 // ---------- image-generation vocabulary (English, used only to build prompts on the server)
 export const BASE_EN: Record<string, string> = {
   'Trường Kiếm': 'slender straight double-edged long sword (jian) with a smooth plain blade and a tasseled hilt', 'Đoản Kiếm': 'slender straight double-edged short sword (jian) with a smooth plain blade and a tasseled hilt', 'Phất Trần': 'daoist fly whisk with a long ornate handle and a tuft of long flowing white horsehair', 'Cổ Cầm': 'ancient Chinese guqin zither', 'Ngọc Tiêu': 'ancient Chinese jade xiao flute', 'Trường Thương': 'ancient Chinese long spear with a red tassel',
+  'Trường Cung': 'ancient Chinese recurve longbow of dark lacquered wood with a taut silk string and a small jade ornament at the grip, with one slender arrow beside it', 'Linh Cung': 'ornate ancient Chinese spirit bow of pale wood and gold, with a glowing string of light and a small jade ornament at the grip',
+  'Tỳ Bà': 'ancient Chinese pipa lute with a pear-shaped wooden body, a bent neck and four silk strings', 'Trảm Đao': 'ancient Chinese broad single-edged saber (dao) with a curved blade, a guard and a tasseled hilt', 'Liễu Diệp Đao': 'slender ancient Chinese willow-leaf saber (liuyedao) with a gently curved narrow blade and a tasseled hilt',
+  'Quyền Sáo': 'pair of ornate ancient Chinese iron-knuckled fighting gauntlets with wrapped leather straps and bronze studs', 'Hổ Trảo': 'pair of ancient Chinese tiger-claw fighting gauntlets with curved steel claws on the fingers and leather straps',
   'Ngọc Quan': 'small ornate jade topknot hair crown (guan)', 'Kim Quan': 'small ornate golden topknot hair crown (guan)', 'Phát Trâm': 'ornate ancient Chinese hairpin with dangling ornaments', 'Đấu Lạp': 'bamboo hat with a light veil', 'Khăn Vân': 'ornate cloud-patterned forehead headband',
   'Đạo Bào': 'daoist robe', 'Vũ Y': 'feather robe', 'Hạc Sưởng': 'crane-feather coat', 'Pháp Bào': 'spell robe', 'Tiên Quần': 'immortal gown', 'Thanh Sam': 'azure long shirt',
   'Vân Hài': 'pair of slim elegant ancient Chinese cloth slippers with upturned pointed scroll-shaped toe tips and embroidered cloud patterns, thin flat soles, not sneakers, not boots', 'Phong Ngoa': 'pair of tall ancient Chinese boots with winged side embroidery', 'Tuyết Ngoa': 'pair of ancient Chinese fur-trimmed winter boots', 'Đấu Bồng': 'flowing cloak', 'Vũ Dực': 'pair of feather wings', 'Kiếm Hạp': 'ornate ancient Chinese sword case with straps', 'Phi Y': 'long flowing silk ribbon scarf (piaodai)',
@@ -290,6 +301,9 @@ export const PLACE_WEAPON: Record<string, string> = {
   'Trường Kiếm': 'It is held in the right hand with the tip pointing down.', 'Đoản Kiếm': 'It is held in the right hand with the tip pointing down.',
   'Phất Trần': 'It is held in the right hand.', 'Cổ Cầm': 'It is carried in both arms in front of the body.',
   'Ngọc Tiêu': 'It is held in the right hand.', 'Trường Thương': 'It is held upright in the right hand, standing beside the body.',
+  'Trường Cung': 'It is held in the left hand at the side, the bow standing beside the body with its string facing inward.', 'Linh Cung': 'It is held in the left hand at the side, the bow standing beside the body with its string facing inward.',
+  'Tỳ Bà': 'It is carried in both arms in front of the body.', 'Trảm Đao': 'It is held in the right hand with the tip pointing down.', 'Liễu Diệp Đao': 'It is held in the right hand with the tip pointing down.',
+  'Quyền Sáo': 'They are worn on both hands as fighting gauntlets, the fists relaxed at the sides.', 'Hổ Trảo': 'They are worn on both hands as claw gauntlets, the hands relaxed at the sides.',
 };
 export const EL_EN: Record<string, { color: string; energy: string }> = {
   Kim: { color: 'gold and silver', energy: 'metallic golden light' }, Mộc: { color: 'emerald green', energy: 'living vines and green leaves' },
@@ -363,7 +377,7 @@ export const SPECIES_EN: Record<string, string> = {
   thienloi: 'a titanic violet thunder dragon with a mane of living lightning and glowing white eyes, soaring through black storm clouds',
   doi: 'a bat spirit with deep indigo wings edged with silver moonlight, small glowing violet eyes and wing membranes like the night sky',
   hao: 'a mysterious owl spirit with dark gray and violet plumage, large luminous pale eyes and faint ghostly wisps around its wings',
-  chuam: 'a black spider spirit with violet glowing crescent-moon markings on its back, trailing silver threads of web',
+  chuam: 'a black spider spirit with a smooth glossy obsidian carapace, a soft violet glow along its back and silver threads of web trailing from its legs, no markings or patterns on its body',
   coc: 'a dark toad spirit with warty indigo skin, glowing violet spots and a calm ancient gaze, sitting on a mossy stone',
   quyma: 'a spectral night horse with a coat of black smoke, a mane of pale blue ghost fire and hollow glowing eyes',
   hacbao: 'a huge black panther with silver crescent markings and eyes like full moons, moving silently through dark mist',
@@ -452,6 +466,7 @@ export const shopArt = (id: string) => `/art/shop/${id}.jpg`;
 export const matArt = (id: string) => `/art/shop/mat_${id}.jpg`;
 export const zoneArt = (id: string) => `/art/zones/${id}.jpg`;
 export const MARKET_ART = '/art/zones/market.jpg';
+export const bookArt = (cls: string) => `/art/shop/book_${cls}.jpg`;
 // English descriptions used only to build prompts on the server (the browser sends just the id).
 export const PROP_EN: Record<string, string> = {
   taming0: 'a rectangular spirit-taming contract tablet of warm yellow jade with a glowing knot pattern and a silk tassel',
@@ -472,6 +487,15 @@ export const PROP_EN: Record<string, string> = {
   mat_hoatinh: 'a fiery red-orange fire-spirit crystal stone with drifting embers',
   mat_loitinh: 'a crystal vial of violet lightning-essence sand with tiny sparks inside',
   mat_uminh: 'a ghostly dark indigo lotus flower glowing violet, with wisps of shadow',
+  book_kiem: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark blue leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a sword, glowing faintly',
+  book_thuong: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark red leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a spear, glowing faintly',
+  book_cung: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark green leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a bow, glowing faintly',
+  book_dao: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark brown leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a curved saber, glowing faintly',
+  book_quyen: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark orange leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a clenched fist, glowing faintly',
+  book_cam: 'an ancient Chinese music manual, a thin bound book with a plain smooth deep purple leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a zither, glowing faintly',
+  book_tieu: 'an ancient Chinese music manual, a thin bound book with a plain smooth teal leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a flute, glowing faintly',
+  book_phat: 'an ancient Chinese daoist manual, a thin bound book with a plain smooth ivory-white leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a fly whisk, glowing faintly',
+  book_method: 'an ancient Chinese cultivation scripture, a rolled scroll of aged paper with a smooth plain jade-green silk wrapping and carved jade end rollers, closed with a silk cord and a small carved jade charm in the shape of a lotus, glowing faintly',
 };
 export const PLACE_EN: Record<string, string> = {
   thanhvan: 'a misty green mountain valley at dawn with a clear stream, bamboo and pines, soft golden light rays, a serene beginning of a journey',

@@ -9,19 +9,8 @@
   .loadBox span::after { content: ''; display: inline-block; width: 1.4em; text-align: left; animation: dots 1.4s steps(4) infinite; }
   @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75%, 100% { content: '...'; } }
 
-  .top { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3) var(--sp-5); margin: 0 calc(var(--pad) * -1) var(--sp-5); padding: 8px var(--pad); background: linear-gradient(180deg, rgb(4 10 16 / 0.86), rgb(4 10 16 / 0.58)); -webkit-backdrop-filter: var(--bf-top); backdrop-filter: var(--bf-top); border-bottom: 1px solid var(--line-gold); box-shadow: 0 14px 40px -22px #000; animation: enter-down var(--dur-slower) var(--ease-out) both; }
-  .top::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-300), transparent); opacity: 0.55; pointer-events: none; }
-  .brand { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; }
-  .brand h1.wm { line-height: 0; margin: 0; flex: none; }
-  .brand h1.wm .lockup { width: var(--lk, 168px); height: auto; transition: width var(--dur-slow) var(--ease-out); filter: drop-shadow(0 2px 14px color-mix(in srgb, var(--gold-400) 28%, transparent)); }
-  .top.compact { --lk: 118px; }
-  .brand small { max-width: 250px; line-height: 1.3; font-family: var(--font-display); font-style: italic; font-size: var(--fs-md); letter-spacing: 0.02em; color: var(--text-3); transition: opacity var(--dur-base); }
-  .top.compact .brand small { opacity: 0; width: 0; overflow: hidden; }
-  .ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
-  .top-chip { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 4px 12px; border-radius: var(--r-pill); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.3); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.05em; color: var(--jade-200); }
 
   .main { display: grid; grid-template-columns: 350px minmax(0, 1fr) 400px; gap: var(--sp-4); align-items: start; }
-  @media (max-width: 1150px) { .main { grid-template-columns: 1fr; } }
   .main > .panel { animation: enter-up var(--dur-slower) var(--ease-out) both; }
   .main > .panel:nth-child(2) { animation-delay: 90ms; }
   .main > .panel:nth-child(3) { animation-delay: 180ms; }
@@ -237,7 +226,7 @@
 }
 @layer game {
   .eqPanel { display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 330px); overflow-y: auto; overflow-x: hidden; padding: 2px 4px 2px 2px; }
-  @media (max-width: 1150px) { .eqPanel, .grid.eq, .grid.pen, .grid.dex, .feed { max-height: none; } }
+  @media (max-width: 1150px) { .eqPanel, .grid.eq, .grid.pen, .grid.dex { max-height: none; } }
   .eqGuide { font-size: var(--fs-xs); line-height: 1.6; color: var(--text-3); }
   .eqGuide b { color: var(--gold-300); font-weight: 600; }
   .bodyGlow { position: absolute; z-index: 6; display: flex; align-items: flex-end; justify-content: center; transform: translate(-50%, -50%); border: 2px dashed var(--gold-300); border-radius: var(--r-md); pointer-events: none; background: color-mix(in srgb, var(--gold-400) 14%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--gold-400) 50%, transparent), inset 0 0 22px color-mix(in srgb, var(--gold-400) 38%, transparent); animation: glow-pulse 1.3s var(--ease-drift) infinite; }
@@ -356,22 +345,6 @@
   @keyframes storm-glow { 50% { filter: brightness(1.3); box-shadow: 0 0 40px 6px color-mix(in srgb, var(--violet-400) 70%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.65); } }
 }
 @layer game {
-  @media (max-width: 640px) {
-    .top { position: relative; flex-direction: column; align-items: stretch; gap: var(--sp-3); padding-block: 10px; }
-    .orbs { position: absolute; top: 12px; right: var(--pad); }
-    .top .brand small, .top-chip { display: none; }
-    .brand h1.wm .lockup { width: 150px; }
-    .ctl { justify-content: space-between; gap: var(--sp-2); }
-    .ctl .btn:not(.icon) .lbl { display: none; }
-    .ctl .btn:not(.icon) { width: 40px; padding: 0; border-radius: 50%; }
-    .pop-body { position: fixed; left: 12px; right: 12px; top: 64px; width: auto !important; max-width: none; }
-    .pop-body::before { display: none; }
-  }
-}
-@layer game {
-  .orbs { display: flex; align-items: center; gap: var(--sp-3); }
-}
-@layer game {
   /* paper-doll equipment slots in the Trang bị tab (the portrait is for looking only) */
   .eqTitle { margin: 0; text-align: center; font-family: var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-300); }
   .eqDoll { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto auto auto; grid-template-areas: 'tal . . head' 'wpn acc robe back' 'ring . . foot'; gap: var(--sp-4) var(--sp-2); padding: var(--sp-3) var(--sp-2); }
@@ -380,4 +353,17 @@
   .eqDoll .slotTile .mold { width: 56px; height: 56px; }
   .eqDoll .slotTile.tall .mold { width: 56px; height: 100px; }
   .eqDoll .slotTile.tall.filled { padding-block: 22px; }
+}
+@layer game {
+  /* support skills in the fight log and on the stage */
+  .bdmg.fx { font-size: var(--fs-sm); color: var(--jade-300); text-align: right; }
+  .bact.m .bdmg.fx { color: var(--gold-300); }
+  .stDmg.fx { color: var(--jade-300); }
+}
+@layer game {
+  .chip.grp { border-color: color-mix(in srgb, var(--grp, var(--line)) 60%, transparent); color: var(--grp, var(--text-2)); cursor: default; }
+  .chip.grp.atk { --grp: var(--cinnabar-300); } .chip.grp.def { --grp: #8ab4ff; } .chip.grp.heal { --grp: var(--jade-300); }
+  .chip.grp.buff { --grp: var(--gold-300); } .chip.grp.debuff { --grp: #c9a0ff; } .chip.grp.ctrl { --grp: #ffb27a; }
+  button.chip.grp { cursor: pointer; background: transparent; } button.chip.grp.on { background: color-mix(in srgb, var(--grp, var(--gold-300)) 18%, transparent); }
+  .artFilter { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 }

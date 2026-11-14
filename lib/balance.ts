@@ -42,6 +42,15 @@ export const BALANCE = {
   minDamage: 1,
   critCap: 0.75,
   damageVariance: 0.1,
+  skillSlotsByRealm: [2, 2, 3, 3, 4, 4, 5, 5, 6],   // Skill_Slots_By_Realm (Requirement 18.9): technique slots of each môn pháp, by Realm
+  bookTierWeights: [8, 4, 2, 1],         // how often a Bí Công of each tier (Hoàng to Thiên) is the one that drops
+  bookDropP: 0.10, bookEliteMult: 1.5,   // chance of a Bí Công after a win; Tinh Anh and Dị Biến foes are likelier
+  dupBookStones: [10, 25, 60, 150],      // Linh Thạch for a Bí Công of a technique the player already knows, by tier (Hoàng, Huyền, Địa, Thiên)
+  playerCoefScale: 1.0,
+  healScale: 1.0,                // a healing skill restores attack x power x this x the combat pace
+  methodAffinityBonus: 0.10,     // Method_Affinity_Bonus: a Công Pháp whose element is in the Linh Căn cultivates faster
+  methodStatBias: 0.06,          // Method_Stat_Bias: share of the base stat added to each stat a Công Pháp favours
+  methodDropP: 0.015,            // chance of a Công Pháp scroll after a win
   spiritRegenPct: 0.08,        // Spirit that comes back each round, as a share of the maximum
   offElementPenalty: 0.7,      // Off_Element_Penalty (Requirement 18.2): a skill of an element the user does not have
   foeCoefScale: 0.85, beastCoefScale: 0.65,   // keep the damage of foes and Linh Thú near what they did before skills had power, cost and cooldown
@@ -127,10 +136,10 @@ export const BALANCE = {
   autoBreakMinProb: 0.5,
   // player settings defaults (Requirement 1.8)
   // Items go to the bag and the player decides (autoEquip off, no auto-dissolve). Tu Sĩ fights and Linh Thú taming ask the player unless an auto setting is on.
-  defaults: { retreatPct: 30, resumePct: 80, autoPill: true, autoTame: false, autoBreak: false, autoEquip: false, autoFight: false, dissolveMax: -1 },
+  defaults: { retreatPct: 30, resumePct: 80, autoPill: true, autoTame: false, autoBreak: false, autoEquip: false, autoFight: false, autoLearn: true, dissolveMax: -1 },
   // shop (Requirement 24)
   shop: {
-    taming: [10, 50, 250, 1250],
+    taming: [30, 120, 500, 2200],
     hp: [20, 60, 200],
     breakthrough: [200, 2000, 15000, 100000], // target Realm 2, 3, 4, 5
     tribulation: 2000,
@@ -187,6 +196,8 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   need(1 + b.sizeHpCoef * (b.sizeMin - 1) > 0, 'Hệ số kích thước của Max_HP phải dương tại Size_Min');
   need(1 - b.sizeSpeedCoef * (b.sizeMax - 1) > 0, 'Hệ số kích thước của Speed phải dương tại Size_Max');
   // Requirement 14
+  need(b.skillSlotsByRealm.length === 9 && b.skillSlotsByRealm.every((x, i) => isInt(x) && x >= 1 && (i === 0 || x >= b.skillSlotsByRealm[i - 1])), 'Skill_Slots_By_Realm phải gồm 9 số nguyên >= 1 và không giảm');
+  need(b.bookDropP >= 0 && b.bookDropP <= 1 && b.bookEliteMult >= 1 && b.bookTierWeights.length === 4 && b.bookTierWeights.every((x) => x > 0) && b.dupBookStones.length === 4 && b.dupBookStones.every((x) => isInt(x) && x >= 0) && b.playerCoefScale > 0 && b.healScale > 0 && b.methodAffinityBonus >= 0 && b.methodStatBias >= 0 && b.methodDropP >= 0 && b.methodDropP <= 1, 'Book_* không hợp lệ');
   need(b.offElementPenalty > 0 && b.offElementPenalty < 1 && b.spiritRegenPct >= 0 && b.spiritRegenPct <= 1 && b.foeCoefScale > 0 && b.beastCoefScale > 0, 'Skill_* không hợp lệ');
   need(b.weakMult > 0 && b.weakMult < b.neutralMult && b.neutralMult < b.strongMult && b.sameElementBonus >= 1, 'Element multiplier không hợp lệ');
   // Requirement 19, 20

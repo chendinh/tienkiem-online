@@ -108,6 +108,7 @@ export function SettingsModal({ st, act, onClose }: { st: GS; act: Act; onClose:
           <div className="row">
             <label className="tg"><input type="checkbox" checked={s.autoEquip} onChange={(e) => patch({ autoEquip: e.target.checked })} /> Tự mặc đồ mạnh hơn (tắt: đồ nhặt được nằm trong túi để ngươi chọn)</label>
             <label className="tg"><input type="checkbox" checked={s.autoBreak} onChange={(e) => patch({ autoBreak: e.target.checked })} /> Tự đột phá khi đủ an toàn</label>
+            <label className="tg"><input type="checkbox" checked={s.autoLearn} onChange={(e) => patch({ autoLearn: e.target.checked })} /> Tự học Bí Công khi nhặt được (tắt: Bí Công nằm trong tab Thần Thông để ngươi tự học)</label>
             <label className="tg"><input type="checkbox" checked={s.autoFight} onChange={(e) => patch({ autoFight: e.target.checked })} /> Tự giao chiến với Tu Sĩ</label>
           </div>
           <div className="hint">Tắt tự động thì hành trình dừng lại chờ ngươi chọn: thu phục Linh Thú đáng chú ý, giao chiến hay tránh Tu Sĩ, đột phá khi tới Bình Cảnh. Khi ngươi vắng mặt, hành trình dừng ở câu hỏi đó cho tới khi ngươi quay lại.</div>

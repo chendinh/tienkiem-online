@@ -6,7 +6,7 @@ import { Icon } from './ds/Icon';
 import { ElIcon } from './Icons';
 import { Img } from './ui';
 import { useFx } from './fx/FxProvider';
-import { parseLog } from './Battle';
+import { parseLog, FX_LABEL } from './Battle';
 
 // A short staged replay of the fight that was just written to the journey: both fighters face each other, whoever acts lunges, the technique
 // flies across in its element's colour, the number rises from whoever was hit, and the two health bars follow the log.
@@ -16,10 +16,14 @@ const MAX_MS = 16000;   // the longest a replay plays (a new fight replaces it a
 const stepOf = (n: number) => Math.max(320, Math.min(520, MAX_MS / Math.max(1, n)));
 
 type Props = { e: FeedEntry; hero?: string; heroEl: string; onDone: () => void };
-type Act = { w: 'p' | 'b' | 'm'; n: string; k?: string; e?: string; d: number; c: number; x: number; h?: number; hm?: number };
+type Act = { w: 'p' | 'b' | 'm'; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; d: number; c: number; x: number; h?: number; hm?: number };
 
 // A Tu Sĩ has no portrait of its own: it borrows one of the two pre-drawn cultivators, chosen from its name so the same person always looks the same.
 const npcArt = (name: string) => C.introArt([...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 2 ? 'f' : 'm');
+
+// Who a line lands on: a hit lands on the other side; a heal or a self buff on the one who cast it; a weakening or stun on the other side.
+const SELF_FX = new Set(['heal', 'guard', 'atkUp', 'critUp', 'skip']);
+const recipientIsFoe = (a: Act) => (a.f ? (SELF_FX.has(a.f) ? a.w === 'm' : a.w !== 'm') : a.w !== 'm');
 
 export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   const fx = useFx();
@@ -42,14 +46,16 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       { duration: crit ? 460 : 320 });
     const play = (k: number) => {
       if (k >= acts.length) { setI(acts.length); timers.push(setTimeout(end, 900)); return; }
-      const a = acts[k], foeActs = a.w === 'm';
+      const a = acts[k], foeActs = a.w === 'm', toFoe = recipientIsFoe(a);
       setI(k);
       lunge(foeActs ? foeRef.current : youRef.current, foeActs ? -1 : 1);
       timers.push(setTimeout(() => {
-        const t = (foeActs ? youRef.current : foeRef.current), r = t?.getBoundingClientRect();
-        hit(t, !!a.c);
-        setHp((h) => (foeActs ? { ...h, you: a.h ?? h.you } : { ...h, foe: a.h ?? h.foe }));
-        if (r) fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.45, kind: a.c ? 'gold' : 'spark', color: a.e && C.EL[a.e] ? C.EL[a.e].color : undefined, count: a.c ? 18 : 7 });
+        const t = (toFoe ? foeRef.current : youRef.current), r = t?.getBoundingClientRect();
+        if (!a.f) hit(t, !!a.c);
+        // the health bar that moves is the one the log line describes (`ts`); older logs always meant the one that was hit
+        const barIsFoe = a.ts ? a.ts === 'm' : toFoe;
+        setHp((h) => (barIsFoe ? { ...h, foe: a.h ?? h.foe } : { ...h, you: a.h ?? h.you }));
+        if (r) fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.45, kind: a.c ? 'gold' : 'spark', color: a.f ? (a.f === 'heal' || a.f === 'guard' || a.f === 'atkUp' || a.f === 'critUp' ? '#8ee6a8' : '#eed08a') : a.e && C.EL[a.e] ? C.EL[a.e].color : undefined, count: a.c ? 18 : a.f ? 5 : 7 });
       }, step * 0.42));
       timers.push(setTimeout(() => play(k + 1), step));
     };
@@ -58,7 +64,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   }, [e.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open || acts.length === 0 || fx.level === 'off') return null;
-  const cur = i >= 0 && i < acts.length ? acts[i] : null, foeActs = cur?.w === 'm';
+  const cur = i >= 0 && i < acts.length ? acts[i] : null, foeActs = cur?.w === 'm', curToFoe = cur ? recipientIsFoe(cur) : false;
   const col = cur?.e && C.EL[cur.e] ? C.EL[cur.e].color : 'var(--gold-300)';
   const foeEl = open.o.fe[0], won = verdict === 'Thắng', lost = verdict === 'Bại';
   const youPct = Math.max(0, Math.min(100, (hp.you / Math.max(1, open.o.pm)) * 100)), foePct = Math.max(0, Math.min(100, (hp.foe / Math.max(1, open.o.fh)) * 100));
@@ -85,8 +91,8 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
         <small>{open.o.f}</small>
       </div>
 
-      {cur && <span key={`p${i}`} className={`stProj ${foeActs ? 'l' : 'r'}`} style={{ '--el': col, animationDuration: `${stepOf(acts.length) * 0.5}ms` } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={22} /> : <Icon name="atk" size={22} />}</span>}
-      {cur && <span key={`d${i}`} className={`stDmg ${foeActs ? 'you' : 'foe'} ${cur.c ? 'crit' : ''}`} style={{ '--el': col } as CSSProperties}>{cur.c ? 'Bạo kích! ' : ''}−{cur.d.toLocaleString('vi-VN')}</span>}
+      {cur && !cur.f && <span key={`p${i}`} className={`stProj ${foeActs ? 'l' : 'r'}`} style={{ '--el': col, animationDuration: `${stepOf(acts.length) * 0.5}ms` } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={22} /> : <Icon name="atk" size={22} />}</span>}
+      {cur && <span key={`d${i}`} className={`stDmg ${curToFoe ? 'foe' : 'you'} ${cur.c ? 'crit' : ''} ${cur.f ? 'fx' : ''}`} style={{ '--el': col } as CSSProperties}>{cur.f ? (FX_LABEL[cur.f] || (() => ''))(cur.a ?? 0) : <>{cur.c ? 'Bạo kích! ' : ''}−{cur.d.toLocaleString('vi-VN')}</>}</span>}
       {i >= acts.length && <div className={`stVerdict ${won ? 'win' : lost ? 'lose' : ''}`}>{won ? 'Đại thắng' : lost ? 'Thua trận' : 'Hòa'}</div>}
     </div>
   );

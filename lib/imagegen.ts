@@ -1,16 +1,15 @@
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { buildPlan, itemObject, STYLE_VERSION, type Plan } from './imageprompt';
 import * as C from './content';
 import { ask, llmEnabled, parseJson, imageBudget, addImageCost } from './llm';
+import { hasImage, getImage, putImage, claimJob, releaseJobs } from './server/images';
 
-// Server-side image service: one art direction, a shared disk cache, a small priority queue, spend caps.
+// Server-side image service: one art direction, a shared picture cache, a small priority queue, spend caps.
 // Subjects that must stay identical (outfit changes, mutated monsters) are drawn by EDITING a reference image.
-// Generated pictures are kept one folder per kind: data/gen/<kind>/<id>.jpg, the JSON that describes it (<id>.json) and the small copy (<id>.sm.jpg).
-// The id (a hash of everything that went into the picture) is all a saved game remembers, so /api/img/<id> never has to know the folder.
-// Files from before the folders existed sit directly in data/gen/ and are still found (npm run gen:organize moves them).
+// Generated pictures are kept in the images table (lib/server/images.ts), with the JSON that describes each one next to it.
+// The id (a hash of everything that went into the picture) is all a saved game remembers, so /api/img/<id> never has to know where it is kept.
+// GEN_ROOT is the old data/gen folder: only the scripts that move old files (gen:organize, db:migrate) still read it.
 export const GEN_ROOT = path.join(process.cwd(), 'data', 'gen');
 export const GEN_KINDS = ['avatar', 'pose', 'outfit', 'item', 'monster', 'place', 'prop'] as const;
 export const GEN_OTHER = 'other';   // a kind this code does not know, and pictures whose description file is missing
@@ -34,10 +33,8 @@ export function folderFor(meta: { kind?: unknown; spec?: any; prompt?: unknown }
   const misc = typeof meta?.prompt === 'string' && meta.prompt.includes('inventory icon of ');
   return path.join('item', slot || (misc ? ITEM_MISC : GEN_OTHER));
 }
-const SEARCH = [...GEN_KINDS, GEN_OTHER].map((k) => path.join(GEN_ROOT, k)).concat(C.SLOTS.map((s) => path.join(GEN_ROOT, 'item', s)), path.join(GEN_ROOT, 'item', ITEM_MISC), path.join(GEN_ROOT, 'item', GEN_OTHER), GEN_ROOT);
-const placed = new Map<string, string>();   // id -> folder it was last found in
 type Provider = 'pollinations' | 'cloudflare' | 'fal' | 'together' | 'openai' | 'off';
-interface Job extends Plan { id: string; t: number; seen: number; attempt: number; refFiles?: string[]; refIds?: string[]; spec?: any }
+interface Job extends Plan { id: string; t: number; seen: number; attempt: number; refIds?: string[]; spec?: any }
 interface Store { locked?: { until: number; reason: string }; queue: Job[]; running: number; inflight: Set<string>; failed: Map<string, number>; started: { t: number; item: boolean }[]; lastStart: number; timer: any }
 const g = globalThis as any;
 const S: Store = g.__tutienImg || (g.__tutienImg = { queue: [], running: 0, inflight: new Set(), failed: new Map(), started: [], lastStart: 0, timer: null });
@@ -126,7 +123,9 @@ function multiEditInput(model: string, j: Job, urls: string[], res: string) {
 }
 
 interface Gen { buf: Buffer; model: string; requestId?: string; cost?: number }
-async function generate(name: Provider, j: Job): Promise<Gen> {
+type Pic = { buf: Buffer; ext: string };
+// refs: the reference pictures of an edit, in the order of j.refIds
+async function generate(name: Provider, j: Job, refs: Pic[]): Promise<Gen> {
   const e = process.env;
   switch (name) {
     case 'pollinations':
@@ -141,11 +140,11 @@ async function generate(name: Provider, j: Job): Promise<Gen> {
       const { fal } = await import('@fal-ai/client');
       const m = falModels();
       let model = j.kind === 'item' ? m.item : j.kind === 'avatar' ? m.avatar : j.kind === 'monster' || j.kind === 'place' ? m.creature : m.t2i, input: any, qual = '';
-      if (j.refFiles && j.refFiles.length && j.editPrompt) {
+      if (refs.length && j.editPrompt) {
         // every reference picture goes up first, all at once
-        const urls = await withTimeout(Promise.all(j.refFiles.map(async (f) => {
-          const mime = f.endsWith('.png') ? 'image/png' : f.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
-          const u = await fal.storage.upload(new Blob([new Uint8Array(await fsp.readFile(f))], { type: mime }));
+        const urls = await withTimeout(Promise.all(refs.map(async (p) => {
+          const mime = p.ext === 'png' ? 'image/png' : p.ext === 'webp' ? 'image/webp' : 'image/jpeg';
+          const u = await fal.storage.upload(new Blob([new Uint8Array(p.buf)], { type: mime }));
           falHost(u);
           return u;
         })), 90000, 'fal upload');
@@ -164,7 +163,7 @@ async function generate(name: Provider, j: Job): Promise<Gen> {
       if (!img?.url) throw new Error('fal: no image in result');
       falHost(img.url);
       const cost = falCost(model, j.width, j.height, qual);
-      addImageCost(cost);
+      await addImageCost(cost);
       console.log('[imagegen] fal', model, 'request', res.requestId);
       return { model, requestId: res.requestId, cost, buf: await fetchRetry(img.url) };
     }
@@ -181,29 +180,14 @@ async function generate(name: Provider, j: Job): Promise<Gen> {
   throw new Error('provider off');
 }
 
-function find(id: string): { file: string; ext: string; crop: number } | null {
-  const known = placed.get(id), dirs = known ? [known, ...SEARCH] : SEARCH;
-  for (const dir of dirs) {
-    for (const ext of ['jpg', 'png', 'webp']) {
-      const file = path.join(dir, `${id}.${ext}`);
-      if (fs.existsSync(file)) {
-        placed.set(id, dir);
-        let crop = 0;
-        try { crop = JSON.parse(fs.readFileSync(path.join(dir, `${id}.json`), 'utf8')).crop || 0; } catch {}
-        return { file, ext, crop };
-      }
-    }
-  }
-  placed.delete(id);
-  return null;
-}
-export function fileFor(id: string) { return /^[a-f0-9]{20}$/.test(id) ? find(id) : null; }
+// Is there a picture with this id? (the extension and the crop, not the picture)
+export async function fileFor(id: string) { return /^[a-f0-9]{20}$/.test(id) ? hasImage(id) : null; }
 export const idFromUrl = (u: string) => u.split('/').pop() || '';
 
 // Claude (vision) checks that the picture matches what was asked, so bad results are redrawn instead of shown.
 // Edits (an outfit change, a mutated monster) are also compared with the picture they were made from.
 const QA: Record<string, string> = {
-  item: 'Is this a single inanimate object (a weapon, clothing, jewelry, talisman or similar item) shown on its own, with NO person, face or hands visible?',
+  item: 'Is this a single inanimate object (a weapon, clothing, jewelry, talisman, bound manual book or similar item) shown on its own, with NO person, face or hands visible?',
   monster: 'Does this show a creature (an animal or mythical beast) with NO human person in it?',
   avatar: 'Is this ONE person standing, drawn as a high-quality fantasy illustration or a realistic 3D game render (a realistic look is wanted; not pixel art, not a collage, not a snapshot of a real person in modern clothes), with the whole body visible from head to feet, the face turned toward the viewer (front or three-quarter view, not in strict profile, not from behind), and natural balanced adult body proportions (not chibi, no oversized head, no very short legs)?',
   outfit: 'Is this ONE person in East Asian fantasy clothing, drawn as a high-quality fantasy illustration or a realistic 3D game render (a realistic look is wanted; not pixel art, not a collage, not a snapshot of a real person in modern clothes), with the face visible and natural balanced adult body proportions (not chibi, no oversized head, no very short legs)?',
@@ -231,7 +215,6 @@ Start your answer directly with the JSON object and write nothing before it. For
 const NOTEXT = ' Also answer false if any readable text, letters, calligraphy, a seal stamp, a signature or a watermark is visible anywhere in the picture.';
 const NOTEXT_ITEM = ' Also answer false if the item or its surroundings show anything that looks like writing, even small, faint or decorative: Chinese characters, rune-like or glyph-like marks, calligraphy, letters, numbers, a seal stamp, a signature or a watermark.';
 const imageBlock = (buf: Buffer, ext: string) => ({ type: 'image', source: { type: 'base64', media_type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg', data: buf.toString('base64') } });
-type Pic = { buf: Buffer; ext: string };
 // refs: the pictures an edit was made from (original first). labels: what refs[1..] show (outfit only).
 export async function review(kind: string, buf: Buffer, ext: string, refs?: Pic[], labels?: string[]): Promise<{ ok: boolean; why: string }> {
   const multi = kind === 'outfit' && !!refs && refs.length > 1 && !!labels && labels.length === refs.length - 1;
@@ -276,13 +259,20 @@ async function run(j: Job) {
   const P = provider();
   let requeued = false;
   try {
-    if (P.paid) { const ib = imageBudget(); if (ib.spentUsd >= ib.capUsd) { console.warn('[imagegen] image budget reached, not drawing', j.id); return; } }
+    if (P.paid) { const ib = await imageBudget(); if (ib.spentUsd >= ib.capUsd) { console.warn('[imagegen] image budget reached, not drawing', j.id); return; } }
+    // The pictures this one is edited from (the character's base picture, item icons ...), read once from the database.
+    const refPics: Pic[] = [];
+    for (const rid of j.refIds || []) {
+      const im = await getImage(rid);
+      if (!im) throw new Error('reference picture is gone: ' + rid);
+      refPics.push({ buf: im.data, ext: im.ext });
+    }
     // Transient failures (network, fal hiccups, a non-image answer) are retried here so the player does not see them.
     // A 403 is not transient (balance or key): it goes straight to the lock below.
     let out!: Gen, ext = '';
     for (let n = 0; ; n++) {
       try {
-        out = await generate(P.name, j);
+        out = await generate(P.name, j, refPics);
         ext = sniff(out.buf);
         if (!ext) throw new Error('not an image');
         break;
@@ -292,10 +282,8 @@ async function run(j: Job) {
         await new Promise((r) => setTimeout(r, 2000 * (n + 1)));
       }
     }
-    let refPics: Pic[] | undefined;
-    if (j.refFiles && j.refFiles.length) { try { refPics = await Promise.all(j.refFiles.map(async (f) => ({ buf: await fsp.readFile(f), ext: path.extname(f).slice(1) }))); } catch {} }
-    const v = await review(j.kind, out.buf, ext, refPics, j.refLabels);
-    if (!v.ok && j.attempt < (j.refFiles && j.refFiles.length ? 1 : j.kind === 'item' ? 3 : 2)) {
+    const v = await review(j.kind, out.buf, ext, refPics.length ? refPics : undefined, j.refLabels);
+    if (!v.ok && j.attempt < (refPics.length ? 1 : j.kind === 'item' ? 3 : 2)) {
       console.warn('[imagegen] rejected', j.kind, j.id, v.why);
       requeued = true;
       S.queue.push({ ...j, seed: j.seed + 7919 * (j.attempt + 1), attempt: j.attempt + 1, t: Date.now(), seen: Date.now() });
@@ -305,30 +293,39 @@ async function run(j: Job) {
     // avatar, and a slightly imperfect icon is better than an avatar that can never be redrawn. Monsters keep the glyph tile.
     if (!v.ok && j.kind === 'monster') throw new Error('rejected by review: ' + v.why);
     if (!v.ok) console.warn('[imagegen] kept after review', j.kind, j.id, v.why);
-    const dir = path.join(GEN_ROOT, folderFor({ kind: j.kind, spec: j.spec, prompt: j.prompt }));
-    await fsp.mkdir(dir, { recursive: true });
-    await fsp.writeFile(path.join(dir, `${j.id}.json`), JSON.stringify({ crop: P.crop, spec: j.spec, provider: P.name, model: out.model, kind: j.kind, prompt: j.prompt, editPrompt: j.editPrompt, ref: j.refIds ? j.refIds.join(',') : undefined, seed: j.seed, requestId: out.requestId, cost: out.cost, attempt: j.attempt, date: new Date().toISOString() }));
-    const tmp = path.join(dir, `${j.id}.tmp`);
-    await fsp.writeFile(tmp, out.buf);
-    await fsp.rename(tmp, path.join(dir, `${j.id}.${ext}`));
-    placed.set(j.id, dir);
+    const folder = folderFor({ kind: j.kind, spec: j.spec, prompt: j.prompt });
+    await putImage({
+      id: j.id, kind: kindFolder(j.kind), folder, ext, data: out.buf,
+      meta: { crop: P.crop, spec: j.spec, provider: P.name, model: out.model, kind: j.kind, prompt: j.prompt, editPrompt: j.editPrompt, ref: j.refIds ? j.refIds.join(',') : undefined, seed: j.seed, requestId: out.requestId, cost: out.cost, attempt: j.attempt, date: new Date().toISOString() },
+    });
   } catch (err: any) {
     S.failed.set(j.id, Date.now());
     const detail = err?.body ? JSON.stringify(err.body).slice(0, 240) : '';
     console.warn('[imagegen] failed', j.id, String(err?.message || err).slice(0, 200), detail);
     // 403 from the provider (for example an exhausted balance): stop sending billable jobs, do not retry
-    if (err?.status === 403) { S.locked = { until: Date.now() + 15 * 60e3, reason: detail || 'Forbidden' }; S.queue.length = 0; S.inflight.clear(); }
+    if (err?.status === 403) {
+      S.locked = { until: Date.now() + 15 * 60e3, reason: detail || 'Forbidden' };
+      await releaseJobs(S.queue.map((q) => q.id));
+      S.queue.length = 0; S.inflight.clear();
+    }
   } finally {
-    if (!requeued) S.inflight.delete(j.id);
+    if (!requeued) { S.inflight.delete(j.id); await releaseJobs([j.id]); }
   }
+}
+
+// Resolves when nothing is drawing or waiting any more. A serverless route hands this to after(), so the function stays alive until its pictures are saved.
+export async function idle(maxMs = 280000): Promise<void> {
+  const end = Date.now() + maxMs;
+  while ((S.running > 0 || S.queue.length > 0) && Date.now() < end) await new Promise((r) => setTimeout(r, 400));
 }
 
 function pump() {
   const P = provider();
   if (!P.enabled) return;
   // drop jobs nobody has asked about for 90 s (their component is gone), then order by priority
-  const now0 = Date.now();
-  S.queue = S.queue.filter((j) => (now0 - j.seen < 90000 ? true : (S.inflight.delete(j.id), false)));
+  const now0 = Date.now(), dropped: string[] = [];
+  S.queue = S.queue.filter((j) => (now0 - j.seen < 90000 ? true : (S.inflight.delete(j.id), dropped.push(j.id), false)));
+  if (dropped.length) void releaseJobs(dropped);
   S.queue.sort((a, b) => a.pri - b.pri || a.t - b.t);
   while (S.running < P.concurrency && S.queue.length) {
     const wait = S.lastStart + P.minIntervalMs - Date.now();
@@ -344,59 +341,63 @@ export type Result = { status: 'ready' | 'pending' | 'failed' | 'limited' | 'dis
 const RANK: Record<string, number> = { pending: 1, failed: 2, limited: 3, disabled: 4, invalid: 4 };
 const worse = (a: string, b: string) => ((RANK[b] || 0) > (RANK[a] || 0) ? b : a);
 // One reference picture of an edit: a file that already exists (the character's own base picture) or a spec that is looked up or drawn like any other picture.
-function refPicture(r: any, pri: number): { status: Result['status']; file?: string; id?: string } {
+async function refPicture(r: any, pri: number): Promise<{ status: Result['status']; id?: string }> {
   if (r && r.kind === 'file') {
-    const f = typeof r.id === 'string' ? fileFor(r.id) : null;
-    if (f) return { status: 'ready', file: f.file, id: r.id };
-    // The character's old base picture is gone from disk: draw the base again from the look instead of failing for ever.
+    const f = typeof r.id === 'string' ? await fileFor(r.id) : null;
+    if (f) return { status: 'ready', id: r.id };
+    // The character's old base picture is gone: draw the base again from the look instead of failing for ever.
     if (r.fallback) return refPicture({ ...r.fallback, pri }, pri);
     return { status: 'failed' };
   }
-  const rr = request({ ...r, pri });
+  const rr = await request({ ...r, pri });
   if (rr.status !== 'ready') return { status: rr.status };
-  const id = idFromUrl(rr.url!), f = find(id);
-  return f ? { status: 'ready', file: f.file, id } : { status: 'pending' };
+  const id = idFromUrl(rr.url!);
+  return (await hasImage(id)) ? { status: 'ready', id } : { status: 'pending' };
 }
-export function request(spec: any): Result {
+export async function request(spec: any): Promise<Result> {
   const P = provider();
   if (!P.enabled) return { status: 'disabled' };
   let plan: Plan;
   try { plan = buildPlan(spec); } catch { return { status: 'invalid' }; }
   // An edit needs all its reference pictures first (only the fal provider can edit; others redraw from the full text).
   // Every reference is requested before answering, so the missing ones are drawn one after another without extra round trips.
-  let refFiles: string[] | undefined;
   const refIds: string[] = [];
   if (plan.refs && plan.refs.length && P.name === 'fal') {
     let worst = '';
-    const files: string[] = [];
     for (const r of plan.refs) {
-      const x = refPicture(r, plan.pri);
-      if (x.status === 'ready') { files.push(x.file!); refIds.push(x.id!); } else worst = worse(worst, x.status);
+      const x = await refPicture(r, plan.pri);
+      if (x.status === 'ready') refIds.push(x.id!); else worst = worse(worst, x.status);
     }
     if (worst) return { status: worst as Result['status'] };
-    refFiles = files;
   }
   const tag = P.name === 'fal' ? modelTag(plan.kind) : '';
-  const id = crypto.createHash('sha1').update(`${STYLE_VERSION}|${P.name}|${tag}|${plan.prompt}|${refFiles ? plan.editPrompt : ''}|${refIds.join(',')}|${plan.width}x${plan.height}|${plan.seed}`).digest('hex').slice(0, 20);
-  const hit = find(id);
+  // The id of a picture must stay exactly what it was in the file version: saved games remember it.
+  const id = crypto.createHash('sha1').update(`${STYLE_VERSION}|${P.name}|${tag}|${plan.prompt}|${refIds.length ? plan.editPrompt : ''}|${refIds.join(',')}|${plan.width}x${plan.height}|${plan.seed}`).digest('hex').slice(0, 20);
+  const hit = await hasImage(id);
   if (hit) return { status: 'ready', url: `/api/img/${id}`, crop: hit.crop };
   if (S.inflight.has(id)) { const q = S.queue.find((x) => x.id === id); if (q) q.seen = Date.now(); return { status: 'pending' }; }
   const f = S.failed.get(id);
   if (f && Date.now() - f < 45 * 1000) return { status: 'failed' };
   // pictures that already exist are always served; only NEW paid drawings stop while the provider is locked or the budget is used up
   if (S.locked && S.locked.until > Date.now()) return { status: 'limited' };
-  if (P.paid) { const ib = imageBudget(); if (ib.spentUsd >= ib.capUsd) return { status: 'limited' }; }
+  if (P.paid) { const ib = await imageBudget(); if (ib.spentUsd >= ib.capUsd) return { status: 'limited' }; }
   const hourAgo = Date.now() - 3600 * 1000;
   S.started = S.started.filter((x) => x.t > hourAgo);
   const isItem = plan.kind === 'item';
   const max = Number(isItem ? process.env.IMAGE_ITEM_MAX_PER_HOUR || (P.paid ? 150 : 200) : process.env.IMAGE_MAX_PER_HOUR || (P.paid ? 40 : 200));
   if (S.started.filter((x) => x.item === isItem).length + S.queue.filter((x) => (x.kind === 'item') === isItem).length >= max) return { status: 'limited' };
+  // Another server instance may already be drawing this picture (the claim is in the database): then it is simply "pending" here too.
+  if (!(await claimJob(id))) return { status: 'pending' };
+  // The picture may have been finished and its claim released between the first look and the claim: never pay for it twice.
+  const late = await hasImage(id);
+  if (late) { await releaseJobs([id]); return { status: 'ready', url: `/api/img/${id}`, crop: late.crop }; }
+  if (S.inflight.has(id)) return { status: 'pending' };   // another request of this instance queued it meanwhile
   S.inflight.add(id);
-  S.queue.push({ ...plan, id, t: Date.now(), seen: Date.now(), attempt: 0, refFiles, refIds: refIds.length ? refIds : undefined, spec });
+  S.queue.push({ ...plan, id, t: Date.now(), seen: Date.now(), attempt: 0, refIds: refIds.length ? refIds : undefined, spec });
   pump();
   return { status: 'pending' };
 }
-export function info() {
+export async function info() {
   const P = provider();
-  return { enabled: P.enabled, provider: P.name, ...(P.name === 'fal' ? falModels() : {}), ...(S.locked && S.locked.until > Date.now() ? { locked: S.locked.reason } : {}), ...(P.paid ? { budget: imageBudget() } : {}), queued: S.queue.length, running: S.running, minIntervalSec: P.minIntervalMs / 1000 };
+  return { enabled: P.enabled, provider: P.name, ...(P.name === 'fal' ? falModels() : {}), ...(S.locked && S.locked.until > Date.now() ? { locked: S.locked.reason } : {}), ...(P.paid ? { budget: await imageBudget() } : {}), queued: S.queue.length, running: S.running, minIntervalSec: P.minIntervalMs / 1000 };
 }

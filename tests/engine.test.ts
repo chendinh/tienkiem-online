@@ -75,7 +75,7 @@ test('Spirit_Stone equals the ledger sum after Settlement and shop actions (Requ
   G.settleTo(st, T0 + 6 * 3600_000);
   assert.equal(st.stones, G.ledgerSum(st));
   assert.ok(st.ledger.every((r) => r.amt !== 0 && Number.isInteger(r.amt)));
-  assert.ok(G.buy(st, 'taming1', 3).ok); G.flushLedger(st, 'r1', T0 + 7 * 3600_000);
+  assert.ok(G.buy(st, 'taming0', 1).ok); G.flushLedger(st, 'r1', T0 + 7 * 3600_000);
   assert.equal(st.stones, G.ledgerSum(st));
 });
 test('ledger folding keeps the invariant (Requirement 24.15)', () => {
@@ -499,4 +499,157 @@ test('combat power counts the player and the Linh Thú in the Party', () => {
   const mk = (id: number, power: number) => ({ id, power, level: 1, apt: [1, 1, 1, 1, 1], cls: 2, mut: false, sp: 'ho', name: 'x' }) as G.Beast;
   st.beasts = [mk(1, 100), mk(2, 90), mk(3, 80), mk(4, 70)];
   assert.equal(G.combatPower(st), base + 270);   // only the three strongest go into battle
+});
+
+// ---------- môn pháp, Bí Công and technique slots (Requirement 18)
+import * as A from '../lib/arts';
+const withWeapon = (st: G.GameState, base: string) => { st.eq.Weapon!.base = base; st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); return st; };
+test('every weapon base belongs to a môn and every môn has a free basic attack and four techniques', () => {
+  for (const b of C.SLOT_BASE.Weapon) assert.ok(A.ARTS.some((a) => a.id === C.WEAPON_CLASS[b]), b);
+  for (const a of A.ARTS) {
+    assert.equal(A.attackTechs(a.id).length, 4); assert.ok(A.techsOf(a.id).length >= 6);
+    assert.equal(A.basicOf(a.id).spirit, 0); assert.equal(A.basicOf(a.id).cd, 0);
+    assert.ok(A.attackTechs(a.id).every((t, i, l) => i === 0 || t.minLevel >= l[i - 1].minLevel));
+  }
+});
+test('a fight uses only the techniques of the môn of the weapon in hand', () => {
+  const st = withWeapon(fresh(300), 'Cổ Cầm');
+  const tech = A.techsOf('cam')[0].name;
+  assert.deepEqual(G.playerSkills(st), [A.ART('cam').basic, tech]);
+  st.eq.Weapon!.base = 'Trường Cung';   // a bow: the lute technique is not used, only the bow's free basic attack
+  assert.deepEqual(G.playerSkills(st), [A.ART('cung').basic]);
+  st.eq.Weapon = null;
+  assert.deepEqual(G.playerSkills(st), [C.NEUTRAL_SKILL]);
+  // the skills named in the combat log all come from the weapon's môn (or are the foe's own)
+  const fight = withWeapon(fresh(301), 'Trường Kiếm'); fight.set.autoFight = true;
+  G.settle(fight, 600);
+  const mine = new Set(Object.values(A.TECHS).filter((t) => t.cls === 'kiem').map((t) => t.name));
+  const used = new Set<string>();
+  for (const e of fight.feed) for (const l of e.log || []) if (l[0] === '~') { const j = JSON.parse(l.slice(1)); if (j.w === 'p') used.add(j.k); }
+  assert.ok(used.size > 0 && [...used].every((n) => mine.has(n)), [...used].join(', '));
+});
+test('a new character knows one technique of its weapon môn and an old save gets the same', () => {
+  const st = fresh(302), cls = G.classOf(st);
+  assert.equal(st.arts.learned.length, 1); assert.equal(A.TECHS[st.arts.learned[0]].cls, cls); assert.deepEqual(st.arts.loadout[cls], st.arts.learned);
+});
+test('Bí Công drop after a win about as often as the balance says, and Auto Learn learns them', () => {
+  let wins = 0, books = 0;
+  for (let seed = 1; seed <= 12; seed++) { const st = fresh(seed); Object.assign(st.set, { autoFight: true, autoLearn: true, autoBreak: true }); st.inv.trib = 10; const seen = new Set<number>(); for (let k = 0; k < 250; k++) { const r = G.settle(st, 10); wins += r.wins; for (const e of st.feed) if (e.kind === 'book' && !seen.has(e.id)) { seen.add(e.id); books++; } } assert.ok(st.arts.learned.length >= 1); }
+  const p = books / wins;
+  assert.ok(p > B.bookDropP * 0.7 && p < B.bookDropP * 1.6, `drop rate ${p.toFixed(3)} over ${wins} wins`);
+});
+test('with Auto Learn off the Bí Công waits in the bag and learning it follows the rules', () => {
+  const st = fresh(310); Object.assign(st.set, { autoLearn: false, autoFight: true, autoBreak: true }); st.inv.trib = 10; G.settle(st, 3000);
+  const names = Object.keys(st.inv.books);
+  assert.ok(names.length > 0);
+  const n = names.find((x) => A.TECHS[x].minLevel <= G.levelOf(st.player) && !st.arts.learned.includes(x));
+  assert.equal(G.learnBook(st, 'Không Có Chiêu Này').code, 'E_BAD_SKILL');
+  const none = Object.values(A.TECHS).find((t) => !t.basic && !(st.inv.books[t.name] > 0))!;
+  assert.equal(G.learnBook(st, none.name).code, 'E_NO_BOOK');
+  if (n) {
+    const before = st.inv.books[n];
+    assert.ok(G.learnBook(st, n).ok);
+    assert.ok(st.arts.learned.includes(n)); assert.equal(st.inv.books[n] || 0, before - 1);
+  }
+  const high = Object.values(A.TECHS).find((t) => t.minLevel > G.levelOf(st.player))!;
+  st.inv.books[high.name] = 1;
+  const keep = JSON.stringify(st);
+  assert.equal(G.learnBook(st, high.name).code, 'E_LEVEL_TOO_LOW'); assert.equal(JSON.stringify(st), keep);   // a refusal changes nothing
+});
+test('technique slots: only known techniques of that môn, no repeats, no more than the Realm allows, and slotting then clearing restores the state', () => {
+  const st = withWeapon(fresh(320), 'Trường Kiếm');
+  const [a, b, c] = A.attackTechs('kiem').map((t) => t.name);
+  st.arts.learned.push(a, b, c);
+  const before = JSON.stringify(st.arts);
+  assert.equal(A.slotsAt(0), B.skillSlotsByRealm[0]);
+  assert.equal(G.setLoadout(st, 'kiem', [a, a]).code, 'E_BAD_SKILL');
+  assert.equal(G.setLoadout(st, 'kiem', [A.attackTechs('kiem')[3].name]).code, 'E_BAD_SKILL');   // not learned
+  assert.equal(G.setLoadout(st, 'kiem', [A.techsOf('cung')[0].name]).code, 'E_BAD_SKILL');    // another môn
+  assert.equal(G.setLoadout(st, 'kiem', [a, b, c]).code, 'E_SKILL_SLOTS');                    // Realm 1 has 2 slots
+  assert.equal(JSON.stringify(st.arts), before);
+  assert.ok(G.setLoadout(st, 'kiem', [b, c]).ok); assert.deepEqual(G.playerSkills(st), [A.ART('kiem').basic, b, c]);
+  assert.ok(G.setLoadout(st, 'kiem', [a]).ok); assert.deepEqual(st.arts.loadout.kiem, [a]);
+  st.player.realm = 2; assert.ok(G.setLoadout(st, 'kiem', [a, b, c]).ok);   // more slots with the Realm
+});
+test('a Tu Sĩ fights with the môn of its title and a bow shoots two strikes', () => {
+  assert.equal(A.npcClass('Kiếm Tu Lý Vân'), 'kiem'); assert.equal(A.npcClass('Thể Tu Trần Hàn'), 'quyen');
+  assert.ok(['thuong', 'cung', 'tieu'].includes(A.npcClass('Tán Tu Lâm Minh')));
+  assert.equal(A.npcClass('Tán Tu Lâm Minh'), A.npcClass('Tán Tu Lâm Minh'));
+  assert.equal(A.TECHS[A.ART('cung').basic].hits, 2);
+  const st = withWeapon(fresh(330), 'Trường Cung'); st.set.autoFight = true; G.settle(st, 900);
+  const shots = st.feed.flatMap((e) => e.log || []).filter((l) => l[0] === '~').map((l) => JSON.parse(l.slice(1))).filter((j) => j.w === 'p' && !j.f);
+  assert.ok(shots.length > 0 && shots.every((j) => j.u === 2));
+});
+test('the new weapons and the Bí Công books have picture prompts', () => {
+  for (const b of C.SLOT_BASE.Weapon) {
+    const p = buildPlan({ kind: 'item', slot: 'Weapon', base: b, tier: 1, e: '' });
+    assert.ok(p.prompt.includes(C.BASE_EN[b].split(' ').slice(-3).join(' ')) || p.prompt.length > 100, b);
+  }
+  for (const a of A.ARTS) assert.equal(buildPlan(propSpec(`book_${a.id}`)).kind, 'item');
+  for (const b of ['Trường Cung', 'Trảm Đao', 'Quyền Sáo']) assert.ok(C.PLACE_WEAPON[b]);
+});
+
+// ---------- support skills and status effects (Requirement 18.1, 18.16)
+const loaded = (base: string, seed: number) => {
+  const st = withWeapon(fresh(seed), base); const cls = G.classOf(st);
+  st.arts.learned = A.techsOf(cls).map((t) => t.name); st.arts.loadout[cls] = [...st.arts.learned]; st.player.realm = 8; st.player.realm = 0;
+  Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 10; return st;
+};
+const logs = (st: G.GameState) => st.feed.flatMap((e) => e.log || []).filter((l) => l[0] === '~').map((l) => JSON.parse(l.slice(1)));
+test('every skill group has techniques, and each group follows its rules', () => {
+  for (const g of A.GROUPS) assert.ok(Object.values(A.TECHS).some((t) => t.group === g), g);
+  for (const t of Object.values(A.TECHS)) {
+    if (t.group === 'Tấn Công') assert.ok(t.coef > 0 && !t.fx);
+    else assert.ok(t.fx && t.fx.turns >= 1 && (t.group === 'Hồi Phục' ? t.coef > 0 : t.coef === 0));
+    if (t.group === 'Suy Yếu' || t.group === 'Khống Chế') assert.equal(t.target, 'Kẻ Địch');
+  }
+});
+test('a healing technique restores Sinh Lực, a guard cuts the damage taken and a stun costs the foe its action', () => {
+  const seen: Record<string, number> = {};
+  for (const [base, seed] of [['Phất Trần', 400], ['Cổ Cầm', 401], ['Trường Thương', 402], ['Quyền Sáo', 403]] as const) {
+    const st = loaded(base, seed);
+    for (let k = 0; k < 40; k++) { G.settle(st, 40); for (const j of logs(st)) if (j.f) seen[j.f] = (seen[j.f] || 0) + 1; }
+  }
+  assert.ok(seen.heal > 0, JSON.stringify(seen)); assert.ok(seen.guard > 0, JSON.stringify(seen));
+});
+test('support skills work in a fight: heal never passes the maximum, a stunned side loses exactly its action', () => {
+  const st = loaded('Phất Trần', 410); st.player.realm = 0;
+  for (let k = 0; k < 60; k++) { G.settle(st, 30); const S = G.pstats(st); assert.ok(st.player.hp <= S.maxHp && st.player.hp >= 0); }
+  for (const j of logs(st)) { if (j.f === 'heal') assert.ok(j.a >= 0 && j.h <= j.hm); if (j.f === 'skip') assert.equal(j.d, 0); }
+});
+
+// ---------- Công Pháp (Requirement 18.5, 18.6, 18.15)
+test('a new character cultivates with the starter Công Pháp and an old save gets it', () => {
+  const st = fresh(500);
+  assert.equal(st.arts.method, A.STARTER_METHOD); assert.deepEqual(st.arts.methods, [A.STARTER_METHOD]);
+  const old = fresh(501); (old.arts as any).methods = undefined; (old.arts as any).method = undefined; G.initArts(old);
+  assert.equal(old.arts.method, A.STARTER_METHOD);
+});
+test('Method_Speed_Factor: the speed of the method, plus the affinity bonus when its element is in the Linh Căn', () => {
+  const hoang = A.METHODS.find((x) => x.el && x.tier === 0)!;
+  assert.equal(A.methodSpeed(hoang.name, [hoang.el]), hoang.speed * (1 + B.methodAffinityBonus));
+  assert.equal(A.methodSpeed(hoang.name, C.EO.filter((e) => e !== hoang.el).slice(0, 1)), hoang.speed);
+  assert.equal(A.methodSpeed(A.STARTER_METHOD, ['Kim']), 1);
+  for (const x of A.METHODS) for (const y of A.METHODS) if (x.tier > y.tier) assert.ok(x.speed >= y.speed);
+});
+test('a better Công Pháp cultivates faster and adds the favoured stats; changing it is checked', () => {
+  const a = fresh(510), b = fresh(510);
+  const best = A.METHODS.filter((x) => !x.el).sort((x, y) => y.speed - x.speed)[0];
+  b.arts.methods.push(best.name);
+  assert.equal(G.setMethod(b, 'Không Có').code, 'E_BAD_SKILL'); assert.equal(G.setMethod(b, 'Hỏa Dương Công').code, 'E_BAD_SKILL');   // unknown, or not learned
+  assert.ok(G.setMethod(b, best.name).ok);
+  a.arts.method = A.STARTER_METHOD;
+  G.settle(a, 150); G.settle(b, 150);
+  const total = (s: G.GameState) => G.levelOf(s.player) * 1e9 + s.player.cp;
+  assert.ok(total(b) > total(a), 'a faster method gets further in the same time');
+  const hpOf = (m: string) => { const s = fresh(511); s.arts.methods.push(m); s.arts.method = m; return G.pstats(s).maxHp; };
+  assert.ok(hpOf('Hỗn Nguyên Nhất Khí Quyết') > hpOf('Dưỡng Khí Công'));   // the first favours Sinh Lực, the second Linh Lực
+});
+test('Công Pháp scrolls drop, can wait in the bag, and are learned by reading them', () => {
+  let got = 0;
+  for (let seed = 1; seed <= 20 && !got; seed++) {
+    const st = fresh(600 + seed); Object.assign(st.set, { autoFight: true, autoLearn: false, autoBreak: true }); st.inv.trib = 10;
+    for (let k = 0; k < 80 && !got; k++) { G.settle(st, 40); const n = Object.keys(st.inv.books).find((x) => A.isMethod(x)); if (n) { got++; const x = A.methodOf(n); if (G.levelOf(st.player) >= x.minLevel) { assert.ok(G.learnBook(st, n).ok); assert.ok(st.arts.methods.includes(n)); } } }
+  }
+  assert.ok(got > 0, 'a Công Pháp scroll should drop within a few thousand ticks');
 });

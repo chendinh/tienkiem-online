@@ -1,4 +1,4 @@
-// Look after the pictures the game has drawn (data/gen), one folder per kind and item icons one folder per slot.
+// For the OLD file version only (the pictures now live in the database, see npm run db:migrate): look after the pictures in data/gen, one folder per kind and item icons one folder per slot.
 //   npm run gen:report      what is there: files, size and cost per folder, plus anything odd. Changes nothing.
 //   npm run gen:organize    moves every file to the folder it belongs in (safe to run again, never overwrites, never deletes).
 // The server can run meanwhile: it looks in every folder, so a picture is found before, during and after the move.

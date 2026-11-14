@@ -104,37 +104,3 @@
   @media (max-width: 1150px) { .shopScroll { max-height: none; } }
   .shopAct { justify-content: flex-start; }
 }
-@layer game {
-  /* Bảng Phong Thần */
-  .rankBody { width: min(720px, 100%); max-height: 92vh; overflow-y: auto; }
-  .rankList { display: grid; gap: 6px; margin: var(--sp-3) 0; }
-  .rankMe { margin-top: var(--sp-2); color: var(--gold-200); font-size: var(--fs-sm); }
-  .rankRow { display: grid; grid-template-columns: 40px 1fr auto auto; align-items: center; gap: var(--sp-3); text-align: left; padding: var(--sp-2) var(--sp-3); min-height: 52px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.22); cursor: pointer; }
-  .rankRow:hover, .rankRow:focus-visible { border-color: var(--line-gold-strong); }
-  .rankRow.me { border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 12%, transparent); }
-  .rankNum { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 700; font-variant-numeric: tabular-nums; background: rgb(255 255 255 / 0.08); }
-  .rankNum.r1 { background: linear-gradient(180deg, #f6e2a8, #c19445); color: #2a1c05; }
-  .rankNum.r2 { background: linear-gradient(180deg, #e8eef0, #9aa8ad); color: #1b2428; }
-  .rankNum.r3 { background: linear-gradient(180deg, #e9b98a, #a8693a); color: #2b1608; }
-  .rankName { display: grid; min-width: 0; }
-  .rankName b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rankName small, .rankRealm small { color: var(--text-3); font-size: var(--fs-xs); }
-  .rankRealm { display: grid; justify-items: end; font-size: var(--fs-sm); }
-  .rankPow { display: inline-flex; align-items: center; gap: 4px; color: var(--gold-200); font-variant-numeric: tabular-nums; min-width: 72px; justify-content: flex-end; }
-  @media (max-width: 520px) { .rankRow { grid-template-columns: 34px 1fr auto; } .rankRealm { display: none; } }
-  .rkHead { display: flex; gap: var(--sp-4); align-items: flex-start; }
-  .rkPic { flex: none; width: 116px; aspect-ratio: 2 / 3; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line-gold); background: var(--ink-800); display: grid; place-items: center; }
-  .rkPic .fill { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-  .rkStats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-2); }
-  .rkStat { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--r-sm); background: rgb(0 0 0 / 0.25); font-size: var(--fs-sm); }
-  .rkStat span { flex: 1; color: var(--text-2); }
-  .rkStat b { font-variant-numeric: tabular-nums; }
-  .rkSlots { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--sp-2); }
-  .rkSlot { display: grid; justify-items: center; gap: 2px; text-align: center; padding: var(--sp-2) 4px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.2); }
-  .rkSlotName { font-size: var(--fs-xs); line-height: 1.25; word-break: break-word; }
-  .rkSlot small { font-size: 0.7rem; }
-  .rkParty { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-3); }
-  .rkBeast { display: grid; justify-items: center; gap: 2px; text-align: center; padding: var(--sp-3); border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.2); }
-  .rkBeast.mutc { border-color: var(--gold-300); }
-  .rkBeast small { color: var(--text-3); font-size: var(--fs-xs); }
-}
