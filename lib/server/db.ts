@@ -52,19 +52,26 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS image_jobs (id text PRIMARY KEY, started bigint NOT NULL)`,
 ];
 
-// Create the tables once per server process. The advisory lock keeps two instances that start together from racing on CREATE.
+// Create the tables once per server process. Everything runs in ONE transaction under a transaction-level advisory lock, so two
+// instances that start together cannot race on CREATE, and the lock is released by the end of the transaction itself.
+// (A session-level lock, pg_advisory_lock, must not be used: behind a transaction pooler such as Neon's the unlock can reach another
+// connection than the lock, the lock stays held for ever and every later request waits for it.)
 function ready(): Promise<void> {
   if (!g.__tutienSchema) {
     g.__tutienSchema = (async () => {
       const c = await pool().connect();
+      let broken: unknown;
       try {
-        await c.query('SELECT pg_advisory_lock(738201)');
-        try {
-          for (const s of SCHEMA) await c.query(s);
-          // the secret behind the public ids of the ranking is made here, outside any request transaction, so it can never be rolled back
-          await c.query(`INSERT INTO kv (key, value) VALUES ('rank.secret', to_jsonb($1::text)) ON CONFLICT (key) DO NOTHING`, [randomBytes(24).toString('hex')]);
-        } finally { await c.query('SELECT pg_advisory_unlock(738201)'); }
-      } finally { c.release(); }
+        await c.query('BEGIN');
+        await c.query('SELECT pg_advisory_xact_lock(738201)');
+        for (const s of SCHEMA) await c.query(s);
+        // the secret behind the public ids of the ranking is made here, outside any request transaction, so it can never be rolled back
+        await c.query(`INSERT INTO kv (key, value) VALUES ('rank.secret', to_jsonb($1::text)) ON CONFLICT (key) DO NOTHING`, [randomBytes(24).toString('hex')]);
+        await c.query('COMMIT');
+      } catch (e) {
+        try { await c.query('ROLLBACK'); } catch (e2) { broken = e2; }
+        throw e;
+      } finally { c.release(broken as any); }
     })().catch((e) => { g.__tutienSchema = null; throw e; });
   }
   return g.__tutienSchema;
