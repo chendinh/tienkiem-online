@@ -144,7 +144,9 @@ export const SLOTS = ['Weapon', 'Headwear', 'Robe', 'Footwear', 'Back', 'Accesso
 export const VISIBLE = ['Weapon', 'Headwear', 'Robe', 'Footwear', 'Back', 'Accessory'];
 // Static art drawn once by scripts/pregen.ts and shipped in public/art.
 // `small`: the 192 px copy for lists (made by scripts/thumbs.ts); the popup uses the original.
-export const monsterArt = (sp: string, mut = false, small = false) => `/art/monsters/${small ? 'sm/' : ''}${sp}${mut ? '_mut' : ''}.jpg`;
+// Daily creatures (lib/daily.ts) have one picture drawn at run time and kept in the database: DAILY_ART maps their id to /api/img/<id>.
+export const DAILY_ART: Record<string, string> = {};
+export const monsterArt = (sp: string, mut = false, small = false) => DAILY_ART[sp] || `/art/monsters/${small ? 'sm/' : ''}${sp}${mut ? '_mut' : ''}.jpg`;
 export const introArt = (g: 'f' | 'm') => `/art/intro_${g}.jpg`;
 export const SLOT_VI: Record<string, string> = { Weapon: 'Pháp Khí', Headwear: 'Quan', Robe: 'Đạo Bào', Footwear: 'Hài', Back: 'Bối', Accessory: 'Bội', Ring: 'Giới Chỉ', Talisman: 'Hộ Phù' };
 // Plain-Vietnamese word for each slot (the Hán-Việt names above are not obvious), where it is worn, and the engraved glyph of its empty "mold".
@@ -466,6 +468,7 @@ export const shopArt = (id: string) => `/art/shop/${id}.jpg`;
 export const matArt = (id: string) => `/art/shop/mat_${id}.jpg`;
 export const zoneArt = (id: string) => `/art/zones/${id}.jpg`;
 export const MARKET_ART = '/art/zones/market.jpg';
+export const uiArt = (id: string) => `/art/ui/${id}.jpg`;
 export const bookArt = (cls: string) => `/art/shop/book_${cls}.jpg`;
 // English descriptions used only to build prompts on the server (the browser sends just the id).
 export const PROP_EN: Record<string, string> = {
@@ -496,6 +499,13 @@ export const PROP_EN: Record<string, string> = {
   book_tieu: 'an ancient Chinese music manual, a thin bound book with a plain smooth teal leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a flute, glowing faintly',
   book_phat: 'an ancient Chinese daoist manual, a thin bound book with a plain smooth ivory-white leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a fly whisk, glowing faintly',
   book_method: 'an ancient Chinese cultivation scripture, a rolled scroll of aged paper with a smooth plain jade-green silk wrapping and carved jade end rollers, closed with a silk cord and a small carved jade charm in the shape of a lotus, glowing faintly',
+  ui_lbl_rank: 'a majestic wide horizontal ceremonial plaque of deep crimson lacquer with a thick gold border, two golden dragons curling around its left and right ends and a golden phoenix crest rising from the top centre, in the middle the two words “Phong Thần” in large embossed gold brush calligraphy lettering (exact spelling: P h o n g, then T h ầ n, where the letter ầ is the letter a with a circumflex hat ^ and a grave accent ` both drawn above it, clearly visible)',
+  ui_lbl_kho: 'a wide horizontal treasure-vault plaque of dark teal jade with gold filigree borders, a small gold ingot and a lotus flower at each end and a jade pearl at the top centre, in the middle the two words “Kho báu” in large embossed gold brush calligraphy lettering (exact spelling: K h o, then b á u)',
+  ui_btn_a: 'a wide horizontal xianxia button plaque of dark green jade with a thick gold filigree border, carved cloud-scroll ornaments at both ends and notched ornate corners, a smooth empty dark jade centre panel',
+  ui_btn_b: 'a wide horizontal xianxia button plaque of deep red lacquer with a gold dragon-scale border, golden cloud-scroll corner brackets and a small gold lotus finial at each end, a smooth empty dark lacquer centre panel',
+  ui_btn_c: 'a wide horizontal ancient talisman-shaped button plaque of dark teal jade with silver and gold inlay borders, pointed leaf-shaped ends with curled cloud tips and a thin glowing jade rim, a smooth empty centre panel',
+  ui_seal_a: 'a round xianxia seal medallion of dark green jade with a thick gold ring border, eight small gold cloud ornaments around the rim and a smooth empty dark jade centre disc',
+  ui_seal_b: 'a round xianxia seal medallion of deep red lacquer with a gold ring border, small gold lotus petals around the rim and a smooth empty dark lacquer centre disc',
 };
 export const PLACE_EN: Record<string, string> = {
   thanhvan: 'a misty green mountain valley at dawn with a clear stream, bamboo and pines, soft golden light rays, a serene beginning of a journey',

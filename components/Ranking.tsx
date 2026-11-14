@@ -1,4 +1,5 @@
 'use client';
+import { ModalClose } from './ds/ModalClose';
 import { useEffect, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import type { Beast, Item } from '@/lib/game';
@@ -78,6 +79,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="modal rkModal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Bảng Phong Thần">
+      <ModalClose onClose={onClose} />
       <div className={`modalBody rkShell ${pid ? 'viewing' : ''}`} onClick={(e) => e.stopPropagation()}>
         <header className="rkBanner">
           <div className="rkTitle">
@@ -88,7 +90,6 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
             { v: 'cult' as const, label: <><Icon name="lotus" size={15} /><span>Tu Vi</span></>, title: 'Xếp theo cảnh giới' },
             { v: 'power' as const, label: <><Icon name="atk" size={15} /><span>Chiến Lực</span></>, title: 'Xếp theo sức mạnh chiến đấu' },
           ]} />
-          <button type="button" className="btn icon sm ghost rkClose" aria-label="Đóng" onClick={onClose}><Icon name="close" size={17} /></button>
         </header>
 
         <div className="rkBody">

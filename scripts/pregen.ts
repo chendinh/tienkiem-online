@@ -31,7 +31,7 @@ const want = (group: string) => !only || only === group;
 if (want('intro')) for (const g of ['f', 'm'] as const) jobs.push({ name: `intro_${g}`, spec: introSpec(g), dest: C.introArt(g) });
 if (want('monsters')) for (const s of C.SPECIES) jobs.push({ name: s.id, spec: monsterSpec(s.id), dest: C.monsterArt(s.id) }, { name: `${s.id}_mut`, spec: monsterSpec(s.id, true), dest: C.monsterArt(s.id, true) });
 // Phường Thị goods and materials (inventory icons) and the zone and market scenes
-if (want('shop')) for (const id of Object.keys(C.PROP_EN)) jobs.push({ name: id, spec: propSpec(id), dest: id.startsWith('mat_') ? C.matArt(id.slice(4)) : C.shopArt(id) });
+if (want('shop')) for (const id of Object.keys(C.PROP_EN)) jobs.push({ name: id, spec: propSpec(id), dest: id.startsWith('mat_') ? C.matArt(id.slice(4)) : id.startsWith('ui_') ? C.uiArt(id.slice(3)) : C.shopArt(id) });
 if (want('zones')) for (const id of Object.keys(C.PLACE_EN)) jobs.push({ name: `zone_${id}`, spec: placeSpec(id), dest: C.zoneArt(id) });
 const abs = (dest: string) => path.join(PUB, dest);
 const todo = jobs.filter((j) => flag('--force') || !fs.existsSync(abs(j.dest)));

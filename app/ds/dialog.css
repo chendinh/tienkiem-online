@@ -1,0 +1,14 @@
+@layer game {
+  .modal.dlg { z-index: calc(var(--z-toast) + 5); }
+  .dlgBody { width: min(440px, 100%); }
+  .dlgBody h2 { font-size: var(--fs-xl); }
+  .dlgBody p { margin: var(--sp-2) 0 var(--sp-4); line-height: 1.55; }
+  .dlgBody .field { margin-bottom: var(--sp-4); }
+  .dlgBody.danger { border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
+  .toasts { position: fixed; left: 50%; bottom: var(--sp-6); transform: translateX(-50%); z-index: var(--z-toast); display: grid; gap: var(--sp-2); width: min(440px, calc(100vw - 2rem)); pointer-events: none; }
+  .toast { pointer-events: auto; cursor: pointer; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); font-size: var(--fs-sm); line-height: 1.5; border: 1px solid var(--line-gold-strong); background: rgb(8 22 28 / 0.94); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: var(--sh-3); animation: enter-up var(--dur-base) var(--ease-out) both; }
+  .toast.ok { color: var(--jade-200); border-color: color-mix(in srgb, var(--jade-400) 55%, transparent); }
+  .toast.err { color: var(--cinnabar-300); border-color: color-mix(in srgb, var(--cinnabar-400) 60%, transparent); }
+  .dlgAct { display: flex; justify-content: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
+  .btn.dlgDanger { color: #2a0d08; background: linear-gradient(180deg, #ffc2b4 0%, #ff9c8a 50%, #d9654f 100%); border-color: #ff9c8a; }
+}

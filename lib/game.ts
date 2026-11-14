@@ -2,6 +2,7 @@
 import { type Streams, newStreams, next, int, pick, weighted, truncNormal, shuffle } from './rng';
 import * as C from './content';
 import * as A from './arts';
+import * as D from './daily';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -46,6 +47,7 @@ export interface GameState {
   pend: Record<string, number>; ledger: LedgerRow[]; ledgerBase: number; ledgerDaily: LedgerDaily[];
   reqs: Record<string, { t: number; res: any }>; reports: Report[]; auditQ: any[];
   decision: Decision | null; breakSnooze: number;
+  dailySeen?: string;   // the last day whose chronicle chapter was announced in the feed
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -59,7 +61,9 @@ export const MIN_OFFLINE_SEC = B.minOfflineSec;
 export const BAG_MAX = B.bagCapacity;
 export const TUNE = { z: B.monsterLevelGrowth, gear: B.gearScale };
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
-export const SP = (id: string) => C.SPECIES.find((s) => s.id === id)!;
+// A daily creature the browser has not downloaded yet shows as this placeholder instead of breaking the page.
+const UNKNOWN_SP: C.Species = { id: '?', name: 'Dị Thú', el: ['Dương'], cm: 100, f: [1, 1, 1, 1, 1], tame: 1 };
+export const SP = (id: string) => C.SPECIES.find((s) => s.id === id) || D.dailySpecies().find((s) => s.id === id) || { ...UNKNOWN_SP, id };
 export const levelOf = (p: Player) => p.realm * 4 + p.sub + 1;
 export const threshold = cultThreshold;
 export const baseStat = baseStatOf;
@@ -204,8 +208,8 @@ export function sizeFactors(size: number) { return [1 + B.sizeHpCoef * (size - 1
 function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
   const elite = next(st.streams, 'enc') < B.eliteChance;
   const g = st.streams, R = rates();
-  const ws = C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1));
-  const sp = C.SPECIES[weighted(g, 'enc', ws)];
+  const ws = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, st.clock)];
+  const sp = D.allSpecies()[weighted(g, 'enc', ws)];
   const level = clamp(L + int(g, 'gen', -1, 2), zone.lv[0], Math.min(zone.lv[1], B.playableLevelCap));
   const apt = [0, 0, 0, 0, 0].map(() => B.aptMin + next(g, 'gen') * (B.aptMax - B.aptMin));
   const pers = int(g, 'gen', 0, C.PERS.length - 1);
@@ -926,6 +930,12 @@ export function tick(st: GameState, rep?: Report) {
     const k = weighted(st.streams, 'enc', encounterWeights(zone, ph));
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
+  // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
+  if (!st.decision) {
+    const news = D.newsAt(st.clock);
+    if (news && st.dailySeen !== news.day) { st.dailySeen = news.day; feed(st, { kind: 'story', text: news.text }); }
+    else if (mode0 === 'adventure' && !st.recovery) { const t = D.taleAt(zone.id, st.clock, st.tick); if (t) feed(st, { kind: 'event', text: t }); }
+  }
   // recovery of HP, Auto_Pill, then the Recovery_State check
   const S = pstats(st);
   const regen = mode0 === 'retreat' || st.recovery ? B.recoveryRegen : B.adventureRegen;
@@ -1026,14 +1036,14 @@ export const ticksForAbsence = (sec: number) => (sec < B.minOfflineSec ? 0 : Mat
 export function oddsOf(st: GameState, nowMs: number) {
   const R = rates(), zone = C.ZONE(st.zone), ph = phenomenonAt(zone.id, nowMs), luck = effLuck(st, (ph && ph.luck) || 0);
   const ew = encounterWeights(zone, ph), et = ew.reduce((a, b) => a + b, 0);
-  const sw = C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), stot = sw.reduce((a, b) => a + b, 0);
+  const sw = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, nowMs)], stot = sw.reduce((a, b) => a + b, 0);
   const dt = zone.drop.reduce((a, d) => a + d.w, 0);
   const p = st.player, canBreak = levelOf(p) < B.playableLevelCap;
   return {
     luck, tiers: tierProbs(luck), mutP: R.mutP,
     pity: { mut: { c: st.pity.mut, soft: R.mutS, hard: R.mutH }, item: { c: st.pity.item, soft: R.itemS, hard: R.itemH } },
     encounter: ['Yêu Thú', 'Tu Sĩ', 'Tài Nguyên', 'Kỳ Ngộ'].map((n, i) => ({ n, p: ew[i] / et })),
-    species: C.SPECIES.map((s, i) => ({ id: s.id, n: s.name, p: stot ? sw[i] / stot : 0 })),
+    species: D.allSpecies().map((s, i) => ({ id: s.id, n: s.name, p: stot ? sw[i] / stot : 0 })),
     drops: zone.drop.map((d) => ({ kind: d.kind, p: d.w / dt })),
     dropRolls: B.dropRollCount,
     size: sizeClassProbs(),

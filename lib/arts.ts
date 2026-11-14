@@ -117,6 +117,9 @@ export const CLASSES_BY_EL: Record<string, string[]> = {
   Kim: ['kiem', 'thuong', 'dao'], Mộc: ['cung', 'cam', 'phat'], Thủy: ['tieu', 'cam', 'phat'], Hỏa: ['dao', 'quyen', 'kiem'],
   Thổ: ['thuong', 'quyen', 'dao'], Lôi: ['kiem', 'quyen', 'thuong'], Âm: ['cung', 'tieu', 'dao'], Dương: ['cung', 'phat', 'quyen'],
 };
+// Where a Bí Công of a môn can come from, for the "not learned yet" cards: the elements of the beasts that can leave it, and the kind of Tu Sĩ who fights with that môn.
+export const dropElements = (cls: string): string[] => Object.entries(CLASSES_BY_EL).filter(([, l]) => l.includes(cls)).map(([e]) => e);
+export const dropNpc = (cls: string): string => ({ kiem: 'Kiếm Tu', cam: 'Đan Sư', phat: 'Phù Sư', quyen: 'Thể Tu', dao: 'Ma Tu' } as Record<string, string>)[cls] || 'Tán Tu';
 // The môn of a Tu Sĩ, from its title (a Tán Tu picks one from its name so the same person always fights the same way).
 export function npcClass(name: string): string {
   if (name.startsWith('Kiếm Tu')) return 'kiem';

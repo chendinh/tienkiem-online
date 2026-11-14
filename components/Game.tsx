@@ -1,6 +1,9 @@
 'use client';
+import { ModalClose, XSeal } from './ds/ModalClose';
+import { askConfirm, askPrompt, Toast } from './ds/Dialog';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
+import * as D from '@/lib/daily';
 import { type FeedEntry, pstats, levelOf, threshold, outfitTier, auraElement, atBottleneck, SP } from '@/lib/game';
 import type { GS } from '@/lib/client/types';
 import { authMe, authPost, gameGet, gameAct, watchNet } from '@/lib/client/api';
@@ -8,7 +11,7 @@ import { errText } from '@/lib/strings';
 import { BALANCE } from '@/lib/balance';
 import { AuthScreen } from './Auth';
 import { RankingModal } from './Ranking';
-import { ShopPanel, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
+import { MarketModal, Window, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import lore from '@/content/lore.json';
@@ -267,7 +270,6 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const re = useCallback(() => setN((x) => x + 1), []);
   const [ready, setReady] = useState(false);
   const [net, setNet] = useState(true);
-  const [tab, setTab] = useState<'eq' | 'arts' | 'pen' | 'dex' | 'shop'>('eq');
   const [stage, setStage] = useState<FeedEntry | null>(null);   // the fight being replayed above the journey
   const [storm, setStorm] = useState(false);
   const [credits, setCredits] = useState(false);
@@ -275,8 +277,11 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [intro, setIntro] = useState(false);
   const [genOn, setGenOn] = useState(true);
   const [ai, setAi] = useState<any>(null);
-  const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world'>(null);
-  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank'>(null);
+  const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
+  const [, setDailyTick] = useState(0);
+  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'pen' | 'dex' | 'arts'>(null);
+  const openWin = (w: 'market' | 'pen' | 'dex' | 'arts') => { cue.open(); setSideOpen(false); setModal(w); };
+  const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
   const [note, setNote] = useState<{ t: string; ok: boolean } | null>(null);
@@ -291,10 +296,15 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; }
     stRef.current = v; re();
   }, [re]);
+  // A poll that started before the last click finished may carry the state from before it: it is dropped, so a click never seems to undo itself.
+  const actAt = useRef(0);
+  const [busy, setBusy] = useState(0);   // requests the player started and that have not been answered yet (shows a thin bar, see .busyBar)
   const act: Act = useCallback(async (type, payload = {}): Promise<ActRes> => {
-    const out = await gameAct({ type, ...payload });
+    setBusy((n) => n + 1);
+    let out: Awaited<ReturnType<typeof gameAct>>;
+    try { out = await gameAct({ type, ...payload }); } finally { setBusy((n) => n - 1); }
     if (out.code === 'E_AUTH') { onSignOut(); return { ok: false, msg: errText('E_AUTH'), code: 'E_AUTH' }; }
-    if (out.state) apply(out.state);
+    if (out.state) { actAt.current = performance.now(); apply(out.state); }
     return { ok: out.ok, msg: out.ok ? out.msg || '' : out.msg || errText(out.code || 'E_SERVER'), data: out.data, code: out.code };
   }, [apply, onSignOut]);
 
@@ -322,9 +332,10 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     if (polling.current) return polling.current;
     const run = (async () => {
       try {
+        const t0 = performance.now();
         const out = await gameGet();
         if (out.code === 'E_AUTH') onSignOut();
-        else if (out.state) apply(out.state);
+        else if (out.state) { if (t0 >= actAt.current) apply(out.state); }
         else if (out.ok) setIntro(true);
       } catch {} finally { polling.current = null; }
     })();
@@ -343,9 +354,15 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   useEffect(() => {
     let alive = true;
     const load = () => fetch('/api/image').then((r) => r.json()).then((j) => alive && setAi((prev: any) => (JSON.stringify(prev) === JSON.stringify(j) ? prev : j))).catch(() => {});
-    load(); const id = setInterval(load, 8000);
+    load(); const id = setInterval(load, 15000);
     return () => { alive = false; clearInterval(id); };
   }, []);
+  // Daily creatures and chronicle chapters: reloaded when the server reports a newer pack (or a new picture).
+  const dailyVer = stRef.current?.dailyVer;
+  useEffect(() => {
+    if (dailyVer === undefined) return;
+    fetch('/api/daily').then((r) => r.json()).then((j) => { if (j && j.ok && Array.isArray(j.packs)) { D.setDaily(j.packs); setDailyTick((n) => n + 1); } }).catch(() => {});
+  }, [dailyVer]);
   useEffect(() => { fetch('/api/story').then((r) => r.json()).then(setStory).catch(() => setStory({ enabled: false })); }, []);
 
   // Biography: written once per character by Claude (server caches it), then kept in the save.
@@ -406,8 +423,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const start = async (g?: 'f' | 'm') => { const r = await act('restart', { gender: g }); if (r.ok) { seenFeed.current = null; seenSig.current = null; setIntro(false); } else say(r.msg, false); };
   const signOut = async () => { await authPost({ action: 'logout' }); onSignOut(); };
   const deleteAccount = async () => {
-    if (!window.confirm('Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu? Không thể hoàn tác.')) return;
-    const password = window.prompt('Nhập mật khẩu để xác nhận xóa tài khoản:');
+    if (!(await askConfirm({ title: 'Xóa tài khoản', body: 'Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu? Không thể hoàn tác.', ok: 'Tiếp tục', danger: true }))) return;
+    const password = await askPrompt({ title: 'Xác nhận mật khẩu', label: 'Nhập mật khẩu để xóa tài khoản', password: true, ok: 'Xóa tài khoản', danger: true });
     if (!password) return;
     const r = await authPost({ action: 'delete', password });
     if (r.ok) onSignOut(); else say(errText(r.code || 'E_SERVER'), false);
@@ -421,7 +438,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const S = pstats(st), p = st.player, L = levelOf(p), th = threshold(L), tier = outfitTier(st), aura = auraElement(st);
   const bott = atBottleneck(st);
   const target = p.realm + 1, waves = L < BALANCE.playableLevelCap ? C.WAVES[target] || 0 : 0;
-  const seenSpecies = C.SPECIES.filter((s) => (st.best[s.id]?.seen || 0) > 0).length;
+  const speciesAll = D.allSpecies();
+  const seenSpecies = speciesAll.filter((s) => (st.best[s.id]?.seen || 0) > 0).length;
   const rep = st.pending[0];
   const zone = st.zones.find((z) => z.id === st.zone);
   // the tribulation plays out first (charge, one lightning strike per wave); the server decides the verdict meanwhile
@@ -436,7 +454,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     if (!r.ok) say(r.msg, false);
   };
   const toggleGen = (v: boolean) => { setGenOn(v); try { localStorage.setItem('tutien-genon', v ? '1' : '0'); } catch {} };
-  const restart = () => { if (window.confirm('Xóa nhân vật hiện tại và bắt đầu lại từ đầu? Tiến trình sẽ mất.')) setIntro(true); };
+  const restart = async () => { if (await askConfirm({ title: 'Bắt đầu lại', body: 'Xóa nhân vật hiện tại và bắt đầu lại từ đầu? Tiến trình sẽ mất.', ok: 'Bắt đầu lại', danger: true })) setIntro(true); };
   const state = st.decision ? 'Chờ quyết định' : st.recovery ? 'Điều Tức' : (p.injury || 0) > 0 ? 'Thương Thế' : p.heartDemon > 0 ? 'Tâm Ma' : st.set.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện';
   const ack = async (id: string) => { await act('ack', { id }); };
 
@@ -445,6 +463,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     <ZoomProvider>
     <ZoomBridge r={zoomRef} />
     <div className={`app ${st.decision ? 'hasDecision' : ''}`}>
+      {busy > 0 && <div className="busyBar" role="progressbar" aria-label="Đang gửi lên máy chủ" />}
       {!net && <div className="netBanner" role="alert">Mất kết nối tới máy chủ. Đang thử lại, các thao tác chưa gửi sẽ được gửi lại.</div>}
       <Atmosphere scene={st.set.mode === 'retreat' ? 'night' : 'dawn'} aura={C.EL[aura].color} zone={st.zone} />
 
@@ -458,17 +477,24 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
           ]} />
         </div>
         <nav className="topNav" aria-label="Chức năng">
-          <button type="button" className="nav feat" data-tone="gold" title="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
+          <button type="button" className="nav pic rank" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
+          <button type="button" className="nav alt" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
+          <button type="button" className="nav alt" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
+          <button type="button" className="nav alt" data-tone="jade" title="Linh Thú ngươi đã thu phục" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
           <button type="button" className="nav alt" data-tone="jade" title="Thiên Thư" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
           <button type="button" className="nav alt" data-tone="azure" title="Xác suất" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
           <button type="button" className="nav alt" data-tone="violet" title="Cài đặt" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
-          <button type="button" className={`nav kho ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" title="Kho báu: trang bị, thần thông, linh thú" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
+          <button type="button" className={`nav pic kho ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" title="Kho báu: trang bị, thần thông, linh thú" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
         </nav>
         <div className="orbs">
           <MusicOrb onCredits={() => setCredits(true)} />
           <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>
             <div className="pop-head"><b>Tùy chọn</b></div>
             <div className="popNav">
+              <button type="button" className="btn sm" onClick={() => openWin('market')}><Icon name="stone" size={15} /> Phường Thị</button>
+              <button type="button" className="btn sm" onClick={() => openWin('arts')}><Icon name="bolt" size={15} /> Thần Thông</button>
+              <button type="button" className="btn sm" onClick={() => openWin('pen')}><Icon name="paw" size={15} /> Linh Thú</button>
+              <button type="button" className="btn sm" onClick={() => openWin('dex')}><Icon name="book" size={15} /> Sưu Tập</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setCodex('story'); }}><Icon name="scroll" size={15} /> Thiên Thư</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('odds'); }}><Icon name="luck" size={15} /> Xác suất</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('settings'); }}><Icon name="gear" size={15} /> Cài đặt</button>
@@ -487,7 +513,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         </div>
       </header>
 
-      <main className={`main ${sideOpen ? 'sideOpen' : ''}`}>
+      <div className="mobView"><Seg<'journey' | 'hero'> label="Màn hình" value={view} onChange={setView} options={[{ v: 'journey' as const, label: <><Icon name="wind" size={15} /><span>Hành trình</span></>, title: 'Các lần gặp gỡ và trận đánh' }, { v: 'hero' as const, label: <><Icon name="lotus" size={15} /><span>Nhân vật</span></>, title: 'Chỉ số, đột phá, khu vực' }]} /></div>
+      <main className={`main ${sideOpen ? 'sideOpen' : ''}`} data-view={view}>
         <section className="panel heroPanel">
           <Hero st={st} tier={tier} aura={aura} on={genOn && !!ai && ai.enabled && !ai.locked} offWhy={!ai ? 'Đang chuẩn bị…' : !genOn ? 'Bật “Ảnh AI” để vẽ nhân vật' : !ai.enabled ? 'Chưa có nguồn ảnh AI (thiếu khóa trong .env.local)' : 'Nhà cung cấp ảnh tạm khóa 15 phút (lỗi 403)'} save={save} re={re} onBio={() => setCodex('bio')} />
           <h2 className="pname">{p.name}</h2>
@@ -504,7 +531,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             <div className="stat" title="May Mắn"><Icon name="luck" size={20} /><div><b>{S.luck}</b><small>Vận</small></div></div>
             <div className="stat" title="Tốc độ Tu Luyện"><Icon name="cult" size={20} /><div><b>+{S.cult}%</b><small>Tu</small></div></div>
           </div>
-          {note && <div className={`eqMsg ${note.ok ? 'ok' : 'err'}`} role="status">{note.t}</div>}
+          <Toast msg={note} />
           <div className="heroActions">
             <button className={`btn big ${storm ? 'storming' : ''}`} disabled={!bott || storm} onClick={() => setBreakOpen(true)}>
               {storm ? <><Icon name="bolt" size={18} /> Đang độ kiếp…</> : bott ? `Đột Phá lên ${C.REALMS[target]}` : L >= BALANCE.playableLevelCap ? 'Đã tới giới hạn bản hiện tại' : 'Đang tích lũy Tu Vi…'}
@@ -519,45 +546,32 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         </section>
 
         <section className="panel feedPanel">
+          <div className="miniStatus">
+            <div className="msTop"><b>{p.name}</b><small>{C.REALMS[p.realm]} · {C.SUBS[p.sub]} · {state}</small></div>
+            <Bar pct={(p.hp / S.maxHp) * 100} label={`Sinh lực ${fmt(p.hp)} / ${fmt(S.maxHp)}`} cls="hp" />
+            <Bar pct={L >= BALANCE.playableLevelCap ? 100 : (p.cp / th) * 100} label={bott ? 'Bình Cảnh, sẵn sàng đột phá' : `Tu Vi ${fmt(p.cp)} / ${fmt(th)}`} cls="cp" />
+            {bott && !storm && <button className="btn hot sm" onClick={() => setBreakOpen(true)}><Icon name="bolt" size={15} /> Đột Phá lên {C.REALMS[target]}</button>}
+          </div>
           <div className="phead"><h3>Hành trình</h3><small>Mỗi lần gặp đều được máy chủ sinh ngẫu nhiên: loài, kích thước, tính cách, Dị Biến</small></div>
           {stage && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={() => setStage(null)} />}
           <div className="feed" aria-live="polite">{st.feed.map((e) => <FeedRow key={e.id} e={e} />)}</div>
         </section>
 
         <section className="panel sidePanel" id="sidePanel" aria-label="Kho báu">
-          <div className="sideHead"><b><Icon name="chest" size={18} /> Kho báu</b><button type="button" className="btn icon sm ghost" aria-label="Đóng kho báu" onClick={() => setSideOpen(false)}><Icon name="close" size={16} /></button></div>
+          <div className="sideHead"><b><Icon name="chest" size={18} /> Kho báu</b><button type="button" className="xClose static" aria-label="Đóng kho báu" title="Đóng kho báu (Esc)" onClick={() => setSideOpen(false)}><XSeal size={34} /></button></div>
           <div className="res">
             <span title="Linh Thạch"><Icon name="stone" size={17} /> {fmt(st.stones)}</span>
             <span title="Khế Ước Phù theo hạng Hoàng / Huyền / Địa / Thiên"><Icon name="contract" size={17} /> Khế Ước {st.inv.taming.join('/')}</span>
             <span title="Hồi Khí Đan hạng 1 / 2 / 3"><Icon name="lotus" size={17} /> Đan {st.inv.hp.join('/')}</span>
             <span title="Độ Kiếp Phù"><Icon name="bolt" size={17} /> Độ Kiếp {st.inv.trib}</span>
           </div>
-          <Tabs<'eq' | 'arts' | 'pen' | 'dex' | 'shop'> label="Kho báu" value={tab} onChange={setTab} options={[
-            { v: 'eq' as const, label: <><Icon name="robe" size={18} /><span>Trang bị</span></>, title: 'Hình nhân trang bị và Túi Càn Khôn (đồ nhặt được chưa mặc)' },
-            { v: 'arts' as const, label: <><Icon name="bolt" size={18} /><span>Thần Thông</span>{Object.keys(st.inv.books).length > 0 && <em>{Object.keys(st.inv.books).length} sách</em>}</>, title: 'Môn pháp theo pháp khí đang cầm, chiêu thức đã học và Bí Công trong túi' },
-            { v: 'pen' as const, label: <><Icon name="paw" size={18} /><span>Linh Thú</span><em>{st.beasts.length}</em></>, title: 'Các Linh Thú ngươi đã thu phục' },
-            { v: 'dex' as const, label: <><Icon name="book" size={18} /><span>Sưu Tập</span><em>{seenSpecies}/{C.SPECIES.length}</em></>, title: 'Linh Thú Đồ Giám: sổ sưu tập các loài yêu thú đã gặp' },
-            { v: 'shop' as const, label: <><Icon name="stone" size={18} /><span>Phường Thị</span></>, title: 'Mua Khế Ước Phù, Đan Dược; bán nguyên liệu' },
-          ]} />
-          {tab === 'eq' && <EquipPanel st={st} eqx={eqx} />}
-          {tab === 'arts' && <ArtsPanel st={st} act={act} />}
-          {tab === 'shop' && <ShopPanel st={st} act={act} />}
-          {tab === 'pen' && <PenPanel st={st} act={act} say={say} />}
-          {tab === 'dex' && (
-            <div className="grid dex">
-              <div className="dexHead"><b>Linh Thú Đồ Giám</b> là sổ sưu tập các loài yêu thú ngươi đã gặp (không phải giám định đồ): số lần gặp, số lần thu phục, kích thước nhỏ nhất đến lớn nhất và số lần gặp Dị Biến. Loài chưa gặp hiện bóng đen. Bấm vào loài đã gặp để đọc truyền thuyết.</div>
-              {C.SPECIES.map((s) => {
-                const e = st.best[s.id];
-                return (
-                  <div key={s.id} className={`dexc ${e && e.seen ? '' : 'unseen'} ${dexSel === s.id ? 'sel' : ''}`} onClick={() => { if (e && e.seen) { setDexSel(s.id); zoomRef.current?.({ kind: 'species', id: s.id, text: (lore as any).beasts[s.id] }); } }}>
-                    <Img src={C.monsterArt(s.id, false, true)} className="fill" fb={<ElIcon el={s.el[0]} size={36} />} />
-                    <div className="dinfo"><b>{s.name}</b>{!(e && e.seen) && <small>Chưa gặp</small>}{e && e.seen > 0 && <small>Gặp {e.seen} · Thu {e.tamed} · {e.minCm}–{e.maxCm} cm{e.mutSeen ? ` · ✦${e.mutSeen}` : ''}</small>}</div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {tab === 'dex' && dexSel && <div className="legend"><b>{SP(dexSel).name}</b><p>{(lore as any).beasts[dexSel]}</p></div>}
+          <div className="shortcuts" role="group" aria-label="Các phần khác của game">
+            <button type="button" className="sc" onClick={() => openWin('arts')}><Icon name="bolt" size={17} /><span>Thần Thông</span>{Object.keys(st.inv.books).length > 0 && <em>{Object.values(st.inv.books).reduce((n, q) => n + q, 0)} bí kíp</em>}</button>
+            <button type="button" className="sc" onClick={() => openWin('pen')}><Icon name="paw" size={17} /><span>Linh Thú</span><em>{st.beasts.length}</em></button>
+            <button type="button" className="sc" onClick={() => openWin('dex')}><Icon name="book" size={17} /><span>Sưu Tập</span><em>{seenSpecies}/{speciesAll.length}</em></button>
+            <button type="button" className="sc" onClick={() => openWin('market')}><Icon name="stone" size={17} /><span>Phường Thị</span></button>
+          </div>
+          <EquipPanel st={st} eqx={eqx} />
         </section>
         {sideOpen && <button type="button" className="scrim" aria-label="Đóng kho báu" onClick={() => setSideOpen(false)} />}
       </main>
@@ -581,8 +595,22 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
 
       {codex && (
         <div className="modal" onClick={() => setCodex(null)}>
+          <ModalClose onClose={() => setCodex(null)} />
           <div className="modalBody lore" onClick={(e) => e.stopPropagation()}>
-            <Tabs<'bio' | 'story' | 'world'> label="Thiên Thư" value={codex} onChange={setCodex} options={[{ v: 'bio' as const, label: 'Tiểu sử' }, { v: 'story' as const, label: 'Cốt truyện' }, { v: 'world' as const, label: 'Thế giới' }]} />
+            <Tabs<'bio' | 'story' | 'world' | 'daily'> label="Thiên Thư" value={codex} onChange={setCodex} options={[{ v: 'bio' as const, label: 'Tiểu sử' }, { v: 'story' as const, label: 'Cốt truyện' }, { v: 'daily' as const, label: 'Nhật ký thiên hạ' }, { v: 'world' as const, label: 'Thế giới' }]} />
+            {codex === 'daily' && (
+              <div>
+                <h2>Nhật Ký Thiên Hạ</h2><p className="tag">Mỗi ngày một chương mới, mỗi ngày một loài yêu thú mới.</p>
+                {D.dailyPacks().filter((x) => x.chronicle).slice().reverse().slice(0, 14).map((x) => (
+                  <div key={x.day} className="chap">
+                    <h3>{x.day.split('-').reverse().join('/')} · {x.title}</h3>
+                    {x.chronicle.split(/\n\s*\n/).map((t, i) => <p key={i}>{t}</p>)}
+                    <p className="secret">Yêu thú mới: <b>{x.beast.name}</b> ({x.beast.el[0]})</p>
+                  </div>
+                ))}
+                {D.dailyPacks().filter((x) => x.chronicle).length === 0 && <p className="secret">Chương đầu tiên chưa được viết. Hãy quay lại sau.</p>}
+              </div>
+            )}
             {codex === 'bio' && (
               <div>
                 <h2>{p.name}{p.dao ? ` · ${p.dao}` : ''}</h2>
@@ -620,6 +648,24 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
       {zoneOpen && <ZoneModal st={st} act={act} onClose={() => setZoneOpen(false)} />}
       {breakOpen && bott && <BreakModal st={st} onBreak={doBreak} onClose={() => setBreakOpen(false)} onLater={st.decision?.kind === 'break' ? () => { setBreakOpen(false); act('decide', { id: st.decision!.id, choice: 'later' }); } : undefined} />}
       {st.decision && !rep && !stage && p.prologueSeen && <DecisionBar st={st} act={act} onOpenBreak={() => setBreakOpen(true)} />}
+      {modal === 'arts' && <Window title="Thần Thông" icon="bolt" sub="Môn pháp theo pháp khí đang cầm, chiêu đã học, Bí Công và Công Pháp" wide onClose={() => setModal(null)}><ArtsPanel st={st} act={act} /></Window>}
+      {modal === 'pen' && <Window title="Linh Thú" icon="paw" sub={`${st.beasts.length}/${st.caps.pen} Linh Thú ngươi đã thu phục`} wide onClose={() => setModal(null)}><PenPanel st={st} act={act} say={say} /></Window>}
+      {modal === 'dex' && <Window title="Sưu Tập" icon="book" sub={`Linh Thú Đồ Giám · đã gặp ${seenSpecies}/${speciesAll.length} loài`} wide onClose={() => setModal(null)}>
+            <div className="grid dex">
+              <div className="dexHead"><b>Linh Thú Đồ Giám</b> là sổ sưu tập các loài yêu thú ngươi đã gặp (không phải giám định đồ): số lần gặp, số lần thu phục, kích thước nhỏ nhất đến lớn nhất và số lần gặp Dị Biến. Loài chưa gặp hiện bóng đen. Bấm vào loài đã gặp để đọc truyền thuyết.</div>
+              {speciesAll.map((s) => {
+                const e = st.best[s.id];
+                return (
+                  <div key={s.id} className={`dexc ${e && e.seen ? '' : 'unseen'} ${dexSel === s.id ? 'sel' : ''}`} onClick={() => { if (e && e.seen) { setDexSel(s.id); zoomRef.current?.({ kind: 'species', id: s.id, text: (lore as any).beasts[s.id] || D.legendOf(s.id) }); } }}>
+                    <Img src={C.monsterArt(s.id, false, true)} className="fill" fb={<ElIcon el={s.el[0]} size={36} />} />
+                    <div className="dinfo"><b>{s.name}</b>{!(e && e.seen) && <small>Chưa gặp</small>}{e && e.seen > 0 && <small>Gặp {e.seen} · Thu {e.tamed} · {e.minCm}–{e.maxCm} cm{e.mutSeen ? ` · ✦${e.mutSeen}` : ''}</small>}</div>
+                  </div>
+                );
+              })}
+            </div>
+        {dexSel && <div className="legend"><b>{SP(dexSel).name}</b><p>{(lore as any).beasts[dexSel] || D.legendOf(dexSel)}</p></div>}
+      </Window>}
+      {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'rank' && <RankingModal onClose={() => setModal(null)} />}
       {modal === 'odds' && <OddsModal st={st} onClose={() => setModal(null)} />}

@@ -1,4 +1,5 @@
 'use client';
+import { ModalClose } from './ds/ModalClose';
 import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import * as C from '@/lib/content';
 import { SP, type Beast, type Item } from '@/lib/game';
@@ -70,6 +71,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
   }
   return (
     <div className="modal zoom" onClick={close} role="dialog" aria-modal="true">
+      <ModalClose onClose={close} />
       <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()} style={{ '--rc': rc } as CSSProperties}>
         <div className="zoomPic">{pic}</div>
         <div className="zoomInfo">{body}</div>

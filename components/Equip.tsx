@@ -1,4 +1,6 @@
 'use client';
+import { ModalClose } from './ds/ModalClose';
+import { askConfirm, Toast } from './ds/Dialog';
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent as RKey, type MutableRefObject } from 'react';
 import * as C from '@/lib/content';
 import type { Item } from '@/lib/game';
@@ -69,11 +71,11 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   const dissolve = useCallback(async (id: number) => {
     const st = stRef.current; if (!st) return;
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id);
-    if (it && it.tier >= 3 && !window.confirm(`Phân giải ${it.name} (hạng ${C.RARITY[it.tier]})?`)) return;
+    if (it && it.tier >= 3 && !(await askConfirm({ title: 'Phân giải pháp bảo', body: `Phân giải ${it.name} (hạng ${C.RARITY[it.tier]})? Không thể hoàn tác.`, ok: 'Phân giải', danger: true }))) return;
     finish(await act('dissolve', { id }));
   }, [stRef, finish, act]);
   const dissolveMany = useCallback(async (maxTier: number) => {
-    if (!window.confirm(`Phân giải mọi món không khóa, không đang mặc, hạng ${C.RARITY[maxTier]} trở xuống (trong túi và kho tạm)?`)) return;
+    if (!(await askConfirm({ title: 'Dọn túi', body: `Phân giải mọi món không khóa, không đang mặc, hạng ${C.RARITY[maxTier]} trở xuống (trong túi và kho tạm)? Không thể hoàn tác.`, ok: 'Dọn túi', danger: true }))) return;
     finish(await act('dissolveMany', { maxTier }));
   }, [finish, act]);
   const open = useCallback((id: number) => setSel(id), []);
@@ -148,6 +150,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
   const tooHigh = it.level > L;
   return (
     <div className="modal zoom" onClick={eqx.close} role="dialog" aria-modal="true" aria-label={it.name}>
+      <ModalClose onClose={eqx.close} />
       <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()} style={{ '--rc': rc } as CSSProperties}>
         <div className="zoomPic"><GenImg spec={itemSpec(it)} pri={1} fb={<ElIcon el={it.el} size={80} />} /></div>
         <div className="zoomInfo">
@@ -168,7 +171,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
               {tooHigh && <div className="down">Cần Lv{it.level} mới mặc được (ngươi đang Lv{L}).</div>}
             </div>
           )}
-          {eqx.msg && <div className={`eqMsg ${eqx.msg.ok ? 'ok' : 'err'}`} role="status">{eqx.msg.t}</div>}
+          <Toast msg={eqx.msg} />
         </div>
         <div className="eqAct">
           {where === 'eq'
@@ -214,7 +217,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
       <h4 className="eqTitle">Trang bị pháp bảo</h4>
       <div className="hint">Kéo món từ túi thả vào ô trang bị để mặc. Bấm vào ô để tháo hoặc xem thông tin.</div>
       <EquipDoll st={st} eqx={eqx} />
-      {eqx.msg && !eqx.sel && <div className={`eqMsg ${eqx.msg.ok ? 'ok' : 'err'}`} role="status">{eqx.msg.t}</div>}
+      {!eqx.sel && <Toast msg={eqx.msg} />}
       <div className="bagHead">
         <h4>Túi Càn Khôn <small>{st.bag.length}/{st.caps.bag}</small></h4>
         <div className="cleanRow">

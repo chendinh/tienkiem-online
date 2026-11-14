@@ -1,11 +1,15 @@
 // CI data check (Requirement 6.4, 7.13, 20.15, 21.18, 22.16, 23.16, 24.16 ...): `npm run check` exits 1 when Balance_Config or the Content_Catalog is invalid.
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { validateBalance } from '../lib/balance';
 import { validateCatalog } from '../lib/validate';
+import { validateSkillFx, usedTextures } from '../lib/skillfx';
 import { ERR } from '../lib/strings';
 
-const problems: string[] = [...validateBalance().map((m) => `Balance_Config: ${m}`), ...validateCatalog().map((m) => `Content_Catalog: ${m}`)];
+const problems: string[] = [...validateBalance().map((m) => `Balance_Config: ${m}`), ...validateCatalog().map((m) => `Content_Catalog: ${m}`), ...validateSkillFx()];
+// A missing effect picture is not fatal (the stage falls back to the plain icon), so it is only a warning: run `npm run gen:skillfx`.
+const noTex = usedTextures().filter((t) => !existsSync(join(__dirname, '..', 'public', 'art', 'fx', `${t}.webp`)));
+if (noTex.length) console.warn(`Cảnh báo: thiếu ${noTex.length} ảnh hiệu ứng chiêu thức (${noTex.join(', ')}). Chạy: npm run gen:skillfx`);
 
 // every error code the server can return must have a Vietnamese message in the string table (Requirement 31.11)
 const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : []; });

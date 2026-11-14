@@ -6,7 +6,7 @@
    ========================================================================== */
 @layer game {
   /* ---- Kho báu tabs: icon over label, five equal columns ------------------ */
-  .sidePanel .tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+  .sidePanel .tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
   .sidePanel .tabs > button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; min-width: 0; padding: 8px 2px 9px; font-size: 0.78rem; letter-spacing: 0; line-height: 1.15; text-align: center; overflow-wrap: break-word; }
   .sidePanel .tabs > button em { font-style: normal; font-family: var(--font-text); font-weight: 600; font-size: 0.66rem; letter-spacing: 0; color: var(--text-3); }
   .sidePanel .tabs > button.on em { color: var(--gold-300); }
@@ -129,4 +129,80 @@
   .methodNow > small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
   .mnLbl { letter-spacing: 0.14em; text-transform: uppercase; color: var(--jade-300) !important; font-size: var(--fs-2xs) !important; }
   .methodNow .acName b { font-size: var(--fs-xl); }
+}
+
+/* ==========================================================================
+   Thần Thông, "what do I have": the summary strip, the five states and the grouped lists.
+   on = in a slot (jade) · known = learned (gold) · ready = Bí Công in the bag, can be read now (bright gold) · wait = in the bag but Level too low (amber) · none = nothing yet (grey)
+   ========================================================================== */
+@layer game {
+  /* ---- summary strip: four numbers that answer "what do I own?" ---------------- */
+  .artSum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .sumTile { display: grid; align-content: start; gap: 1px; min-width: 0; padding: 8px 10px; text-align: left; font: inherit; color: var(--text-1); cursor: pointer; border-radius: var(--r-md); border: 1px solid var(--line); background: rgb(5 12 18 / 0.55); transition: border-color var(--dur-fast), transform var(--dur-fast) var(--ease-out), background var(--dur-fast); }
+  .sumTile:hover { border-color: var(--line-gold-strong); transform: translateY(-1px); }
+  .sumTile:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 1px; }
+  .sumTile small { font-size: var(--fs-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sumTile b { font-family: var(--font-display); font-size: var(--fs-xl); line-height: 1.15; color: var(--gold-200, #f4dba0); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sumTile b i { font-style: normal; font-family: var(--font-text); font-weight: 400; font-size: var(--fs-xs); color: var(--text-3); }
+  .sumTile > span { font-size: var(--fs-xs); line-height: 1.3; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sumTile.hot { border-color: var(--gold-300); background: linear-gradient(135deg, color-mix(in srgb, var(--gold-400) 18%, rgb(5 12 18 / 0.6)), rgb(5 12 18 / 0.55)); animation: hot-pulse 2s var(--ease-drift) infinite; }
+  .sumTile.hot > span { color: var(--gold-200, #f4dba0); font-weight: 600; }
+  .artsPanel > .seg > button em.hot { padding: 0 6px; border-radius: var(--r-pill); opacity: 1; font-weight: 700; color: #2b1c05; background: var(--gold-lacquer); }
+  @media (max-width: 640px) { .artSum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* ---- the five states --------------------------------------------------------- */
+  .chip.st.basic { color: var(--text-2); }
+  .chip.st.ready { color: #2b1c05; font-weight: 700; border-color: var(--gold-300); background: var(--gold-lacquer); }
+  .chip.st.wait { color: var(--warn, #ffb454); border-color: color-mix(in srgb, var(--warn, #ffb454) 55%, transparent); background: color-mix(in srgb, var(--warn, #ffb454) 10%, transparent); }
+  .artCard.ready { outline: 1.5px solid var(--gold-300); outline-offset: -1px; box-shadow: 0 0 20px -10px var(--gold-400); }
+  .artCard.wait { outline: 1px dashed color-mix(in srgb, var(--warn, #ffb454) 70%, transparent); outline-offset: -1px; }
+  .artCard.known { border-style: solid; }
+  .artPick .readyMark { position: absolute; top: 3px; left: 3px; z-index: 1; display: inline-flex; align-items: center; gap: 2px; padding: 0 5px 0 4px; border-radius: var(--r-pill); font-size: var(--fs-2xs); font-weight: 700; line-height: 1.5; color: #2b1c05; background: var(--gold-lacquer); box-shadow: 0 0 8px -2px var(--gold-400); }
+
+  /* ---- grouped lists ------------------------------------------------------------ */
+  .artGroup { display: grid; gap: var(--sp-2); }
+  .artGroup > h5 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: var(--sp-2) 0 0; padding-bottom: 5px; border-bottom: 1px solid var(--line); font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: 0.04em; color: var(--text-1); }
+  .artGroup > h5 small { font-family: var(--font-text); font-weight: 400; font-size: var(--fs-xs); letter-spacing: 0; color: var(--text-3); }
+  .artGroup.on > h5 { color: var(--jade-200); border-color: color-mix(in srgb, var(--jade-300) 40%, transparent); }
+  .artGroup.known > h5 { color: var(--gold-300); border-color: var(--line-gold); }
+  .artGroup.ready > h5 { color: var(--gold-200, #f4dba0); border-color: var(--gold-300); }
+  .artGroup.wait > h5 { color: var(--warn, #ffb454); }
+  .artGroup.none > h5 { color: var(--text-3); }
+
+  /* a technique with no book yet: one line that opens */
+  .lockList { display: grid; gap: 6px; }
+  .lockRow { --rc: var(--tier-0); position: relative; overflow: hidden; border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--rc) 28%, transparent); background: rgb(5 12 18 / 0.5); }
+  .lockRow::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--rc); opacity: 0.6; }
+  .lockRow > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 7px 10px 7px 14px; cursor: pointer; list-style: none; color: var(--text-3); }
+  .lockRow > summary::-webkit-details-marker { display: none; }
+  .lockRow > summary b { font-family: var(--font-display); font-size: var(--fs-md); color: color-mix(in srgb, var(--rc) 65%, var(--text-3)); }
+  .lockRow > summary svg { flex: none; }
+  .lockRow[open] { border-color: color-mix(in srgb, var(--rc) 45%, transparent); }
+  .lockBody { display: grid; gap: 8px; padding: 2px 12px 12px 14px; }
+
+  /* ---- Sổ chiêu ------------------------------------------------------------------ */
+  .chip.flt { cursor: pointer; background: transparent; font: inherit; font-size: var(--fs-xs); line-height: 1.7; }
+  .chip.flt.on { color: var(--gold-200, #f4dba0); border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 16%, transparent); }
+  .artTile { padding: 0; gap: 0; }
+  .tileHead { display: grid; gap: 6px; width: 100%; min-width: 0; padding: 9px 10px 9px 14px; text-align: left; font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+  .tileHead:focus-visible { outline: 2px solid var(--jade-300); outline-offset: -2px; border-radius: var(--r-md); }
+  .artTile .tileMore { margin: 0 10px 0 14px; padding: 8px 0 10px; }
+  .artTile .tileMore .btn { justify-self: start; }
+  .artTile.st-on { outline: 1.5px solid var(--jade-300); outline-offset: -1px; }
+  .artTile.st-ready { filter: none; opacity: 1; outline: 1.5px solid var(--gold-300); outline-offset: -1px; box-shadow: 0 0 18px -8px var(--gold-400); }
+  .artTile.st-wait { filter: none; opacity: 1; outline: 1px dashed color-mix(in srgb, var(--warn, #ffb454) 70%, transparent); outline-offset: -1px; }
+  .artTile .tileFoot .chip.st { font-size: var(--fs-2xs); padding: 0 8px; white-space: normal; line-height: 1.5; }
+
+  /* ---- Bí kíp tab ------------------------------------------------------------------ */
+  .artBooks { display: grid; gap: var(--sp-3); }
+  .bookList { display: grid; gap: 8px; }
+  .bookRow.ready { outline: 1.5px solid var(--gold-300); outline-offset: -1px; box-shadow: 0 0 18px -10px var(--gold-400); }
+  .bookRow.wait { opacity: 0.88; }
+  .bkInfo .bkState { color: var(--text-2); }
+  .bookRow.ready .bkState { color: var(--gold-200, #f4dba0); }
+  .bookRow.wait .bkState { color: var(--warn, #ffb454); }
+  .artEmpty { display: grid; justify-items: center; gap: 6px; padding: var(--sp-5) var(--sp-4); text-align: center; border-radius: var(--r-md); border: 1px dashed var(--line-gold); background: rgb(0 0 0 / 0.2); color: var(--text-3); }
+  .artEmpty svg { color: var(--gold-300); }
+  .artEmpty > b { font-family: var(--font-display); font-size: var(--fs-lg); color: var(--gold-300); }
+  .artEmpty p { margin: 0; max-width: 46ch; font-size: var(--fs-sm); line-height: 1.55; color: var(--text-2); }
 }

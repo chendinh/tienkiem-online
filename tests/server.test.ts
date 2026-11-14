@@ -274,3 +274,23 @@ test('a stored picture is found under the same id the file version used (saved g
   assert.deepEqual(r, { status: 'ready', url: `/api/img/${id}`, crop: 0.07 });
   assert.equal(await IG.fileFor('not-an-id'), null);
 });
+
+test('an ordinary poll settles a copy without saving, and the result is the same as saving every time', async () => {
+  const a = await signUp('poll@example.com');
+  const saved = async () => (await St.loadAccount(a.id))!.state;
+  await editState(a.id, (st) => { st.clock = Date.now() - 4 * B.BALANCE.tickSec * 1000 - 100; });   // a few ticks behind: below the saving threshold
+  const before = await saved();
+  const v1 = await S.getGame(a.id);
+  assert.ok(v1.state && v1.state.tick > before.tick, 'the view is up to date');
+  assert.equal((await saved()).tick, before.tick, 'a short poll writes nothing');
+  assert.equal((await saved()).clock, before.clock);
+  // a click settles from the saved state and lands on the same game as the poll showed
+  const r = await S.actGame(a.id, { type: 'mode', rid: 'poll-click-0001', mode: 'retreat' });
+  assert.ok(r.ok && r.state!.tick >= v1.state!.tick);
+  assert.ok((await saved()).tick >= v1.state!.tick, 'the click saved the settlement together with itself');
+  // far behind (more than the threshold): the poll saves
+  await editState(a.id, (st) => { st.clock = Date.now() - (B.BALANCE.pollSaveTicks + 5) * B.BALANCE.tickSec * 1000; });
+  const t0 = (await saved()).tick;
+  await S.getGame(a.id);
+  assert.ok((await saved()).tick > t0, 'a long gap is saved');
+});

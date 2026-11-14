@@ -4,7 +4,7 @@
 import { createHmac } from 'node:crypto';
 import * as G from '../game';
 import * as C from '../content';
-import { query } from './db';
+import { query, savepoint } from './db';
 import { loadAccount } from './store';
 
 export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number }
@@ -41,9 +41,10 @@ function secret(): Promise<string> {
 export async function publish(acc: string, st: G.GameState, now: number) {
   const e = entryOf(st, pidOf(await secret(), acc), acc, now);
   // a player online changes the account every few seconds: write the row again only when something shown on the board changed, or after a minute
-  const { t: _t, ...rest } = e, sig = JSON.stringify(rest), prev = S.last.get(acc);
+  // cp and power move on nearly every tick, so they are left out of the comparison: the row is refreshed when something else changed, or after a minute
+  const { t: _t, cp: _c, power: _w, ...rest } = e, sig = JSON.stringify(rest), prev = S.last.get(acc);
   if (prev && prev.sig === sig && now - prev.at < 60000) return;
-  await upsert(e);
+  await savepoint(() => upsert(e));   // a failed ranking row must not undo the account save that came before it
   S.last.set(acc, { sig, at: now });
 }
 export async function unpublish(acc: string) {

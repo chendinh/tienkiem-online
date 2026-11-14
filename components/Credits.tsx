@@ -1,4 +1,5 @@
 'use client';
+import { ModalClose } from './ds/ModalClose';
 import { useAudio } from '@/lib/audio';
 
 // Credits window. Creative Commons BY music must be credited where players can find it; this is that place (footer and music panel open it).
@@ -6,6 +7,7 @@ export function Credits({ onClose }: { onClose: () => void }) {
   const a = useAudio();
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Ghi công">
+      <ModalClose onClose={onClose} />
       <div className="modalBody credits" onClick={(e) => e.stopPropagation()}>
         <h2>Ghi công</h2>
         <p>Những người và công cụ đã góp mặt trong Tiên Kiếm.</p>

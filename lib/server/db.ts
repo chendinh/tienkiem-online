@@ -24,7 +24,7 @@ function pool(): Pool {
     connectionString: url,
     // Each serverless instance needs only a few connections: use the provider's pooled connection string (Neon "pooled", Supabase transaction pooler).
     max: Number(process.env.PG_POOL_MAX || 5),
-    idleTimeoutMillis: 10000,
+    idleTimeoutMillis: 60000,   // a connection that closes after a short pause costs a new TLS handshake with the database on the next click
     connectionTimeoutMillis: 15000,
   });
   p.on('error', (e) => console.error('[tutien] database pool:', e.message));
@@ -62,9 +62,13 @@ function ready(): Promise<void> {
       const c = await pool().connect();
       let broken: unknown;
       try {
+        // the tables are checked once per version of this list, not on every cold start: 17 statements are 17 round trips to the database
+        const marker = `v${SCHEMA.length}:${SCHEMA.reduce((h, s) => (h * 31 + s.length) >>> 0, 7)}`;
+        try { const r = await c.query(`SELECT value #>> '{}' AS v FROM kv WHERE key = 'schema.version'`); if (r.rows[0] && r.rows[0].v === marker) return; } catch { /* no kv table yet: create everything */ }
         await c.query('BEGIN');
         await c.query('SELECT pg_advisory_xact_lock(738201)');
         for (const s of SCHEMA) await c.query(s);
+        await c.query(`INSERT INTO kv (key, value) VALUES ('schema.version', to_jsonb($1::text)) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [marker]);
         // the secret behind the public ids of the ranking is made here, outside any request transaction, so it can never be rolled back
         await c.query(`INSERT INTO kv (key, value) VALUES ('rank.secret', to_jsonb($1::text)) ON CONFLICT (key) DO NOTHING`, [randomBytes(24).toString('hex')]);
         await c.query('COMMIT');
