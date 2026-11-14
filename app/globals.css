@@ -1,0 +1,14 @@
+/* Tiên Kiếm: the design system lives in app/ds (read docs/design-system.md). Layer order decides who wins, so there are no specificity fights. */
+@layer ds-tokens, ds-base, ds-surfaces, ds-controls, ds-motion, ds-atmosphere, game;
+@import './ds/fonts.css';
+@import './ds/tokens.css';
+@import './ds/ornaments.css';
+@import './ds/base.css';
+@import './ds/surfaces.css';
+@import './ds/controls.css';
+@import './ds/widgets.css';
+@import './ds/motion.css';
+@import './ds/atmosphere.css';
+@import './ds/game.css';
+@import './ds/guide.css';
+@import './ds/v2.css';

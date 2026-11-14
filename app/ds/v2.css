@@ -1,0 +1,140 @@
+/* Screens added with the server-driven game: sign in, Zone, Phường Thị, settings, odds, reports. */
+@layer game {
+  .main > * { min-width: 0; }
+  .authScreen { position: fixed; inset: 0; z-index: var(--z-intro); display: grid; place-items: center; overflow-y: auto; padding: var(--sp-5) var(--sp-4); }
+  .authBox { width: min(460px, 100%); display: grid; gap: var(--sp-3); padding: var(--sp-5); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: var(--glass-soft); backdrop-filter: blur(10px); }
+  .authBox h2 { margin: 0; }
+  .form { display: grid; gap: var(--sp-3); }
+  .field { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--text-2); }
+  .field input, .field select, .inp { min-height: 44px; padding: 0.5rem 0.75rem; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: rgb(0 0 0 / 0.3); color: var(--text-1, inherit); }
+  .field input:focus-visible, .field select:focus-visible, .inp:focus-visible { outline: 2px solid var(--jade-400); outline-offset: 1px; }
+  .field .err { color: var(--warn); font-size: var(--fs-xs); }
+  .formErr { color: var(--warn); font-size: var(--fs-sm); }
+  .formOk { color: var(--jade-300); font-size: var(--fs-sm); }
+  .linkRow { display: flex; flex-wrap: wrap; gap: var(--sp-3); font-size: var(--fs-xs); }
+  .genderPick { display: flex; gap: var(--sp-2); }
+  .genderPick label { flex: 1; text-align: center; padding: 0.55rem; border: 1px solid var(--line-strong); border-radius: var(--r-sm); cursor: pointer; font-size: var(--fs-sm); min-height: 44px; display: grid; place-items: center; }
+  .genderPick input { position: absolute; opacity: 0; pointer-events: none; }
+  .genderPick label:has(input:checked) { border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 18%, transparent); }
+  .genderPick label:has(input:focus-visible) { outline: 2px solid var(--jade-400); }
+  .netBanner { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; padding: 0.5rem 1rem; text-align: center; background: var(--warn, #c0392b); color: #fff; font-size: var(--fs-sm); }
+  .zoneList { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0; }
+  .zoneRow { display: grid; gap: 2px; text-align: left; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.2); cursor: pointer; min-height: 44px; }
+  .zoneRow.on { border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 14%, transparent); }
+  .zoneRow:disabled { opacity: 0.5; cursor: default; }
+  .zoneRow small { color: var(--text-3); font-size: var(--fs-xs); }
+  .phenTag { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs); background: color-mix(in srgb, var(--jade-400) 22%, transparent); color: var(--jade-200); }
+  .tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+  .tbl th, .tbl td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .shopRow { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-2); align-items: center; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+  .shopRow small { display: block; color: var(--text-3); font-size: var(--fs-xs); }
+  .shopAct { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .shopAct .inp { width: 72px; min-height: 36px; }
+  .setGrid { display: grid; gap: var(--sp-3); }
+  .setGrid .row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+  .chipPick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chipPick label { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); cursor: pointer; font-size: var(--fs-xs); min-height: 32px; display: inline-flex; align-items: center; }
+  .chipPick input { position: absolute; opacity: 0; pointer-events: none; }
+  .chipPick label:has(input:checked) { border-color: var(--jade-300); background: color-mix(in srgb, var(--jade-400) 22%, transparent); }
+  .chipPick label:has(input:focus-visible) { outline: 2px solid var(--jade-400); }
+  .bar2 { height: 8px; border-radius: 4px; background: rgb(255 255 255 / 0.1); overflow: hidden; }
+  .bar2 > i { display: block; height: 100%; background: linear-gradient(90deg, var(--jade-500), var(--gold-400)); }
+  .oddsSect h4 { margin: var(--sp-4) 0 var(--sp-2); }
+  .logBox { max-height: 180px; overflow: auto; font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-2); border: 1px dashed var(--line); border-radius: var(--r-sm); }
+  .stashHead { margin-top: var(--sp-3); }
+  @media (prefers-reduced-motion: reduce) { .authBox, .modalBody { animation: none !important; } }
+}
+@layer game {
+  .penGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: var(--sp-2); margin-top: var(--sp-2); }
+  .penTile { display: grid; justify-items: center; gap: 2px; padding: var(--sp-2) 4px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.22); cursor: pointer; min-height: 44px; text-align: center; }
+  .penTile:hover, .penTile:focus-visible { border-color: var(--line-gold-strong); }
+  .penTile.mutc { border-color: var(--gold-300); }
+  .penTile .pn { font-size: var(--fs-xs); line-height: 1.2; word-break: break-word; }
+  .penTile small { color: var(--text-3); font-size: 0.7rem; }
+  .cleanRow { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+  .cleanRow .inp { min-height: 36px; padding: 0.2rem 0.5rem; max-width: 190px; }
+  .decide { max-width: 520px; }
+  .decideRow { display: flex; gap: var(--sp-3); align-items: center; }
+  .eqAct { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; margin-top: var(--sp-3); }
+  .zoomBody .eqAct { margin-top: var(--sp-2); }
+  .heroActions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+  .heroActions .btn { flex: 1 1 140px; }
+}
+@layer game {
+  .dbTimer { flex: 1 1 100%; display: grid; gap: 3px; }
+  .dbTimer small { font-size: var(--fs-xs); color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
+  .dbTrack { height: 3px; border-radius: 2px; background: rgb(255 255 255 / 0.1); overflow: hidden; }
+  .dbTrack > i { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, var(--gold-400), var(--gold-200, #f4dba0)); will-change: transform; animation: db-drain linear forwards; }
+  @keyframes db-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  .decisionBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: var(--z-popover); width: min(820px, calc(100% - 24px)); display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); border: 1px solid var(--gold-300); background: color-mix(in srgb, var(--ink-900) 92%, transparent); backdrop-filter: blur(10px); box-shadow: 0 8px 30px rgb(0 0 0 / 0.5), 0 0 24px -6px color-mix(in srgb, var(--gold-400) 60%, transparent); }
+  .decisionBar .dbText { flex: 1 1 260px; display: grid; gap: 2px; min-width: 0; }
+  .decisionBar .dbText small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
+  .decisionBar .dbBtns { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+  .app.hasDecision { padding-bottom: 190px; }
+}
+@layer game {
+  /* Zone buttons: the picture of the place is the background, text on separate lines */
+  .zoneList { gap: var(--sp-3); }
+  .zoneRow, .zoneBtn { position: relative; overflow: hidden; isolation: isolate; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 3px; text-align: left; min-height: 92px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line-strong); border-radius: var(--r-md); background-color: var(--ink-800); background-size: cover; background-position: center; color: var(--mist-50); cursor: pointer; }
+  .zoneRow::before, .zoneBtn::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgb(3 8 13 / 0.9) 0%, rgb(3 8 13 / 0.55) 55%, rgb(3 8 13 / 0.12) 100%); transition: opacity var(--dur-base); }
+  .zoneRow:hover:not(:disabled)::before, .zoneBtn:hover::before { opacity: 0.8; }
+  .zoneRow.on { border-color: var(--gold-300); box-shadow: 0 0 0 1px var(--gold-300), 0 0 18px -4px color-mix(in srgb, var(--gold-400) 70%, transparent); }
+  .zoneRow:disabled { filter: grayscale(0.85) brightness(0.65); cursor: default; }
+  .zoneRow .zn, .zoneBtn b { font-family: var(--font-display, inherit); font-size: var(--fs-lg, 1.1rem); text-shadow: 0 1px 6px rgb(0 0 0 / 0.8); }
+  .zoneRow .zs, .zoneBtn span { font-size: var(--fs-xs); color: var(--mist-200); text-shadow: 0 1px 4px rgb(0 0 0 / 0.8); }
+  .zoneRow .zs.lock { color: var(--warn); }
+  .zoneBtn small { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-200); }
+  .zoneBtn em { font-style: normal; font-size: var(--fs-xs); padding: 1px 8px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--jade-400) 28%, transparent); color: var(--jade-200); }
+  .zoneBtn { flex: 1 1 100%; min-height: 104px; }
+  .zoneBtn:focus-visible, .zoneRow:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
+  /* Phường Thị */
+  .marketBanner { position: relative; isolation: isolate; display: grid; gap: 2px; align-content: end; min-height: 110px; padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-gold); background-color: var(--ink-800); background-size: cover; background-position: center; overflow: hidden; }
+  .marketBanner::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(0deg, rgb(3 8 13 / 0.85), rgb(3 8 13 / 0.1) 70%); }
+  .marketBanner b { font-size: var(--fs-lg, 1.1rem); color: var(--gold-200); text-shadow: 0 1px 6px #000; }
+  .marketBanner span { font-size: var(--fs-xs); color: var(--mist-200); }
+  .shopMain { display: flex; gap: var(--sp-3); align-items: center; min-width: 0; }
+  .shopImg { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line-gold); background: var(--ink-800); box-shadow: 0 0 10px -2px rgb(0 0 0 / 0.6); display: grid; place-items: center; }
+}
+@layer game {
+  /* shop rows: picture and text on top, buttons below, so names do not wrap one word per line */
+  .shopRow { grid-template-columns: 1fr; }
+  /* the list scrolls inside the panel; the banner and notes above it stay put */
+  .shopScroll { max-height: calc(100vh - 420px); min-height: 240px; overflow-y: auto; overflow-x: hidden; padding: 0 4px 0 2px; }
+  @media (max-width: 1150px) { .shopScroll { max-height: none; } }
+  .shopAct { justify-content: flex-start; }
+}
+@layer game {
+  /* Bảng Phong Thần */
+  .rankBody { width: min(720px, 100%); max-height: 92vh; overflow-y: auto; }
+  .rankList { display: grid; gap: 6px; margin: var(--sp-3) 0; }
+  .rankMe { margin-top: var(--sp-2); color: var(--gold-200); font-size: var(--fs-sm); }
+  .rankRow { display: grid; grid-template-columns: 40px 1fr auto auto; align-items: center; gap: var(--sp-3); text-align: left; padding: var(--sp-2) var(--sp-3); min-height: 52px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.22); cursor: pointer; }
+  .rankRow:hover, .rankRow:focus-visible { border-color: var(--line-gold-strong); }
+  .rankRow.me { border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 12%, transparent); }
+  .rankNum { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 700; font-variant-numeric: tabular-nums; background: rgb(255 255 255 / 0.08); }
+  .rankNum.r1 { background: linear-gradient(180deg, #f6e2a8, #c19445); color: #2a1c05; }
+  .rankNum.r2 { background: linear-gradient(180deg, #e8eef0, #9aa8ad); color: #1b2428; }
+  .rankNum.r3 { background: linear-gradient(180deg, #e9b98a, #a8693a); color: #2b1608; }
+  .rankName { display: grid; min-width: 0; }
+  .rankName b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rankName small, .rankRealm small { color: var(--text-3); font-size: var(--fs-xs); }
+  .rankRealm { display: grid; justify-items: end; font-size: var(--fs-sm); }
+  .rankPow { display: inline-flex; align-items: center; gap: 4px; color: var(--gold-200); font-variant-numeric: tabular-nums; min-width: 72px; justify-content: flex-end; }
+  @media (max-width: 520px) { .rankRow { grid-template-columns: 34px 1fr auto; } .rankRealm { display: none; } }
+  .rkHead { display: flex; gap: var(--sp-4); align-items: flex-start; }
+  .rkPic { flex: none; width: 116px; aspect-ratio: 2 / 3; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line-gold); background: var(--ink-800); display: grid; place-items: center; }
+  .rkPic .fill { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .rkStats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-2); }
+  .rkStat { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--r-sm); background: rgb(0 0 0 / 0.25); font-size: var(--fs-sm); }
+  .rkStat span { flex: 1; color: var(--text-2); }
+  .rkStat b { font-variant-numeric: tabular-nums; }
+  .rkSlots { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--sp-2); }
+  .rkSlot { display: grid; justify-items: center; gap: 2px; text-align: center; padding: var(--sp-2) 4px; border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.2); }
+  .rkSlotName { font-size: var(--fs-xs); line-height: 1.25; word-break: break-word; }
+  .rkSlot small { font-size: 0.7rem; }
+  .rkParty { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-3); }
+  .rkBeast { display: grid; justify-items: center; gap: 2px; text-align: center; padding: var(--sp-3); border-radius: var(--r-sm); border: 1px solid var(--line); background: rgb(0 0 0 / 0.2); }
+  .rkBeast.mutc { border-color: var(--gold-300); }
+  .rkBeast small { color: var(--text-3); font-size: var(--fs-xs); }
+}

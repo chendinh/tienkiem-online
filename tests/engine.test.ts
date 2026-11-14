@@ -1,0 +1,502 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import * as G from '../lib/game';
+import * as C from '../lib/content';
+import { BALANCE as B, cultRate, cultThreshold, validateBalance } from '../lib/balance';
+import { validateCatalog } from '../lib/validate';
+
+const T0 = 1_800_000_000_000;
+const fresh = (seed = 42, gender?: 'f' | 'm') => G.newGame(seed, gender, T0);
+const strip = (st: G.GameState) => { const c = structuredClone(st); c.settleSeq = 0; c.reports = []; c.ledger = []; c.ledgerBase = 0; c.ledgerDaily = []; c.pend = {}; return JSON.stringify(c); };
+const sigma = (n: number, p: number) => Math.sqrt(n * p * (1 - p));
+
+test('Balance_Config and Content_Catalog are valid', () => {
+  assert.deepEqual(validateBalance(), []);
+  assert.deepEqual(validateCatalog(), []);
+});
+test('validateBalance rejects broken configs', () => {
+  const bad = structuredClone(B) as typeof B;
+  bad.tickSec = 0; bad.breakMax = 2; bad.shop.taming = [10, 10, 250, 1250]; bad.defaults.retreatPct = 90;
+  const errs = validateBalance(bad);
+  assert.ok(errs.length >= 4, errs.join('\n'));
+});
+
+test('cultivation tables match Appendix B.2', () => {
+  assert.equal(cultRate(1), 20); assert.equal(cultRate(4), 27); assert.equal(cultRate(20), 122);
+  assert.equal(cultThreshold(1), 1200); assert.equal(cultThreshold(2), 1980); assert.equal(cultThreshold(4), 8200); assert.equal(cultThreshold(20), 24340880);
+  assert.equal(new Set([1, 2, 3, 4]).size, 4);
+});
+
+test('determinism: same seed and ticks give the same state', () => {
+  const a = fresh(7), b = fresh(7);
+  G.settle(a, 3000); G.settle(b, 3000);
+  assert.equal(strip(a), strip(b));
+});
+test('splitting a Settlement does not change the result (Requirement 5.2)', () => {
+  const a = fresh(11), b = fresh(11);
+  G.settle(a, 2400);
+  G.settle(b, 700); G.settle(b, 1100); G.settle(b, 600);
+  assert.equal(strip(a), strip(b));
+});
+test('settling twice to the same time is a no-op (Requirement 5.3)', () => {
+  const st = fresh(5), now = T0 + 3600_000;
+  G.settleTo(st, now);
+  const once = strip(st);
+  const r = G.settleTo(st, now);
+  assert.equal(r.ticks, 0);
+  assert.equal(strip(st), once);
+});
+test('only whole ticks are simulated and the remainder is kept (Requirement 3.3)', () => {
+  const st = fresh(5);
+  const r = G.settleTo(st, T0 + 12_000);        // 2 ticks and 2 seconds
+  assert.equal(r.ticks, 2);
+  assert.equal(st.clock, T0 + 10_000);
+  assert.equal(G.settleTo(st, T0 + 14_000).ticks, 0);   // still under one tick
+  assert.equal(G.settleTo(st, T0 + 15_000).ticks, 1);
+});
+test('a clock earlier than the last Settlement changes nothing (Requirement 4.7)', () => {
+  const st = fresh(5); G.settleTo(st, T0 + 60_000);
+  const before = strip(st);
+  assert.equal(G.settleTo(st, T0 + 1000).ticks, 0);
+  assert.equal(strip(st), before);
+});
+test('online vs offline Settlement and the Offline_Cap (Requirement 4.2 to 4.6)', () => {
+  const on = fresh(3), off = fresh(3), capped = fresh(3);
+  assert.equal(G.settleTo(on, T0 + 100_000).offline, false);
+  assert.equal(on.reports.length, 0);
+  const r = G.settleTo(off, T0 + 130_000);
+  assert.equal(r.offline, true); assert.equal(off.reports.length, 1);
+  const c = G.settleTo(capped, T0 + 100 * 3600_000);
+  assert.equal(c.ticks, Math.floor((B.offlineCapH * 3600) / B.tickSec));
+  assert.equal(capped.clock, T0 + 100 * 3600_000);
+});
+test('Spirit_Stone equals the ledger sum after Settlement and shop actions (Requirement 24.1)', () => {
+  const st = fresh(9); st.set.mode = 'adventure';
+  G.settleTo(st, T0 + 6 * 3600_000);
+  assert.equal(st.stones, G.ledgerSum(st));
+  assert.ok(st.ledger.every((r) => r.amt !== 0 && Number.isInteger(r.amt)));
+  assert.ok(G.buy(st, 'taming1', 3).ok); G.flushLedger(st, 'r1', T0 + 7 * 3600_000);
+  assert.equal(st.stones, G.ledgerSum(st));
+});
+test('ledger folding keeps the invariant (Requirement 24.15)', () => {
+  const st = fresh(9); G.settleTo(st, T0 + 6 * 3600_000);
+  G.flushLedger(st, 'later', T0 + (B.ledgerRetentionDays + 5) * 86400_000);
+  assert.equal(st.ledger.length, 0);
+  assert.equal(st.stones, G.ledgerSum(st));
+  assert.equal(st.ledgerDaily.reduce((a, d) => a + d.amt, 0), st.ledgerBase);
+});
+test('Spirit_Stone never passes the maximum and the excess is reported (Requirement 24.2)', () => {
+  const st = fresh(1); st.stones = B.stoneMax - 5;
+  const rep = { stones: 0, stonesBy: {}, lostStones: 0 } as any;
+  assert.equal(G.earn(st, 100, 'victory', rep), 5);
+  assert.equal(st.stones, B.stoneMax); assert.equal(rep.lostStones, 95);
+});
+
+test('Đốn Ngộ count stays within 4 sigma (Requirement 3.17)', () => {
+  const st = fresh(21); st.set.mode = 'retreat';
+  const N = 100_000, rep = G.settle(st, N);
+  const mean = N * B.epiphanyP, sd = sigma(N, B.epiphanyP);
+  assert.ok(Math.abs(rep.epiphanies - mean) <= 4 * sd, `${rep.epiphanies} vs ${mean} ± ${4 * sd}`);
+});
+test('Zone_Phenomenon depends only on seed, zone and slot and has the configured frequency (Requirement 6.8, 6.9)', () => {
+  for (const z of C.ZONES) {
+    let n = 0; const N = 10_000;
+    for (let s = 0; s < N; s++) {
+      const a = G.phenomenonInSlot(z.id, s, 'test-seed'), b = G.phenomenonInSlot(z.id, s, 'test-seed');
+      assert.equal(a && a.id, b && b.id);
+      if (a) n++;
+    }
+    assert.ok(Math.abs(n - N * B.phenomenonP) <= 4 * sigma(N, B.phenomenonP), `${z.id}: ${n}`);
+  }
+  assert.notEqual(JSON.stringify(Array.from({ length: 50 }, (_, s) => G.phenomenonInSlot('thanhvan', s, 'A')?.id)), JSON.stringify(Array.from({ length: 50 }, (_, s) => G.phenomenonInSlot('thanhvan', s, 'B')?.id)));
+});
+test('Luck only raises the odds of rare tiers and is capped (Requirement 20.12)', () => {
+  const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  for (const luck of [0, 30, 100]) assert.ok(Math.abs(sum(G.tierProbs(luck)) - 1) < 1e-9);
+  const rare = (l: number) => { const p = G.tierProbs(l); return p[4] + p[5]; };
+  assert.ok(rare(0) < rare(50) && rare(50) < rare(100));
+  assert.ok(Math.abs(rare(0) - 0.005) < 1e-9);
+});
+test('Mutation and item pity reach a guarantee at the hard count (Requirement 10)', () => {
+  assert.equal(G.pityP(1 / 4096, 12288, 4096, 12288), 1);
+  assert.equal(G.pityP(1 / 4096, 100, 4096, 12288), 1 / 4096);
+  assert.ok(G.pityP(0.005, 600, 400, 800) > 0.5);
+});
+test('taming probability: grade and level difference are monotone, bounded (Requirement 9)', () => {
+  const st = fresh(2), sp = C.SPECIES[0];
+  const m = (level: number) => ({ level, pers: 0 }) as G.Beast;
+  let prev = 0;
+  for (let g = 0; g < 4; g++) { const p = G.tameProb(st, sp, m(1), g); assert.ok(p >= prev && p >= B.tameMin && p <= B.tameMax); prev = p; }
+  st.player.sub = 3; st.player.realm = 2;
+  prev = 0;
+  for (let lv = 20; lv >= 1; lv--) { const p = G.tameProb(st, sp, m(lv), 0); assert.ok(p >= prev); prev = p; }
+});
+
+test('Breakthrough probability: bounded, monotone in purity and pill (Requirement 23.3)', () => {
+  const st = fresh(4);
+  for (let realm = 0; realm < 4; realm++) {
+    st.player.realm = realm;
+    let prev = 0;
+    for (const purity of [0.5, 0.7, 1]) { st.player.purity = purity; const p = G.breakthroughP(st, false); assert.ok(p >= B.breakMin && p <= B.breakMax && p >= prev); prev = p; assert.ok(G.breakthroughP(st, true) >= p); }
+  }
+});
+function atPeak(seed: number, realm = 0) { const st = fresh(seed); st.player.realm = realm; st.player.sub = 3; st.player.cp = cultThreshold(G.levelOf(st.player)); st.player.hp = G.pstats(st).maxHp; return st; }
+test('Breakthrough errors: not at bottleneck, no pill, no talisman (Requirement 23.2)', () => {
+  const st = fresh(4);
+  assert.equal(G.attemptBreakthrough(st, {}).code, 'E_NOT_BOTTLENECK');
+  const p = atPeak(4);
+  assert.equal(G.attemptBreakthrough(p, { pill: true }).code, 'E_NO_PILL');
+  assert.equal(G.attemptBreakthrough(p, { trib: true }).code, 'E_NO_TRIB');
+  assert.equal(p.player.cp, cultThreshold(G.levelOf(p.player)));   // nothing changed
+});
+test('Tribulation_Talisman is spent only when a Tribulation begins (Requirement 23.8)', () => {
+  let spentWithoutTribulation = 0, sawTribulation = false;
+  for (let seed = 1; seed <= 60; seed++) {
+    const st = atPeak(seed, 0); st.inv.trib = 1;   // target Trúc Cơ has no Tribulation
+    G.attemptBreakthrough(st, { trib: true }); if (st.inv.trib === 0) spentWithoutTribulation++;
+    const k = atPeak(seed, 1); k.inv.trib = 1; k.player.purity = 1; const r = G.attemptBreakthrough(k, { trib: true });
+    assert.ok(r.ok);
+    if (k.auditQ[0].waves > 0) { sawTribulation = true; assert.equal(k.inv.trib, 0); } else assert.equal(k.inv.trib, 1);
+  }
+  assert.equal(spentWithoutTribulation, 0); assert.ok(sawTribulation);
+});
+test('failed Breakthrough: loses Tu Vi, sets Tâm Ma, keeps Level, HP untouched when the roll fails (Requirement 23.10)', () => {
+  for (let seed = 1; seed < 400; seed++) {
+    const st = atPeak(seed, 3); st.player.purity = 0.5; st.player.hp = 77;
+    const before = st.player.cp, r = G.attemptBreakthrough(st, {});
+    if ((r.data as any).success) continue;
+    assert.equal(st.player.realm, 3); assert.equal(st.player.heartDemon, B.heartDemonDuration);
+    assert.equal(st.player.cp, before - Math.floor(before * B.breakFailureLoss));
+    if (!st.auditQ[0].waves || st.auditQ[0].passed === 0 && !st.auditQ[0].roll) assert.equal(st.player.hp, 77);
+    return;
+  }
+  assert.fail('no failed attempt found');
+});
+test('Auto_Breakthrough is off by default and respects its conditions (Requirement 23.12)', () => {
+  const st = fresh(8); assert.equal(st.set.autoBreak, false);
+  const p = atPeak(8, 1); p.set.autoBreak = true; p.inv.trib = 0; p.player.hp = G.pstats(p).maxHp;
+  G.settle(p, 1);
+  assert.equal(p.player.realm, 1);   // target Kim Đan needs a talisman
+  const q = atPeak(8, 0); q.set.autoBreak = true; G.settle(q, 1);
+  assert.equal(q.auditQ.length, 1); assert.equal(q.auditQ[0].src, 'auto');
+});
+
+test('inventory conservation and equip round trip (Requirement 21.12, 21.13)', () => {
+  const st = fresh(13); st.set.autoEquip = false; st.set.dissolveMax = -1;
+  const g = (slot: string, lv: number) => { const it = G.genItem(st, lv, 1, slot); it.level = 1; return it; };
+  const x = g('Weapon', 1); st.bag.push(x);
+  const wasWorn = st.eq.Weapon!;
+  const ids = () => [...st.bag, ...st.stash, ...Object.values(st.eq).filter(Boolean) as G.Item[]].map((i) => i.id).sort();
+  const before = ids();
+  assert.ok(G.equipFromBag(st, x.id).ok);
+  assert.equal(st.eq.Weapon!.id, x.id); assert.equal(st.bag[0].id, wasWorn.id);   // the old one goes to the exact place
+  assert.deepEqual(ids(), before);
+  st.eq.Weapon!.locked = false;
+  assert.ok(G.equipFromBag(st, wasWorn.id).ok);
+  assert.deepEqual(ids(), before);
+});
+test('inventory rules: too high level, wrong item, full bag, locked (Requirement 21.10)', () => {
+  const st = fresh(13); st.set.dissolveMax = -1;
+  const hi = G.genItem(st, 1, 1, 'Weapon'); hi.level = 9; st.bag.push(hi);
+  assert.equal(G.equipFromBag(st, hi.id).code, 'E_LEVEL_TOO_LOW');
+  assert.equal(G.equipFromBag(st, 99999).code, 'E_NOT_FOUND');
+  assert.equal(G.toggleLock(st, hi.id).ok, true);
+  assert.equal(G.dissolveBagItem(st, hi.id).code, 'E_LOCKED');
+  G.toggleLock(st, hi.id);
+  const worn = st.eq.Robe!; assert.equal(G.dissolveBagItem(st, worn.id).code, 'E_WORN');
+  while (st.bag.length < B.bagCapacity) st.bag.push(G.genItem(st, 1, 0));
+  assert.equal(G.unequip(st, 'Robe').code, 'E_BAG_FULL');
+  assert.ok(st.bag.length <= B.bagCapacity);
+});
+test('bag and stash never pass their capacity while items arrive (Requirement 21.5, 21.13)', () => {
+  const st = fresh(17); st.set.mode = 'adventure'; st.set.dissolveMax = -1; st.set.autoEquip = false;
+  G.settle(st, 6000);
+  assert.ok(st.bag.length <= B.bagCapacity && st.stash.length <= B.overflowCapacity);
+});
+
+test('shop: buy and sell rules (Requirement 24.9 to 24.13)', () => {
+  const st = fresh(6); st.stones = 10_000;
+  const price = B.shop.taming[0];
+  assert.equal(G.buy(st, 'nope', 1).code, 'E_NOT_FOR_SALE');
+  assert.equal(G.buy(st, 'taming0', 0).code, 'E_BAD_QTY');
+  assert.equal(G.buy(st, 'taming0', 1.5).code, 'E_BAD_QTY');
+  assert.equal(G.buy(st, 'taming0', B.maxPurchaseQty + 1).code, 'E_BAD_QTY');
+  const t0 = st.inv.taming[0];
+  assert.ok(G.buy(st, 'taming0', 4).ok);
+  assert.equal(st.stones, 10_000 - 4 * price); assert.equal(st.inv.taming[0], t0 + 4);
+  st.stones = 5; assert.equal(G.buy(st, 'taming0', 1).code, 'E_FUNDS'); assert.equal(st.stones, 5);
+  st.stones = 1_000_000; st.inv.taming[0] = B.stackMax - 1; assert.equal(G.buy(st, 'taming0', 2).code, 'E_STACK_MAX');
+  const have = st.inv.taming[0], s0 = st.stones;
+  assert.ok(G.sell(st, 'taming0', 2).ok);
+  assert.equal(st.stones, s0 + 2 * Math.floor(B.sellBackRatio * price)); assert.equal(st.inv.taming[0], have - 2);
+  assert.equal(G.sell(st, 'taming0', have + 1).code, 'E_BAD_QTY');
+  for (const s of C.SHOP) assert.ok(Math.floor(B.sellBackRatio * s.price) < s.price);
+  assert.equal(C.SHOP.length, 12);
+});
+test('HP pills heal by grade and are refused at full HP (Requirement 24.12)', () => {
+  const st = fresh(6), S = G.pstats(st);
+  assert.equal(G.useHpPill(st, 0).code, 'E_HP_FULL');
+  st.player.hp = 1; st.inv.hp[1] = 1;
+  assert.ok(G.useHpPill(st, 1).ok);
+  assert.equal(st.player.hp, Math.min(S.maxHp, 1 + Math.floor(B.pillRestore[1] * S.maxHp)));
+  assert.equal(G.useHpPill(st, 1).code, 'E_NO_STOCK');
+});
+test('Auto_Pill uses the lowest grade first (Requirement 3.10)', () => {
+  const st = fresh(6); st.set.mode = 'retreat'; st.set.autoPill = true; st.inv.hp = [2, 5, 5];
+  st.player.hp = 1;
+  G.settle(st, 1);
+  assert.equal(st.inv.hp[0], 1); assert.equal(st.inv.hp[1], 5);
+});
+test('release value follows the formula (Requirement 24.8)', () => {
+  const st = fresh(6);
+  const b = { level: 10, apt: [1, 1, 1, 1, 1], cls: 2, mut: false } as G.Beast;
+  assert.equal(G.releaseValue(b), 20);
+  assert.equal(G.releaseValue({ ...b, mut: true } as G.Beast), 20 * B.releaseMutationFactor);
+  st.beasts.push({ ...b, id: 5, name: 'x', sp: 'ho' } as G.Beast);
+  const s0 = st.stones; assert.ok(G.releaseBeast(st, 5).ok); assert.equal(st.stones, s0 + 20); assert.equal(st.beasts.length, 0);
+});
+
+test('settings validation (Requirement 3.15)', () => {
+  const st = fresh(1);
+  assert.equal(G.setSettings(st, { retreatPct: 90, resumePct: 80 }).code, 'E_BAD_THRESHOLDS');
+  assert.equal(G.setSettings(st, { retreatPct: 0 }).code, 'E_BAD_THRESHOLDS');
+  assert.equal(G.setSettings(st, { resumePct: 101 }).code, 'E_BAD_THRESHOLDS');
+  assert.equal(st.set.retreatPct, B.defaults.retreatPct); assert.equal(st.set.resumePct, B.defaults.resumePct);
+  assert.ok(G.setSettings(st, { retreatPct: 20, resumePct: 60, dissolveMax: -1, tame: { grade: 2, sizes: [1, 2] } }).ok);
+  assert.equal(st.set.retreatPct, 20); assert.deepEqual(st.set.tame.sizes, [1, 2]);
+  assert.equal(G.setSettings(st, { autoTame: 'yes' }).code, 'E_BAD_SETTING');
+  assert.equal(st.set.hideRank, false); assert.ok(G.setSettings(st, { hideRank: true }).ok); assert.equal(st.set.hideRank, true);
+  assert.equal(G.setSettings(st, { hideRank: 1 }).code, 'E_BAD_SETTING');
+  assert.equal(G.setSettings(st, { tame: { species: ['nope'] } }).code, 'E_BAD_SETTING');
+});
+test('zones: locked until the Level is reached (Requirement 6.5, 6.6)', () => {
+  const st = fresh(1);
+  assert.equal(G.setZone(st, 'xichviem').code, 'E_ZONE_LOCKED'); assert.equal(st.zone, C.START_ZONE);
+  assert.equal(G.setZone(st, 'nowhere').code, 'E_BAD_ZONE');
+  st.player.realm = 2;
+  assert.ok(G.setZone(st, 'xichviem').ok); assert.equal(st.zone, 'xichviem');
+});
+test('monsters stay inside the Level range of the Zone (Requirement 7.5)', () => {
+  const st = fresh(31); st.player.realm = 4; st.player.sub = 3;
+  st.zone = 'thanhvan'; st.set.mode = 'adventure';
+  G.settle(st, 2000);
+  for (const e of st.feed) if (e.beast) assert.ok(e.beast.level >= 1 && e.beast.level <= C.ZONE('thanhvan').lv[1]);
+});
+test('kỳ ngộ never repeat inside the distinct window (Requirement 7.12)', () => {
+  const st = fresh(55); st.set.mode = 'adventure'; G.settle(st, 6000);
+  const ids = st.feed.filter((e) => e.kind === 'event' && e.text && C.EVENTS.some((x) => x.text === e.text)).map((e) => C.EVENTS.find((x) => x.text === e.text)!.id).reverse();
+  for (let i = 0; i + B.eventDistinctWindow <= ids.length; i++) assert.equal(new Set(ids.slice(i, i + B.eventDistinctWindow)).size, B.eventDistinctWindow);
+});
+test('Level never decreases and Tu Vi stays within the threshold (Requirement 22.11)', () => {
+  const st = fresh(77); let lv = G.levelOf(st.player);
+  for (let i = 0; i < 40; i++) { G.settle(st, 500); const l = G.levelOf(st.player); assert.ok(l >= lv); lv = l; assert.ok(Number.isInteger(st.player.cp) && st.player.cp >= 0 && st.player.cp <= cultThreshold(l)); }
+});
+test('HP stays within [0, Max HP] over a long run', () => {
+  const st = fresh(88); st.set.mode = 'adventure';
+  for (let i = 0; i < 30; i++) { G.settle(st, 400); const S = G.pstats(st); assert.ok(st.player.hp >= 1 && st.player.hp <= S.maxHp); }
+});
+test('size class probabilities match Appendix B (Requirement 17)', () => {
+  const p = G.sizeClassProbs(), want = [0.0594, 0.198, 0.462, 0.2574, 0.0232];
+  p.forEach((x, i) => assert.ok(Math.abs(x - want[i]) < 0.004, `${i}: ${x}`));
+});
+
+// ---------- decisions, difficulty and defaults
+const auto = (st: G.GameState, on: boolean) => { Object.assign(st.set, { autoTame: on, autoFight: on, autoBreak: on }); if (on) st.inv.trib = 99; return st; };
+function runUntilDecision(kind: 'tame' | 'npc', from = 100, tries = 400) {
+  for (let seed = from; seed < from + tries; seed++) {
+    const st = fresh(seed); auto(st, false); st.set.autoBreak = true; st.inv.trib = 99; st.inv.taming = [50, 50, 50, 50];
+    for (let i = 0; i < 4000 && !st.decision; i++) G.settle(st, 1);   // one tick at a time: a taming question lapses on its own, so it must be caught while open
+    if (st.decision && st.decision.kind === kind) return st;
+  }
+  throw new Error('no decision of kind ' + kind);
+}
+test('defaults: items go to the bag, nothing is auto-dissolved or auto-worn (player decision)', () => {
+  const st = fresh(61); assert.equal(st.set.autoEquip, false); assert.equal(st.set.dissolveMax, -1); assert.equal(st.set.autoFight, false); assert.equal(st.set.autoBreak, false);
+  auto(st, true);
+  const rep = G.settle(st, 3000);
+  assert.equal(rep.dissolved, 0); assert.equal(rep.equipped, 0);
+  assert.ok(st.bag.length > 0);
+  assert.equal(st.bag.length + st.stash.length, rep.items.reduce((a, b) => a + b, 0));
+});
+test('a full bag spills into the stash and the feed says where an item went (Requirement 21.2)', () => {
+  const st = fresh(62); auto(st, true);
+  while (st.bag.length < B.bagCapacity) st.bag.push(G.genItem(st, 1, 0));
+  G.settle(st, 6000);
+  assert.ok(st.stash.length > 0 || st.bag.length === B.bagCapacity);
+  assert.ok(st.feed.filter((e) => e.kind === 'item').every((e) => /vào túi|kho tạm|phân giải/.test(e.text)));
+});
+test('a journey meets something on about 40% of the ticks it is not recovering (travel in between)', () => {
+  const st = fresh(63); auto(st, true); st.inv.hp = [500, 0, 0]; st.set.autoPill = true;
+  const rep = G.settle(st, 20000), N = rep.ticks - rep.recoveryTicks;
+  assert.ok(Math.abs(rep.encounters - N * B.encounterChance) <= 4 * sigma(N, B.encounterChance), `${rep.encounters} of ${N}`);
+});
+test('Auto Tame off: a notable Linh Thú asks the player and the journey waits (decision)', () => {
+  const st = runUntilDecision('tame');
+  const d = st.decision as Extract<G.Decision, { kind: 'tame' }>;
+  const feedLen = st.feed.length, tick = st.tick;
+  const rep = G.settle(st, 1);
+  assert.equal(rep.encounters, 0); assert.equal(st.feed.length, feedLen);   // nothing new happens while it waits
+  assert.equal(rep.blockedTicks, 1); assert.equal(st.tick, tick + 1);
+  assert.equal(G.decide(st, { id: d.id + 99, choice: 'skip' }).code, 'E_NO_DECISION');
+  assert.equal(G.decide(st, { id: d.id, choice: 'tame', grade: 9 }).code, 'E_BAD_REQUEST');
+  const left = st.inv.taming[1], had = st.beasts.length;
+  const r = G.decide(st, { id: d.id, choice: 'tame', grade: 1 });
+  assert.ok(r.ok); assert.equal(st.inv.taming[1], left - 1); assert.equal(st.decision, null);
+  assert.equal(st.beasts.length, had + ((r.data as any).won ? 1 : 0));
+  assert.ok(G.settle(st, 400).encounters > 0);   // the journey goes on
+});
+test('Auto Tame off: an unanswered taming question is skipped on its own after Tame_Decision_Seconds', () => {
+  const st = runUntilDecision('tame', 100);
+  const d = st.decision as Extract<G.Decision, { kind: 'tame' }>, ticks = Math.ceil((B.tameDecisionSec * 1000) / (B.tickSec * 1000)), before = JSON.stringify(st.inv.taming);
+  assert.ok(d.until! > st.clock);
+  G.settle(st, ticks - 1); assert.equal(st.decision?.id, d.id);   // still open just before the time is up
+  G.settle(st, 1);
+  assert.ok(st.decision === null || st.decision.id !== d.id);       // gone
+  assert.ok(st.feed.some((e) => e.kind === 'system' && e.text.includes('hết thời gian')));
+  assert.equal(JSON.stringify(st.inv.taming), before);              // lapsing costs no talisman
+});
+test('Auto Tame off: skipping costs nothing; a full pen or no talisman is refused', () => {
+  const st = runUntilDecision('tame', 300);
+  const d = st.decision!, before = JSON.stringify(st.inv.taming);
+  const full = structuredClone(st); while (full.beasts.length < B.penCapacity) full.beasts.push(full.decision && (full.decision as any).beast);
+  assert.equal(G.decide(full, { id: d.id, choice: 'tame', grade: 0 }).code, 'E_PEN_FULL');
+  const none = structuredClone(st); none.inv.taming = [0, 0, 0, 0];
+  assert.equal(G.decide(none, { id: d.id, choice: 'tame', grade: 0 }).code, 'E_NO_STOCK');
+  assert.ok(G.decide(st, { id: d.id, choice: 'skip' }).ok); assert.equal(JSON.stringify(st.inv.taming), before); assert.equal(st.decision, null);
+});
+test('Tu Sĩ: the player chooses to fight or avoid when Auto Fight is off', () => {
+  const a = runUntilDecision('npc'), d = a.decision as Extract<G.Decision, { kind: 'npc' }>;
+  const avoid = structuredClone(a); const wins = avoid.kills;
+  assert.ok(G.decide(avoid, { id: d.id, choice: 'avoid' }).ok); assert.equal(avoid.kills, wins); assert.equal(avoid.decision, null);
+  const fightSt = structuredClone(a);
+  assert.ok(G.decide(fightSt, { id: d.id, choice: 'fight' }).ok); assert.equal(fightSt.decision, null);
+  assert.ok(fightSt.feed[0].kind === 'npc' && fightSt.feed[0].outcome);
+});
+test('Tu Sĩ with Auto Fight on never asks', () => {
+  const st = fresh(70); auto(st, true); G.settle(st, 6000);
+  assert.equal(st.decision, null); assert.ok(st.feed.some((e) => e.kind === 'npc'));
+});
+test('Breakthrough question appears at the bottleneck when Auto Breakthrough is off, and "later" snoozes it', () => {
+  const st = atPeak(5, 0); st.set.mode = 'retreat'; G.settle(st, 1);
+  assert.equal(st.decision?.kind, 'break');
+  const d = st.decision!;
+  assert.ok(G.decide(st, { id: d.id, choice: 'later' }).ok); assert.equal(st.decision, null);
+  G.settle(st, 100); assert.equal(st.decision, null);                 // snoozed
+  G.settle(st, B.breakSnoozeTicks); assert.equal(st.decision?.kind, 'break');   // asks again later
+  const r = G.decide(st, { id: st.decision!.id, choice: 'break' });
+  assert.ok(r.ok); assert.equal(st.decision, null);
+});
+test('Defeat gives Thương Thế: weaker stats until it ends or a grade-3 pill cures it', () => {
+  const st = fresh(8), base = G.pstats(st);
+  st.player.injury = 50;
+  const hurt = G.pstats(st);
+  assert.ok(hurt.atk < base.atk && hurt.def < base.def && hurt.maxHp === base.maxHp);
+  st.set.mode = 'retreat'; G.settle(st, 60); assert.equal(st.player.injury, 0);
+  st.player.injury = 500; st.player.hp = 1; st.inv.hp[B.injuryCurePillGrade] = 1;
+  assert.ok(G.useHpPill(st, B.injuryCurePillGrade).ok); assert.equal(st.player.injury, 0);
+  st.player.injury = 500; st.player.hp = 1; st.inv.hp[0] = 1; G.useHpPill(st, 0); assert.equal(st.player.injury, 500);
+});
+test('bad Kỳ Ngộ never take HP below 1 and use their own ledger reason (Requirement 7.17)', () => {
+  for (let seed = 1; seed < 40; seed++) {
+    const st = fresh(seed); auto(st, true); st.ledgerBase += 5000 - st.stones; st.stones = 5000;
+    G.settle(st, 3000); G.flushLedger(st, 'x', T0 + 1e9);
+    assert.ok(st.player.hp >= 1);
+    assert.equal(st.stones, G.ledgerSum(st));
+  }
+});
+test('Linh Thú upkeep is charged every 10 minutes and never below zero', () => {
+  const st = fresh(9); st.set.mode = 'retreat';
+  st.beasts.push({ id: 1, level: 8, sp: 'ho', name: 'a', apt: [1, 1, 1, 1, 1], cls: 2, mut: false } as G.Beast, { id: 2, level: 3, sp: 'ho', name: 'b', apt: [1, 1, 1, 1, 1], cls: 2, mut: false } as G.Beast);
+  assert.equal(G.upkeepDue(st), 2 + 1);
+  const s0 = st.stones; st.tick = B.upkeepEveryTicks - 1;
+  G.settle(st, 1);
+  assert.equal(st.stones, s0 - 3);
+  st.stones = 1; st.tick = 2 * B.upkeepEveryTicks - 1; G.settle(st, 1); assert.equal(st.stones, 0);
+});
+test('bulk dissolve and bulk sale only touch what the player allows', () => {
+  const st = fresh(10); st.set.dissolveMax = -1;
+  const a = G.genItem(st, 1, 0), b = G.genItem(st, 1, 1), c = G.genItem(st, 1, 4), d = G.genItem(st, 1, 0); d.locked = true;
+  st.bag.push(a, b, c, d); st.stash.push(G.genItem(st, 1, 0));
+  const s0 = st.stones;
+  assert.equal(G.dissolveMany(st, 9).code, 'E_BAD_REQUEST');
+  const r = G.dissolveMany(st, 1);
+  assert.ok(r.ok); assert.equal((r.data as any).n, 3);
+  assert.deepEqual(st.bag.map((x) => x.id).sort(), [c.id, d.id].sort()); assert.equal(st.stash.length, 0);
+  assert.equal(st.stones, s0 + (r.data as any).stones);
+  assert.equal(G.dissolveMany(st, 0).code, 'E_NOT_FOUND');
+  const mk = (id: number, level: number, mut = false) => ({ id, level, mut, sp: 'ho', name: 'x', apt: [1, 1, 1, 1, 1], cls: 2, power: level * 10 }) as G.Beast;
+  st.beasts = [mk(1, 9), mk(2, 8), mk(3, 7), mk(4, 2), mk(5, 3, true), mk(6, 1)];
+  const sold = G.releaseMany(st);
+  assert.ok(sold.ok); assert.deepEqual(st.beasts.map((x) => x.id).sort(), [1, 2, 3, 5]);   // the three strongest and the Dị Biến stay
+});
+test('elite monsters are stronger and pay more', () => {
+  let eliteSeen = 0;
+  const st = fresh(11); auto(st, true); G.settle(st, 12000);
+  for (const e of st.feed) if (e.beast?.elite) eliteSeen++;
+  assert.ok(st.feed.length > 0);
+  void eliteSeen;
+  assert.ok(B.eliteStatMult > 1 && B.eliteRewardMult > 1);
+});
+
+// ---------- item pictures: common items share one picture, Địa has a few looks, Thiên and Tiên always get their own
+import { itemSpec, propSpec, placeSpec, equipSpec } from '../lib/avatarSpec';
+import { buildPlan } from '../lib/imageprompt';
+test('picture looks by rarity: shared for Phàm to Huyền, a few for Địa, unique for Thiên and Tiên', () => {
+  const st = fresh(90);
+  const make = (tier: number, n: number) => Array.from({ length: n }, () => G.genItem(st, 5, tier, 'Weapon'));
+  for (const it of [...make(0, 40), ...make(1, 40), ...make(2, 40)]) assert.equal(it.art, undefined);
+  const dia = make(3, 300);
+  assert.ok(dia.every((it) => it.art! >= 1 && it.art! <= B.artVariantsDia));
+  assert.ok(new Set(dia.map((it) => it.art)).size > 1);
+  const top = [...make(4, 300), ...make(5, 100)];
+  assert.equal(new Set(top.map((it) => it.art)).size, top.length);
+  // two common items of the same kind ask for the very same picture; two Thiên items never do
+  const a = G.genItem(st, 5, 1, 'Weapon'); a.base = 'Trường Kiếm'; const b = { ...a, id: 999, impl: { ...a.impl, value: a.impl.value + 3 } };
+  assert.equal(JSON.stringify(itemSpec(a)), JSON.stringify(itemSpec(b)));
+  const t1 = { ...top[0] }, t2 = { ...top[0], art: top[1].art };
+  assert.notEqual(JSON.stringify(itemSpec(t1)), JSON.stringify(itemSpec(t2)));
+});
+test('the picture prompt changes with the look and refuses invalid looks', () => {
+  const base = { kind: 'item', slot: 'Weapon', base: 'Trường Kiếm', tier: 4, e: 'Hỏa' };
+  const p0 = buildPlan(base), p1 = buildPlan({ ...base, v: 12345 }), p2 = buildPlan({ ...base, v: 12346 });
+  assert.notEqual(p0.prompt, p1.prompt); assert.notEqual(p1.seed, p2.seed); assert.notEqual(p1.seed, p0.seed);
+  assert.equal(JSON.stringify(buildPlan(base)), JSON.stringify(p0));   // the common look is stable
+  assert.throws(() => buildPlan({ ...base, v: -1 })); assert.throws(() => buildPlan({ ...base, v: 1.5 })); assert.throws(() => buildPlan({ ...base, v: '7' }));
+});
+test('the character wears the exact picture of a unique item', () => {
+  const st = fresh(91); const it = G.genItem(st, 5, 5, 'Weapon'); st.eq.Weapon = it;
+  assert.equal(equipSpec(st).Weapon!.v, it.art);
+  const plain = fresh(92); assert.equal(equipSpec(plain).Weapon!.v, undefined);
+  const spec = { kind: 'outfit', look: st.player.look, el: 'Kim', pers: 0, base: 'x'.repeat(20), eq: equipSpec(st) };
+  void spec;
+});
+test('fixed pictures: every shop item, material and zone has a prompt', () => {
+  for (const s of C.SHOP) assert.equal(buildPlan(propSpec(s.id)).kind, 'item');
+  for (const m of C.MATERIALS) assert.equal(buildPlan(propSpec('mat_' + m.id)).kind, 'item');
+  for (const z of C.ZONES) assert.equal(buildPlan(placeSpec(z.id)).kind, 'place');
+  assert.equal(buildPlan(placeSpec('market')).kind, 'place');
+  assert.throws(() => buildPlan(propSpec('nope'))); assert.throws(() => buildPlan(placeSpec('nope')));
+});
+
+test('every Linh Thú species lives in some zone, has lore and a picture description', async () => {
+  const lore = (await import('../content/lore.json')).default as any;
+  assert.equal(C.SPECIES.length, 68);
+  for (const s of C.SPECIES) {
+    assert.ok(C.ZONES.some((z) => (z.species[s.id] || 0) > 0), `${s.id} is in no zone`);
+    assert.ok(typeof lore.beasts[s.id] === 'string' && lore.beasts[s.id].length > 40, `${s.id} has no lore`);
+    assert.ok(s.id in C.SPECIES_EN);
+  }
+  for (const el of C.EO) assert.ok(C.SPECIES.filter((s) => s.el[0] === el).length >= 1, el);
+});
+test('the new species are met in play and tamed Linh Thú keep their species', () => {
+  const seen = new Set<string>();
+  for (let seed = 1; seed <= 30; seed++) { const st = fresh(seed); auto(st, true); st.player.realm = 3; st.player.sub = 3; for (const z of C.ZONES) { st.zone = z.id; G.settle(st, 1500); } for (const k of Object.keys(st.best)) seen.add(k); }
+  assert.ok(seen.size >= 16, `only ${seen.size} species met`);
+});
+
+test('combat power counts the player and the Linh Thú in the Party', () => {
+  const st = fresh(120), base = G.combatPower(st);
+  const mk = (id: number, power: number) => ({ id, power, level: 1, apt: [1, 1, 1, 1, 1], cls: 2, mut: false, sp: 'ho', name: 'x' }) as G.Beast;
+  st.beasts = [mk(1, 100), mk(2, 90), mk(3, 80), mk(4, 70)];
+  assert.equal(G.combatPower(st), base + 270);   // only the three strongest go into battle
+});

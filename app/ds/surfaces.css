@@ -1,0 +1,75 @@
+/* ==========================================================================
+   SURFACES: how things are built.
+   .glass   flat translucent jade glass, for dense lists and rows
+   .panel   glass + gold hairline + cloud-scroll corners (main containers)
+   .shrine  the ornate frame for key moments (hero portrait, modals, intro card)
+   ========================================================================== */
+@layer ds-surfaces {
+  .glass {
+    background: var(--glass-soft); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: var(--sh-1);
+  }
+
+  .panel, .shrine {
+    position: relative; isolation: isolate; border-radius: var(--r-lg); padding: var(--sp-5) var(--sp-5) var(--sp-4);
+    background: var(--glass-jade); border: 1px solid var(--line-gold);
+    -webkit-backdrop-filter: var(--bf-panel); backdrop-filter: var(--bf-panel);
+    box-shadow: var(--sh-2), 0 0 0 1px rgb(0 0 0 / 0.35);
+    --orn-color: var(--gold-400); --orn-opacity: 0.8; --orn-size: 26px;
+  }
+  /* inner hairline: the second line of the double frame */
+  .panel::before, .shrine::before {
+    content: ''; position: absolute; inset: 5px; z-index: -1; pointer-events: none; border-radius: calc(var(--r-lg) - 5px);
+    border: 1px solid color-mix(in srgb, var(--gold-400) 11%, transparent);
+    background: radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--jade-400) 9%, transparent), transparent 60%);
+  }
+  /* cloud-scroll corners, painted with the element's own colour so tiers and states can recolour them */
+  .panel::after, .shrine::after, .framed::after, .hero::after {
+    content: ''; position: absolute; inset: 3px; z-index: 3; pointer-events: none;
+    background: var(--orn-color, var(--gold-400)); opacity: var(--orn-opacity, 0.8);
+    -webkit-mask: var(--orn-tl) top left / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat, var(--orn-tr) top right / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat,
+      var(--orn-bl) bottom left / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat, var(--orn-br) bottom right / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat;
+    mask: var(--orn-tl) top left / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat, var(--orn-tr) top right / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat,
+      var(--orn-bl) bottom left / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat, var(--orn-br) bottom right / var(--orn-size, 30px) var(--orn-size, 30px) no-repeat;
+    transition: opacity var(--dur-slow) var(--ease-out);
+  }
+  .framed { position: relative; }
+  .panel:hover::after, .shrine:hover::after { opacity: 1; }
+
+  .shrine {
+    border-radius: var(--r-xl); padding: var(--sp-6); --orn-size: 38px; --orn-opacity: 0.95;
+    border-color: var(--line-gold-strong);
+    box-shadow: var(--sh-3), 0 0 0 1px rgb(0 0 0 / 0.4), 0 0 60px -20px color-mix(in srgb, var(--gold-400) 40%, transparent);
+  }
+
+  /* section header: eyebrow + title + hairline with a lotus-sword glyph */
+  .phead { display: flex; flex-direction: column; gap: 2px; margin: 0 0 var(--sp-4); padding: 4px 0 var(--sp-3) 10px; position: relative; }
+  .phead h3 { font-size: var(--fs-xl); font-weight: 700; letter-spacing: 0.06em; background: var(--gold-leaf); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 1px 10px color-mix(in srgb, var(--gold-400) 25%, transparent)); }
+  .phead small { color: var(--text-3); line-height: var(--lh-snug); }
+  .phead::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 60%, transparent), color-mix(in srgb, var(--gold-400) 12%, transparent) 70%, transparent); }
+
+  .divider { position: relative; height: 16px; margin: var(--sp-4) 0; color: var(--gold-400); display: flex; align-items: center; justify-content: center; }
+  .divider::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, currentColor 55%, transparent) 25%, color-mix(in srgb, currentColor 55%, transparent) 75%, transparent); }
+  .divider::after { content: ''; position: relative; z-index: 1; width: 44px; height: 16px; background: currentColor; -webkit-mask: var(--orn-divider) center / contain no-repeat; mask: var(--orn-divider) center / contain no-repeat; filter: drop-shadow(0 0 8px color-mix(in srgb, currentColor 50%, transparent)); }
+  .divider > span { position: relative; z-index: 1; padding: 0 var(--sp-3); background: transparent; }
+
+  /* modal shell (backdrop + body), animation lives in motion.css */
+  .modal {
+    position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--sp-4);
+    background: radial-gradient(70% 60% at 50% 40%, rgb(8 22 28 / 0.55), rgb(2 6 10 / 0.86)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  /* the modal body scrolls, so its frame is painted as backgrounds (they stay put while the text moves) */
+  .modalBody {
+    position: relative; isolation: isolate; width: min(780px, 100%); max-height: 92vh; max-height: 92dvh; overflow: auto; overscroll-behavior: contain;
+    padding: var(--sp-6); border-radius: var(--r-xl); border: 1px solid var(--line-gold-strong);
+    background:
+      var(--orn-gold-tl) 4px 4px / 34px 34px no-repeat, var(--orn-gold-tr) calc(100% - 4px) 4px / 34px 34px no-repeat,
+      var(--orn-gold-bl) 4px calc(100% - 4px) / 34px 34px no-repeat, var(--orn-gold-br) calc(100% - 4px) calc(100% - 4px) / 34px 34px no-repeat,
+      radial-gradient(120% 50% at 50% -8%, color-mix(in srgb, var(--jade-400) 10%, transparent), transparent 60%), var(--glass-ink);
+    box-shadow: inset 0 0 0 5px transparent, inset 0 0 0 6px color-mix(in srgb, var(--gold-400) 12%, transparent), var(--sh-3), 0 0 80px -24px color-mix(in srgb, var(--gold-400) 45%, transparent);
+  }
+  .modalBody > * { position: relative; }
+  .modalBody h2 { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: 0.06em; margin: 0 0 var(--sp-1); background: var(--gold-leaf); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .modalBody h3 { color: var(--gold-300); font-size: var(--fs-lg); letter-spacing: 0.06em; margin: var(--sp-5) 0 var(--sp-2); }
+  .modalBody p { color: var(--text-2); }
+}

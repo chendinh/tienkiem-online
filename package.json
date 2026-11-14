@@ -1,0 +1,36 @@
+{
+  "name": "tutien-online",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "sim": "tsx scripts/sim.ts",
+    "pregen": "tsx scripts/pregen.ts",
+    "gen:report": "tsx scripts/gen-files.ts",
+    "gen:organize": "tsx scripts/gen-files.ts --apply",
+    "lore": "tsx scripts/gen-lore.ts",
+    "check": "tsx scripts/check.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run check && npm run typecheck && npm test && next build",
+    "prebuild": "npm run check",
+    "econ": "tsx scripts/econ.ts",
+    "thumbs": "tsx scripts/thumbs.ts"
+  },
+  "dependencies": {
+    "@fal-ai/client": "^1.10.1",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "worldName": "Thiên Huyền Đại Lục",
+  "tagline": "Vạn kiếp tu hành, một niệm thành tiên: nơi kẻ chậm nhất cũng được trời đất mỉm cười.",
+  "prologue": [
+    "Trước khi có núi sông, chỉ có một tiếng thở dài của hư không. Tiếng thở ấy ngưng thành Linh Khí, tỏa ra như sương mai trên mặt hồ chưa ai soi bóng. Linh Khí rơi xuống đâu, đất ấy nở hoa; rơi vào lòng người, người ấy nghe được tiếng nói của trời. Từ đó Thiên Huyền Đại Lục có kẻ cầu đạo, có kẻ nghịch thiên, và có những đêm trăng sáng đến mức đá cũng biết ngẩng lên nghe.",
+    "Người ta nói đạo là một con đường không có điểm cuối, nhưng mỗi bước chân đều để lại hương. Kẻ tu hành ngồi giữa núi mây, hấp thu nhật nguyệt tinh hoa, nghe Linh Thạch thì thầm trong lòng bàn tay, chờ một nhịp thở trùng khớp với nhịp đập của đất trời. Có người bế quan ba năm mà tâm như nước lặng; có người chỉ một Kỳ Ngộ bên khe suối đã đổi cả đời. Không ai biết trước mình thuộc về loại nào.",
+    "Bởi vậy, Thiên Huyền không chỉ là nơi tranh đoạt, mà còn là nơi chờ đợi. Trời đất vốn thương kẻ vấp ngã: người thất bại càng nhiều, sợi dây cơ duyên càng ngắn lại, cho đến một sớm nào đó, nó khẽ chạm vào vai. Nay linh khí đang rối loạn, thú lạ đổi sắc, kiếp vân kéo về từ phương xa. Và giữa chân núi Vân Mộng, một mầm đạo nhỏ bé vừa thức giấc."
+  ],
+  "threat": "Từ vực sâu nơi Thiên Địa giao nhau, Hư Vô Thực Linh Chi Họa đang trườn lên: một vùng sương xám nuốt linh khí, làm lệch năm tháng, biến linh thú thành bóng ma rỗng. Nó không có hình hài, chỉ có cơn đói. Mỗi mùa trăng, sương xám lan thêm một dặm, và những lời tiên đoán xưa chỉ còn một câu: kẻ nào vượt được chính mình mới đứng vững.",
+  "eras": [
+    {
+      "name": "Thái Cổ Linh Sơ",
+      "text": "Linh Khí đầu tiên rơi xuống như mưa bạc. Tám hệ đạo vận lần lượt thức tỉnh, tám Linh Thú đầu tiên ra đời bên bờ hồ chưa có tên, và những tu sĩ đầu tiên học cách lắng nghe trời."
+    },
+    {
+      "name": "Tiên Văn Cực Thịnh",
+      "text": "Các bậc đại năng khắc Tiên Văn lên pháp khí, mở ra thời đại huy hoàng. Tông môn mọc lên như nấm sau mưa, đạo hữu kết giao, nhưng lòng tham cũng bắt đầu len vào kẽ đá."
+    },
+    {
+      "name": "Kiếp Vân Hỗn Loạn",
+      "text": "Linh khí xáo động, Thiên Kiếp khó đoán, Tâm Ma lan nhanh hơn gió. Dị Biến linh thú xuất hiện khắp nơi. Đây là thời đại của kẻ dám đi, và cũng là thời đại của hy vọng."
+    }
+  ],
+  "elements": [
+    {
+      "element": "Kim",
+      "text": "Kim là tiếng chuông ngân trong sương lạnh, sắc bén mà thanh cao. Kẻ tu Kim tâm như thép trăm lần rèn, khắc chế Lôi, nhưng sợ Hỏa cháy bùng không báo trước."
+    },
+    {
+      "element": "Lôi",
+      "text": "Lôi là cơn giận của mây, tiếng gọi của trời. Nhanh, dữ, dứt khoát. Tu sĩ hệ Lôi khắc Mộc như sét bổ cổ thụ, nhưng lại e Kim dẫn điện về chính thân mình."
+    },
+    {
+      "element": "Mộc",
+      "text": "Mộc là sức sống bền bỉ của rừng già, lặng lẽ mà bất tận. Rễ đâm vào đất, cành vươn lên trời, khắc Âm bằng sinh khí, nhưng sợ Lôi giáng từ tầng mây."
+    },
+    {
+      "element": "Âm",
+      "text": "Âm là bóng nguyệt trên mặt nước, vẻ đẹp của điều chưa nói hết. Huyền ảo, thâm trầm, khắc Thổ bằng sự thấm lặng, nhưng gặp sinh khí Mộc thì bóng cũng phải nhạt."
+    },
+    {
+      "element": "Thổ",
+      "text": "Thổ là nền móng của vạn vật, trầm hậu như núi ngủ. Kẻ tu Thổ chịu đựng giỏi, khắc Dương bằng sự vững vàng, nhưng sợ Âm lặng lẽ xói mòn từ bên trong."
+    },
+    {
+      "element": "Dương",
+      "text": "Dương là ánh bình minh trải trên vạn dặm, ấm áp và chính đại. Hệ Dương khắc Thủy bằng ánh sáng xua tan, nhưng đôi khi bị Thổ che đi vầng hào quang."
+    },
+    {
+      "element": "Thủy",
+      "text": "Thủy là dòng chảy mềm mại mà xuyên được đá. Uyển chuyển, thâm sâu, khắc Hỏa bằng sự bao dung, nhưng khô cạn khi Dương soi chiếu quá gắt."
+    },
+    {
+      "element": "Hỏa",
+      "text": "Hỏa là ngọn lửa của khát vọng, rực rỡ và dữ dội. Thiêu đốt mọi thứ trên đường, khắc Kim bằng nhiệt hừng hực, song chỉ cần một đợt sóng Thủy là tắt lịm."
+    }
+  ],
+  "realms": [
+    {
+      "realm": "Luyện Khí",
+      "text": "Bước chân đầu tiên: dẫn linh khí vào kinh mạch, lòng còn bỡ ngỡ như lá non đón gió. Từ Sơ Kỳ đến Đỉnh Phong, mỗi tầng là một lần thở sâu hơn, nền móng của cả đời đạo."
+    },
+    {
+      "realm": "Trúc Cơ",
+      "text": "Linh khí lắng xuống thành nền, như đất đá nén chặt dưới tòa tháp tương lai. Thân thể nhẹ đi, thần thức mở rộng, tuổi thọ kéo dài. Nền vững thì tháp cao."
+    },
+    {
+      "realm": "Kim Đan",
+      "text": "Tinh hoa kết tụ thành một viên đan tròn trong đan điền, sáng như trăng thu. Từ đây phải đối diện Thiên Kiếp khi đột phá: trời thử lòng người trước khi cho đi tiếp."
+    },
+    {
+      "realm": "Nguyên Anh",
+      "text": "Trong đan hóa ra một anh nhi nhỏ bé, là bản thể thứ hai của thần hồn. Thân tử đạo tiêu chưa chắc đã hết, nhưng Thiên Kiếp cũng nặng hơn, Tâm Ma cũng sâu hơn."
+    },
+    {
+      "realm": "Hóa Thần",
+      "text": "Thần hồn hòa vào thiên địa, một cái nhấc tay có thể khiến mây dời, núi chuyển. Đỉnh phong của đạo, nơi lằn ranh giữa người và tiên mỏng như sợi tơ tằm."
+    }
+  ],
+  "beasts": {
+    "ho": "Xích Viêm Hồ sinh ra từ đốm lửa cuối cùng của ngày đầu tiên. Chín đuôi nó như chín ngọn đuốc, đi đến đâu để lại dấu chân hồng trên tuyết. Người ta nói nó chọn chủ không bằng mắt, mà bằng nhịp tim. Khi Dị Biến, lông chuyển sắc kim hồng, hào quang rực như hoàng hôn cháy.",
+    "giao": "Bích Ba Giao ngủ dưới đáy Tử Thủy Hồ ngàn năm, vảy phản chiếu màu trời sau mưa. Mỗi lần trở mình, sóng dậy ba tầng, thủy triều theo nhịp thở của nó. Truyền thuyết kể rằng nghe tiếng ca của giao sẽ quên hết ưu phiền. Khi Dị Biến, vảy ánh lên sắc lam ngọc, xung quanh nở hoa nước.",
+    "loc": "Thanh Mộc Lộc bước đi không phát ra tiếng, gạc nó nở hoa theo mùa, mỗi nhánh là một khu rừng thu nhỏ. Ai gặp nó giữa sương sớm sẽ thấy lòng nhẹ như lá. Cổ thư chép: nó là sứ giả của đại địa. Khi Dị Biến, gạc chuyển sắc bạch ngọc, tỏa quầng xanh dịu.",
+    "bang": "Kim Bằng sải cánh che nửa bầu trời, lông vũ ánh vàng như được rèn từ ánh bình minh. Một cú vỗ cánh có thể xé tan tầng mây, một tiếng kêu khiến đá nứt kim ngân. Nó chỉ nhận chủ có tâm sáng như gương. Khi Dị Biến, cánh nhuốm bảy sắc cầu vồng.",
+    "quy": "Huyền Quy mang trên lưng cả một quả núi nhỏ, rêu xanh phủ mai, suối nhỏ chảy qua. Nó sống lâu đến mức nhớ cả những dãy núi chưa thành hình. Chậm rãi, kiên nhẫn, nó dạy rằng bền bỉ thắng mọi tốc độ. Khi Dị Biến, mai khắc văn tự cổ, tỏa quầng đen huyền ảo.",
+    "loi": "Lôi Kỳ Lân bước ra từ tiếng sấm đầu mùa, vó đạp sét, bờm cuộn ánh chớp tím. Nó mang uy nghiêm của trời, chỉ hiện thân nơi có công đạo. Kẻ gian tà không dám nhìn thẳng đôi mắt nó. Khi Dị Biến, toàn thân phủ ánh tím bạc, mưa sét rơi quanh bước chân.",
+    "am": "Nguyệt Ảnh Miêu chỉ hiện thân dưới ánh trăng, mắt long lanh như hai giọt sương bạc. Nó đi qua bóng tối mà không để lại dấu chân, đến như một giấc mơ, đi như một lời thì thầm. Người nói nó nhìn thấu cả nỗi buồn. Khi Dị Biến, bộ lông ánh sắc tím huyền, bóng trải dài như dải ngân hà.",
+    "duong": "Bạch Dương Hạc cất tiếng gáy khi bình minh chưa kịp lên, cánh trắng như mây buổi sớm nhuộm nắng. Nơi nó đậu, sương tan, bệnh khí lùi xa. Tương truyền nó là sứ giả đưa hy vọng đến những kẻ lạc đường. Khi Dị Biến, lông ánh vàng kim, mỗi bước đi để lại vệt sáng.",
+    "tho": "Thanh Linh Thố nhỏ tới mức một nắm tay đủ giấu, nhưng tai nó mọc ra lá và hoa như một khu vườn thu nhỏ. Người ta bảo ai thấy nó nhảy qua bãi cỏ thì cả ngày gặp may. Khi Dị Biến, tai nở ra hoa bảy sắc và để lại một vệt phấn sáng.",
+    "xa": "Hàn Băng Xà ngủ dưới lớp tuyết ngàn năm, thân lạnh tới mức hơi thở kết thành sương. Vảy nó trong như băng, soi được cả lòng người. Khi Dị Biến, băng trên sống lưng chuyển thành thủy tinh sáu màu, rung lên như tiếng chuông.",
+    "lang": "Ngân Giáp Lang mọc lông như giáp bạc, đêm trăng sáng lên như cả đàn kiếm. Nó chỉ cúi đầu trước kẻ dám đứng thẳng khi nó gầm. Khi Dị Biến, giáp bạc ánh lên sắc cầu vồng và tiếng hú vang xa mười dặm.",
+    "hung": "Cổ Mộc Hùng lớn chậm và sống rất lâu, trên lưng rêu và cây non mọc thành rừng nhỏ. Nó hiền với kẻ không chặt cây. Khi Dị Biến, những cây trên lưng nở hoa trái mùa và tỏa linh khí dịu.",
+    "phuong": "Liệt Viêm Phượng là tàn lửa của một vì sao rơi, mỗi lần vỗ cánh là một cơn mưa tàn đỏ. Nó chọn chủ bằng thử thách của lửa, kẻ nào chịu được hơi nóng mới được nó nhìn. Khi Dị Biến, lửa chuyển sang màu bạch kim và bay lên cao hơn mặt trời.",
+    "te": "Sơn Nhạc Tê mang trên mình da đá và gân tinh thạch hổ phách, một bước chân làm núi rung. Nó không tấn công kẻ yếu, chỉ húc kẻ chắn đường. Khi Dị Biến, tinh thạch trên da sáng như bình minh trong hang.",
+    "ung": "Tử Điện Ưng lao xuống nhanh hơn tiếng sấm, đôi cánh để lại vệt sét tím trên mây. Nó làm tổ trên đỉnh cao nhất, nơi sét còn đánh trước khi tới nơi khác. Khi Dị Biến, tia sét quanh cánh hóa trắng xanh và không tắt suốt đêm.",
+    "diep": "U Minh Điệp là giấc mơ của một đóa hoa đêm, cánh mang hoa văn trăng khuyết sáng tím. Nó bay tới nơi có người sắp ngủ và để lại giấc mộng đẹp. Khi Dị Biến, hoa văn trên cánh đổi theo giấc mơ của kẻ nhìn nó.",
+    "su": "Thần Dương Sư mang bờm lửa vàng, mỗi tiếng gầm xua tan một mảng bóng tối. Nó là vua của đồng cỏ linh khí và không thu phục kẻ nào nhút nhát. Khi Dị Biến, bờm cháy thành trắng vàng, quầng sáng sau đầu đủ che cả một thung lũng.",
+    "kinh": "Vân Hải Kình bơi qua biển mây như cá voi qua đại dương, mỗi vây rủ xuống một dòng thác nhỏ. Tiếng hát của nó nghe trầm như núi thở. Khi Dị Biến, da chuyển sắc lam ngọc, những giọt mưa rơi từ nó đều là linh dịch.",
+    "kimtam": "Kim Ti Tằm nhả ra sợi tơ vàng mảnh hơn sợi tóc mà đao kiếm khó đứt. Người xưa đem tơ ấy dệt đạo bào cho các vị trưởng lão. Nó ăn lá dâu mọc ở nơi có mạch kim, ngủ trong kén sáng như hạt cát vàng. Khi Dị Biến, tơ chuyển sắc bạch kim, kén phát ra tiếng chuông khẽ.",
+    "kimhau": "Kim Ti Hầu sống trên những mỏm đá cao, lông vàng óng như dệt từ nắng sớm. Nó tinh nghịch nhưng nhớ mặt người rất lâu, ai từng cho nó quả dại sẽ được nó dẫn tới chỗ có linh thạch. Khi Dị Biến, lông ánh lên như đồng đỏ, đôi mắt sáng như hai viên hổ phách.",
+    "thietbao": "Thiết Cốt Báo có bộ xương cứng hơn thép tinh luyện, chạy qua rừng mà không một chiếc lá động. Các kiếm tu thường lấy nanh của nó làm lõi cho phi kiếm. Nó săn một mình và chỉ dừng lại khi con mồi đã quỳ xuống. Khi Dị Biến, giáp vai chuyển màu bạc lạnh, tiếng gầm vang như búa gõ chuông.",
+    "bachho": "Bạch Kim Hổ là chúa tể của những dãy núi phủ tuyết, vằn vàng trên nền lông trắng như vết mực rơi trên giấy ngọc. Truyền thuyết kể rằng nó chọn chủ bằng cách đứng im nhìn thẳng vào mắt người ấy suốt một canh giờ. Khi Dị Biến, bờm mọc ra như chùm kim quang, tiếng gầm làm kim loại rung lên.",
+    "kimchu": "Kim Cang Chu giăng tơ giữa các khe đá, mai lưng cứng như kim cương nguyên khối. Một con trưởng thành có thể đỡ nguyên một nhát búa của thể tu mà không xước. Nó ít khi chủ động tấn công, nhưng ai chạm vào lưới của nó đều mất nửa ngày để thoát. Khi Dị Biến, mai lưng phản chiếu bảy sắc cầu vồng.",
+    "kiemngu": "Kiếm Ngư bơi trong những dòng suối đầu nguồn, mũi nhọn như lưỡi kiếm mài trăm năm. Mỗi lần nó lao lên, mặt nước rạch thành một đường thẳng tắp. Kiếm tu ngồi bên suối nhiều ngày chỉ để học cách nó xuất chiêu. Khi Dị Biến, vảy sáng như gương, bóng của nó trên nước hóa thành thanh kiếm thật.",
+    "kimlong": "Kim Lân Long ẩn trong tầng mây cao nhất, mỗi chiếc vảy là một lá vàng mỏng đã tôi qua nghìn trận sấm. Người ta nói nó ngủ trăm năm, thức một ngày, và ngày ấy đủ để kim khí khắp núi sông cùng rung lên. Chưa ai thực sự thu phục được nó. Khi Dị Biến, long khí hóa vàng lỏng, bay qua đâu mưa rơi thành bụi kim.",
+    "trucxa": "Thanh Trúc Xà quấn trên cây trúc, vảy xanh có đốt như chính thân trúc nên khó ai phân biệt. Nọc của nó pha loãng có thể làm thuốc an thần cho đan sư. Nó rất kiên nhẫn, có thể bất động suốt một đêm trăng. Khi Dị Biến, vảy chuyển ngọc bích, trên thân nảy ra những mầm non nhỏ.",
+    "chi": "Linh Chi Đồng là tinh linh của một cây nấm linh chi sống ngàn năm, thân nhỏ như đứa trẻ, mũ nấm đỏ thắm trên đầu. Nó thích ngồi trong bóng râm và hát những khúc ngân nga không lời. Đan sư gặp nó đều không nỡ ra tay, vì khi nó vui, bào tử rơi xuống chữa lành cỏ cây xung quanh. Khi Dị Biến, mũ nấm tỏa ánh vàng nhạt.",
+    "mocnguu": "Thanh Mộc Ngưu cày ruộng cho các thôn xóm dưới chân núi, sừng cuốn dây leo, da như vỏ cây già. Nó đi chậm nhưng đi chắc, mỗi bước chân đều để lại một mầm cỏ non. Người dân coi nó là điềm lành cho mùa gặt. Khi Dị Biến, hoa nở khắp sừng, hương thơm lan ra ba dặm.",
+    "thiem": "Ngọc Thiền nhỏ bằng đốt ngón tay, cánh trong suốt như phiến ngọc mỏng. Nó ngủ dưới đất mười năm, một đêm hè mới bò lên cây và cất tiếng. Tiếng kêu của nó trong trẻo đến mức người nghe thấy tâm tĩnh lại. Khi Dị Biến, cánh phát sáng như đèn lưu ly, tiếng kêu vang thành nhạc.",
+    "dangmang": "Thanh Đằng Mãng không phải một con rắn thật, mà là hàng ngàn sợi dây leo tự quấn thành hình. Nó có thể trải dài suốt một khu rừng, chỉ để lộ cái đầu khi đã vây xong con mồi. Dưới thân nó cỏ mọc dày, hoa nở không đúng mùa. Khi Dị Biến, dây leo ra hoa vàng và thân phát ánh ngọc lục.",
+    "thiencay": "Thiên Niên Mộc Tinh đứng yên ở một chỗ qua mấy kỷ nguyên, rễ cắm sâu tới tận địa mạch. Mắt nó là hai vầng sáng xanh trong hốc cây, mỗi lần chớp là một mùa trôi qua. Các đạo nhân tin rằng nó nhớ mọi lời thì thầm dưới tán lá. Khi Dị Biến, cành trổ hoa suốt bốn mùa, quả rơi thành linh dược.",
+    "cua": "Bích Ba Giải mang mai xanh như men sứ, trên càng khắc những đường sóng tự nhiên. Nó thích khoét hang bên bờ suối, tích trữ những viên trân châu rơi vãi. Đừng tưởng nó nhỏ mà coi thường, một cú kẹp đủ làm gãy cán kiếm gỗ. Khi Dị Biến, mai chuyển lam ngọc, sóng nhỏ cuộn quanh chân.",
+    "koi": "Cẩm Lý Linh bơi lội trong hồ sen của các tiên môn, vảy đỏ trắng như ráng chiều trên tuyết. Nó nghe được lời cầu nguyện thầm kín của người đứng bên bờ. Có lời đồn cá nào vượt được ba tầng thác sẽ hóa rồng. Khi Dị Biến, vảy phát ánh vàng, mỗi vòng sóng nó tạo ra là một đóa sen.",
+    "haima": "Hải Mã là sinh linh bé nhỏ, thân cong như dấu hỏi, cuộn đuôi quanh cọng rong biển. Bọt nước quanh nó luôn sáng như hạt trân châu. Ngư dân vớt được nó thường thả lại, vì tin rằng nó mang may mắn cho chuyến đi sau. Khi Dị Biến, thân trắng như ngọc, mỗi bọt nước thành một viên ngọc nhỏ.",
+    "muc": "Huyền Thủy Tuộc ẩn dưới vực sâu, tám xúc tu quấn quanh những rạn san hô cổ. Da nó đổi màu theo ý nghĩ, đôi khi hóa thành đá, đôi khi tan vào dòng nước. Kẻ nào lặn xuống thường chỉ thấy một đôi mắt xanh thẫm nhìn lên. Khi Dị Biến, các chấm sáng trên da sắp thành chòm sao.",
+    "uyenuong": "Ngọc Uyên Ương luôn bơi thành đôi, lông xanh ngọc điểm hổ phách, như đã hẹn nhau từ kiếp trước. Nếu một con bị bắt, con còn lại sẽ đứng trên bờ cho đến khi nước cạn. Người tu luyện song tu thường treo hình nó làm vật may. Khi Dị Biến, lông phát sáng hồng, mặt nước quanh nó nở đầy sen nhỏ.",
+    "sa": "Thương Hải Sa là bá chủ của vùng biển sâu, da xám xanh như sắt đã tôi trong bão. Răng nó mọc thành nhiều hàng, rụng một chiếc lại thay bằng chiếc sắc hơn. Thủy tộc nghe tiếng nó đều tản đi từ xa. Khi Dị Biến, các đường nơi mang sáng như lưỡi dao băng, mỗi cú quẫy làm sóng dâng thành tường.",
+    "hoaque": "Hỏa Tước nhỏ bằng nắm tay, lông cam đỏ như than hồng còn cháy. Nó đậu trên cành khô là cành khô nóng lên, bay qua đồng cỏ là để lại một vệt tàn lửa. Người đi đêm thường theo ánh của nó để tìm đường. Khi Dị Biến, lông chuyển vàng ròng, đuôi kéo thành dải lửa dài.",
+    "hoathu": "Xích Diễm Thử chạy nhanh đến mức chỉ còn thấy một vệt đỏ, đuôi nó cháy âm ỉ mà chẳng bao giờ tắt. Nó thích gặm than nóng và đào hang dưới các mạch lửa. Đan sư tìm nó vì tro của đuôi nó rất hợp luyện đan. Khi Dị Biến, lông sáng như thép nung, mỗi bước chạy để lại dấu cháy.",
+    "tichdich": "Liệt Diễm Tích Dịch có da đen sẫm, nứt ra những đường nham thạch đỏ rực mỗi khi nó giận. Nó nằm bất động trên đá nóng cả ngày, chỉ khi đêm xuống mới đi săn. Lửa trên lưng nó cháy chậm, như hơi thở của ngọn núi lửa. Khi Dị Biến, các đường nham thạch hóa vàng, nhiệt tỏa ra đủ làm tan tuyết trong ba trượng.",
+    "xichma": "Xích Thố Mã chạy ngàn dặm mỗi ngày, bờm bốc cháy mà không thành tro. Vó nó đạp xuống đất là để lại dấu đỏ như đúc bằng đồng nóng. Các anh hùng thời xưa cầu có được nó chẳng khác gì cầu một thanh bảo kiếm. Khi Dị Biến, bờm hóa ngọn lửa trắng, tiếng hí vang qua cả rặng núi.",
+    "khuyen": "Hỏa Diễm Khuyển canh giữ những cửa hang dẫn xuống địa hỏa, lông than đen, gân nham thạch đỏ rực. Nó không sủa, chỉ thở ra khói, và khói ấy đủ làm kẻ lạ lùi bước. Nó trung thành tuyệt đối với người đã cho nó một nắm than ấm. Khi Dị Biến, mắt chuyển xanh lam, ngọn lửa trên bờm lạnh mà vẫn đốt cháy.",
+    "chuclong": "Chúc Long là rồng lửa cổ đại, mở mắt là ngày, nhắm mắt là đêm. Thân nó dài đến mức đuôi vẫn còn ở chân trời khi đầu đã vươn tới đỉnh núi. Dung nham dưới đất chảy theo hơi thở của nó. Chưa ai thu phục được nó, kẻ nào đứng trước nó cũng nghe lòng mình nóng lên. Khi Dị Biến, vảy trắng như sắt nung, lửa của nó hóa thành ánh bình minh.",
+    "nhim": "Sơn Nham Nhím có bộ lông gai là những mảnh tinh thể đá màu hổ phách, rung lên nghe như chuông nhỏ. Khi bị dọa, nó cuộn tròn thành một hòn đá lăn xuống dốc. Rêu mọc đầy trên lưng nó mà nó chẳng buồn phủi. Khi Dị Biến, gai thành pha lê trong suốt, phản chiếu cả cầu vồng.",
+    "chuidat": "Địa Hành Thử sống gần như cả đời dưới lòng đất, móng vuốt vàng đào xuyên đá mềm như bới cát. Nó biết chỗ nào có mạch nước, chỗ nào có khoáng quý. Thợ mỏ thường đi theo vết đào của nó để tìm linh thạch. Khi Dị Biến, lông chuyển bạc, đôi mắt sáng như hai viên đá quý.",
+    "tenle": "Xuyên Sơn Giáp mặc áo giáp xếp tầng như ngói đá, kẽ giữa các mảnh phát ánh hổ phách mỗi khi nó vận khí. Chỉ cần cuộn tròn, nó đã trở thành một khối đá không đường nứt. Nó ăn kiến mối, hiền lành đến mức dễ bị kẻ khác lợi dụng. Khi Dị Biến, giáp phát sáng như vàng kim, mỗi mảnh khắc một đường vân khác nhau.",
+    "voi": "Sơn Hà Tượng to như một ngọn núi đi bộ, da dày như tầng đá, trên lưng mọc thông và suối nhỏ. Mỗi bước chân của nó làm đất rung ba nhịp. Nó đi qua những vùng đồng hoang để mang hạt giống tới nơi mới. Khi Dị Biến, ngà thành ngọc bích, trên lưng hoa nở đúng mùa.",
+    "yet": "Hoàng Sa Yết ẩn mình dưới cát, chỉ để lộ ngòi đuôi như mũi dùi vàng. Nọc nó pha vào đan dược làm tăng lực cho thể tu. Nó chờ con mồi đi qua nhiều ngày, rồi ra tay trong chớp mắt. Khi Dị Biến, giáp chuyển vàng rực, ngòi đuôi sáng như hổ phách đang chảy.",
+    "dedai": "Thanh Sơn Dương đứng trên vách đá dựng đứng như mọc từ đá, sừng xoắn to như tay một đại hán. Nó leo nhanh hơn chim bay, nhảy qua vực mà không hề do dự. Đạo nhân tu khổ hạnh thường học dáng đứng bất động của nó. Khi Dị Biến, sừng phủ rêu vàng, mỗi bước nhảy để lại tia sáng.",
+    "dienthu": "Điện Quang Thử nhỏ như con sóc, đuôi uốn khúc như tia sét và nổ lách tách mỗi khi nó vui. Nó thích chui vào hốc đá trước cơn bão, hút lấy điện trời để trữ trong lông. Đứng cạnh nó vào mùa khô, tóc người dựng đứng hết cả. Khi Dị Biến, lông tím sẫm ánh bạc, mỗi lần nhảy là một tiếng sét nhỏ.",
+    "loibao": "Lôi Văn Báo mang vằn hình tia sét trên bộ lông tím đen, vằn ấy sáng lên mỗi khi nó tăng tốc. Nó lao tới nhanh hơn tiếng sấm, đến lúc nghe tiếng thì đã muộn. Người xưa cho rằng nó được sinh ra ở nơi sét đánh xuống lần đầu. Khi Dị Biến, mắt trắng như tia chớp, mỗi bước chạy vang tiếng nổ nhỏ.",
+    "chuon": "Tử Điện Thanh Đình đậu trên ngọn cỏ trước cơn mưa, đôi cánh mỏng như sa tím rung lên tia điện li ti. Nó chẳng làm hại ai, chỉ thích bay qua bay lại giữa những đám mây tích điện. Người ta nói nhìn thấy nó là sắp có mưa lớn. Khi Dị Biến, cánh chuyển xanh lam lấp lánh, để lại một vệt sáng như sao băng.",
+    "loinguu": "Tích Lịch Lôi Ngưu nặng như một tảng đá, sừng quấn hồ quang, mỗi lần húc là một tiếng sấm. Da nó đen như mây giông, lông xù ra khi sắp có bão. Dân vùng cao nguyên coi nó là thần giữ ruộng, vì nơi nó đi qua mưa thuận gió hòa. Khi Dị Biến, sừng chuyển trắng bạc, tiếng rống làm trời rung lên.",
+    "loiman": "Lôi Vân Mãng là con rắn khổng lồ kết bằng mây dông, vảy là những tia sét trắng chạy dọc thân. Nó bơi giữa trời bão, đi tới đâu mưa đổ tới đó. Người ta chỉ thấy cái đầu của nó trong chớp mắt, phần còn lại ẩn trong mây. Khi Dị Biến, vảy tím ngọc, sấm đi theo nó như tiếng hát.",
+    "thienloi": "Thiên Lôi Long là hóa thân của sấm sét trời đất, bờm là một bó điện sống, mắt là hai vầng sáng trắng. Nó bay qua đâu bầu trời đen lại, tiếng gầm kéo dài cả canh giờ. Tương truyền độ kiếp thất bại ba lần thì sẽ gặp nó. Chưa ai thu phục được. Khi Dị Biến, long thân tỏa ánh tím bạc, mỗi tiếng sấm của nó là một lời phán.",
+    "doi": "Ám Dạ Bức treo ngược dưới vòm hang, cánh tím chàm viền ánh trăng bạc. Nó bay trong đêm tối mà không bao giờ đụng vào vật gì, nghe được cả tiếng chân kiến. Âm tu thường nuôi nó để dò đường trong hầm sâu. Khi Dị Biến, màng cánh trong như sương, trăng như ngụ trong từng nếp gấp.",
+    "hao": "U Linh Hào đậu im trên cành khô, đôi mắt tròn sáng nhạt như hai vầng trăng khuyết. Nó bay không phát ra tiếng, lướt qua người như một làn gió lạnh. Người trong làng gọi tiếng kêu của nó là lời báo trước, tin hay không tùy lòng. Khi Dị Biến, lông phát sáng như sương đêm, quanh mình có những đốm sáng lờ mờ.",
+    "chuam": "Tử Mạng Chu dệt lưới trong những hốc cây cổ, mỗi sợi tơ phát sáng nhờ ánh trăng bạc. Trên lưng nó có hình trăng lưỡi liềm tím, càng đêm càng rõ. Nó rất ít khi di chuyển, chỉ chờ kẻ sai đường tự rơi vào. Khi Dị Biến, tơ chuyển bạc, lưới của nó thành bức rèm ánh sao.",
+    "coc": "Huyền Độc Thiềm ngồi bất động trên hòn đá phủ rêu, da chàm sần sùi điểm chấm tím. Nó chẳng làm hại ai nếu không bị chọc, nhưng nọc của nó nổi tiếng khắp các đan phòng. Có người tin nó nuốt trăng mỗi đêm rằm. Khi Dị Biến, các chấm tím sáng như viên ngọc, tiếng kêu vang như tiếng chuông trầm.",
+    "quyma": "Dạ Hành Quỷ Mã là con ngựa không bóng, bờm cháy bằng lửa ma xanh lam, chạy trên đường mà không để lại dấu chân. Khi đêm xuống, nó đưa những linh hồn lạc lối trở về nhà. Kẻ nào nghe tiếng vó của nó giữa canh ba đều nên tránh qua một bên. Khi Dị Biến, thân thể trong suốt như khói, mắt sáng như hai ngọn đèn lồng.",
+    "hacbao": "Hắc Nguyệt Thiên Báo lẫn vào bóng tối đến mức chỉ còn thấy hai vầng trăng là đôi mắt của nó. Những vằn trăng khuyết bạc trên lông phát sáng khi nó săn. Nó bước đi không một tiếng động, đến nỗi gió cũng quên mất sự có mặt của nó. Khi Dị Biến, bộ lông sáng như bầu trời đêm đầy sao, mắt đổi thành trăng tròn.",
+    "kimo": "Tam Túc Kim Ô là chim thần của mặt trời, ba chân, lông vàng rực, sau lưng treo một vầng nhật nhỏ. Nó bay từ đông sang tây mỗi ngày, mang theo ánh sáng cho trần gian. Dương tu mơ ước được nó nhận làm bạn đồng hành. Khi Dị Biến, vầng nhật sau lưng hóa trắng, ánh sáng của nó xua tan cả sương độc.",
+    "tuocduong": "Triêu Dương Tước nhỏ như hạt gạo lớn, lông trắng viền vàng như ánh rạng đông. Nó hót đúng lúc mặt trời vừa nhú, khiến cả khu rừng thức dậy. Người nghe tiếng nó thường thấy lòng nhẹ đi. Khi Dị Biến, quanh đầu hiện một vòng sáng, tiếng hót trong như ngọc.",
+    "thanma": "Bạch Ngọc Thần Mã chạy trên mây như đi trên đường phẳng, vó ngựa nảy ra tia nắng. Lông nó trắng tinh như ngọc chưa mài, bờm vàng như tơ nắng sớm. Các tiên nhân xưa thường dùng nó làm thú cưỡi. Khi Dị Biến, bờm hóa lửa trắng, cứ mỗi bước chân hoa nở dưới vó.",
+    "thuyduong": "Thụy Dương mang bộ lông trắng mịn như mây buổi sớm, sừng cuộn vàng, nơi nó dừng chân cỏ mọc xanh hơn. Dân vùng núi tin gặp nó là điềm trúng mùa. Nó hiền đến mức trẻ con có thể ngồi lên lưng nó mà không bị hất. Khi Dị Biến, lông phát sáng như bình minh, sừng tỏa ánh vàng ấm.",
+    "gaduong": "Hạo Nhật Kê gáy lần đầu tiên mỗi sáng, và mặt trời như chờ tiếng gáy ấy mới dám nhô lên. Đuôi nó dài và rực như chùm nắng, mào đỏ sáng như đèn lồng. Âm khí và quỷ mị nghe tiếng gáy đều tản đi. Khi Dị Biến, lông chuyển vàng kim, mỗi tiếng gáy là một vệt sáng lan ra bốn phương.",
+    "bachtrach": "Bạch Trạch là thần thú trong truyền thuyết, biết hết tên và hình dạng của mọi yêu quái trong thiên hạ. Nó xuất hiện chỉ khi có minh quân trị vì, hiền hậu, mang sừng vàng và bờm sáng. Gặp được nó đã là phúc, thu phục được nó là đại phúc. Khi Dị Biến, thân thể sáng như ngọc lưu ly, mỗi lời nó nói thành điềm lành.",
+    "thuy": "Tường Vân Thụy Thú kết thành từ mây vàng, hình dáng giống nai, gạc sáng như đèn trời. Nó đi tới đâu, mây lành tụ lại tới đó. Có lời đồn nó chỉ xuất hiện trước đại lễ phong thần hoặc trước khi một đạo nhân phi thăng. Khi Dị Biến, mây trên thân hóa bảy sắc, mỗi bước đi để lại một đóa mây hoa."
+  },
+  "regions": [
+    {
+      "name": "Vân Mộng Sơn",
+      "text": "Ngọn núi ẩn trong biển mây, nơi mọi hành trình khởi đầu. Linh khí hiền hòa, suối trong, thông già. Chốn lý tưởng cho kẻ mới nhập đạo ngồi nghe gió, chờ tiếng gọi đầu tiên của trời."
+    },
+    {
+      "name": "Bích Hải Quần Đảo",
+      "text": "Chuỗi đảo xanh ngọc nổi giữa biển lặng, mỗi đảo một hệ linh khí riêng. Sương sớm hóa thành pha lê, thuyền tu sĩ qua lại như cánh hải âu giữa trời mênh mang."
+    },
+    {
+      "name": "Xích Sa Hoang Mạc",
+      "text": "Sa mạc đỏ như máu hoàng hôn, nơi Hỏa và Thổ giao hòa. Dưới cát vùi cổ thành bỏ hoang, pháp khí thất truyền. Ai dám băng qua sẽ tìm thấy hoặc kỳ ngộ, hoặc Tâm Ma."
+    },
+    {
+      "name": "Vô Tận Tuyết Nguyên",
+      "text": "Cánh đồng tuyết vô biên, nơi Âm Dương luân chuyển trong sự tĩnh lặng tuyệt đối. Ánh cực quang múa trên băng, cổ tu sĩ ngồi hóa đá, đang chờ một nhịp thở chưa thành."
+    }
+  ],
+  "factions": [
+    {
+      "name": "Thanh Vân Tông",
+      "text": "Đại tông môn chính đạo lâu đời, tọa lạc trên chín đỉnh núi. Lấy việc thủ hộ Thiên Đạo làm trọng, họ dạy môn đồ tu tâm trước, tu lực sau, và luôn mở cửa đón kẻ lạc đường."
+    },
+    {
+      "name": "Huyền Âm Minh",
+      "text": "Hội kín của những tu sĩ đi con đường bên lề bóng tối. Họ không hẳn tà, chỉ tin sức mạnh thật nằm ở điều người khác e ngại. Giao dịch Khế Ước Phù là sở trường của họ."
+    },
+    {
+      "name": "Vạn Bảo Lâu",
+      "text": "Thương hội trải khắp đại lục, buôn Linh Thạch, pháp khí, tin tức. Không chọn phe, chỉ chọn lợi, nhưng chưa từng bội ước. Trong kho họ, nghe nói có cả một mảnh Tiên Văn chưa ai giải được."
+    }
+  ],
+  "hook": "Sáng nay, Linh Thạch trong tay bạn khẽ ấm lên, như có ai gọi tên từ phía bên kia sương. Con đường đạo mở ra: bước đầu tiên, chỉ cần ngồi xuống, và lắng nghe."
+}

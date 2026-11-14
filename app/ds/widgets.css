@@ -1,0 +1,40 @@
+/* ==========================================================================
+   WIDGETS: header popovers (music, settings), now-playing, credits
+   ========================================================================== */
+@layer ds-controls {
+  .pop { position: relative; }
+  .btn.orb { width: 40px; min-height: 40px; border-radius: 50%; color: var(--gold-300); background: radial-gradient(circle at 35% 28%, rgb(255 255 255 / 0.14), rgb(0 0 0 / 0.4)); }
+  .btn.orb.open, .btn.orb.active { border-color: var(--gold-300); box-shadow: var(--sh-1), var(--glow-gold); }
+  .btn.orb.active::before { inset: -6px; z-index: 0; border-radius: 50%; background: none; border: 1px solid var(--gold-300); transform: none; animation: orb-ring 2.6s var(--ease-out) infinite; animation-play-state: var(--amb); transition: none; }
+  .pop-body { position: absolute; right: 0; top: calc(100% + 12px); z-index: var(--z-popover); max-width: min(92vw, 360px); padding: var(--sp-4); border-radius: var(--r-lg); background: var(--glass-ink); border: 1px solid var(--line-gold-strong); box-shadow: var(--sh-3), 0 0 50px -16px color-mix(in srgb, var(--gold-400) 40%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3); animation: modal-in var(--dur-base) var(--ease-out) both; transform-origin: top right; }
+  .pop-body::before { content: ''; position: absolute; right: 14px; top: -6px; width: 11px; height: 11px; rotate: 45deg; background: #0a1822; border-left: 1px solid var(--line-gold-strong); border-top: 1px solid var(--line-gold-strong); }
+  .pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3); font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.06em; color: var(--gold-300); }
+  .pop-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; font-size: var(--fs-sm); color: var(--text-2); border-top: 1px solid var(--line); }
+  .pop-row small { display: block; }
+  .pop-row.col { flex-direction: column; align-items: stretch; }
+  .pop-note { font-size: var(--fs-xs); }
+  .pop-credit { display: block; margin-top: var(--sp-2); font-size: var(--fs-xs); }
+  .pop-sect { margin: var(--sp-3) 0 var(--sp-1); font-family: var(--font-display); font-size: var(--fs-xs); font-weight: 700; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--gold-400); }
+  .pop-ai { font-size: var(--fs-xs); line-height: 1.5; color: var(--text-3); word-break: break-word; }
+  .pop-grid { display: grid; gap: var(--sp-2); }
+
+  .eq { display: inline-flex; align-items: flex-end; gap: 2px; width: 18px; height: 16px; }
+  .eq i { flex: 1; height: 100%; border-radius: 2px; background: linear-gradient(180deg, var(--gold-200), var(--jade-400)); transform-origin: bottom; animation: eq-bar 1.1s var(--ease-drift) infinite; animation-play-state: var(--amb); }
+  .eq i:nth-child(2) { animation-duration: 0.8s; animation-delay: -0.3s; }
+  .eq i:nth-child(3) { animation-duration: 1.3s; animation-delay: -0.6s; }
+  .eq i:nth-child(4) { animation-duration: 0.95s; animation-delay: -0.1s; }
+
+  .np { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); border-radius: var(--r-md); background: var(--glass-soft); border: 1px solid var(--line); }
+  .np-disc { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--gold-300); background: conic-gradient(from 0deg, #16323a, #0a1a22, #1d4650, #0a1a22, #16323a); border: 1px solid var(--line-gold); box-shadow: inset 0 0 10px #000, var(--glow-gold); }
+  .np-disc[data-spin='1'] { animation: spin 9s linear infinite; animation-play-state: var(--amb); }
+  .np-meta { min-width: 0; line-height: 1.3; }
+  .np-meta b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.03em; }
+  .np-meta small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .np-ctl { display: flex; gap: 2px; }
+  .vol { display: grid; grid-template-columns: auto 1fr 2.2em; align-items: center; gap: var(--sp-3); margin: var(--sp-2) 0 var(--sp-3); color: var(--gold-300); font-size: var(--fs-xs); }
+  .vol .num { text-align: right; color: var(--text-2); }
+
+  .credit { margin: var(--sp-2) 0; padding: var(--sp-2) var(--sp-3); border-left: 2px solid var(--line-gold); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 6%, transparent), transparent); }
+  .credit p { margin: 2px 0 0; font-size: var(--fs-xs); line-height: 1.55; color: var(--text-3); word-break: break-word; }
+  .credits h3 { margin-top: var(--sp-5); }
+}

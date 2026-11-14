@@ -1,0 +1,29 @@
+{
+  "note": "Add a track: put the file in public/audio and add an entry here. The credit line is shown in the game's Credits window (Creative Commons BY needs it).",
+  "tracks": [
+    {
+      "id": "ripples",
+      "title": "Ripples",
+      "artist": "Kevin MacLeod",
+      "src": "/audio/ripples.m4a",
+      "mood": "đàn tranh, tĩnh lặng như mặt nước",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "sourceUrl": "https://incompetech.com/music/royalty-free/music.html",
+      "credit": "\"Ripples\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/",
+      "gain": 0.9
+    },
+    {
+      "id": "floating-cities",
+      "title": "Floating Cities",
+      "artist": "Kevin MacLeod",
+      "src": "/audio/floating-cities.m4a",
+      "mood": "huyền ảo, lơ lửng trên mây",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "sourceUrl": "https://incompetech.com/music/royalty-free/music.html",
+      "credit": "\"Floating Cities\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/",
+      "gain": 1
+    }
+  ]
+}

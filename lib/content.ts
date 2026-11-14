@@ -1,0 +1,488 @@
+// Content catalog (prototype subset of the spec's Content_Catalog).
+export const EO = ['Kim', 'Lôi', 'Mộc', 'Âm', 'Thổ', 'Dương', 'Thủy', 'Hỏa']; // ring: Strong vs next 2, Weak vs previous 2
+export const EL: Record<string, { color: string }> = {
+  Kim: { color: '#e9d27a' }, Mộc: { color: '#6fd08c' }, Thủy: { color: '#5ab4ff' },
+  Hỏa: { color: '#ff7a59' }, Thổ: { color: '#c9a066' }, Lôi: { color: '#b78bff' },
+  Âm: { color: '#8e8cff' }, Dương: { color: '#ffd36e' },
+};
+export const RARITY = ['Phàm', 'Hoàng', 'Huyền', 'Địa', 'Thiên', 'Tiên'];
+export const RCOLOR = ['#a7adb2', '#7bd88f', '#5ab0ff', '#c084fc', '#ffb454', '#ff6ea8'];
+import { BALANCE } from './balance';
+export const TIER_W = BALANCE.rarityWeights;
+export const DIS = BALANCE.dissolveValueByTier;
+// The full Realm_Ladder (Requirement 22). Only the first five can be played in the MVP (Playable_Level_Cap).
+export const REALMS = ['Luyện Khí', 'Trúc Cơ', 'Kim Đan', 'Nguyên Anh', 'Hóa Thần', 'Luyện Hư', 'Hợp Thể', 'Đại Thừa', 'Độ Kiếp'];
+export const SUBS = ['Sơ Kỳ', 'Trung Kỳ', 'Hậu Kỳ', 'Đỉnh Phong'];
+// Tribulation waves by target Realm index (0 based), from Balance_Config.
+export const WAVES = [0, 0, 0, 0, 0].map((_, i) => BALANCE.tribulationWaves[i + 1] || 0);
+export const LINH_W = BALANCE.linhCountWeights; // 1..5 roots
+export const V1 = BALANCE.baseStats; // maxHp, maxSpirit, atk, def, spd at Level 1
+
+export interface Species { id: string; name: string; el: string[]; cm: number; f: number[]; tame: number }
+export const SPECIES: Species[] = [
+  { id: 'ho', name: 'Xích Viêm Hồ', el: ['Hỏa'], cm: 70, f: [0.9, 0.8, 1.15, 0.85, 1.2], tame: 1.0 },
+  { id: 'giao', name: 'Bích Ba Giao', el: ['Thủy'], cm: 260, f: [1.2, 1.2, 0.95, 1.0, 0.9], tame: 0.8 },
+  { id: 'loc', name: 'Thanh Mộc Lộc', el: ['Mộc'], cm: 150, f: [1.1, 1.15, 0.8, 0.95, 1.1], tame: 1.2 },
+  { id: 'bang', name: 'Kim Bằng', el: ['Kim'], cm: 180, f: [0.9, 0.9, 1.2, 0.9, 1.25], tame: 0.7 },
+  { id: 'quy', name: 'Huyền Quy', el: ['Thổ'], cm: 120, f: [1.4, 0.9, 0.7, 1.5, 0.5], tame: 1.1 },
+  { id: 'loi', name: 'Lôi Kỳ Lân', el: ['Lôi'], cm: 190, f: [1.1, 1.0, 1.25, 1.0, 1.1], tame: 0.6 },
+  { id: 'am', name: 'Nguyệt Ảnh Miêu', el: ['Âm'], cm: 55, f: [0.8, 1.1, 1.1, 0.8, 1.3], tame: 1.0 },
+  { id: 'duong', name: 'Bạch Dương Hạc', el: ['Dương'], cm: 140, f: [0.95, 1.2, 1.0, 0.9, 1.15], tame: 0.9 },
+  // second wave: one or two more for every element, from tiny to huge
+  { id: 'tho', name: 'Thanh Linh Thố', el: ['Mộc'], cm: 40, f: [0.8, 1.2, 0.85, 0.8, 1.3], tame: 1.35 },
+  { id: 'xa', name: 'Hàn Băng Xà', el: ['Thủy'], cm: 320, f: [1.0, 1.2, 1.1, 0.9, 1.0], tame: 0.8 },
+  { id: 'lang', name: 'Ngân Giáp Lang', el: ['Kim'], cm: 130, f: [1.0, 0.8, 1.15, 1.15, 1.1], tame: 0.85 },
+  { id: 'hung', name: 'Cổ Mộc Hùng', el: ['Mộc'], cm: 210, f: [1.35, 0.9, 1.05, 1.2, 0.6], tame: 0.9 },
+  { id: 'phuong', name: 'Liệt Viêm Phượng', el: ['Hỏa'], cm: 160, f: [0.9, 1.25, 1.3, 0.8, 1.2], tame: 0.55 },
+  { id: 'te', name: 'Sơn Nhạc Tê', el: ['Thổ'], cm: 240, f: [1.4, 0.8, 1.15, 1.4, 0.55], tame: 0.9 },
+  { id: 'ung', name: 'Tử Điện Ưng', el: ['Lôi'], cm: 110, f: [0.85, 0.95, 1.25, 0.85, 1.35], tame: 0.7 },
+  { id: 'diep', name: 'U Minh Điệp', el: ['Âm'], cm: 45, f: [0.7, 1.35, 1.0, 0.75, 1.35], tame: 1.1 },
+  { id: 'su', name: 'Thần Dương Sư', el: ['Dương'], cm: 200, f: [1.2, 1.0, 1.3, 1.0, 1.0], tame: 0.6 },
+  { id: 'kinh', name: 'Vân Hải Kình', el: ['Thủy'], cm: 600, f: [1.5, 1.3, 0.9, 1.2, 0.5], tame: 0.65 },
+  // third wave: fifty more creatures, from a silkworm to dragons that nobody has tamed
+  // Kim
+  { id: 'kimtam', name: 'Kim Ti Tằm', el: ['Kim'], cm: 14, f: [0.75, 1.12, 0.82, 0.8, 1.35], tame: 1.4 },
+  { id: 'kimhau', name: 'Kim Ti Hầu', el: ['Kim'], cm: 85, f: [0.85, 0.85, 1.17, 0.78, 1.35], tame: 1.0 },
+  { id: 'thietbao', name: 'Thiết Cốt Báo', el: ['Kim'], cm: 150, f: [1.25, 0.85, 1.15, 1.07, 0.78], tame: 0.8 },
+  { id: 'bachho', name: 'Bạch Kim Hổ', el: ['Kim'], cm: 230, f: [0.82, 0.95, 1.25, 0.75, 1.22], tame: 0.55 },
+  { id: 'kimchu', name: 'Kim Cang Chu', el: ['Kim'], cm: 60, f: [1.42, 0.88, 0.8, 1.4, 0.55], tame: 1.0 },
+  { id: 'kiemngu', name: 'Kiếm Ngư', el: ['Kim'], cm: 200, f: [0.8, 0.93, 1.12, 0.85, 1.3], tame: 0.8 },
+  { id: 'kimlong', name: 'Kim Lân Long', el: ['Kim'], cm: 800, f: [1.3, 1.05, 1.27, 1.08, 0.95], tame: 0.32 },
+  // Mộc
+  { id: 'trucxa', name: 'Thanh Trúc Xà', el: ['Mộc'], cm: 90, f: [0.9, 0.9, 1.1, 0.83, 1.28], tame: 1.1 },
+  { id: 'chi', name: 'Linh Chi Đồng', el: ['Mộc'], cm: 30, f: [0.88, 1.35, 1.1, 0.8, 1.02], tame: 1.3 },
+  { id: 'mocnguu', name: 'Thanh Mộc Ngưu', el: ['Mộc'], cm: 220, f: [1.22, 0.82, 1.25, 1.05, 0.75], tame: 0.9 },
+  { id: 'thiem', name: 'Ngọc Thiền', el: ['Mộc'], cm: 6, f: [0.75, 1.12, 0.82, 0.8, 1.35], tame: 1.4 },
+  { id: 'dangmang', name: 'Thanh Đằng Mãng', el: ['Mộc'], cm: 450, f: [1.2, 0.8, 1.22, 1.03, 0.85], tame: 0.7 },
+  { id: 'thiencay', name: 'Thiên Niên Mộc Tinh', el: ['Mộc'], cm: 700, f: [1.35, 1.1, 1.2, 1.12, 0.88], tame: 0.38 },
+  // Thủy
+  { id: 'cua', name: 'Bích Ba Giải', el: ['Thủy'], cm: 35, f: [1.38, 0.95, 0.75, 1.35, 0.62], tame: 1.2 },
+  { id: 'koi', name: 'Cẩm Lý Linh', el: ['Thủy'], cm: 50, f: [0.93, 1.28, 1.15, 0.85, 0.95], tame: 1.3 },
+  { id: 'haima', name: 'Hải Mã', el: ['Thủy'], cm: 20, f: [0.75, 1.12, 0.82, 0.8, 1.35], tame: 1.25 },
+  { id: 'muc', name: 'Huyền Thủy Tuộc', el: ['Thủy'], cm: 180, f: [0.9, 1.25, 1.12, 0.82, 1.05], tame: 0.8 },
+  { id: 'uyenuong', name: 'Ngọc Uyên Ương', el: ['Thủy'], cm: 45, f: [1.05, 1.0, 1.0, 1.02, 1.03], tame: 1.2 },
+  { id: 'sa', name: 'Thương Hải Sa', el: ['Thủy'], cm: 400, f: [1.28, 1.15, 1.25, 1.05, 0.93], tame: 0.5 },
+  // Hỏa
+  { id: 'hoaque', name: 'Hỏa Tước', el: ['Hỏa'], cm: 18, f: [0.83, 1.08, 0.9, 0.75, 1.3], tame: 1.35 },
+  { id: 'hoathu', name: 'Xích Diễm Thử', el: ['Hỏa'], cm: 22, f: [0.8, 0.93, 1.12, 0.85, 1.3], tame: 1.3 },
+  { id: 'tichdich', name: 'Liệt Diễm Tích Dịch', el: ['Hỏa'], cm: 110, f: [1.0, 0.95, 1.07, 0.97, 1.1], tame: 1.0 },
+  { id: 'xichma', name: 'Xích Thố Mã', el: ['Hỏa'], cm: 190, f: [0.9, 0.9, 1.1, 0.83, 1.28], tame: 0.8 },
+  { id: 'khuyen', name: 'Hỏa Diễm Khuyển', el: ['Hỏa'], cm: 110, f: [1.18, 0.9, 1.2, 1.0, 0.83], tame: 0.85 },
+  { id: 'chuclong', name: 'Chúc Long', el: ['Hỏa'], cm: 900, f: [1.32, 1.08, 1.3, 1.1, 0.85], tame: 0.3 },
+  // Thổ
+  { id: 'nhim', name: 'Sơn Nham Nhím', el: ['Thổ'], cm: 45, f: [1.35, 0.93, 0.72, 1.45, 0.6], tame: 1.2 },
+  { id: 'chuidat', name: 'Địa Hành Thử', el: ['Thổ'], cm: 28, f: [0.8, 1.05, 0.88, 0.72, 1.4], tame: 1.3 },
+  { id: 'tenle', name: 'Xuyên Sơn Giáp', el: ['Thổ'], cm: 80, f: [1.45, 0.9, 0.7, 1.42, 0.57], tame: 1.1 },
+  { id: 'voi', name: 'Sơn Hà Tượng', el: ['Thổ'], cm: 450, f: [1.28, 1.15, 1.25, 1.05, 0.93], tame: 0.55 },
+  { id: 'yet', name: 'Hoàng Sa Yết', el: ['Thổ'], cm: 70, f: [0.88, 0.88, 1.3, 0.8, 1.15], tame: 0.95 },
+  { id: 'dedai', name: 'Thanh Sơn Dương', el: ['Thổ'], cm: 140, f: [0.95, 1.02, 1.03, 1.05, 1.05], tame: 0.85 },
+  // Lôi
+  { id: 'dienthu', name: 'Điện Quang Thử', el: ['Lôi'], cm: 25, f: [0.85, 0.85, 1.17, 0.78, 1.35], tame: 1.3 },
+  { id: 'loibao', name: 'Lôi Văn Báo', el: ['Lôi'], cm: 150, f: [0.9, 0.9, 1.2, 0.83, 1.18], tame: 0.8 },
+  { id: 'chuon', name: 'Tử Điện Thanh Đình', el: ['Lôi'], cm: 12, f: [0.78, 1.15, 0.85, 0.7, 1.38], tame: 1.35 },
+  { id: 'loinguu', name: 'Tích Lịch Lôi Ngưu', el: ['Lôi'], cm: 260, f: [1.22, 0.82, 1.25, 1.05, 0.75], tame: 0.7 },
+  { id: 'loiman', name: 'Lôi Vân Mãng', el: ['Lôi'], cm: 600, f: [0.85, 1.32, 1.08, 0.9, 1.0], tame: 0.5 },
+  { id: 'thienloi', name: 'Thiên Lôi Long', el: ['Lôi'], cm: 1000, f: [1.3, 1.05, 1.27, 1.08, 0.95], tame: 0.28 },
+  // Âm
+  { id: 'doi', name: 'Ám Dạ Bức', el: ['Âm'], cm: 25, f: [0.85, 1.1, 0.8, 0.78, 1.33], tame: 1.3 },
+  { id: 'hao', name: 'U Linh Hào', el: ['Âm'], cm: 40, f: [0.88, 1.35, 1.1, 0.8, 1.02], tame: 1.1 },
+  { id: 'chuam', name: 'Tử Mạng Chu', el: ['Âm'], cm: 55, f: [0.88, 0.88, 1.3, 0.8, 1.15], tame: 1.0 },
+  { id: 'coc', name: 'Huyền Độc Thiềm', el: ['Âm'], cm: 40, f: [1.35, 0.93, 0.72, 1.45, 0.6], tame: 1.2 },
+  { id: 'quyma', name: 'Dạ Hành Quỷ Mã', el: ['Âm'], cm: 200, f: [0.85, 0.85, 1.17, 0.78, 1.35], tame: 0.7 },
+  { id: 'hacbao', name: 'Hắc Nguyệt Thiên Báo', el: ['Âm'], cm: 240, f: [1.35, 1.1, 1.2, 1.12, 0.88], tame: 0.6 },
+  // Dương
+  { id: 'kimo', name: 'Tam Túc Kim Ô', el: ['Dương'], cm: 90, f: [0.88, 1.35, 1.1, 0.8, 1.02], tame: 0.6 },
+  { id: 'tuocduong', name: 'Triêu Dương Tước', el: ['Dương'], cm: 15, f: [0.83, 1.08, 0.9, 0.75, 1.3], tame: 1.4 },
+  { id: 'thanma', name: 'Bạch Ngọc Thần Mã', el: ['Dương'], cm: 200, f: [0.8, 0.93, 1.12, 0.85, 1.3], tame: 0.7 },
+  { id: 'thuyduong', name: 'Thụy Dương', el: ['Dương'], cm: 100, f: [1.4, 0.85, 0.78, 1.38, 0.65], tame: 1.1 },
+  { id: 'gaduong', name: 'Hạo Nhật Kê', el: ['Dương'], cm: 60, f: [0.9, 0.9, 1.2, 0.83, 1.18], tame: 1.2 },
+  { id: 'bachtrach', name: 'Bạch Trạch', el: ['Dương'], cm: 170, f: [0.88, 1.35, 1.1, 0.8, 1.02], tame: 0.5 },
+  { id: 'thuy', name: 'Tường Vân Thụy Thú', el: ['Dương'], cm: 160, f: [0.93, 1.28, 1.15, 0.85, 0.95], tame: 0.6 },
+];
+export interface Pers { n: string; dev: number[]; tame: number; line: string }
+export const PERS: Pers[] = [
+  { n: 'Hung Hãn', dev: [0, 0, 0.1, -0.08, 0], tame: 0.85, line: 'Gầm gừ, ánh mắt đỏ ngầu.' },
+  { n: 'Nhút Nhát', dev: [0, 0, -0.08, 0, 0.1], tame: 1.15, line: 'Run rẩy lùi lại sau tảng đá.' },
+  { n: 'Điềm Tĩnh', dev: [0.05, 0.05, 0, 0.05, -0.05], tame: 1.1, line: 'Bình thản nhìn ngươi như nhìn gió.' },
+  { n: 'Kiêu Ngạo', dev: [0, 0, 0.08, 0.05, -0.1], tame: 0.75, line: 'Ngẩng cao đầu, không coi ai ra gì.' },
+  { n: 'Tham Ăn', dev: [0.1, 0, -0.05, 0, -0.05], tame: 1.2, line: 'Đánh hơi túi linh thảo của ngươi.' },
+  { n: 'Hiền Lành', dev: [0.05, 0.05, -0.1, 0.05, 0], tame: 1.3, line: 'Nghiêng đầu tò mò.' },
+  { n: 'Tinh Nghịch', dev: [-0.05, 0, 0, -0.05, 0.1], tame: 1.0, line: 'Nhảy nhót khiêu khích.' },
+  { n: 'Cô Độc', dev: [0, 0.1, 0.05, 0, 0], tame: 0.8, line: 'Im lặng, xa cách.' },
+  { n: 'Trung Thành', dev: [0.05, 0, 0, 0.05, 0], tame: 1.25, line: 'Dường như đã chờ ngươi từ lâu.' },
+  { n: 'Xảo Quyệt', dev: [-0.05, 0.05, 0.05, 0, 0.05], tame: 0.9, line: 'Ánh mắt đảo quanh tìm sơ hở.' },
+  { n: 'Trầm Mặc', dev: [0, 0.1, 0, 0.05, -0.05], tame: 1.0, line: 'Lặng lẽ như bóng trăng.' },
+  { n: 'Nóng Nảy', dev: [-0.05, 0, 0.1, -0.05, 0.05], tame: 0.9, line: 'Dậm chân liên hồi.' },
+];
+export const SKILLS: Record<string, string[]> = {
+  Kim: ['Kim Quang Trảm', 'Thái Bạch Kiếm Khí', 'Phá Giáp Chỉ'], Mộc: ['Thanh Đằng Phược', 'Xuân Sinh Quyết', 'Mộc Linh Tiễn'],
+  Thủy: ['Bích Ba Tuyệt', 'Hàn Băng Chưởng', 'Thủy Long Ngâm'], Hỏa: ['Xích Diễm Phần Thiên', 'Hỏa Phượng Vũ', 'Liệt Dương Chưởng'],
+  Thổ: ['Địa Nhai Trấn', 'Sơn Hà Ấn', 'Hậu Thổ Hộ Thể'], Lôi: ['Cửu Thiên Lôi Pháp', 'Tử Điện Xuyên Vân', 'Thiên Phạt Chỉ'],
+  Âm: ['U Minh Trảo', 'Nguyệt Ảnh Ma Ảnh', 'Hàn Phách Chú'], Dương: ['Thái Dương Chân Hỏa', 'Kim Ô Diệu Thế', 'Hạo Nhiên Quyết'],
+};
+export const NEUTRAL_SKILL = 'Thần Thức Kích';
+// Skill catalog (Requirement 18.1). Only the Tấn Công group exists so far; the other five groups need status effects (not built yet).
+// Each element has three attack skills: a free basic one, a stronger one with a short cooldown, and a finisher that costs a lot of Spirit and waits longer.
+export type SkillGroup = 'Tấn Công' | 'Phòng Thủ' | 'Hồi Phục' | 'Cường Hóa' | 'Suy Yếu' | 'Khống Chế';
+export interface SkillDef { name: string; el: string; group: SkillGroup; spirit: number; cd: number; coef: number; target: 'Kẻ Địch' | 'Bản Thân' | 'Một Đồng Minh' | 'Cả Đội'; minLevel: number }
+const SKILL_TIERS = [{ coef: 1.0, spirit: 0, cd: 0, minLevel: 1 }, { coef: 1.45, spirit: 8, cd: 1, minLevel: 1 }, { coef: 2.0, spirit: 20, cd: 3, minLevel: 5 }];
+export const SKILL_DEFS: Record<string, SkillDef> = Object.fromEntries([
+  ...Object.entries(SKILLS).flatMap(([el, names]) => names.map((name, i): [string, SkillDef] => [name, { name, el, group: 'Tấn Công', target: 'Kẻ Địch', ...SKILL_TIERS[i] }])),
+  [NEUTRAL_SKILL, { name: NEUTRAL_SKILL, el: '', group: 'Tấn Công', target: 'Kẻ Địch', coef: 1.0, spirit: 0, cd: 0, minLevel: 1 }],
+]);
+export const skillDef = (name: string): SkillDef => SKILL_DEFS[name] || SKILL_DEFS[NEUTRAL_SKILL];
+export const FAMILY = ['Lý', 'Trần', 'Vương', 'Lâm', 'Diệp', 'Tiêu', 'Mộ Dung', 'Tống', 'Liễu', 'Bạch', 'Tô', 'Cố', 'Nguyệt', 'Thượng Quan'];
+export const SYL1 = ['Thanh', 'Vân', 'Hàn', 'Nguyệt', 'Tuyết', 'Phong', 'Linh', 'Dao', 'Ngọc', 'Minh', 'Lăng', 'Tịch', 'Mặc', 'Y'];
+export const SYL2 = ['Hi', 'Nhi', 'Tâm', 'Ảnh', 'Lan', 'Hoa', 'Uyên', 'Vũ', 'Dung', 'Nghiên', 'Ca', 'Trúc'];
+export const DAO = ['Thanh Vân Tử', 'Bạch Hạc Chân Nhân', 'Vô Ưu Cư Sĩ', 'Phiêu Miểu Tiên Tử', 'Tử Hà Quân', 'Linh Tê Đạo Nhân'];
+
+export const SLOTS = ['Weapon', 'Headwear', 'Robe', 'Footwear', 'Back', 'Accessory', 'Ring', 'Talisman'];
+// Slots that can be seen on the portrait (Ring and Talisman are too small to draw).
+export const VISIBLE = ['Weapon', 'Headwear', 'Robe', 'Footwear', 'Back', 'Accessory'];
+// Static art drawn once by scripts/pregen.ts and shipped in public/art.
+// `small`: the 192 px copy for lists (made by scripts/thumbs.ts); the popup uses the original.
+export const monsterArt = (sp: string, mut = false, small = false) => `/art/monsters/${small ? 'sm/' : ''}${sp}${mut ? '_mut' : ''}.jpg`;
+export const introArt = (g: 'f' | 'm') => `/art/intro_${g}.jpg`;
+export const SLOT_VI: Record<string, string> = { Weapon: 'Pháp Khí', Headwear: 'Quan', Robe: 'Đạo Bào', Footwear: 'Hài', Back: 'Bối', Accessory: 'Bội', Ring: 'Giới Chỉ', Talisman: 'Hộ Phù' };
+// Plain-Vietnamese word for each slot (the Hán-Việt names above are not obvious), where it is worn, and the engraved glyph of its empty "mold".
+export const SLOT_SHORT: Record<string, string> = { Weapon: 'vũ khí', Headwear: 'mũ', Robe: 'áo', Footwear: 'giày', Back: 'khoác lưng', Accessory: 'đeo hông', Ring: 'nhẫn', Talisman: 'bùa' };
+export const SLOT_HINT: Record<string, string> = { Weapon: 'cầm trên tay', Headwear: 'đội trên đầu', Robe: 'mặc ngoài thân', Footwear: 'mang ở chân', Back: 'khoác sau lưng', Accessory: 'đeo bên hông', Ring: 'đeo ở ngón tay', Talisman: 'giắt trong người' };
+// Paper doll: which slots sit left and right of the figure (top to bottom), and the body region of each slot on the 2:3 portrait
+// (center x/y and size, in percent of the picture). Used to show where a dragged item goes.
+export const DOLL_L = ['Headwear', 'Robe', 'Accessory', 'Footwear'];
+export const DOLL_R = ['Back', 'Weapon', 'Ring', 'Talisman'];
+export const BODY_AT: Record<string, { x: number; y: number; w: number; h: number }> = {
+  Headwear: { x: 50, y: 10, w: 36, h: 14 }, Back: { x: 50, y: 27, w: 86, h: 22 }, Talisman: { x: 50, y: 30, w: 28, h: 10 }, Robe: { x: 50, y: 50, w: 60, h: 56 },
+  Accessory: { x: 50, y: 38, w: 34, h: 8 }, Weapon: { x: 77, y: 56, w: 24, h: 30 }, Ring: { x: 24, y: 52, w: 20, h: 14 }, Footwear: { x: 50, y: 88, w: 44, h: 16 },
+};
+export const SLOT_BASE: Record<string, string[]> = {
+  Weapon: ['Trường Kiếm', 'Đoản Kiếm', 'Phất Trần', 'Cổ Cầm', 'Ngọc Tiêu', 'Trường Thương'],
+  Headwear: ['Ngọc Quan', 'Kim Quan', 'Phát Trâm', 'Đấu Lạp', 'Khăn Vân'],
+  Robe: ['Đạo Bào', 'Vũ Y', 'Hạc Sưởng', 'Pháp Bào', 'Tiên Quần', 'Thanh Sam'],
+  Footwear: ['Vân Hài', 'Phong Ngoa', 'Tuyết Ngoa'],
+  Back: ['Đấu Bồng', 'Vũ Dực', 'Kiếm Hạp', 'Phi Y'],
+  Accessory: ['Ngọc Bội', 'Hương Nang', 'Linh Ấn', 'Chuông Bạc'],
+  Ring: ['Giới Chỉ', 'Linh Giới', 'Càn Khôn Giới'],
+  Talisman: ['Hộ Phù', 'Linh Phù', 'Trấn Hồn Phù'],
+};
+export const SLOT_IMPL: Record<string, { stat: string; r: [number, number] }> = {
+  Weapon: { stat: 'atk', r: [6, 12] }, Headwear: { stat: 'def', r: [3, 6] }, Robe: { stat: 'hp', r: [40, 80] }, Footwear: { stat: 'spd', r: [1, 3] },
+  Back: { stat: 'def', r: [2, 5] }, Accessory: { stat: 'spirit', r: [15, 30] }, Ring: { stat: 'crit', r: [2, 4] }, Talisman: { stat: 'luck', r: [3, 8] },
+};
+export interface AffixDef { id: string; label: string; stat: string; r: [number, number]; kind: 'p' | 's'; name: string }
+export const AFFIX: AffixDef[] = [
+  { id: 'atk', label: 'Công Kích', stat: 'atk', r: [4, 8], kind: 'p', name: 'Sắc Bén' }, { id: 'def', label: 'Phòng Ngự', stat: 'def', r: [3, 6], kind: 'p', name: 'Kiên Cố' },
+  { id: 'hp', label: 'Sinh Lực', stat: 'hp', r: [25, 45], kind: 'p', name: 'Trường Thọ' }, { id: 'spd', label: 'Thân Pháp', stat: 'spd', r: [1, 3], kind: 'p', name: 'Phiêu Dật' },
+  { id: 'spirit', label: 'Linh Lực', stat: 'spirit', r: [10, 20], kind: 'p', name: 'Uẩn Linh' }, { id: 'crit', label: 'Bạo Kích %', stat: 'crit', r: [2, 5], kind: 's', name: 'Sát Phạt' },
+  { id: 'critdmg', label: 'Bạo Thương %', stat: 'critdmg', r: [6, 14], kind: 's', name: 'Tuyệt Mệnh' }, { id: 'luck', label: 'May Mắn', stat: 'luck', r: [2, 6], kind: 's', name: 'Thiên Vận' },
+  { id: 'cult', label: 'Tu Luyện %', stat: 'cult', r: [3, 8], kind: 's', name: 'Ngộ Đạo' },
+];
+export const AFFIX_COUNT: [number, number][] = [[0, 0], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]];
+export const ROLL_FLOOR = [0, 0, 0.1, 0.25, 0.45, 0.65];
+export const PW: Record<string, number> = { hp: 0.12, spirit: 0.2, atk: 1, def: 1, spd: 1.5, crit: 2, critdmg: 0.4, luck: 0.3, cult: 0.5 };
+export const EL_PREFIX: Record<string, string> = { Kim: 'Thái Bạch', Mộc: 'Thanh Mộc', Thủy: 'Bích Ba', Hỏa: 'Liệt Diễm', Thổ: 'Hậu Thổ', Lôi: 'Cửu Lôi', Âm: 'U Nguyệt', Dương: 'Thần Dương' };
+export const PROPER1 = ['Hồng Mông', 'Thái Hư', 'Cửu Tiêu', 'Vạn Cổ', 'Thiên Tâm', 'Hư Không', 'Tinh Hà', 'Vô Lượng'];
+export const PROPER2 = ['Chí Tôn', 'Tuyệt Thế', 'Vô Cực', 'Hạo Nhiên', 'Phá Quân', 'Nghịch Thiên', 'Thần Hoàng'];
+export const TIEN_VAN = ['Hỗn Độn Tiên Văn', 'Thái Cực Tiên Văn', 'Tinh Thần Tiên Văn', 'Hồng Liên Tiên Văn'];
+// ---------- Kỳ Ngộ (Event_Template). `lv` is the Level range the event can happen at, `rare` marks a Kỳ_Ngộ hiếm (Highlight priority).
+// Outcome fields: cpTicks = Tu Vi worth that many ticks, heal = full HP, drops = extra drop rolls, stonesPerLv = Spirit_Stone range per Level,
+// taming = Khế Ước Phù (Hoàng) range.
+export interface EventOutcome { w: number; cpTicks?: number; heal?: boolean; drops?: number; stonesPerLv?: [number, number]; taming?: [number, number]; hurtPct?: number; robPct?: number; injure?: number }
+export interface EventTemplate { id: string; text: string; lv: [number, number]; rare?: boolean; bad?: boolean; out: EventOutcome[] }
+export const EVENTS: EventTemplate[] = [
+  { id: 'daoshi', text: 'Gặp một lão đạo sĩ bên suối, được chỉ điểm vài câu, lòng sáng như gương.', lv: [1, 36], out: [{ w: 1, cpTicks: 30 }] },
+  { id: 'linhtuyen', text: 'Phát hiện một mạch linh tuyền, uống vào thấy thương thế lành hẳn.', lv: [1, 36], out: [{ w: 1, heal: true }] },
+  { id: 'bitang', text: 'Dưới rễ cổ thụ lộ ra một bí tàng cổ xưa.', lv: [1, 36], out: [{ w: 1, drops: 1 }] },
+  { id: 'tansu', text: 'Một tán tu hào sảng tặng ngươi túi linh thạch.', lv: [1, 36], out: [{ w: 3, stonesPerLv: [2, 6] }, { w: 1, stonesPerLv: [4, 8], drops: 1 }] },
+  { id: 'dongphu', text: 'Lạc vào một động phủ vô chủ, thu được bảo vật.', lv: [1, 36], rare: true, out: [{ w: 1, drops: 2 }] },
+  { id: 'linhduoc', text: 'Hái được mấy cây linh dược quý, luyện thành Khế Ước Phù.', lv: [1, 36], out: [{ w: 1, taming: [2, 5] }] },
+  { id: 'ngodao', text: 'Nhìn hoa rơi nước chảy, bỗng đốn ngộ một tia đại đạo.', lv: [1, 36], out: [{ w: 1, cpTicks: 80 }] },
+  { id: 'thiennu', text: 'Một thiên nữ cưỡi hạc bay qua, rải xuống linh quang.', lv: [1, 36], rare: true, out: [{ w: 1, stonesPerLv: [8, 20] }] },
+  { id: 'phucco', text: 'Sa vào ổ phục kích của yêu thú, bị thương nặng mới thoát được.', lv: [1, 36], bad: true, out: [{ w: 1, hurtPct: 0.35, injure: 150 }] },
+  { id: 'daotac', text: 'Gặp một toán đạo tặc chặn đường, mất một ít Linh Thạch mới yên thân.', lv: [1, 36], bad: true, out: [{ w: 1, robPct: 0.06 }] },
+  { id: 'docchuong', text: 'Lỡ hít phải độc chướng trong rừng sâu, kinh mạch rối loạn.', lv: [1, 36], bad: true, out: [{ w: 1, hurtPct: 0.15, injure: 240 }] },
+];
+
+// ---------- Material (Nguyên Liệu): sold for Spirit_Stone, price is an integer per unit
+export interface Material { id: string; name: string; price: number }
+export const MATERIALS: Material[] = [
+  { id: 'linhthao', name: 'Linh Thảo', price: 1 }, { id: 'truc', name: 'Thanh Trúc Tinh', price: 2 }, { id: 'ngoc', name: 'Hàn Ngọc Tủy', price: 4 },
+  { id: 'hoatinh', name: 'Hỏa Tinh Thạch', price: 6 }, { id: 'loitinh', name: 'Lôi Tinh Sa', price: 10 }, { id: 'uminh', name: 'U Minh Hoa', price: 15 },
+];
+export const MAT = (id: string) => MATERIALS.find((m) => m.id === id)!;
+
+// ---------- Drop_Table (Requirement 20): entries of kind item | stones | taming | pill | material | none
+export type DropEntry =
+  | { kind: 'item'; w: number } | { kind: 'stones'; w: number; q: [number, number] } | { kind: 'taming'; w: number; grade: number; q: [number, number] }
+  | { kind: 'pill'; w: number; grade: number; q: [number, number] } | { kind: 'material'; w: number; q: [number, number] } | { kind: 'none'; w: number };
+export const DROP_TABLE: DropEntry[] = [
+  { kind: 'item', w: 22 }, { kind: 'stones', w: 14, q: [1, 4] }, { kind: 'taming', w: 8, grade: 0, q: [1, 2] },
+  { kind: 'pill', w: 5, grade: 0, q: [1, 2] }, { kind: 'material', w: 11, q: [1, 2] }, { kind: 'none', w: 40 },
+];
+
+// ---------- Zone_Phenomenon (Thiên Địa Dị Tượng). Only these fields may change (Requirement 6.11): cult factor, Luck bonus, Encounter_Type weights, species weights.
+export interface Phenomenon { id: string; name: string; text: string; cult?: number; luck?: number; enc?: Partial<Record<'monster' | 'npc' | 'resource' | 'event', number>>; species?: Record<string, number> }
+export const PHENOMENA: Phenomenon[] = [
+  { id: 'nguyet', name: 'Nguyệt Thực', text: 'Âm khí dâng cao: yêu thú hệ Âm xuất hiện nhiều gấp ba.', species: { am: 3, doi: 3, hao: 3, chuam: 3, coc: 3, quyma: 3, hacbao: 3 } },
+  { id: 'linhkhi', name: 'Linh Khí Bộc Phát', text: 'Linh khí đậm đặc: Tu Vi nhận thêm 50%.', cult: 1.5 },
+  { id: 'tinhvan', name: 'Tinh Vân Rủ Xuống', text: 'May mắn cộng thêm 40 điểm khi rơi pháp khí.', luck: 40 },
+  { id: 'suong', name: 'Sương Mù Giăng Lối', text: 'Kỳ ngộ xuất hiện nhiều gấp đôi, chạm trán yêu thú ít đi.', enc: { event: 2, monster: 0.7 } },
+  { id: 'loivan', name: 'Lôi Vân Tụ Hội', text: 'Yêu thú hệ Lôi xuất hiện nhiều gấp ba, Tu Vi nhận thêm 20%.', species: { loi: 3, dienthu: 3, loibao: 3, chuon: 3, loinguu: 3, loiman: 3, thienloi: 3 }, cult: 1.2 },
+  { id: 'thaodiep', name: 'Bách Thảo Nở Rộ', text: 'Tài nguyên xuất hiện nhiều gấp ba.', enc: { resource: 3 } },
+  { id: 'linhcan', name: 'Linh Khí Cạn Kiệt', text: 'Linh khí loãng đi: Tu Vi chỉ còn 60%.', cult: 0.6 },
+  { id: 'yeukhi', name: 'Yêu Khí Bùng Phát', text: 'Yêu thú kéo đến nhiều gấp rưỡi, kỳ ngộ và tài nguyên hiếm hơn.', enc: { monster: 1.6, event: 0.5, resource: 0.6 } },
+  { id: 'ngungtre', name: 'Thiên Địa Ngưng Trệ', text: 'Trời đất nặng nề: Tu Vi còn 80%, may mắn giảm khi rơi pháp khí.', cult: 0.8, luck: -30 },
+];
+
+// ---------- Zone (Khu Vực)
+export interface Zone {
+  id: string; name: string; blurb: string; lv: [number, number]; minLevel: number; density: number;
+  enc: { monster: number; npc: number; resource: number; event: number };
+  species: Record<string, number>; materials: { id: string; w: number; q: [number, number] }[]; events: string[];
+  phen: { id: string; w: number }[]; drop: DropEntry[];
+}
+const ALL_EVENTS = EVENTS.map((e) => e.id);
+export const ZONES: Zone[] = [
+  { id: 'thanhvan', name: 'Thanh Vân Sơn Cốc', blurb: 'Thung lũng mù sương dưới chân núi, nơi mọi đạo đồ bắt đầu.', lv: [1, 5], minLevel: 1, density: 1.0,
+    enc: { monster: 60, npc: 15, resource: 15, event: 10 }, species: { ho: 3, loc: 3, am: 2, duong: 2, tho: 3, hung: 1, kimtam: 2, thiem: 2, chi: 2, cua: 1, hoaque: 2, chuidat: 2, doi: 1, tuocduong: 2, dienthu: 1, nhim: 1, trucxa: 1, hoathu: 1, chuon: 1, koi: 1 },
+    materials: [{ id: 'linhthao', w: 3, q: [1, 4] }, { id: 'truc', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'linhkhi', w: 2 }, { id: 'suong', w: 2 }, { id: 'thaodiep', w: 2 }, { id: 'linhcan', w: 2 }], drop: DROP_TABLE },
+  { id: 'hannguyet', name: 'Hàn Nguyệt Lâm', blurb: 'Rừng trúc dưới trăng lạnh, yêu thú hệ Âm và Thủy lui tới.', lv: [4, 9], minLevel: 4, density: 1.15,
+    enc: { monster: 60, npc: 15, resource: 15, event: 10 }, species: { am: 4, giao: 2, loc: 2, duong: 1, xa: 3, diep: 3, lang: 1, hung: 2, doi: 3, hao: 3, chuam: 2, coc: 2, koi: 2, cua: 2, haima: 2, uyenuong: 2, trucxa: 2, chi: 1, mocnguu: 1, quyma: 1, kimhau: 1, thuyduong: 1 },
+    materials: [{ id: 'truc', w: 3, q: [1, 4] }, { id: 'ngoc', w: 2, q: [1, 3] }], events: ALL_EVENTS, phen: [{ id: 'nguyet', w: 4 }, { id: 'tinhvan', w: 2 }, { id: 'suong', w: 2 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
+  { id: 'xichviem', name: 'Xích Viêm Cốc', blurb: 'Hẻm núi lửa nóng rẫy, nơi Hỏa và Kim hội tụ.', lv: [8, 13], minLevel: 8, density: 1.3,
+    enc: { monster: 62, npc: 14, resource: 14, event: 10 }, species: { ho: 4, bang: 3, quy: 2, giao: 1, phuong: 3, te: 3, lang: 2, hoathu: 2, tichdich: 3, xichma: 2, khuyen: 3, hoaque: 1, yet: 3, tenle: 2, nhim: 2, thietbao: 2, kimhau: 1, kimchu: 2, chuclong: 1, dedai: 2, gaduong: 1 },
+    materials: [{ id: 'hoatinh', w: 3, q: [1, 3] }, { id: 'ngoc', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'linhkhi', w: 3 }, { id: 'tinhvan', w: 2 }, { id: 'thaodiep', w: 1 }, { id: 'ngungtre', w: 2 }, { id: 'yeukhi', w: 1 }], drop: DROP_TABLE },
+  { id: 'loivan', name: 'Lôi Vân Cao Nguyên', blurb: 'Cao nguyên mây đen sấm động, Lôi Kỳ Lân thường xuất hiện.', lv: [12, 17], minLevel: 12, density: 1.5,
+    enc: { monster: 65, npc: 13, resource: 12, event: 10 }, species: { loi: 4, bang: 2, duong: 2, quy: 2, ung: 3, su: 2, te: 1, dienthu: 3, loibao: 3, chuon: 2, loinguu: 3, loiman: 2, kimchu: 1, bachho: 2, thanma: 2, thuyduong: 2, gaduong: 2, kiemngu: 1, mocnguu: 1, voi: 1, dangmang: 1, dedai: 1, thienloi: 1, kimo: 1 },
+    materials: [{ id: 'loitinh', w: 3, q: [1, 3] }, { id: 'hoatinh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'loivan', w: 4 }, { id: 'tinhvan', w: 2 }, { id: 'linhkhi', w: 2 }, { id: 'linhcan', w: 2 }], drop: DROP_TABLE },
+  { id: 'cuuu', name: 'Cửu U Hư Không', blurb: 'Vùng đất ranh giới Âm Dương, nguy hiểm nhưng linh khí dồi dào.', lv: [16, 20], minLevel: 16, density: 1.8,
+    enc: { monster: 65, npc: 15, resource: 10, event: 10 }, species: { am: 3, duong: 3, loi: 2, bang: 2, ho: 1, kinh: 2, su: 2, diep: 2, phuong: 1, quyma: 3, hacbao: 3, hao: 1, coc: 1, kimo: 2, bachtrach: 2, thuy: 2, thanma: 1, bachho: 1, kimlong: 1, thienloi: 1, chuclong: 1, muc: 2, sa: 2, voi: 2, dangmang: 2, thiencay: 1, loiman: 1, kiemngu: 2 },
+    materials: [{ id: 'uminh', w: 3, q: [1, 3] }, { id: 'loitinh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'nguyet', w: 3 }, { id: 'linhkhi', w: 3 }, { id: 'loivan', w: 2 }, { id: 'ngungtre', w: 2 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
+];
+export const START_ZONE = 'thanhvan';
+export const ZONE = (id: string) => ZONES.find((z) => z.id === id) || ZONES[0];
+export const PHEN = (id: string) => PHENOMENA.find((p) => p.id === id)!;
+
+// ---------- NPC_Cultivator (a Cultivator met on the road; fights like a monster, cannot be tamed)
+export const NPC_TITLES = ['Tán Tu', 'Kiếm Tu', 'Đan Sư', 'Phù Sư', 'Thể Tu', 'Ma Tu'];
+export const NPC_LINES = ['chặn đường đòi thử sức', 'nhận nhầm ngươi là kẻ thù cũ', 'muốn thử Thần Thông mới', 'cướp đường vì cần linh thạch', 'khiêu chiến vì thấy ngươi trẻ tuổi'];
+export const SIZE_CLASS = ['Tí Hon', 'Nhỏ', 'Vừa', 'Lớn', 'Khổng Lồ'];
+export const SIZE_T = [0.65, 0.85, 1.15, 1.5];
+
+// ---------- image-generation vocabulary (English, used only to build prompts on the server)
+export const BASE_EN: Record<string, string> = {
+  'Trường Kiếm': 'slender straight double-edged long sword (jian) with a smooth plain blade and a tasseled hilt', 'Đoản Kiếm': 'slender straight double-edged short sword (jian) with a smooth plain blade and a tasseled hilt', 'Phất Trần': 'daoist fly whisk with a long ornate handle and a tuft of long flowing white horsehair', 'Cổ Cầm': 'ancient Chinese guqin zither', 'Ngọc Tiêu': 'ancient Chinese jade xiao flute', 'Trường Thương': 'ancient Chinese long spear with a red tassel',
+  'Ngọc Quan': 'small ornate jade topknot hair crown (guan)', 'Kim Quan': 'small ornate golden topknot hair crown (guan)', 'Phát Trâm': 'ornate ancient Chinese hairpin with dangling ornaments', 'Đấu Lạp': 'bamboo hat with a light veil', 'Khăn Vân': 'ornate cloud-patterned forehead headband',
+  'Đạo Bào': 'daoist robe', 'Vũ Y': 'feather robe', 'Hạc Sưởng': 'crane-feather coat', 'Pháp Bào': 'spell robe', 'Tiên Quần': 'immortal gown', 'Thanh Sam': 'azure long shirt',
+  'Vân Hài': 'pair of slim elegant ancient Chinese cloth slippers with upturned pointed scroll-shaped toe tips and embroidered cloud patterns, thin flat soles, not sneakers, not boots', 'Phong Ngoa': 'pair of tall ancient Chinese boots with winged side embroidery', 'Tuyết Ngoa': 'pair of ancient Chinese fur-trimmed winter boots', 'Đấu Bồng': 'flowing cloak', 'Vũ Dực': 'pair of feather wings', 'Kiếm Hạp': 'ornate ancient Chinese sword case with straps', 'Phi Y': 'long flowing silk ribbon scarf (piaodai)',
+  'Ngọc Bội': 'carved jade pendant with a tassel', 'Hương Nang': 'embroidered perfume sachet', 'Linh Ấn': 'ornate spirit pendant, a round gold-framed gemstone medallion with a swirling cloud relief and a tassel', 'Chuông Bạc': 'ornate silver bell charm with a tassel', 'Giới Chỉ': 'jade ring', 'Linh Giới': 'spirit ring', 'Càn Khôn Giới': 'cosmos ring',
+  'Hộ Phù': 'protective amulet plaque, a smooth rounded jade-and-gold tablet with a lotus-petal relief and a tassel', 'Linh Phù': 'spirit amulet plaque, a smooth gold-rimmed gemstone tablet with a swirling cloud relief and a tassel', 'Trấn Hồn Phù': 'soul-guarding amulet plaque, a smooth dark jade tablet with a carved dragon-scale relief and a tassel',
+};
+export const SLOT_EN: Record<string, string> = { Weapon: 'sword', Headwear: 'hair crown', Robe: 'daoist robe', Footwear: 'pair of boots', Back: 'flowing cloak', Accessory: 'jade pendant', Ring: 'jade ring', Talisman: 'amulet plaque with a tassel' };
+// How the editing model must place an item on the character (gender neutral). The item picture itself is the reference for what it looks like.
+export const PLACE_BACK: Record<string, string> = {
+  'Đấu Bồng': 'It is worn as a cloak over the shoulders and flows down behind the back.',
+  'Vũ Dực': 'It is attached to the back and spreads open behind the body.',
+  'Kiếm Hạp': 'It is carried strapped diagonally across the back.',
+  'Phi Y': 'It drapes over the shoulders and arms and floats in the air around the body.',
+};
+export const PLACE_WEAPON: Record<string, string> = {
+  'Trường Kiếm': 'It is held in the right hand with the tip pointing down.', 'Đoản Kiếm': 'It is held in the right hand with the tip pointing down.',
+  'Phất Trần': 'It is held in the right hand.', 'Cổ Cầm': 'It is carried in both arms in front of the body.',
+  'Ngọc Tiêu': 'It is held in the right hand.', 'Trường Thương': 'It is held upright in the right hand, standing beside the body.',
+};
+export const EL_EN: Record<string, { color: string; energy: string }> = {
+  Kim: { color: 'gold and silver', energy: 'metallic golden light' }, Mộc: { color: 'emerald green', energy: 'living vines and green leaves' },
+  Thủy: { color: 'azure blue', energy: 'flowing water and mist' }, Hỏa: { color: 'crimson and orange', energy: 'blazing flames' },
+  Thổ: { color: 'amber and earthy brown', energy: 'floating stone fragments and amber light' }, Lôi: { color: 'violet', energy: 'crackling purple lightning' },
+  Âm: { color: 'indigo and dark violet', energy: 'moonlit shadow wisps' }, Dương: { color: 'radiant gold and white', energy: 'warm sunlight rays' },
+};
+// Tier = how rich the piece is (material, ornament, glow). Every tier from Huyền up shares an ivory-white and gold base, so a whole
+// outfit reads as one designed set; the element only tints the accents (trim, gems, tassels, lining), see EL_ACCENT.
+export const TIER_EN = [
+  'simple and plain, undyed cream and soft grey cloth with dark brown leather, slightly worn',
+  'well-made, cream and jade green cloth with bronze trim',
+  'refined, ivory white with silver trim and a faint glow',
+  'ornate, ivory white and gold with smooth gold filigree, polished gemstone details and a soft inner glow',
+  'legendary, radiant white and gold with celestial energy and floating particles',
+  'divine immortal artifact, iridescent pearl-white and rose gold with a halo of light and prismatic starlight swirls',
+];
+export const EL_ACCENT: Record<string, string> = { Kim: 'silver and gold', Mộc: 'jade green', Thủy: 'azure blue', Hỏa: 'crimson red', Thổ: 'amber and warm brown', Lôi: 'violet', Âm: 'deep indigo', Dương: 'sunlit gold' };
+export const SPECIES_EN: Record<string, string> = {
+  ho: 'a majestic nine-tailed spirit fox with white fur and crimson flame on its tails', giao: 'a graceful azure water dragon serpent with pearl-like scales coiling through clouds',
+  loc: 'an ethereal spirit deer with glowing jade antlers covered in blossoms', bang: 'a giant golden roc peng bird with shining metallic feathers',
+  quy: 'an ancient stone spirit tortoise with a mossy shell carrying a small mountain with pine trees', loi: 'a thunder qilin chinese unicorn beast with a purple lightning mane and glowing eyes',
+  am: 'a mysterious moon shadow cat spirit with silver and black fur and glowing violet eyes', duong: 'a radiant sun crane bird with white and gold plumage and a halo of light',
+  tho: 'a tiny ethereal spirit rabbit with soft moss-green fur, long ears crowned with glowing leaves and blossoms',
+  xa: 'a long frost serpent with icy blue-white scales, crystalline frost spikes along its spine and pale glowing eyes, coiled on snow',
+  lang: 'a powerful silver wolf covered in polished silver armor-like plates of fur with metallic gleam and sharp golden eyes',
+  hung: 'a huge ancient wood bear with bark-like fur, moss and small trees growing on its back, and glowing green eyes',
+  phuong: 'a blazing fire phoenix with crimson and gold flame feathers, long flowing tail plumes of fire and an ember halo',
+  te: 'a massive mountain rhinoceros with rock-plate hide, crystal veins glowing amber and a stone horn',
+  ung: 'a swift thunder eagle with violet and white feathers wreathed in crackling lightning and bright electric eyes',
+  diep: 'a delicate netherworld butterfly with large indigo and black wings patterned with glowing violet moon marks, trailing shadow mist',
+  su: 'a majestic sun lion with a mane of golden flame and white-gold fur, soft warm sunlight glowing around it, plain smooth light with no symbols or patterns around it',
+  kinh: 'a gigantic cloud-sea whale with pale blue skin, swimming through the sky among glowing clouds, gentle luminous eyes and small waterfalls flowing off its fins',
+  // third wave
+  kimtam: 'a tiny golden silkworm spirit with glittering gold silk threads trailing behind it, a soft metallic sheen and a faint halo',
+  kimhau: 'a nimble golden snub-nosed monkey spirit with lustrous golden fur and a long tail, perched on a rock with a calm clever face',
+  thietbao: 'a lean steel-boned leopard with dark iron-gray fur, polished metal plates along its shoulders and spine, and cold amber eyes',
+  bachho: 'a majestic white tiger with platinum and gold stripes and a gleaming metallic mane, powerful and regal',
+  kimchu: 'a spider spirit with a faceted diamond-like golden carapace, eight sharp metallic legs and a softly glowing core on its back',
+  kiemngu: 'a sleek swordfish spirit with a long blade-like silver bill, mirror-bright scales and trailing silken fins, swimming through misty clouds',
+  kimlong: 'a colossal golden scale dragon, every scale like beaten gold leaf, coiling through clouds with solemn glowing eyes',
+  trucxa: 'a slender bamboo-green viper spirit with jade segmented scales like bamboo joints, coiled around a bamboo stalk',
+  chi: 'a small mushroom spirit child with a glowing red lingzhi cap, tiny limbs and gentle bright eyes, standing on mossy ground',
+  mocnguu: 'a sturdy green wood ox with bark-textured hide and curved horns twined with vines and blossoms',
+  thiem: 'a tiny jade cicada spirit with translucent green wings veined with light, perched on a leaf',
+  dangmang: 'a huge python whose body is woven of living green vines and leaves, with small flowers blooming along its coils',
+  thiencay: 'an ancient towering tree spirit with a gnarled trunk body, glowing green eyes in the bark, branches heavy with blossoms and a canopy of leaves',
+  cua: 'a crab spirit with a shell of deep sea-blue like glazed porcelain, wave patterns on its claws and tiny pearls on its legs',
+  koi: 'a graceful koi carp spirit with luminous scarlet and white scales and flowing translucent fins, swimming in a lotus pond',
+  haima: 'a delicate seahorse spirit with a pearl-white curled body and fins like silk, surrounded by drifting bubbles',
+  muc: 'a giant deep-water octopus spirit with indigo skin, glowing blue spots and long tentacles curling around ancient coral',
+  uyenuong: 'a mandarin duck spirit with jade-teal and amber plumage, floating on still water among lotus petals',
+  sa: 'a huge ancient shark spirit with slate-blue armored hide, glowing cyan gill lines and rows of crystalline teeth, rising from a stormy sea',
+  hoaque: 'a small sparrow spirit with feathers of orange and crimson flame, a trailing ember tail and bright golden eyes',
+  hoathu: 'a quick red fire mouse spirit with ember-glowing fur, a flaming tail tip and tiny sparks around its paws',
+  tichdich: 'a salamander lizard spirit with black scaly skin and glowing lava cracks, flames licking along its back',
+  xichma: 'a magnificent crimson horse with a flowing mane of flame, burning hooves and a glowing red coat',
+  khuyen: 'a fierce hound with charcoal fur, glowing magma veins, a mane of fire and burning eyes',
+  chuclong: 'a vast crimson torch dragon whose body glows like molten metal, scales edged with flame, curling over a volcanic mountain',
+  nhim: 'a stout porcupine spirit whose quills are sharp stone crystals in amber and gray, with moss on its back',
+  chuidat: 'a small mole spirit with velvety brown fur, large golden digging claws and tiny glowing eyes, emerging from the earth',
+  tenle: 'a pangolin spirit with overlapping stone-plate scales like roof tiles and amber crystal veins glowing between them',
+  voi: 'a colossal ancient elephant with a hide like layered mountain rock, small pine trees on its back and tusks of pale jade',
+  yet: 'a desert scorpion spirit with golden sand-colored armor, a curved glowing amber stinger and stone-textured claws',
+  dedai: 'a sturdy mountain goat spirit with massive spiral horns of rock and an earth-brown coat, standing on a cliff',
+  dienthu: 'a small squirrel-like spirit with golden-violet fur, a zigzag lightning-shaped tail and crackling sparks',
+  loibao: 'a sleek leopard with violet-black fur marked by glowing lightning-shaped stripes and eyes of white light',
+  chuon: 'a dragonfly spirit with translucent violet wings crackling with tiny lightning and a glowing blue body',
+  loinguu: 'a mighty buffalo with a dark storm-cloud hide and curved horns wrapped in arcs of lightning',
+  loiman: 'a long python spirit whose body is made of dark thunderclouds with scales of white lightning, drifting through a storm sky',
+  thienloi: 'a titanic violet thunder dragon with a mane of living lightning and glowing white eyes, soaring through black storm clouds',
+  doi: 'a bat spirit with deep indigo wings edged with silver moonlight, small glowing violet eyes and wing membranes like the night sky',
+  hao: 'a mysterious owl spirit with dark gray and violet plumage, large luminous pale eyes and faint ghostly wisps around its wings',
+  chuam: 'a black spider spirit with violet glowing crescent-moon markings on its back, trailing silver threads of web',
+  coc: 'a dark toad spirit with warty indigo skin, glowing violet spots and a calm ancient gaze, sitting on a mossy stone',
+  quyma: 'a spectral night horse with a coat of black smoke, a mane of pale blue ghost fire and hollow glowing eyes',
+  hacbao: 'a huge black panther with silver crescent markings and eyes like full moons, moving silently through dark mist',
+  kimo: 'a three-legged golden sun crow with blazing golden feathers and a glowing sun disc behind it',
+  tuocduong: 'a tiny sparrow spirit with white and gold feathers like dawn light and a small halo',
+  thanma: 'a divine white jade horse with a luminous coat, a golden mane and hooves that leave sparks of sunlight',
+  thuyduong: 'an auspicious ram spirit with curled golden horns and a fluffy white coat that glows softly like clouds at sunrise',
+  gaduong: 'a proud golden rooster spirit with long radiant tail feathers like sun rays and a glowing crest',
+  bachtrach: 'the legendary baize beast, a white lion-like creature with a gentle face, curved golden horns and a mane of soft light',
+  thuy: 'an auspicious cloud beast, a deer-like creature of soft golden clouds with luminous antlers and swirling auspicious cloud patterns',
+};
+export const MON_SCENE = ['in a misty bamboo forest', 'under a pale full moon', 'in a stormy sky with distant mountains', 'among golden dawn clouds', 'in ancient mossy ruins'];
+export const PERS_EXPR = ['fierce determined gaze', 'shy gentle expression', 'serene calm expression', 'proud aloof gaze', 'cheerful warm smile', 'kind soft smile', 'playful smirk', 'distant melancholic gaze', 'sincere resolute look', 'sly clever eyes', 'quiet contemplative look', 'intense fiery look'];
+export const OUTFIT_F = ['a plain humble cream linen robe with a rope belt', 'a fresh jade-green hanfu with bamboo embroidery', 'a refined deep-blue and silver hanfu with cloud patterns and flowing sleeves', 'an ornate crimson and gold battle hanfu with light armor and phoenix embroidery', 'a magnificent white and gold celestial robe with glowing runes', 'a radiant immortal robe woven from starlight with long translucent ribbons and a soft halo'];
+export const OUTFIT_M = ['a simple cream linen robe with a rope belt', 'a jade-green daoist robe with bamboo embroidery', 'a refined deep-blue and silver robe with cloud patterns and flowing sleeves', 'an ornate crimson and gold battle robe with light armor', 'a magnificent white and gold celestial robe with glowing runes', 'a radiant immortal robe woven from starlight with long translucent ribbons and a soft halo'];
+export const SCENE_T = ['a misty mountain valley at dawn', 'a bamboo forest in morning mist', 'misty blue mountain peaks', 'a sunset sky over mountains with floating embers', 'storm clouds and floating islands with lightning', 'a galaxy sky above a sea of clouds, standing on a glowing lotus'];
+export const HAIR_COLORS = ['jet black', 'jet black', 'dark brown', 'silver white', 'midnight blue', 'deep burgundy'];
+export const HAIR_STYLES_F = ['very long loose hair with a jade hairpin', 'high ponytail with silk ribbons', 'twin hair buns with hanging tassels', 'half-up hairstyle with a silver hair crown', 'long braid over the shoulder'];
+export const HAIR_STYLES_M = ['hair tied in a high topknot with a jade hairpin', 'long loose hair with a headband', 'half-up topknot with flowing hair', 'neat short hair with a small crown'];
+export const EYES = ['dark brown', 'amber', 'jade green', 'ice blue', 'violet'];
+export const SKINS = ['fair jade-white', 'porcelain-pale luminous', 'warm ivory', 'soft peach-ivory'];
+export const MARKS = ['', '', 'a small red mark on the forehead', 'a faint crescent moon mark on the forehead', 'a tiny beauty mole under the eye'];
+// Faces with a personality of their own: structure and feeling, chosen from the character's seed (see lib/look.ts). The expression comes from PERS_EXPR.
+export const FACE_F = [
+  'a slender melon-seed face with phoenix eyes, thin willow-leaf brows and a cool, aloof, otherworldly beauty',
+  'a delicate oval face with almond fox-like eyes, a high straight nose bridge and a confident, faintly mischievous charm',
+  'a soft heart-shaped face with large clear deer-like eyes, gently arched brows and a serene, compassionate, knowing beauty',
+  'a refined face with a pointed chin, sword-like brows, bright piercing eyes and a proud, resolute, heroic beauty',
+  'a graceful long oval face with dreamy half-lidded eyes and a poetic, wistful, mysterious air',
+];
+export const FACE_M = [
+  'a chiseled jawline, sword-shaped brows and starry deep-set eyes with a calm, piercing, righteous presence',
+  'a refined jade-like face with gentle phoenix eyes, a high straight nose and a faint, warm, knowing smile',
+  'a strong angular face with thick straight brows, intense bright eyes and a fearless, proud bearing',
+  'a handsome long face with slightly upturned eyes and a free-spirited, roguish charm',
+  'a pale elegant face with cool aloof eyes and a faint, melancholic, otherworldly air, like an immortal who has watched ten thousand years',
+];
+// Figures. Women: tall, slim waist, full bust, wide rounded hips that stay visible (adult, tasteful but body-revealing, form-fitting cuts). Men: build 0 = handsome scholar, build 1 = muscular.
+export const FIGURE_F = 'tall and slender with long legs and a graceful long neck, a curvaceous elegant hourglass figure with a very slim waist, a full bust and wide, fully rounded hips with shapely thighs, with a glamorous, sensual silhouette, in tight form-fitting clothes';
+export const FIGURE_M = [
+  'tall and slender with long legs, elegant long hands and a refined scholarly build',
+  'tall with very broad shoulders, a deep strong chest, thick powerfully muscular arms and a narrow waist, a heavily muscled heroic athletic build',
+];
+// The standing pose picture: a graceful pose full of presence instead of a stiff straight stance. Chosen from the seed, so a character keeps its pose.
+export const POSE_F = [
+  'one hand lightly lifting a long flowing sleeve in front of her chest, her weight on one leg with her hip pushed out to the side in a pronounced graceful S-curve, her chin slightly raised, a poised, alluring and faintly aloof gaze, sleeves, ribbons and hair swaying in a gentle wind',
+  'a graceful three-quarter turn with her face looking back over the shoulder at the viewer, one hand holding her sleeve, her hips turned and swaying to one side, a long curving silhouette that shows the curve of her waist and hips, long hair flowing in the wind, a confident, knowing expression',
+  'standing tall with one hand resting on her hip and the other raised in a delicate lotus-finger gesture, her weight on one leg and one foot slightly forward so that her hip juts out to the side, a regal immortal presence with her robes billowing softly',
+  'her body in a three-quarter side view in a long elegant S-curve with her hip swaying out, one hand lightly touching her waist and the other arm relaxed, her face turned toward the viewer with a serene, alluring, otherworldly look, sleeves and hair drifting in a breeze',
+];
+export const POSE_M = [
+  [ // scholar
+    'a three-quarter turn with one foot a step forward, one arm swept gracefully out to the side with the palm open and a long sleeve streaming in the wind, the other hand behind his back, his head turned and lifted toward the viewer with a calm, transcendent smile, his long hair and robe flowing strongly in the wind',
+    'standing in an elegant leaning stance with his weight on the back leg, one hand raised at his chest in a two-finger sword gesture and the other hand behind his back, his chest open and his chin lifted, a poised, righteous gaze, his hair and wide sleeves blown by a strong wind',
+    'a graceful turning pose as if stepping onto a cloud: his body twisted in three-quarter view, one hand lifting a wide sleeve high in front of his face-side while the other arm trails behind, his eyes looking back at the viewer with a free, immortal air, robes and hair billowing in the wind',
+  ],
+  [ // muscular
+    'a powerful wide stance with his feet shoulder-width apart, one fist held against his chest and the other hand behind his back, his chest forward, a heroic confident look, hair and robe blown by a strong wind',
+    'a commanding three-quarter stance, one hand extended with the palm open as if gathering spiritual energy, the other fist at his waist, his shoulders squared, a fierce yet noble gaze, robe and hair streaming in the wind',
+    'standing tall with his arms crossed over his broad chest, his weight on one leg, his head slightly raised with a confident, noble smile, his robe and hair stirred by the wind',
+  ],
+];
+
+export const ORIGINS = [
+  { n: 'Tán Tu', note: 'lang bạt khắp nơi, không sư môn', stones: 30, talis: 3 },
+  { n: 'Thế Gia Đệ Tử', note: 'con cháu một gia tộc tu tiên đã sa sút', stones: 150, talis: 0 },
+  { n: 'Cô Nhi Sơn Thôn', note: 'lớn lên ở thôn nhỏ dưới chân núi', stones: 0, talis: 6 },
+  { n: 'Thiếu Chủ Sa Sút', note: 'thiếu chủ của một môn phái đã diệt vong', stones: 80, talis: 2 },
+  { n: 'Lãng Khách', note: 'kiếm khách rong ruổi, mang theo ân oán giang hồ', stones: 20, talis: 4 },
+  { n: 'Đệ Tử Ngoại Môn', note: 'đệ tử ngoại môn thường bị coi thường', stones: 60, talis: 3 },
+];
+
+// ---------- Phường Thị (shop): twelve items, unlimited stock, prices from Balance_Config.shop (Requirement 24)
+export const GRADES = ['Hoàng', 'Huyền', 'Địa', 'Thiên'];
+export interface ShopItem { id: string; name: string; kind: 'taming' | 'hp' | 'bt' | 'trib'; idx: number; price: number; note: string }
+export const SHOP: ShopItem[] = [
+  ...BALANCE.shop.taming.map((price, idx) => ({ id: `taming${idx}`, name: `Khế Ước Phù hạng ${GRADES[idx]}`, kind: 'taming' as const, idx, price, note: 'Dùng cho mỗi lần thử thu phục. Hạng cao thu phục dễ hơn.' })),
+  ...BALANCE.shop.hp.map((price, idx) => ({ id: `hp${idx}`, name: `Hồi Khí Đan hạng ${idx + 1}`, kind: 'hp' as const, idx, price, note: `Hồi ${Math.round(BALANCE.pillRestore[idx] * 100)}% sinh lực tối đa.` })),
+  ...BALANCE.shop.breakthrough.map((price, idx) => ({ id: `bt${idx}`, name: `Phá Cảnh Đan (vào ${REALMS[idx + 1]})`, kind: 'bt' as const, idx, price, note: `Cộng ${Math.round(BALANCE.breakPillBonus * 100)}% xác suất khi đột phá vào ${REALMS[idx + 1]}.` })),
+  { id: 'trib', name: 'Độ Kiếp Phù', kind: 'trib' as const, idx: 0, price: BALANCE.shop.tribulation, note: `Giảm ${Math.round(BALANCE.tribulationReduction * 100)}% sát thương nhận từ Thiên Kiếp.` },
+];
+export const SHOP_ITEM = (id: string) => SHOP.find((s) => s.id === id);
+
+// ---------- fixed pictures: Phường Thị goods, materials, zones and the market (drawn once by scripts/pregen.ts into public/art)
+export const shopArt = (id: string) => `/art/shop/${id}.jpg`;
+export const matArt = (id: string) => `/art/shop/mat_${id}.jpg`;
+export const zoneArt = (id: string) => `/art/zones/${id}.jpg`;
+export const MARKET_ART = '/art/zones/market.jpg';
+// English descriptions used only to build prompts on the server (the browser sends just the id).
+export const PROP_EN: Record<string, string> = {
+  taming0: 'a rectangular spirit-taming contract tablet of warm yellow jade with a glowing knot pattern and a silk tassel',
+  taming1: 'a rectangular spirit-taming contract tablet of deep midnight-blue jade with a glowing silver knot pattern and a silk tassel',
+  taming2: 'a rectangular spirit-taming contract tablet of earthy crimson-brown jade with a glowing amber knot pattern and a silk tassel',
+  taming3: 'a rectangular spirit-taming contract tablet of radiant white-gold jade with a brilliant glowing knot pattern, floating light particles and a silk tassel',
+  hp0: 'one small round healing elixir pill, pale green, resting in a tiny jade dish with a faint glow',
+  hp1: 'two round healing elixir pills, silver-green with a soft shimmering aura, resting in an ornate jade dish',
+  hp2: 'a radiant golden-red spirit elixir pill wrapped in swirling qi, resting in an ornate gold-trimmed jade dish',
+  bt0: 'a luminous breakthrough elixir pill glowing blue-white with swirling qi, in a small jade cup',
+  bt1: 'a luminous breakthrough elixir pill glowing molten gold with swirling qi, in a small jade cup',
+  bt2: 'a luminous breakthrough elixir pill glowing violet with crackling energy, in an ornate jade cup',
+  bt3: 'a radiant breakthrough elixir pill glowing white-gold with a halo and prismatic light, in an ornate gold-trimmed jade cup',
+  trib: 'a protective thunder-ward amulet, a dark jade tablet wrapped in coiling violet lightning, with a silk tassel',
+  mat_linhthao: 'a bundle of glowing spirit herbs with jade-green leaves and tiny luminous buds',
+  mat_truc: 'a polished crystal shard of green bamboo essence with faint light inside',
+  mat_ngoc: 'a chunk of icy cold jade marrow glowing pale blue with frost on its edges',
+  mat_hoatinh: 'a fiery red-orange fire-spirit crystal stone with drifting embers',
+  mat_loitinh: 'a crystal vial of violet lightning-essence sand with tiny sparks inside',
+  mat_uminh: 'a ghostly dark indigo lotus flower glowing violet, with wisps of shadow',
+};
+export const PLACE_EN: Record<string, string> = {
+  thanhvan: 'a misty green mountain valley at dawn with a clear stream, bamboo and pines, soft golden light rays, a serene beginning of a journey',
+  hannguyet: 'a moonlit bamboo forest under a pale full moon, cold silver fog, blue and teal tones, glowing fireflies',
+  xichviem: 'a volcanic canyon with rivers of glowing lava, black rock arches, red-orange light and drifting embers',
+  loivan: 'a high plateau under dark storm clouds, violet lightning striking ancient stone pillars, dramatic wind',
+  cuuu: 'a surreal void between yin and yang, floating islands, swirling black and gold mist, a glowing rift of light in the sky',
+  market: 'a bustling ancient fantasy market street at dusk, hanging lanterns, wooden stalls with elixir bottles and jade tablets, warm lamp light, no readable signs',
+};
+// Different looks for Địa and above (Requirement: rarer items are not drawn twice the same way).
+export const ITEM_DESIGNS = [
+  'with flowing cloud-swirl filigree', 'with a dragon-scale pattern', 'with lotus-petal motifs', 'with phoenix-feather detailing', 'with a star-map inlay of tiny gems', 'with intertwined bamboo-knot ornament',
+  'with a crane-wing silhouette', 'with flame-like curves', 'with wave and mist patterns', 'with a crescent-moon motif', 'with thorny vine ornament', 'with a sun-ray burst design',
+];
