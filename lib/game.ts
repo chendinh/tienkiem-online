@@ -2,6 +2,7 @@
 import { type Streams, newStreams, next, int, pick, weighted, truncNormal, shuffle } from './rng';
 import * as C from './content';
 import * as A from './arts';
+import * as D from './daily';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -13,7 +14,7 @@ export interface Avatar { base?: string; pose?: string; url?: string; sig?: stri
 export interface Player { avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
-export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number }
+export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
 export interface Beast { id: number; sp: string; name: string; level: number; size: number; cm: number; cls: number; mut: boolean; pers: number; apt: number[]; skills: string[]; stats: number[]; power: number; elite?: boolean }
 export interface BestEntry { seen: number; tamed: number; maxCm: number; minCm: number; mutSeen: number; mutTamed: number }
 export interface FeedEntry { id: number; tick: number; kind: string; text: string; beast?: Beast; item?: Item; outcome?: string; chips?: string[]; log?: string[] }
@@ -46,6 +47,9 @@ export interface GameState {
   pend: Record<string, number>; ledger: LedgerRow[]; ledgerBase: number; ledgerDaily: LedgerDaily[];
   reqs: Record<string, { t: number; res: any }>; reports: Report[]; auditQ: any[];
   decision: Decision | null; breakSnooze: number;
+  dailySeen?: string;   // the last day whose chronicle chapter was announced in the feed
+  relicQ?: D.RelicOp[];   // what the server must do with the shared relic pool for this save: claim a relic that was found, give back one that was dissolved (never sent to the browser)
+  relicDay?: { day: string; n: number };   // how many shared items this save found today
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -59,7 +63,9 @@ export const MIN_OFFLINE_SEC = B.minOfflineSec;
 export const BAG_MAX = B.bagCapacity;
 export const TUNE = { z: B.monsterLevelGrowth, gear: B.gearScale };
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
-export const SP = (id: string) => C.SPECIES.find((s) => s.id === id)!;
+// A daily creature the browser has not downloaded yet shows as this placeholder instead of breaking the page.
+const UNKNOWN_SP: C.Species = { id: '?', name: 'Dị Thú', el: ['Dương'], cm: 100, f: [1, 1, 1, 1, 1], tame: 1 };
+export const SP = (id: string) => C.SPECIES.find((s) => s.id === id) || D.dailySpecies().find((s) => s.id === id) || { ...UNKNOWN_SP, id };
 export const levelOf = (p: Player) => p.realm * 4 + p.sub + 1;
 export const threshold = cultThreshold;
 export const baseStat = baseStatOf;
@@ -167,7 +173,7 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
   const slot = forceSlot || pick(g, 'loot', C.SLOTS);
   const lvl = clamp(level + (exact ? 0 : int(g, 'gen', -B.itemLevelSpread, B.itemLevelSpread)), 1, B.playableLevelCap);
   const scale = (1 + 0.12 * (lvl - 1)) * TUNE.gear;
-  const el = pick(g, 'gen', C.EO);
+  let el = pick(g, 'gen', C.EO);
   const im = C.SLOT_IMPL[slot];
   const implV = Math.max(1, Math.round((im.r[0] + next(g, 'gen') * (im.r[1] - im.r[0])) * scale));
   const n = int(g, 'gen', B.affixCountByTier[tier][0], B.affixCountByTier[tier][1]);
@@ -181,7 +187,13 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
     const fl = B.rollFloorByTier[tier], u = fl + (1 - fl) * next(g, 'gen');
     affixes.push({ id: a.id, label: a.label, stat: a.stat, value: Math.max(1, Math.round((a.r[0] + u * (a.r[1] - a.r[0])) * scale)) });
   }
-  const base = pick(g, 'gen', C.SLOT_BASE[slot]);
+  // Weapons added by the daily job share the draw with the static list (one extra number, only while such weapons exist).
+  const extra = slot === 'Weapon' ? D.weaponPool(tier, st.clock) : [];
+  let base: string;
+  if (extra.length) {
+    const tw = extra.reduce((a, x) => a + x.w, 0), n = C.SLOT_BASE[slot].length;
+    base = next(g, 'gen') < tw / (n + tw) ? extra[weighted(g, 'gen', extra.map((x) => x.w))].base : pick(g, 'gen', C.SLOT_BASE[slot]);
+  } else base = pick(g, 'gen', C.SLOT_BASE[slot]);
   let name = base, tien: string | undefined;
   if (tier >= 4) name = `${pick(g, 'gen', C.PROPER1)} ${pick(g, 'gen', C.PROPER2)} ${base}`;
   else if (tier >= 1) {
@@ -196,16 +208,27 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
   let power = implV * C.PW[im.stat];
   for (const a of affixes) power += a.value * C.PW[a.stat];
   // Picture look: common items share one picture per kind; Địa has a few looks; Thiên and Tiên always get their own.
-  const art = tier >= 4 ? int(g, 'gen', 1000, 2 ** 30) : tier === 3 ? int(g, 'gen', 1, B.artVariantsDia) : undefined;
-  return { id: ++st.uid, base, slot, name, tier, level: lvl, el, art, impl: { stat: im.stat, value: implV }, affixes, tien, power: Math.round(power) };
+  let rel: string | undefined;
+  let art = tier >= 4 ? int(g, 'gen', 1000, 2 ** 30) : tier === 3 ? int(g, 'gen', 1, B.artVariantsDia) : undefined;
+  // A Thiên or Tiên item may be a dissolved one found again: it takes that item's name and picture (already drawn), never its numbers.
+  if (tier >= 4) {
+    const today = D.dayKey(st.clock), pool = D.relicsFor(tier, slot);
+    if (pool.length && (!st.relicDay || st.relicDay.day !== today || st.relicDay.n < D.RELIC_PER_DAY) && next(g, 'gen') < D.RELIC_P) {
+      const r = pool[int(g, 'gen', 0, pool.length - 1)];
+      base = r.base; name = r.name; el = r.el; tien = r.tien; art = r.art; rel = D.relicSig(r);
+      (st.relicQ || (st.relicQ = [])).push({ op: 'take', sig: rel });   // the server claims it for this save; if somebody else got it first, the item gets a new look
+      st.relicDay = { day: today, n: (st.relicDay && st.relicDay.day === today ? st.relicDay.n : 0) + 1 };
+    }
+  }
+  return { id: ++st.uid, base, slot, name, tier, level: lvl, el, art, impl: { stat: im.stat, value: implV }, affixes, tien, power: Math.round(power), ...(rel ? { rel } : {}) };
 }
 
 export function sizeFactors(size: number) { return [1 + B.sizeHpCoef * (size - 1), 1, 1, 1, 1 - B.sizeSpeedCoef * (size - 1)]; }
 function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
   const elite = next(st.streams, 'enc') < B.eliteChance;
   const g = st.streams, R = rates();
-  const ws = C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1));
-  const sp = C.SPECIES[weighted(g, 'enc', ws)];
+  const ws = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, st.clock)];
+  const sp = D.allSpecies()[weighted(g, 'enc', ws)];
   const level = clamp(L + int(g, 'gen', -1, 2), zone.lv[0], Math.min(zone.lv[1], B.playableLevelCap));
   const apt = [0, 0, 0, 0, 0].map(() => B.aptMin + next(g, 'gen') * (B.aptMax - B.aptMin));
   const pers = int(g, 'gen', 0, C.PERS.length - 1);
@@ -228,7 +251,13 @@ function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: numbe
 const aptTotal = (b: Beast) => b.apt.reduce((a, x) => a + x, 0) / b.apt.length;
 export const dissolveValue = (it: Item) => B.dissolveValueByTier[it.tier] * it.level;
 export const releaseValue = (b: Beast) => Math.floor(B.releaseBase * b.level * aptTotal(b) * B.releaseSizeFactors[b.cls] * (b.mut ? B.releaseMutationFactor : 1));
-function dissolveItem(st: GameState, it: Item, rep?: Report, full = false) { earn(st, dissolveValue(it), 'dissolve', rep); if (rep) { rep.dissolved++; if (full) rep.dissolvedFull++; } }
+// A dissolved Thiên or Tiên item goes to the shared relic pool (the server stores it): only its look, not its numbers.
+function shareRelic(st: GameState, it: Item) {
+  if (it.tier >= 4 && it.art) { const q = st.relicQ || (st.relicQ = []); if (q.length < 50) q.push({ op: 'give', tier: it.tier, slot: it.slot, base: it.base, el: it.el, art: it.art, name: it.name, ...(it.tien ? { tien: it.tien } : {}) }); }
+}
+function dissolveItem(st: GameState, it: Item, rep?: Report, full = false) {
+  shareRelic(st, it);
+  earn(st, dissolveValue(it), 'dissolve', rep); if (rep) { rep.dissolved++; if (full) rep.dissolvedFull++; } }
 function feed(st: GameState, e: Omit<FeedEntry, 'id' | 'tick'>) { st.feed.unshift({ id: ++st.uid, tick: st.tick, ...e }); if (st.feed.length > B.feedSize) st.feed.length = B.feedSize; }
 
 // Put an Item_Instance away: auto-dissolve, bag, stash, or the rule for when both are full (Requirement 21.2 to 21.5). `x` is never locked.
@@ -316,6 +345,7 @@ export function dissolveBagItem(st: GameState, id: number): Res {
   if (f.where === 'eq') return fail('E_WORN');
   if (f.it.locked) return fail('E_LOCKED');
   (f.where === 'bag' ? st.bag : st.stash).splice(f.i, 1);
+  shareRelic(st, f.it);
   const v = earn(st, dissolveValue(f.it), 'dissolve');
   return ok(`Đã phân giải ${f.it.name}, nhận ${v} Linh Thạch.`, { stones: v });
 }
@@ -379,7 +409,7 @@ export function dissolveMany(st: GameState, maxTier: number): Res {
   if (!Number.isInteger(maxTier) || maxTier < 0 || maxTier > 5) return fail('E_BAD_REQUEST');
   let n = 0, gain = 0;
   for (const list of [st.bag, st.stash]) {
-    for (let i = list.length - 1; i >= 0; i--) { const it = list[i]; if (!it.locked && it.tier <= maxTier) { list.splice(i, 1); gain += earn(st, dissolveValue(it), 'dissolve'); n++; } }
+    for (let i = list.length - 1; i >= 0; i--) { const it = list[i]; if (!it.locked && it.tier <= maxTier) { list.splice(i, 1); shareRelic(st, it); gain += earn(st, dissolveValue(it), 'dissolve'); n++; } }
   }
   return n === 0 ? fail('E_NOT_FOUND', 'Không có món nào phù hợp để phân giải.') : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.`, { n, stones: gain });
 }
@@ -926,6 +956,12 @@ export function tick(st: GameState, rep?: Report) {
     const k = weighted(st.streams, 'enc', encounterWeights(zone, ph));
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
+  // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
+  if (!st.decision) {
+    const news = D.newsAt(st.clock);
+    if (news && st.dailySeen !== news.day) { st.dailySeen = news.day; feed(st, { kind: 'story', text: news.text }); }
+    else if (mode0 === 'adventure' && !st.recovery) { const t = D.taleAt(zone.id, st.clock, st.tick); if (t) feed(st, { kind: 'event', text: t }); }
+  }
   // recovery of HP, Auto_Pill, then the Recovery_State check
   const S = pstats(st);
   const regen = mode0 === 'retreat' || st.recovery ? B.recoveryRegen : B.adventureRegen;
@@ -1026,14 +1062,14 @@ export const ticksForAbsence = (sec: number) => (sec < B.minOfflineSec ? 0 : Mat
 export function oddsOf(st: GameState, nowMs: number) {
   const R = rates(), zone = C.ZONE(st.zone), ph = phenomenonAt(zone.id, nowMs), luck = effLuck(st, (ph && ph.luck) || 0);
   const ew = encounterWeights(zone, ph), et = ew.reduce((a, b) => a + b, 0);
-  const sw = C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), stot = sw.reduce((a, b) => a + b, 0);
+  const sw = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, nowMs)], stot = sw.reduce((a, b) => a + b, 0);
   const dt = zone.drop.reduce((a, d) => a + d.w, 0);
   const p = st.player, canBreak = levelOf(p) < B.playableLevelCap;
   return {
     luck, tiers: tierProbs(luck), mutP: R.mutP,
     pity: { mut: { c: st.pity.mut, soft: R.mutS, hard: R.mutH }, item: { c: st.pity.item, soft: R.itemS, hard: R.itemH } },
     encounter: ['Yêu Thú', 'Tu Sĩ', 'Tài Nguyên', 'Kỳ Ngộ'].map((n, i) => ({ n, p: ew[i] / et })),
-    species: C.SPECIES.map((s, i) => ({ id: s.id, n: s.name, p: stot ? sw[i] / stot : 0 })),
+    species: D.allSpecies().map((s, i) => ({ id: s.id, n: s.name, p: stot ? sw[i] / stot : 0 })),
     drops: zone.drop.map((d) => ({ kind: d.kind, p: d.w / dt })),
     dropRolls: B.dropRollCount,
     size: sizeClassProbs(),

@@ -3,6 +3,7 @@
 export const ERR = {
   E_AUTH: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Hãy đăng nhập lại.',
   E_BAD_REQUEST: 'Yêu cầu không hợp lệ.',
+  E_NO_CRON_SECRET: 'Chưa đặt CRON_SECRET nên việc chạy hằng ngày bị đóng.',
   E_SERVER: 'Máy chủ gặp lỗi. Hãy thử lại sau ít phút.',
   E_RATE_LIMIT: 'Thử quá nhiều lần. Hãy đợi vài phút rồi thử lại.',
   E_EMAIL: 'Địa chỉ email không hợp lệ.',

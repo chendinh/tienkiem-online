@@ -1,4 +1,5 @@
 'use client';
+import { ModalClose } from './ds/ModalClose';
 import { useEffect, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import type { Beast, Item } from '@/lib/game';
@@ -11,7 +12,7 @@ import { Seg } from './ds/Seg';
 import { Logo } from './Logo';
 
 type Board = 'cult' | 'power';
-interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number }
+interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; av?: string }
 interface Profile {
   pid: string; name: string; dao: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
   stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number;
@@ -55,7 +56,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
     return (
       <button key={r.pid} type="button" className={`pod r${k} ${r.me ? 'me' : ''} ${pid === r.pid ? 'sel' : ''}`} style={{ '--el': elColor(r) } as CSSProperties} onClick={() => setPid(r.pid)} aria-label={`Hạng ${r.rank}, ${r.name}`}>
         {k === 1 && <span className="podCrown"><Icon name="crown" size={26} /></span>}
-        <span className="podSeal"><ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} /></span>
+        <span className={`podSeal ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />}</span>
         <b className="podName">{r.name}</b>
         <small className="podDao">{who(r)}{r.me ? ' · ngươi' : ''}</small>
         <span className="podRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}</span>
@@ -68,7 +69,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
   const rowEl = (r: Row) => (
     <button key={r.pid} type="button" className={`rkRow ${r.me ? 'me' : ''} ${pid === r.pid ? 'sel' : ''}`} style={{ '--el': elColor(r), '--pct': `${pct(r)}%` } as CSSProperties} onClick={() => setPid(r.pid)} aria-label={`Hạng ${r.rank}, ${r.name}`}>
       <span className="rkNum">{r.rank}</span>
-      <span className="rkEl"><ElIcon el={r.el[0] || 'Kim'} size={18} /></span>
+      <span className={`rkEl ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={18} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={18} />}</span>
       <span className="rkWho"><b>{r.name}</b><small>{who(r)}{r.me ? ' · ngươi' : ''}</small></span>
       <span className="rkRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}<small>Lv{r.level}</small></span>
       <span className="rkMetric">{metric(r)}</span>
@@ -78,6 +79,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="modal rkModal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Bảng Phong Thần">
+      <ModalClose onClose={onClose} />
       <div className={`modalBody rkShell ${pid ? 'viewing' : ''}`} onClick={(e) => e.stopPropagation()}>
         <header className="rkBanner">
           <div className="rkTitle">
@@ -88,7 +90,6 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
             { v: 'cult' as const, label: <><Icon name="lotus" size={15} /><span>Tu Vi</span></>, title: 'Xếp theo cảnh giới' },
             { v: 'power' as const, label: <><Icon name="atk" size={15} /><span>Chiến Lực</span></>, title: 'Xếp theo sức mạnh chiến đấu' },
           ]} />
-          <button type="button" className="btn icon sm ghost rkClose" aria-label="Đóng" onClick={onClose}><Icon name="close" size={17} /></button>
         </header>
 
         <div className="rkBody">
@@ -133,7 +134,7 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
     <div className="rankProfile">
       {back}
       <div className="rkHead">
-        <div className="rkPic">{p.avatar ? <Img src={p.avatar} className="fill" fb={<Logo size={48} />} /> : <Logo size={48} />}</div>
+        <div className="rkPic">{p.avatar ? <Img src={`${p.avatar}?s=face`} className="fill" fb={<Logo size={48} />} /> : <Logo size={48} />}</div>
         <div className="rkWhoBig">
           <h2>{p.name}</h2>
           {p.dao && <div className="dao">{p.dao}</div>}

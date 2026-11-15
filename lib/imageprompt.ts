@@ -25,7 +25,7 @@ const NOWRITE = 'Ornament is only abstract (clouds, lotus petals, knots, gems, s
 const TIER_ADJ = ['plain', 'neat jade-green trimmed', 'refined silver-trimmed', 'ornate gold-engraved', 'legendary radiant', 'divine immortal'];
 
 export interface Plan {
-  kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'item' | 'place';
+  kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'item' | 'place' | 'label';
   prompt: string;       // full text-to-image description (no reference, or a provider that cannot edit)
   editPrompt?: string;  // instruction for the editing model when references exist
   refs?: any[];         // pictures the editing model must see, in order; the first one is the picture being edited
@@ -56,7 +56,7 @@ function readEq(eq: any) {
   const out: Record<string, { b: string; t: number; e: string; v?: number } | null> = {};
   for (const s of C.VISIBLE) {
     const v = eq && eq[s];
-    out[s] = v ? { b: oneOf(v.b, C.SLOT_BASE[s]), t: intIn(v.t, 0, 5), e: oneOf(v.e, C.EO, true), ...(v.v ? { v: intIn(v.v, 1, 2 ** 30) } : {}) } : null;
+    out[s] = v ? { b: oneOf(v.b, C.basesOf(s)), t: intIn(v.t, 0, 5), e: oneOf(v.e, C.EO, true), ...(v.v ? { v: intIn(v.v, 1, 2 ** 30) } : {}) } : null;
   }
   return out;
 }
@@ -65,7 +65,7 @@ const itemDesc = (v: { b: string; t: number; e: string }, energy = false) => `${
 
 // ---------- item icons: they are what the player sees AND what the editing model copies onto the avatar
 function readItem(spec: any) {
-  const slot = oneOf(spec.slot, C.SLOTS), tier = intIn(spec.tier, 0, 5), base = oneOf(spec.base, C.SLOT_BASE[slot], true);
+  const slot = oneOf(spec.slot, C.SLOTS), tier = intIn(spec.tier, 0, 5), base = oneOf(spec.base, C.basesOf(slot), true);
   // the element tints the item from Huyền (tier 2) up; plainer items have no element colour
   const e = tier >= 2 ? oneOf(spec.e === undefined ? '' : spec.e, C.EO, true) : '';
   // v: which look of the same kind of item (0 = the common one). Địa uses a few looks, Thiên and Tiên a different one for every item.
@@ -233,6 +233,15 @@ export function buildPlan(spec: any): Plan {
   // Fixed pictures of goods and materials (inventory icons) and of places (wide scenes), drawn once and shipped in public/art.
   if (spec.kind === 'prop') {
     const id = oneOf(spec.id, Object.keys(C.PROP_EN));
+    // interface frames (buttons, seals): flat, straight-on and symmetrical so the browser can stretch them (9-slice) and blend the dark background away
+    // a button plaque that carries its own words (the text is part of the picture; PROP_EN holds the plaque and the exact wording)
+    if (id.startsWith('ui_lbl_')) {
+      return { kind: 'label', prompt: `${CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo.`, width: 1024, height: 384, seed: 7100 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
+    }
+    if (id.startsWith('ui_')) {
+      const wide = id.startsWith('ui_btn');
+      return { kind: 'item', prompt: `${ITEM_CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Perfectly symmetrical, straight-on orthographic view with no perspective, evenly lit, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} No person, no hands. ${NEG}`, width: wide ? 1024 : 512, height: wide ? 384 : 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
+    }
     return { kind: 'item', prompt: `${ITEM_CORE}. Premium 3D RPG item render with magical glowing details, an inventory icon of ${C.PROP_EN[id]}, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: 5000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
   }
   if (spec.kind === 'place') {

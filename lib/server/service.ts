@@ -6,8 +6,11 @@ import { type ErrCode } from '../strings';
 import { appendLog, loadAccount, saveAccount, withLock } from './store';
 import { savepoint } from './db';
 import { type AccountFile, ApiError } from './auth';
-import { randomInt } from 'node:crypto';
+import { randomInt, createHash } from 'node:crypto';
 import { publish } from './ranking';
+import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
+import { dailyVersion, dailyPacks, relicSig } from '../daily';
+const dailyArtCount = () => dailyPacks().filter((p) => p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
 
 const T0 = Date.UTC(2026, 0, 1);
 // The server clock. TUTIEN_TIME_SCALE speeds time up for development only (ignored in production).
@@ -30,7 +33,7 @@ function decisionView(st: G.GameState, now: number) {
   return { ...d, preview: pv.ok ? pv.data : null };
 }
 export function toView(st: G.GameState, now: number) {
-  const { seed: _s, streams: _r, reqs: _q, pend: _p, auditQ: _a, ledger, ledgerDaily, reports, ...rest } = st;
+  const { seed: _s, streams: _r, reqs: _q, pend: _p, auditQ: _a, relicQ: _rq, ledger, ledgerDaily, reports, ...rest } = st;
   return {
     ...rest,
     ledger: ledger.slice(-40), ledgerBalance: G.ledgerSum(st), ledgerDaily,
@@ -40,6 +43,7 @@ export function toView(st: G.GameState, now: number) {
     caps: { bag: B.bagCapacity, stash: B.overflowCapacity, pen: B.penCapacity, party: B.maxParty, stoneMax: B.stoneMax, stackMax: B.stackMax, maxQty: B.maxPurchaseQty },
     config: { tickSec: B.tickSec, pollSec: B.onlinePollSec, confirmPurchase: B.confirmPurchaseThreshold, offlineCapH: B.offlineCapH, minOfflineSec: B.minOfflineSec },
     versions: G.versions(),
+    dailyVer: dailyVersion() + '|' + dailyArtCount(),
   };
 }
 export type GameView = ReturnType<typeof toView>;
@@ -123,8 +127,32 @@ const INTENTS: Record<string, Handler> = {
 };
 const READ_ONLY = new Set(['preview']);
 
-async function commit(id: string, acct: AccountFile, st: G.GameState) { acct.state = st; await saveAccount(acct); try { await savepoint(() => publish(id, st, Date.now())); } catch (e) { console.error('[tutien] ranking', e); } }
+// One save per request. The ranking row is refreshed after it; a failure there never undoes the save (see ranking.publish).
+async function commit(id: string, acct: AccountFile, st: G.GameState) { acct.state = st; await saveAccount(acct); try { await publish(id, st, Date.now()); } catch (e) { console.error('[tutien] ranking', e); } }
+// Settle this save's dealings with the shared relic pool before it is stored. A relic found here is claimed for this save; when another save claimed it
+// first, the item keeps its numbers but gets a new look of its own (name and picture derived from the save id), so no two saves ever show the same relic.
+const everyItem = (st: G.GameState): G.Item[] => [...st.bag, ...st.stash, ...Object.values(st.eq).filter((x): x is G.Item => !!x)];
+function rerollLook(it: G.Item, id: string) {
+  const h = createHash('sha1').update(`${it.rel}|${id}`).digest();
+  it.name = `${C.PROPER1[h[0] % C.PROPER1.length]} ${C.PROPER2[h[1] % C.PROPER2.length]} ${it.base}`;
+  if (it.tier === 5) { it.tien = C.TIEN_VAN[h[2] % C.TIEN_VAN.length]; it.name += ` · ${it.tien.replace(' Tiên Văn', '')}`; }
+  it.art = 1000 + (h.readUInt32BE(4) % (2 ** 30 - 1000));
+}
+export async function drainRelics(id: string, st: G.GameState) {
+  const q = st.relicQ; if (!q || !q.length) return;
+  st.relicQ = [];
+  const lost = new Set<string>();
+  for (const e of q) {
+    try {
+      if (e.op === 'take') { if (!(await claimRelic(e.sig, id))) lost.add(e.sig); }
+      else if (!lost.has(relicSig(e))) await giveRelic(e, id);   // a look that was not ours never goes back to the pool
+    } catch (err) { console.error('[tutien] relics', err); if (e.op === 'take') lost.add(e.sig); }   // no answer from the database: the relic is not ours to keep
+  }
+  for (const it of everyItem(st)) if (it.rel) { if (lost.has(it.rel)) rerollLook(it, id); delete it.rel; }
+  if (lost.size) await ensureDaily(true);
+}
 async function drainAudit(id: string, st: G.GameState, now: number) {
+  await drainRelics(id, st);
   const q = st.auditQ; st.auditQ = [];
   for (const e of q) await appendLog('audit.log', { at: now, acc: id, ...e, versions: G.versions() });
 }
@@ -137,7 +165,18 @@ function settleCopy(st: G.GameState, now: number): { work: G.GameState; out: G.S
 }
 
 // GET: Settlement, then the state.
+// Settlement is a pure function of the saved state and the clock (splitting it changes nothing, Requirement 5.2), so an ordinary poll does not have to save:
+// it settles a copy and returns it without taking the lock or writing, and the next request replays the same few ticks. It saves only after a minute of
+// game time (so the ranking and the stored clock keep up) or after an offline absence (the report is stored with it). Before, every 5 s poll took the account lock
+// and wrote the whole save (200 KB or more), which also made every click wait behind a poll.
 export async function getGame(id: string): Promise<Out> {
+  await ensureDaily();
+  const acct0 = await readAcct(id);
+  if (!acct0) throw new ApiError('E_AUTH', 401);
+  if (!acct0.state) return { ok: true, state: null };
+  const now0 = serverNow();
+  const peek = settleCopy(acct0.state, now0);
+  if (!peek.out.offline && peek.out.ticks < B.pollSaveTicks) return { ok: true, state: toView(peek.work, now0) };
   return withLock(`acct:${id}`, async () => {
     const acct = await readAcct(id);
     if (!acct) throw new ApiError('E_AUTH', 401);
@@ -154,44 +193,48 @@ export async function getGame(id: string): Promise<Out> {
 }
 
 // POST: Settlement, then one intent applied all or nothing, saved together with the new state (Requirement 2.5, 2.6).
+// The settlement and the intent are saved in ONE write. When the intent is refused the settlement is still saved by itself.
 export async function actGame(id: string, body: any): Promise<Out> {
   if (!body || typeof body !== 'object' || typeof body.type !== 'string') throw new ApiError('E_BAD_REQUEST');
+  await ensureDaily();
   return withLock(`acct:${id}`, async () => {
     const acct = await readAcct(id);
     if (!acct) throw new ApiError('E_AUTH', 401);
     const now = serverNow();
     if (body.type === 'restart') {
       const st = createState(body.gender === 'f' || body.gender === 'm' ? body.gender : undefined, now);
+      try { await releaseHeld(id); } catch (err) { console.error('[tutien] relics', err); }
       await commit(id, acct, st);
       return { ok: true, state: toView(st, now) };
     }
     if (!acct.state) return { ok: false, code: 'E_NO_CHARACTER', state: null };
-    const { work: settled, out } = settleCopy(acct.state, now);
-    if (out.ticks > 0) {
-      acct.state = settled;
-      if (out.offline && out.report) await appendLog('audit.log', { at: now, acc: id, type: 'settlement', id: out.report.id, ticks: out.ticks, versions: G.versions() });
-      await drainAudit(id, settled, now);
-      await commit(id, acct, settled);
-    }
-    const st0: G.GameState = acct.state;
+    const { work: st0, out } = settleCopy(acct.state, now);
+    let unsaved = out.ticks > 0;
+    const logSettlement = async () => { if (out.offline && out.report) await appendLog('audit.log', { at: now, acc: id, type: 'settlement', id: out.report.id, ticks: out.ticks, versions: G.versions() }); };
+    // every way out that does not save the intent saves the settlement first
+    const leave = async (o: Out): Promise<Out> => {
+      if (unsaved) { unsaved = false; await logSettlement(); await drainAudit(id, st0, now); await commit(id, acct, st0); }
+      return o;
+    };
     const view = (s: G.GameState) => toView(s, now);
-    if (body.type === 'preview') { const r = G.previewBreakthrough(st0); return { ok: r.ok, code: r.code, msg: r.msg, data: r.data, state: view(st0) }; }
+    if (body.type === 'preview') { const r = G.previewBreakthrough(st0); return leave({ ok: r.ok, code: r.code, msg: r.msg, data: r.data, state: view(st0) }); }
     const h = INTENTS[body.type];
-    if (!h || READ_ONLY.has(body.type)) return { ok: false, code: 'E_BAD_REQUEST', state: view(st0) };
+    if (!h || READ_ONLY.has(body.type)) return leave({ ok: false, code: 'E_BAD_REQUEST', state: view(st0) });
     // a repeated Request_Id returns the first result and changes nothing (Requirement 2.7, 2.8)
     const rid = typeof body.rid === 'string' && body.rid.length >= 8 && body.rid.length <= 80 ? body.rid : null;
-    if (body.type !== 'cosmetic' && body.type !== 'ack' && !rid) return { ok: false, code: 'E_BAD_REQUEST', state: view(st0) };
-    if (rid && st0.reqs[rid]) { const r = st0.reqs[rid].res; return { ok: r.ok, code: r.code, msg: r.msg, data: r.data, state: view(st0) }; }
+    if (body.type !== 'cosmetic' && body.type !== 'ack' && !rid) return leave({ ok: false, code: 'E_BAD_REQUEST', state: view(st0) });
+    if (rid && st0.reqs[rid]) { const r = st0.reqs[rid].res; return leave({ ok: r.ok, code: r.code, msg: r.msg, data: r.data, state: view(st0) }); }
     const work = structuredClone(st0);
     let res: G.Res;
-    try { res = h(work, body, now); } catch { return { ok: false, code: 'E_SERVER', state: view(st0) }; }
-    if (!res.ok) return { ok: false, code: res.code, msg: res.msg, state: view(st0) };
+    try { res = h(work, body, now); } catch { return leave({ ok: false, code: 'E_SERVER', state: view(st0) }); }
+    if (!res.ok) return leave({ ok: false, code: res.code, msg: res.msg, state: view(st0) });
     G.flushLedger(work, rid || `${body.type}:${now}`, now);
     if (rid) {
       work.reqs[rid] = { t: now, res: { ok: res.ok, code: res.code, msg: res.msg, data: res.data } };
       for (const [k, v] of Object.entries(work.reqs)) if (now - v.t > B.requestRetentionSec * 1000) delete work.reqs[k];
       const keys = Object.keys(work.reqs); if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete work.reqs[k];
     }
+    if (unsaved) await logSettlement();
     await drainAudit(id, work, now);
     await commit(id, acct, work);
     return { ok: true, msg: res.msg, data: res.data, state: view(work) };

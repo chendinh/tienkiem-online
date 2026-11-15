@@ -78,16 +78,21 @@
   .stGround { position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.6)); border-top: 1px solid rgb(238 208 138 / 0.18); }
   .stSide { position: relative; z-index: 1; display: grid; justify-items: center; gap: 4px; width: 38%; }
   .stSide small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: var(--fs-xs); letter-spacing: 0.05em; color: var(--gold-200, #f4dba0); text-shadow: 0 1px 4px #000; }
-  .stBar { width: 80%; max-width: 150px; height: 5px; border-radius: 3px; overflow: hidden; background: rgb(255 255 255 / 0.12); }
-  .stBar > i { display: block; height: 100%; border-radius: inherit; transition: width 380ms var(--ease-out); }
-  .stBar.you > i { background: linear-gradient(90deg, var(--jade-600), var(--jade-300)); }
-  .stBar.foe > i { background: linear-gradient(90deg, var(--cinnabar-500), var(--cinnabar-300)); }
+  .stBar { position: relative; width: 80%; max-width: 150px; height: 5px; border-radius: 3px; overflow: hidden; background: rgb(255 255 255 / 0.12); }
+  .stBar > i { position: absolute; left: 0; top: 0; display: block; height: 100%; border-radius: inherit; }
+  .stBar > i.cur { transition: width 220ms var(--ease-out); }
+  .stBar > i.lag { background: linear-gradient(90deg, #fff6d8, #ffe9a8); box-shadow: 0 0 6px rgb(255 233 168 / 0.7); transition: width 650ms var(--ease-out) 480ms; }
+  .stBar.you > i.cur { background: linear-gradient(90deg, var(--jade-600), var(--jade-300)); }
+  .stBar.foe > i.cur { background: linear-gradient(90deg, var(--cinnabar-500), var(--cinnabar-300)); }
   .stFig { display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 35% 28%, rgb(255 255 255 / 0.12), rgb(0 0 0 / 0.55)); border: 2px solid color-mix(in srgb, var(--el, var(--gold-400)) 65%, transparent); box-shadow: 0 0 22px -4px var(--el, transparent), inset 0 0 14px rgb(0 0 0 / 0.5); transition: opacity 500ms, filter 500ms, transform 500ms; }
   .stFig > img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
   /* a full-length portrait: zoom on the head so the face is what shows in the circle */
   .stFig > .stFace { transform: scale(2.2); transform-origin: 50% 11%; }
   .stFig.foe.mut { box-shadow: 0 0 28px -2px var(--gold-300), inset 0 0 14px rgb(0 0 0 / 0.5); }
-  .stFig.down { opacity: 0.35; filter: grayscale(1); transform: translateY(8px) rotate(-8deg); }
+  .stFig.down { opacity: 0.3; filter: grayscale(1) brightness(0.7) blur(0.6px); transform: translateY(14px) rotate(-14deg) scale(0.92); transition: opacity 900ms ease-out, filter 900ms ease-out, transform 900ms cubic-bezier(0.34, 1.4, 0.5, 1); }
+  .stFig.foe.down { transform: translateY(14px) rotate(14deg) scale(0.92); }
+  .stFig.win { animation: st-halo 1.8s ease-in-out infinite; }
+  @keyframes st-halo { 0%, 100% { box-shadow: 0 0 22px -2px var(--gold-300), inset 0 0 14px rgb(0 0 0 / 0.5); } 50% { box-shadow: 0 0 40px 4px var(--gold-300), 0 0 80px 8px color-mix(in srgb, var(--gold-400) 40%, transparent), inset 0 0 14px rgb(0 0 0 / 0.5); } }
   .stSeal { display: grid; place-items: center; color: var(--el, var(--gold-300)); }
   .stSkill { position: absolute; z-index: 3; top: 10px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: var(--r-pill); font-family: var(--font-display); font-size: var(--fs-sm); letter-spacing: 0.04em; color: var(--el); background: rgb(4 10 16 / 0.8); border: 1px solid color-mix(in srgb, var(--el) 60%, transparent); box-shadow: 0 0 16px -4px var(--el); animation: st-skill 520ms var(--ease-out) both; white-space: nowrap; max-width: 92%; }
   .stSkill > span { overflow: hidden; text-overflow: ellipsis; }
@@ -97,11 +102,15 @@
   .stProj.l { animation-name: st-fly-l; }
   @keyframes st-fly-r { from { left: 24%; opacity: 0; transform: scale(0.5); } 15% { opacity: 1; } 85% { opacity: 1; } to { left: 70%; opacity: 0; transform: scale(1.4); } }
   @keyframes st-fly-l { from { left: 70%; opacity: 0; transform: scale(0.5); } 15% { opacity: 1; } 85% { opacity: 1; } to { left: 24%; opacity: 0; transform: scale(1.4); } }
-  .stDmg { position: absolute; z-index: 3; bottom: 104px; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xl, 1.4rem); font-variant-numeric: tabular-nums; color: var(--text-1, #fff); text-shadow: 0 0 10px var(--el), 0 2px 3px #000; animation: st-dmg 900ms ease-out 260ms both; white-space: nowrap; }
-  .stDmg.foe { right: 12%; } .stDmg.you { left: 12%; color: var(--cinnabar-300); }
-  .stDmg.crit { font-size: 1.7rem; color: var(--gold-200, #f4dba0); }
-  @keyframes st-dmg { 0% { opacity: 0; transform: translateY(8px) scale(0.7); } 20% { opacity: 1; transform: translateY(-4px) scale(1.15); } 100% { opacity: 0; transform: translateY(-34px) scale(1); } }
-  .stVerdict { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--text-2); background: rgb(3 8 13 / 0.45); animation: enter-fade 400ms both; }
+  /* the effect of the technique: sprites are added and removed by components/fx/SkillFx.ts; above the fighters, below the labels */
+  .stFxLayer { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+  /* the number of a blow: made by BattleStage for every blow, animated with the Web Animations API and removed when it ends */
+  .stNum { position: absolute; z-index: 3; pointer-events: none; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xl, 1.4rem); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text-1, #fff); text-shadow: 0 0 10px var(--el), 0 2px 3px #000; transform: translate(-50%, 0); }
+  .stNum.you { color: var(--cinnabar-300); }
+  .stNum.fx { font-size: var(--fs-md); color: var(--jade-300); }
+  .stNum.crit { font-size: 1.5rem; color: var(--gold-200, #f4dba0); -webkit-text-stroke: 0.5px color-mix(in srgb, var(--el) 70%, #000); text-shadow: 0 0 16px var(--el), 0 0 4px var(--el), 0 2px 3px #000; }
+  .stVerdict { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--text-2); background: rgb(3 8 13 / 0.45); animation: st-verdict 1100ms var(--ease-out) 250ms both; }
+  @keyframes st-verdict { from { opacity: 0; filter: blur(14px); letter-spacing: 0.95em; transform: scale(1.14); } to { opacity: 1; filter: blur(0); letter-spacing: 0.4em; transform: none; } }
   .stVerdict.win { color: var(--gold-200, #f4dba0); text-shadow: 0 0 22px var(--gold-400); }
   .stVerdict.lose { color: var(--cinnabar-300); }
   @media (max-width: 640px) { .stage { height: 150px; padding: 0 var(--sp-3) 8px; } .stFig { width: 72px; height: 72px; } .stProj { bottom: 62px; } }
@@ -358,7 +367,6 @@
   /* support skills in the fight log and on the stage */
   .bdmg.fx { font-size: var(--fs-sm); color: var(--jade-300); text-align: right; }
   .bact.m .bdmg.fx { color: var(--gold-300); }
-  .stDmg.fx { color: var(--jade-300); }
 }
 @layer game {
   .chip.grp { border-color: color-mix(in srgb, var(--grp, var(--line)) 60%, transparent); color: var(--grp, var(--text-2)); cursor: default; }
@@ -366,4 +374,166 @@
   .chip.grp.buff { --grp: var(--gold-300); } .chip.grp.debuff { --grp: #c9a0ff; } .chip.grp.ctrl { --grp: #ffb27a; }
   button.chip.grp { cursor: pointer; background: transparent; } button.chip.grp.on { background: color-mix(in srgb, var(--grp, var(--gold-300)) 18%, transparent); }
   .artFilter { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+}
+@layer game {
+  /* a thin bar while a click waits for the server; it only shows after a short delay, so quick answers do not flash it */
+  .busyBar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: calc(var(--z-popover, 50) + 5); overflow: hidden; pointer-events: none; opacity: 0; animation: busy-in 0.2s 0.25s forwards; }
+  .busyBar::before { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, var(--gold-300), transparent); animation: busy-run 1s ease-in-out infinite; }
+  @keyframes busy-in { to { opacity: 1; } }
+  @keyframes busy-run { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+}
+@layer game {
+  /* Phường Thị window */
+  .res .btn { margin-left: auto; }
+  /* phone: the journey and the character are two screens, not one long page */
+  .mobView, .miniStatus { display: none; }
+  @media (max-width: 720px) {
+    .mobView { display: block; margin: var(--sp-2) 0 var(--sp-3); }
+    .mobView .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+    .mobView .seg > button { justify-content: center; }
+    .main[data-view='journey'] > .heroPanel, .main[data-view='hero'] > .feedPanel { display: none; }
+    .miniStatus { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); }
+    .miniStatus .msInfo { flex: 1; min-width: 0; display: grid; gap: var(--sp-1, 4px); }
+    .msFace { flex: none; width: 68px; height: 68px; padding: 0; overflow: hidden; border-radius: 50%; border: 2px solid var(--gold-300); background: var(--ink-800); display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 0 3px rgb(0 0 0 / 0.35), 0 0 18px -4px var(--gold-400); }
+    .msFace .faceImg, .msFace .imgfb { width: 100%; height: 100%; }
+    .miniStatus .msTop { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+    .miniStatus .msTop small { color: var(--text-3); font-size: var(--fs-xs); }
+    .miniStatus .bar { margin: 2px 0; height: 20px; } .miniStatus .bar span { line-height: 18px; }
+    .main .heroPanel .hero { max-width: 220px; }
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: var(--sp-2) 0; }
+    .stat { padding: 4px 6px; gap: 4px; } .stat b { font-size: var(--fs-md); }
+    .phead small { display: none; }
+    .feedRow { padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+    .feedRow .beastBox { width: 64px !important; height: 64px !important; }
+    .foot { margin-top: var(--sp-5); }
+  }
+}
+@layer game {
+  /* ===== the close seal: a jade and gold seal picture with the cross drawn on it ===== */
+  .xClose { position: absolute; z-index: 3; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; background: url('/art/ui/cut/seal_a.png') center / contain no-repeat; cursor: pointer; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.6)); transition: transform var(--dur-base) var(--ease-spring), filter var(--dur-base); }
+  .xClose .xSeal { display: block; overflow: visible; }
+  .xClose:hover { transform: scale(1.1) rotate(90deg); filter: brightness(1.18) drop-shadow(0 0 12px color-mix(in srgb, var(--gold-300) 75%, transparent)) drop-shadow(0 6px 10px rgb(0 0 0 / 0.55)); }
+  .xClose:active { transform: scale(0.94); transition-duration: var(--dur-instant); }
+  .xClose:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 3px; }
+  .xClose.static { position: static; width: 38px; height: 38px; }
+  .xClose .xSeal { width: 100%; height: 100%; }
+
+  /* ===== top buttons: plaques drawn by AI (public/art/ui/cut), the text and the icon are real, so they stay sharp ===== */
+  .top .nav { --plaque: url('/art/ui/cut/btn_a.png'); position: relative; height: 48px; min-width: 112px; padding: 0 24px 0 23px; gap: 7px; border: 0; border-radius: 0; justify-content: center;
+    background: var(--plaque) center / 100% 100% no-repeat; box-shadow: none; filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.55));
+    font: 600 var(--fs-sm) / 1 var(--font-display); letter-spacing: 0.07em; color: var(--gold-100, #f4e6c0); text-shadow: 0 1px 2px #000, 0 0 6px #000; transition: transform var(--dur-fast) var(--ease-out), filter var(--dur-base); }
+  .top .nav::after { content: none; }
+  .top .nav.feat { --plaque: url('/art/ui/cut/btn_b.png'); color: var(--gold-100, #f4e6c0); text-shadow: 0 1px 2px #000, 0 0 6px #000; }
+  .top .nav.kho { --plaque: url('/art/ui/cut/btn_c.png'); }
+  .top .navIco { width: 26px; height: 26px; color: var(--t); background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--t) 40%, #0c2a2c), #07161b 80%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold-300) 75%, transparent), inset 0 0 6px color-mix(in srgb, var(--t) 45%, transparent); }
+  .top .navIco svg { width: 16px; height: 16px; }
+  .top .nav.feat .navIco { color: var(--gold-200); background: radial-gradient(circle at 35% 28%, #5a1d14, #1d0907 80%); box-shadow: 0 0 0 1px var(--gold-300), inset 0 0 6px rgb(255 190 90 / 0.4); }
+  /* icon-only (narrow screens): the seal pictures, round */
+  @media (max-width: 1599px) { .top .nav.alt { min-width: 0; padding: 0; width: 46px; height: 46px; --plaque: url('/art/ui/cut/seal_a.png'); } .top .nav.alt .navIco { background: none; box-shadow: none; width: 100%; height: 100%; } .top .nav.alt .navIco svg { width: 21px; height: 21px; color: var(--gold-200); } }
+  @media (max-width: 900px) { .top .nav, .top .nav.kho { min-width: 0; width: 46px; height: 46px; padding: 0; --plaque: url('/art/ui/cut/seal_a.png'); } .top .nav.feat { --plaque: url('/art/ui/cut/seal_b.png'); } .top .nav .navIco { background: none; box-shadow: none; width: 100%; height: 100%; } .top .nav .navIco svg { width: 21px; height: 21px; color: var(--gold-200); } }
+
+  /* ===== game windows (Phường Thị, Linh Thú, Sưu Tập, Thần Thông) ===== */
+  .gameWindow { width: min(720px, 100%); }
+  .gameWindow.wide { width: min(880px, 100%); }
+  .winHead { display: flex; align-items: center; gap: var(--sp-3); margin: 0 0 var(--sp-4); padding-right: 30px; }
+  .winHead h2 { margin: 0; }
+  .winHead small { display: block; margin-top: 2px; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.4; }
+  .winSeal { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%; color: var(--gold-300); background: radial-gradient(circle at 35% 28%, #2d6f61, #0a2a2a 75%); box-shadow: 0 0 0 1.5px var(--gold-300), 0 0 0 4px rgb(0 0 0 / 0.35), inset 0 0 12px rgb(0 0 0 / 0.6); }
+  .gameWindow :is(.shopScroll, .grid.pen, .grid.dex, .grid.eq, .eqPanel) { max-height: none; overflow: visible; }
+  .shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: var(--sp-3) 0; }
+  .sc { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 12px; border-radius: 12px 4px 12px 4px; border: 1px solid var(--line-gold); background: linear-gradient(180deg, rgb(22 52 58 / 0.55), rgb(8 20 27 / 0.8)); color: var(--text-1); font: 600 var(--fs-sm) / 1.1 var(--font-display); letter-spacing: 0.05em; cursor: pointer; transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast), box-shadow var(--dur-base); }
+  .sc svg { color: var(--gold-300); flex: none; }
+  .sc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sc em { margin-left: auto; font-style: normal; font-family: var(--font-text); font-weight: 600; font-size: var(--fs-xs); color: var(--gold-300); white-space: nowrap; }
+  .sc:hover { transform: translateY(-1px); border-color: var(--gold-300); box-shadow: 0 8px 18px -12px var(--gold-300); }
+  .sc:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
+}
+@layer game {
+  /* ===== one hover for every top button: it rises a little, brightens, glows gold, and a light sweeps across the plaque (clipped to its shape by the plaque itself) ===== */
+  .top .nav::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+    background: linear-gradient(105deg, transparent 38%, rgb(255 246 210 / 0.75) 50%, transparent 62%) -120% 0 / 60% 100% no-repeat;
+    -webkit-mask: var(--plaque) center / 100% 100% no-repeat; mask: var(--plaque) center / 100% 100% no-repeat; }
+  .top .nav > * { position: relative; z-index: 2; }
+  .top .nav:hover { transform: translateY(-2px); box-shadow: none; filter: brightness(1.2) drop-shadow(0 0 10px rgb(240 200 110 / 0.7)) drop-shadow(0 5px 8px rgb(0 0 0 / 0.5)); }
+  .top .nav:hover::before { opacity: 1; animation: nav-sheen 0.85s var(--ease-out) forwards; }
+  .top .nav:active { transform: translateY(0) scale(0.97); transition-duration: var(--dur-instant); }
+  .top .nav.on { filter: brightness(1.28) drop-shadow(0 0 10px rgb(240 200 110 / 0.8)); }
+  @keyframes nav-sheen { from { background-position: -120% 0; } to { background-position: 220% 0; } }
+
+  /* ===== Phong Thần and Kho báu: their own plaques, the words are part of the picture, so there is no icon and no text on top ===== */
+  .top .nav.pic { height: 56px; min-width: 0; padding: 0; gap: 0; }
+  .top .nav.pic.rank { --plaque: url('/art/ui/cut/lbl_rank.png'); width: 128px; }
+  .top .nav.pic.kho { --plaque: url('/art/ui/cut/lbl_kho.png'); width: 121px; }
+  .top .nav.pic.market { --plaque: url('/art/ui/cut/lbl_market.png'); width: 136px; }
+  .top .nav.pic.arts { --plaque: url('/art/ui/cut/lbl_arts.png'); width: 109px; }
+  .top .nav.pic.pen { --plaque: url('/art/ui/cut/lbl_pen.png'); width: 118px; }
+  .top .nav.pic.story { --plaque: url('/art/ui/cut/lbl_story.png'); width: 133px; }
+  .top .nav.pic.odds { --plaque: url('/art/ui/cut/lbl_odds.png'); width: 121px; }
+  .top .nav.pic.settings { --plaque: url('/art/ui/cut/lbl_settings.png'); width: 114px; }
+  .top .nav.pic .navIco { display: none; }
+  .top .nav.pic .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; display: block; }
+  /* under 1600 px the extra buttons are round seals with a line icon (the header is too narrow for ten plaques); Phong Thần keeps its plaque down to 900 px */
+  @media (max-width: 1599px) {
+    .top .nav.pic.alt { --plaque: url('/art/ui/cut/seal_a.png'); width: 46px; height: 46px; }
+    .top .nav.pic.alt .navIco { display: grid; background: none; box-shadow: none; width: 100%; height: 100%; }
+    .top .nav.pic.alt .navIco svg { width: 21px; height: 21px; color: var(--gold-200); }
+  }
+  @media (max-width: 900px) {
+    .top .nav.pic.rank, .top .nav.pic.kho { --plaque: url('/art/ui/cut/seal_a.png'); width: 46px; height: 46px; }
+    .top .nav.pic.rank { --plaque: url('/art/ui/cut/seal_b.png'); }
+    .top .nav.pic .navIco { display: grid; background: none; box-shadow: none; width: 100%; height: 100%; }
+    .top .nav.pic .navIco svg { width: 21px; height: 21px; color: var(--gold-200); }
+  }
+}
+@layer game {
+  /* item and creature windows: on a wide screen the picture sits on the left and the details and buttons on the right, so nothing needs scrolling */
+  .zoomPic { display: grid; place-items: center; }
+  @media (min-width: 761px) {
+    .zoomBody { width: min(900px, 100%); display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); column-gap: var(--sp-5); align-content: start; align-items: start; text-align: left; }
+    .zoomBody > .zoomPic { grid-column: 1; grid-row: 1 / span 8; width: 100%; margin: 0; }
+    .zoomBody > :not(.zoomPic) { grid-column: 2; }
+    .zoomBody .zoomPic .beastBox { zoom: 1.25; }
+    .zoomBody .eqAct { justify-content: flex-start; }
+    .zoomBody > .btn.big { justify-self: start; }
+    .zoomBody .itLines.big { font-size: var(--fs-sm); line-height: 1.6; }
+  }
+  /* phones and short windows: everything is smaller and tighter so that the whole window fits */
+  @media (max-width: 760px), (max-height: 600px) {
+    .zoomBody { padding: var(--sp-4); }
+    .zoomBody .zoomPic { width: min(100%, 24dvh, 190px); margin-bottom: var(--sp-2); }
+    .zoomBody .zoomPic .beastBox { zoom: 0.62; }
+    .zoomBody .zoomInfo { margin-bottom: var(--sp-2); }
+    .zoomBody .zoomInfo h2 { font-size: var(--fs-xl); }
+    .zoomBody .zoomInfo .chips { margin: var(--sp-1) 0; }
+    .zoomBody .itLines.big { font-size: var(--fs-sm); line-height: 1.5; }
+    .zoomBody .zoomText { font-size: var(--fs-sm); line-height: 1.55; }
+    .zoomBody .cmp { margin-top: var(--sp-1); }
+    .zoomBody .eqAct { gap: var(--sp-1); margin-top: var(--sp-1); }
+    .zoomBody .eqAct .btn, .zoomBody > .btn.big { min-height: 38px; padding: 0.4rem 0.8rem; font-size: var(--fs-sm); }
+  }
+}
+@layer game {
+  /* wide screens: the character column scrolls inside its own frame, like the journey column next to it */
+  @media (min-width: 721px) {
+    .main > .heroPanel { max-height: calc(100vh - var(--topH, 62px) - 28px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding-right: calc(var(--sp-4) - 4px); scrollbar-gutter: stable; }
+  }
+}
+@layer game {
+  /* Thiên Thư, Nhật Ký Thiên Hạ: the creature and the weapon of the day, with their pictures */
+  .dailyNew { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-3) 0 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.25); }
+  .dailyArt { position: relative; flex: none; display: grid; place-items: center; width: 92px; height: 92px; overflow: hidden; border-radius: var(--r-md); border: 1px solid var(--line-gold-strong); background: var(--ink-800); color: var(--gold-300); }
+  .dailyTxt { display: grid; gap: 4px; min-width: 0; font-size: var(--fs-sm); }
+  .dailyTxt small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.5; }
+  .dailyTxt .wait { color: var(--gold-300); }
+}
+@layer game {
+  /* marks on an item picture: a new kind of weapon (top left) and an exclusive Thiên or Tiên weapon (bottom left) */
+  .itMark { position: absolute; left: 2px; z-index: 4; display: grid; place-items: center; min-width: 15px; height: 15px; padding: 0 2px; border-radius: 8px; font-style: normal; font-size: 9px; line-height: 1; font-weight: 700; letter-spacing: 0.02em; background: rgb(0 0 0 / 0.72); border: 1px solid currentColor; pointer-events: none; }
+  .itMark.isNew { top: 2px; color: var(--jade-300); }
+  .itMark.excl { bottom: 2px; color: var(--gold-300); box-shadow: 0 0 8px -1px currentColor; }
+  .itMark.excl.t5 { color: var(--rose-400); }
+  .itIcon.fit .itMark { transform: scale(0.85); transform-origin: left; }
+  .chip.markNew { color: var(--jade-300); border-color: color-mix(in srgb, var(--jade-300) 55%, transparent); }
+  .chip.markExcl { color: var(--gold-300); border-color: var(--line-gold); }
+  .chip.markExcl.t5 { color: var(--rose-400); border-color: color-mix(in srgb, var(--rose-400) 55%, transparent); }
 }

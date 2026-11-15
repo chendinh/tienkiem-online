@@ -4,10 +4,10 @@
 import { createHmac } from 'node:crypto';
 import * as G from '../game';
 import * as C from '../content';
-import { query } from './db';
+import { query, savepoint } from './db';
 import { loadAccount } from './store';
 
-export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number }
+export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number; av?: string }
 export type Board = 'cult' | 'power';
 
 const g = globalThis as any;
@@ -16,7 +16,7 @@ const pidOf = (secret: string, acc: string) => createHmac('sha256', secret).upda
 
 export function entryOf(st: G.GameState, pid: string, acc: string, now: number): RankEntry {
   const p = st.player;
-  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now };
+  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now, ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
 }
 
 const upsert = (e: RankEntry) => query('INSERT INTO rank_entries (acc, entry) VALUES ($1, $2::jsonb) ON CONFLICT (acc) DO UPDATE SET entry = EXCLUDED.entry', [e.acc, JSON.stringify(e)]);
@@ -41,9 +41,10 @@ function secret(): Promise<string> {
 export async function publish(acc: string, st: G.GameState, now: number) {
   const e = entryOf(st, pidOf(await secret(), acc), acc, now);
   // a player online changes the account every few seconds: write the row again only when something shown on the board changed, or after a minute
-  const { t: _t, ...rest } = e, sig = JSON.stringify(rest), prev = S.last.get(acc);
+  // cp and power move on nearly every tick, so they are left out of the comparison: the row is refreshed when something else changed, or after a minute
+  const { t: _t, cp: _c, power: _w, ...rest } = e, sig = JSON.stringify(rest), prev = S.last.get(acc);
   if (prev && prev.sig === sig && now - prev.at < 60000) return;
-  await upsert(e);
+  await savepoint(() => upsert(e));   // a failed ranking row must not undo the account save that came before it
   S.last.set(acc, { sig, at: now });
 }
 export async function unpublish(acc: string) {
@@ -65,10 +66,10 @@ async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
   return list;
 }
 
-export interface RankRow { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number }
+export interface RankRow { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; av?: string }
 export async function board(b: Board, meAcc: string, now: number, top = 100) {
   const list = await sortedBoard(b, now);
-  const row = (e: RankEntry, i: number): RankRow => ({ rank: i + 1, pid: e.pid, name: e.name, dao: e.dao, g: e.g, realm: e.realm, sub: e.sub, level: e.level, power: e.power, el: e.el, me: e.acc === meAcc, t: e.t });
+  const row = (e: RankEntry, i: number): RankRow => ({ rank: i + 1, pid: e.pid, name: e.name, dao: e.dao, g: e.g, realm: e.realm, sub: e.sub, level: e.level, power: e.power, el: e.el, me: e.acc === meAcc, t: e.t, av: e.av });
   const mine = list.findIndex((e) => e.acc === meAcc);
   return { board: b, total: list.length, rows: list.slice(0, top).map(row), me: mine >= 0 ? row(list[mine], mine) : null };
 }

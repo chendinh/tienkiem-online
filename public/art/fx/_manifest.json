@@ -1,0 +1,266 @@
+{
+ "slash_arc": {
+  "model": "google/nano-banana-2.1",
+  "seed": 196511,
+  "cost": 0.05,
+  "requestId": "01a1dc03-a588-76e2-ade4-220b811f55e0",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: one single sweeping crescent sword slash: a bright curved blade-shaped streak of light, thin at both tips and thick in the middle, tilted diagonally. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "rune": {
+  "model": "google/nano-banana-2.1",
+  "seed": 211979,
+  "cost": 0.05,
+  "requestId": "01a1dc03-a58e-76b1-b14c-b05272a3fc61",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a circular magic formation seen face-on: concentric rings and geometric star polygons with ornamental patterns made only of lines and dots, absolutely no letters, no characters and no writing. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "slash_x": {
+  "model": "google/nano-banana-2.1",
+  "seed": 771653,
+  "cost": 0.05,
+  "requestId": "01a1dc04-261c-7dd0-ae35-0163c08ec493",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: two bright sword slashes crossing each other in an X shape, sharp tapered streaks of light. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "thrust": {
+  "model": "google/nano-banana-2.1",
+  "seed": 233385,
+  "cost": 0.05,
+  "requestId": "01a1dc04-2614-7892-a13f-651f0b9172a8",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a long horizontal spear thrust: a sharp pointed lance tip of light on the right and a long tapering speed-line tail running to the left. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "claw": {
+  "model": "google/nano-banana-2.1",
+  "seed": 756080,
+  "cost": 0.05,
+  "requestId": "01a1dc04-261e-78b2-aea9-73b722486b07",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: three parallel curved claw-rake slash marks made of light, tapered streaks like a beast's claw scratches, diagonal. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "arrow": {
+  "model": "google/nano-banana-2.1",
+  "seed": 786392,
+  "cost": 0.05,
+  "requestId": "01a1dc04-5d77-77c2-a725-4154576bb753",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a glowing arrow of light flying to the right with a long fading comet tail and a few tiny sparks, horizontal. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "orb": {
+  "model": "google/nano-banana-2.1",
+  "seed": 616750,
+  "cost": 0.05,
+  "requestId": "01a1dc04-61c6-7c42-9b34-7cff534b5186",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a glowing round sphere of energy with a swirling bright core and a soft halo, a few small wisps orbiting it. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "beam": {
+  "model": "google/nano-banana-2.1",
+  "seed": 719552,
+  "cost": 0.05,
+  "requestId": "01a1dc04-636f-7c82-951b-3e993e5c7346",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a horizontal beam of pure energy running across the whole width, a bright thin core with a soft glow and crackling edges, fading at both ends. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "blade_wave": {
+  "model": "google/nano-banana-2.1",
+  "seed": 410961,
+  "cost": 0.05,
+  "requestId": "01a1dc04-9329-7271-aabe-d524e731174c",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a large crescent-shaped blade wave of qi flying to the right, curved like a moon with the convex side facing right, thin streaks trailing behind it. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "shock_ring": {
+  "model": "google/nano-banana-2.1",
+  "seed": 202558,
+  "cost": 0.05,
+  "requestId": "01a1dc04-9c1c-7661-b253-978895065839",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: an expanding circular shockwave ring seen face-on: a thin bright ring, a fainter second ring inside it, and short radial dust lines. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "burst_star": {
+  "model": "google/nano-banana-2.1",
+  "seed": 183650,
+  "cost": 0.05,
+  "requestId": "01a1dc04-c2df-72d1-a787-aae3aa2925e4",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a sharp impact flash: a bright starburst with radiating spikes of light and a white-hot center. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "palm": {
+  "model": "google/nano-banana-2.1",
+  "seed": 133123,
+  "cost": 0.05,
+  "requestId": "01a1dc04-d51c-7d32-9e8c-99e0bb8d9265",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a glowing palm-shaped energy imprint: a flat open palm print made of light seen from the front (only the hand shape, no arm and no body) with radiating force lines. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "flame": {
+  "model": "google/nano-banana-2.1",
+  "seed": 208834,
+  "cost": 0.05,
+  "requestId": "01a1dc04-d91c-7351-9af3-ba50a99b03bc",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a roaring ball of fire exploding outward, layered flames with licking tongues and flying embers. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "fire_swirl": {
+  "model": "google/nano-banana-2.1",
+  "seed": 964423,
+  "cost": 0.05,
+  "requestId": "01a1dc04-ff4d-77e3-87f9-ffe636d6a3e2",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a spiralling vortex of flames, ribbons of fire swirling and wrapping around a bright center. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "phoenix": {
+  "model": "google/nano-banana-2.1",
+  "seed": 229598,
+  "cost": 0.05,
+  "requestId": "01a1dc05-13ce-78a2-8d10-7c9c38eb5e4e",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a majestic phoenix made of flame and light with wings spread wide and long flowing tail feathers, seen from the side flying to the right. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "ice": {
+  "model": "google/nano-banana-2.1",
+  "seed": 610522,
+  "cost": 0.05,
+  "requestId": "01a1dc05-63d0-7020-b137-7538bad2e3ce",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a cluster of sharp jagged ice crystal shards bursting outward, translucent faceted spikes with frost mist. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "lightning": {
+  "model": "google/nano-banana-2.1",
+  "seed": 682969,
+  "cost": 0.05,
+  "requestId": "01a1dc05-3969-7863-91b4-e06041d4d892",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a branching jagged lightning bolt striking straight down from the top edge of the picture, white-hot forked lightning with side branches. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "water_swirl": {
+  "model": "google/nano-banana-2.1",
+  "seed": 311462,
+  "cost": 0.05,
+  "requestId": "01a1dc05-7b9f-7330-9344-b96b6c667d60",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a curling wave of water with foam and splashing droplets, spiral ribbons of flowing water. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "dragon": {
+  "model": "google/nano-banana-2.1",
+  "seed": 882148,
+  "cost": 0.05,
+  "requestId": "01a1dc05-a081-7e23-bfff-b0092c8d8d8f",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a long serpentine Chinese dragon made of energy coiling through the air with scales, whiskers and a flowing mane, the head facing right, mist trailing behind. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "vine": {
+  "model": "google/nano-banana-2.1",
+  "seed": 319611,
+  "cost": 0.05,
+  "requestId": "01a1dc05-a20c-7980-a40d-f7ddbaabd90a",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: thorny vines and tendrils whipping and wrapping, spiralling plant stems with a few small leaves. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "leaf": {
+  "model": "google/nano-banana-2.1",
+  "seed": 17455,
+  "cost": 0.05,
+  "requestId": "01a1dc05-ac64-7270-ad62-7ee9f19a87c8",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a spiral of drifting leaves and flower petals carried by the wind. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "rock": {
+  "model": "google/nano-banana-2.1",
+  "seed": 205878,
+  "cost": 0.05,
+  "requestId": "01a1dc05-dd6d-7f91-ac8c-ae93efa28b37",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: jagged stone spikes and boulders erupting upward from the bottom edge of the picture, with flying rubble and dust. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "moon": {
+  "model": "google/nano-banana-2.1",
+  "seed": 57298,
+  "cost": 0.05,
+  "requestId": "01a1dc05-e484-75e1-a696-06576050c519",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a luminous crescent moon with a soft halo and thin ripples of moonlight. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "shadow": {
+  "model": "google/nano-banana-2.1",
+  "seed": 81329,
+  "cost": 0.05,
+  "requestId": "01a1dc05-deb7-71e2-850f-ed23ca89cf5d",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: wisps of ghostly smoke shaped like spectral claws and streaks, ethereal wraith-like tendrils. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "shard": {
+  "model": "google/nano-banana-2.1",
+  "seed": 95597,
+  "cost": 0.05,
+  "requestId": "01a1dc06-1e2c-7d90-8004-b687ae9996c7",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a spray of sharp metallic blade shards and flying sword fragments, glinting and scattering outward. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "sun": {
+  "model": "google/nano-banana-2.1",
+  "seed": 620699,
+  "cost": 0.05,
+  "requestId": "01a1dc06-1d55-7912-85e6-690c2eaa63fc",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a radiant blazing sun disc with long straight rays and a bright corona. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "sound": {
+  "model": "google/nano-banana-2.1",
+  "seed": 323230,
+  "cost": 0.05,
+  "requestId": "01a1dc06-2002-7ef2-a9ae-441b1f9b2b89",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: concentric curved sound waves rippling to the right: several nested arcs of light with tiny sparkles (no musical notes, no symbols). Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "heal": {
+  "model": "google/nano-banana-2.1",
+  "seed": 898297,
+  "cost": 0.05,
+  "requestId": "01a1dc06-5e68-7330-bcb4-3ab8efeae949",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a rising swirl of soft healing light: floating glowing lotus petals and sparkling motes drifting upward, a gentle halo. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "shield": {
+  "model": "google/nano-banana-2.1",
+  "seed": 320506,
+  "cost": 0.05,
+  "requestId": "01a1dc06-5d1d-72a1-962f-ed3b96415a4e",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a translucent energy barrier: a glowing dome with hexagon and ring patterns and a bright rim, a protective ward. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "aura": {
+  "model": "google/nano-banana-2.1",
+  "seed": 705652,
+  "cost": 0.05,
+  "requestId": "01a1dc06-64b8-7a43-8d78-cb1afc53e54b",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a tall vertical column of rising spiritual energy: streams of light flowing upward with sparks, a power-up aura. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "swirl": {
+  "model": "google/nano-banana-2.1",
+  "seed": 550158,
+  "cost": 0.05,
+  "requestId": "01a1dc06-a43a-7f50-8972-9859096596d1",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: a dizzying spiral vortex of rotating rings and small star sparkles seen face-on, a stun daze effect (no symbols). Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "bind": {
+  "model": "google/nano-banana-2.1",
+  "seed": 723790,
+  "cost": 0.05,
+  "requestId": "01a1dc06-9ee0-7ae1-adf2-b08fd5aa7fcf",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: glowing spectral chains looping and tightening around a central point, linked rings, a binding spell. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ },
+ "miasma": {
+  "model": "google/nano-banana-2.1",
+  "seed": 244275,
+  "cost": 0.05,
+  "requestId": "01a1dc06-a8b8-7712-aa32-e444d29ee49a",
+  "date": "2026-11-14",
+  "prompt": "A visual effect picture: billowing tendrils of cursed smoke spiralling downward, an eerie weakening hex fog. Isolated on a pure solid black background (#000000). Monochrome grayscale glowing visual effect sprite for a 2D game: a white-hot bright core fading softly into darker grey, no colors at all. Centered, with a wide empty black margin on every side, nothing touching or cut by the edges. No text, no letters, no calligraphy, no seal stamp, no watermark, no frame, no border, no person, no face, no floor or scenery. Style: East Asian xianxia fantasy spell effect, painterly ink and light, crisp high contrast."
+ }
+}

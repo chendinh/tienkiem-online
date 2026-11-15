@@ -22,4 +22,4 @@ export async function saveAccount(a: AccountFile) {
     [a.id, a.email, a.created, a.state === null ? null : JSON.stringify(a.state)],
   );
 }
-export async function removeAccount(id: string) { await query('DELETE FROM accounts WHERE id = $1', [id]); }
+export async function removeAccount(id: string) { await query('UPDATE relics SET holder = NULL WHERE holder = $1', [id]); await query('DELETE FROM accounts WHERE id = $1', [id]); }

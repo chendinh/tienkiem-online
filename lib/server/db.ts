@@ -24,7 +24,7 @@ function pool(): Pool {
     connectionString: url,
     // Each serverless instance needs only a few connections: use the provider's pooled connection string (Neon "pooled", Supabase transaction pooler).
     max: Number(process.env.PG_POOL_MAX || 5),
-    idleTimeoutMillis: 10000,
+    idleTimeoutMillis: 60000,   // a connection that closes after a short pause costs a new TLS handshake with the database on the next click
     connectionTimeoutMillis: 15000,
   });
   p.on('error', (e) => console.error('[tutien] database pool:', e.message));
@@ -46,6 +46,10 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS logs (id bigserial PRIMARY KEY, name text NOT NULL, at timestamptz NOT NULL DEFAULT now(), entry jsonb NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS logs_name ON logs (name, id)`,
   `CREATE TABLE IF NOT EXISTS story_cache (id text PRIMARY KEY, value jsonb NOT NULL)`,
+  // dissolved Thiên and Tiên items: only their look (name, picture id, element), shared by every player. Rows are never deleted.
+  `CREATE TABLE IF NOT EXISTS relics (id bigserial PRIMARY KEY, sig text NOT NULL UNIQUE, tier int NOT NULL, item jsonb NOT NULL, created timestamptz NOT NULL DEFAULT now())`,
+  `ALTER TABLE relics ADD COLUMN IF NOT EXISTS holder text`,   // the save (account id) that holds it now; null = free to find
+  `CREATE INDEX IF NOT EXISTS relics_free ON relics (id) WHERE holder IS NULL`,
   // generated pictures: id is the hash the game saves, sm is the small copy made on first request
   `CREATE TABLE IF NOT EXISTS images (id text PRIMARY KEY, kind text NOT NULL DEFAULT 'other', folder text NOT NULL DEFAULT 'other', ext text NOT NULL, data bytea NOT NULL, sm bytea, meta jsonb NOT NULL DEFAULT '{}', created timestamptz NOT NULL DEFAULT now())`,
   // a picture being drawn right now: stops two server instances from paying for the same picture twice
@@ -62,9 +66,13 @@ function ready(): Promise<void> {
       const c = await pool().connect();
       let broken: unknown;
       try {
+        // the tables are checked once per version of this list, not on every cold start: 17 statements are 17 round trips to the database
+        const marker = `v${SCHEMA.length}:${SCHEMA.reduce((h, s) => (h * 31 + s.length) >>> 0, 7)}`;
+        try { const r = await c.query(`SELECT value #>> '{}' AS v FROM kv WHERE key = 'schema.version'`); if (r.rows[0] && r.rows[0].v === marker) return; } catch { /* no kv table yet: create everything */ }
         await c.query('BEGIN');
         await c.query('SELECT pg_advisory_xact_lock(738201)');
         for (const s of SCHEMA) await c.query(s);
+        await c.query(`INSERT INTO kv (key, value) VALUES ('schema.version', to_jsonb($1::text)) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [marker]);
         // the secret behind the public ids of the ranking is made here, outside any request transaction, so it can never be rolled back
         await c.query(`INSERT INTO kv (key, value) VALUES ('rank.secret', to_jsonb($1::text)) ON CONFLICT (key) DO NOTHING`, [randomBytes(24).toString('hex')]);
         await c.query('COMMIT');

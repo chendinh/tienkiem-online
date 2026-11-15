@@ -4,6 +4,7 @@ import type { Viewport } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import { FxProvider } from '@/components/fx/FxProvider';
 import { TooltipHost } from '@/components/ds/TooltipHost';
+import { DialogHost } from '@/components/ds/Dialog';
 
 export const metadata = { title: 'Tiên Kiếm', description: 'Game tu tiên treo máy — bản thử nghiệm trực quan' };
 export const viewport: Viewport = { themeColor: '#060d14', colorScheme: 'dark' };
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <FxProvider>
           {children}
           <TooltipHost />
+          <DialogHost />
         </FxProvider>
         <Analytics />
       </body>

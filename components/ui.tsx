@@ -1,8 +1,10 @@
 'use client';
+import { ModalClose } from './ds/ModalClose';
 import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import * as C from '@/lib/content';
 import { SP, type Beast, type Item } from '@/lib/game';
 import { itemSpec } from '@/lib/avatarSpec';
+import { itemMarks } from '@/lib/daily';
 import { useGenImage } from '@/lib/useGenImage';
 import { ElIcon } from './Icons';
 import { Icon } from './ds/Icon';
@@ -38,7 +40,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
     body = (
       <>
         <h2 style={{ color: rc }}>{it.name}</h2>
-        <div className="chips"><span className="chip" style={{ color: rc, borderColor: rc + '88' }}>{C.RARITY[it.tier]}</span><span className="chip">Lv{it.level}</span><span className="chip">{C.SLOT_VI[it.slot]}</span><ElChip el={it.el} /><span className="chip gold"><Icon name="atk" size={13} /> {it.power}</span></div>
+        <div className="chips"><span className="chip" style={{ color: rc, borderColor: rc + '88' }}>{C.RARITY[it.tier]}</span><span className="chip">Lv{it.level}</span><span className="chip">{C.SLOT_VI[it.slot]}</span><ElChip el={it.el} />{itemMarks(it).isNew && <span className="chip markNew"><Icon name="sparkle" size={13} /> Mới ra mắt</span>}{itemMarks(it).exclusive && <span className={`chip markExcl t${it.tier}`}><Icon name="crown" size={13} /> Độc quyền</span>}<span className="chip gold"><Icon name="atk" size={13} /> {it.power}</span></div>
         <ul className="itLines big">
           <li>{STAT_VI[it.impl.stat]} +{it.impl.value}</li>
           {it.affixes.map((a, i) => <li key={i} className={a.id.startsWith('tien') ? 'tien' : ''}>{a.label} +{a.value}</li>)}
@@ -70,6 +72,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
   }
   return (
     <div className="modal zoom" onClick={close} role="dialog" aria-modal="true">
+      <ModalClose onClose={close} />
       <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()} style={{ '--rc': rc } as CSSProperties}>
         <div className="zoomPic">{pic}</div>
         <div className="zoomInfo">{body}</div>
@@ -107,9 +110,12 @@ export function ItemIcon({ it, equipped = false, size = 46, zoom = false }: { it
   const open = useZoom();
   const col = C.EL[it.el].color;
   const box = size === 'fit' ? {} : { width: size, height: size };
+  const mk = itemMarks(it);
   return (
     <div className={`itIcon ${size === 'fit' ? 'fit' : ''} ${zoom ? 'zoomable' : ''}`} title={zoom ? 'Bấm để xem ảnh lớn' : undefined} onClick={zoom ? (e) => { e.stopPropagation(); open({ kind: 'item', it }); } : undefined} style={{ ...box, borderColor: C.RCOLOR[it.tier], boxShadow: `inset 0 0 ${8 + it.tier * 2}px ${col}77, 0 0 ${2 + it.tier * 3}px ${col}66` }}>
       <GenImg spec={itemSpec(it)} pri={equipped ? 1 : 3} size={size === 'fit' || size <= 72 ? 'sm' : undefined} fb={<ElIcon el={it.el} size={22} />} />
+      {mk.isNew && <i className="itMark isNew" title="Loại pháp khí mới ra mắt"><Icon name="sparkle" size={11} /></i>}
+      {mk.exclusive && <i className={`itMark excl t${it.tier}`} title="Pháp khí Thiên/Tiên: mỗi món một dáng riêng"><Icon name="crown" size={11} /></i>}
     </div>
   );
 }

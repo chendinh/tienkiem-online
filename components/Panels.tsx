@@ -1,12 +1,16 @@
 'use client';
 import { BattleLog } from './Battle';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
 import type { GS } from '@/lib/client/types';
 import type { Report, Beast } from '@/lib/game';
-import { releaseValue, upkeepDue } from '@/lib/game';
+import { releaseValue, upkeepDue, SP } from '@/lib/game';
+import { allSpecies } from '@/lib/daily';
 import { Icon } from './ds/Icon';
+import { ModalClose } from './ds/ModalClose';
+import { askConfirm, Toast } from './ds/Dialog';
 import { BeastArt, ElChip, Img, ItemCard, SizeMeter, fmt } from './ui';
 
 export type ActRes = { ok: boolean; msg: string; data?: any; code?: string };
@@ -41,7 +45,7 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
   const q = (id: string) => qty[id] || 1;
   const run = async (type: 'buy' | 'sell', item: string, price: number) => {
     const n = q(item);
-    if (type === 'buy' && price * n > st.config.confirmPurchase && !window.confirm(`Mua ${n} món với ${fmt(price * n)} Linh Thạch?`)) return;
+    if (type === 'buy' && price * n > st.config.confirmPurchase && !(await askConfirm({ title: 'Xác nhận mua', body: `Mua ${n} món với ${fmt(price * n)} Linh Thạch?`, ok: 'Mua' }))) return;
     const r = await act(type, { item, qty: n });
     setMsg({ t: r.msg, ok: r.ok });
   };
@@ -51,7 +55,7 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
     <div>
       <div className="marketBanner" style={{ backgroundImage: `url(${C.MARKET_ART})` }}><b>Phường Thị</b><span>Hàng bán không giới hạn, mua bán công khai</span></div>
       <div className="hint">Phường Thị bán không giới hạn tồn kho. Giá bán lại bằng {Math.round((st.shop[0].sell / st.shop[0].price) * 100)}% giá mua. Ngươi có <b>{fmt(st.stones)}</b> Linh Thạch.</div>
-      {msg && <div className={`eqMsg ${msg.ok ? 'ok' : 'err'}`} role="status">{msg.t}</div>}
+      <Toast msg={msg} />
       <div className="shopScroll">
       {st.shop.map((s) => (
         <div key={s.id} className="shopRow">
@@ -71,7 +75,7 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
           <div className="shopAct">
             {input(`mat:${m.id}`, st.inv.mat[m.id])}
             <button className="btn sm" onClick={() => run('sell', `mat:${m.id}`, m.price)}>Bán</button>
-            <button className="btn sm" onClick={async () => { const r = await act('sell', { item: `mat:${m.id}`, qty: st.inv.mat[m.id] }); setMsg({ t: r.msg, ok: r.ok }); }}>Bán hết</button>
+            <button className="btn sm" onClick={async () => { const n = st.inv.mat[m.id]; if (!(await askConfirm({ title: 'Bán hết nguyên liệu', body: `Bán toàn bộ ${n} ${m.name}?`, ok: 'Bán hết', danger: true }))) return; const r = await act('sell', { item: `mat:${m.id}`, qty: n }); setMsg({ t: r.msg, ok: r.ok }); }}>Bán hết</button>
           </div>
         </div>
       ))}
@@ -91,9 +95,10 @@ export function SettingsModal({ st, act, onClose }: { st: GS; act: Act; onClose:
   const toggleSp = (id: string) => patch({ tame: { species: s.tame.species.includes(id) ? s.tame.species.filter((x) => x !== id) : [...s.tame.species, id] } });
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Cài đặt">
+      <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>Cài đặt</h2>
-        {msg && <div className={`eqMsg ${msg.ok ? 'ok' : 'err'}`} role="status">{msg.t}</div>}
+        <Toast msg={msg} />
         <div className="setGrid">
           <h3>Nghỉ ngơi</h3>
           <div className="row">
@@ -134,7 +139,7 @@ export function SettingsModal({ st, act, onClose }: { st: GS; act: Act; onClose:
           </div>
           <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend>Loài được phép (không chọn = mọi loài)</legend>
-            <div className="chipPick">{C.SPECIES.map((sp) => <label key={sp.id}><input type="checkbox" checked={s.tame.species.includes(sp.id)} onChange={() => toggleSp(sp.id)} />{sp.name}</label>)}</div>
+            <div className="chipPick">{allSpecies().map((sp) => <label key={sp.id}><input type="checkbox" checked={s.tame.species.includes(sp.id)} onChange={() => toggleSp(sp.id)} />{sp.name}</label>)}</div>
           </fieldset>
           <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend>Kích thước được phép</legend>
@@ -153,6 +158,7 @@ export function OddsModal({ st, onClose }: { st: GS; onClose: () => void }) {
   const bar = (c: number, soft: number, hard: number) => <div className="bar2" title={`${c}/${hard}`}><i style={{ width: `${Math.min(100, (c / hard) * 100)}%` }} /></div>;
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Xác suất">
+      <ModalClose onClose={onClose} />
       <div className="modalBody oddsSect" onClick={(e) => e.stopPropagation()}>
         <h2>Xác suất thật</h2>
         {o.demoRates && <div className="hint warn">Máy chủ đang chạy tỉ lệ thử nghiệm (TUTIEN_RATES=demo): đồ hiếm và Dị Biến ra nhiều hơn bản thật.</div>}
@@ -204,6 +210,7 @@ export function ReportModal({ rep, title, onClose }: { rep: Report; title: strin
   const [log, setLog] = useState<{ lines: string[]; foe?: string } | null>(null);
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>{title}</h2><p>Ngươi vắng mặt {fmtDur(rep.elapsedSec)}{rep.elapsedSec >= 12 * 3600 ? ' (chỉ tính tối đa 12 giờ)' : ''}. Lúc rời đi: {rep.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện'} tại {C.ZONE(rep.zone).name}{rep.recoveryTicks ? `, điều tức ${fmtDur(rep.recoveryTicks * 5)}` : ''}.</p>
         <div className="sum">
@@ -257,13 +264,29 @@ export function ReportModal({ rep, title, onClose }: { rep: Report; title: strin
 
 
 // ---------- Zone as a popup (the main screen only shows the name)
+// A window of its own for one part of the game (Phường Thị, Linh Thú, Sưu Tập, Thần Thông): a title, the content, and the close seal.
+export function Window({ title, icon, sub, wide, onClose, children }: { title: string; icon: string; sub?: string; wide?: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <ModalClose onClose={onClose} label={`Đóng ${title}`} />
+      <div className={`modalBody gameWindow ${wide ? 'wide' : ''}`} onClick={(e) => e.stopPropagation()}>
+        <div className="winHead"><span className="winSeal"><Icon name={icon} size={22} /></span><div><h2>{title}</h2>{sub && <small>{sub}</small>}</div></div>
+        {children}
+      </div>
+    </div>
+  );
+}
+export function MarketModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
+  return <Window title="Phường Thị" icon="stone" sub="Mua Khế Ước Phù, Đan Dược; bán nguyên liệu" onClose={onClose}><ShopPanel st={st} act={act} /></Window>;
+}
 export function ZoneModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Khu vực">
+      <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>Chọn khu vực</h2>
-        {msg && <div className={`eqMsg ${msg.ok ? 'ok' : 'err'}`} role="status">{msg.t}</div>}
+        <Toast msg={msg} />
         <ZonePicker st={st} act={act} say={(t, ok = true) => { setMsg({ t, ok }); if (ok) onClose(); }} />
         {st.zones.filter((z) => z.id === st.zone && z.phen).map((z) => <div key={z.id} className="hint"><b>{z.phen!.name}:</b> {z.phen!.text}</div>)}
         <button className="btn big" onClick={onClose}>Đóng</button>
@@ -280,6 +303,7 @@ export function BreakModal({ st, onBreak, onClose, onLater }: { st: GS; onBreak:
   const loss = Math.round(0.15 * 100);
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label="Đột phá" onClick={onLater ? undefined : onClose}>
+      <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>Đột phá lên {C.REALMS[target]}</h2>
         <p>Ngươi đã tới Bình Cảnh. Xác suất thành công: <b>{pct(prob)}</b>{waves ? `, sau đó vượt ${waves} đợt Thiên Kiếp bằng chính sức chiến đấu của ngươi` : ''}. Thất bại mất {loss}% Tu Vi và bị Tâm Ma {Math.round(720 * 5 / 60)} phút.</p>
@@ -359,11 +383,11 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   const party = new Set(beasts.slice(0, st.caps.party).map((b) => b.id));
   const cur = sel === null ? null : beasts.find((b) => b.id === sel) || null;
   const sellOne = async (b: Beast) => {
-    if (b.mut && !window.confirm(`${b.name} là Dị Biến, rất hiếm. Vẫn bán?`)) return;
+    if (b.mut && !(await askConfirm({ title: 'Bán Linh Thú Dị Biến', body: `${b.name} là Dị Biến, rất hiếm. Vẫn bán?`, ok: 'Bán', danger: true }))) return;
     const r = await act('release', { id: b.id }); say(r.msg, r.ok); if (r.ok) setSel(null);
   };
   const sellMany = async () => {
-    if (!window.confirm('Bán mọi Linh Thú không phải Dị Biến và không nằm trong đội xuất chiến?')) return;
+    if (!(await askConfirm({ title: 'Bán hàng loạt', body: 'Bán mọi Linh Thú không phải Dị Biến và không nằm trong đội xuất chiến?', ok: 'Bán hết', danger: true }))) return;
     const r = await act('releaseMany'); say(r.msg, r.ok);
   };
   const due = upkeepDue(st);
@@ -381,13 +405,14 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
           </button>
         ))}
       </div>
-      {cur && (
+      {cur && typeof document !== 'undefined' && createPortal(
         <div className="modal zoom" onClick={() => setSel(null)} role="dialog" aria-modal="true" aria-label={cur.name}>
+          <ModalClose onClose={() => setSel(null)} />
           <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()}>
             <div className="zoomPic"><BeastArt b={cur} box={260} onOpen={() => {}} /></div>
             <div className="zoomInfo">
               <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>} {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
-              <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={C.SPECIES.find((x) => x.id === cur.sp)!.el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}</div>
+              <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={SP(cur.sp).el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}</div>
               <SizeMeter b={cur} />
               <ul className="itLines big"><li>Sinh Lực {cur.stats[0]}</li><li>Công Kích {cur.stats[2]}</li><li>Phòng Ngự {cur.stats[3]}</li><li>Thân Pháp {cur.stats[4]}</li></ul>
               <div className="hint">Thần thông: {cur.skills.join(', ')}. Phí nuôi {Math.ceil(cur.level / 4)} Linh Thạch mỗi 10 phút.</div>
@@ -398,7 +423,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
