@@ -38,8 +38,8 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   const [i, setI] = useState(-1);
   const [hp, setHp] = useState({ you: open?.o.ph ?? 1, foe: open?.o.fh ?? 1 });
   const youRef = useRef<HTMLDivElement>(null), foeRef = useRef<HTMLDivElement>(null), stageRef = useRef<HTMLDivElement>(null), layerRef = useRef<HTMLDivElement>(null), done = useRef(false);
-  // per action, read while rendering: when the first blow lands (the number rises then), whether the technique plays its own effect, and the length of the slot
-  const beat = useRef({ impact: 260, own: false, slot: 520 });
+  // per action, read while rendering: whether the technique plays its own effect (else the plain icon flies) and the length of the slot
+  const beat = useRef({ own: false, slot: 520 });
   const finish = useRef(onDone); finish.current = onDone;
   const end = () => { if (!done.current) { done.current = true; finish.current(); } };
 
@@ -74,6 +74,25 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
     ], { duration: 280, easing: 'linear' });
     const point = (el: HTMLElement | null, layer: DOMRect) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2 - layer.left, y: r.top + r.height * 0.5 - layer.top } : { x: layer.width / 2, y: layer.height / 2 }; };
 
+    // The number of a blow lives on its own: it rises in an arc, drifts to alternating sides (so two in a row never overlap) and removes itself.
+    let seq = 0;
+    const pop = (a: Act, color: string, target: HTMLElement | null, toFoe: boolean) => {
+      const layer = layerRef.current; if (!layer || !target) return;
+      const p = point(target, layer.getBoundingClientRect()), el = document.createElement('span');
+      el.className = `stNum ${toFoe ? 'foe' : 'you'}${a.c ? ' crit' : ''}${a.f ? ' fx' : ''}`;
+      el.style.setProperty('--el', color); el.style.left = `${p.x}px`; el.style.top = `${p.y - 10}px`;
+      el.textContent = a.f ? (FX_LABEL[a.f] || (() => ''))(a.a ?? 0) : `${a.c ? 'Bạo kích! ' : ''}−${a.d.toLocaleString('vi-VN')}`;
+      layer.appendChild(el);
+      const dx = (seq++ % 2 ? 1 : -1) * (14 + Math.random() * 18), big = a.c ? 1.1 : 1;
+      const run = el.animate([
+        { opacity: 0, transform: 'translate(-50%, 10px) scale(0.6)' },
+        { opacity: 1, transform: `translate(calc(-50% + ${dx * 0.25}px), -14px) scale(${1.2 * big})`, offset: 0.14 },
+        { opacity: 1, transform: `translate(calc(-50% + ${dx * 0.7}px), -38px) scale(${big})`, offset: 0.55 },
+        { opacity: 0, transform: `translate(calc(-50% + ${dx}px), -22px) scale(${0.95 * big})` },
+      ], { duration: a.c ? 1500 : 1150, easing: 'ease-out' });
+      run.onfinish = () => el.remove();
+    };
+
     const play = (k: number) => {
       if (dead) return;
       if (k >= acts.length) { setI(acts.length); timers.push(setTimeout(end, 900)); return; }
@@ -85,7 +104,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       const played = layer && from && to && !lost ? playSkill({ layer, fx: rec, color, from, to, k: kk, level: low ? 'low' : fx.level === 'high' ? 'high' : 'mid', crit: !!a.c }) : null;
       const impacts = played ? played.impacts : [Math.round(slot * 0.42)];
       const windup = played ? played.cast : 100;
-      beat.current = { impact: impacts[0], own: !!played, slot };
+      beat.current = { own: !!played, slot };
       setI(k);
 
       const reach = from && to && (rec.m === 'slash' || rec.m === 'burst') ? Math.min(64, Math.abs(to.x - from.x) * 0.45) : 14;
@@ -95,10 +114,12 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
         if (dead) return;
         if (!a.f) { hit(target, !!a.c, dirT); if (!low && rec.shake) shake((rec.shake === 2 ? 5 : 3) + (a.c ? 2 : 0)); else if (!low && a.c) shake(3); }
         if (n > 0) return;
+        pop(a, color, target, toFoe);
         const r = target?.getBoundingClientRect();
         // the health bar that moves is the one the log line describes (`ts`); older logs always meant the one that was hit
         const barIsFoe = a.ts ? a.ts === 'm' : toFoe;
         setHp((h) => (barIsFoe ? { ...h, foe: a.h ?? h.foe } : { ...h, you: a.h ?? h.you }));
+        if (r && a.h !== undefined && a.h <= 0 && !a.f) { fx.ring({ x: r.left + r.width / 2, y: r.top + r.height / 2, color: '#cfd6e4', size: 90 }); fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.5, kind: 'qi', color: '#cfd6e4', count: 22 }); }
         if (r) fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.45, kind: a.c ? 'gold' : 'spark', color: a.f ? color : a.e && C.EL[a.e] ? C.EL[a.e].color : undefined, count: a.c ? 18 : a.f ? 5 : 7 });
       }, ti)));
       // the next action waits until the last blow has landed and had a moment to be seen
@@ -113,9 +134,10 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   }, [e.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open || acts.length === 0 || fx.level === 'off') return null;
-  const cur = i >= 0 && i < acts.length ? acts[i] : null, foeActs = cur?.w === 'm', curToFoe = cur ? recipientIsFoe(cur) : false;
+  const cur = i >= 0 && i < acts.length ? acts[i] : null, foeActs = cur?.w === 'm';
   const col = cur ? colorOf(cur) : 'var(--gold-300)';
   const foeEl = open.o.fe[0], won = verdict === 'Thắng', lost = verdict === 'Bại';
+  const over = i >= acts.length;   // the fight is finished: the verdict is on screen
   const youPct = Math.max(0, Math.min(100, (hp.you / Math.max(1, open.o.pm)) * 100)), foePct = Math.max(0, Math.min(100, (hp.foe / Math.max(1, open.o.fh)) * 100));
 
   return (
@@ -124,16 +146,16 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       {cur && <div key={`k${i}`} className={`stSkill ${foeActs ? 'foe' : ''}`} style={{ '--el': col } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={14} /> : <Icon name="atk" size={14} />}<span>{cur.w === 'b' ? `${cur.n} · ` : ''}«{cur.k || 'Đòn đánh'}»</span></div>}
 
       <div className="stSide you">
-        <div className="stBar you"><i style={{ width: `${youPct}%` }} /></div>
-        <div ref={youRef} className={`stFig ${hp.you <= 0 ? 'down' : ''}`} style={{ '--el': C.EL[heroEl]?.color } as CSSProperties}>
-          {hero ? <Img src={hero} className="stFace" fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
+        <div className="stBar you"><i className="lag" style={{ width: `${youPct}%` }} /><i className="cur" style={{ width: `${youPct}%` }} /></div>
+        <div ref={youRef} className={`stFig ${hp.you <= 0 ? 'down' : ''} ${over && won ? 'win' : ''}`} style={{ '--el': C.EL[heroEl]?.color } as CSSProperties}>
+          {hero ? <Img src={`${hero}?s=face`} fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
         </div>
         <small>Ngươi</small>
       </div>
 
       <div className="stSide foe">
-        <div className="stBar foe"><i style={{ width: `${foePct}%` }} /></div>
-        <div ref={foeRef} className={`stFig foe ${hp.foe <= 0 ? 'down' : ''} ${e.beast?.mut ? 'mut' : ''}`} style={{ '--el': C.EL[foeEl]?.color } as CSSProperties}>
+        <div className="stBar foe"><i className="lag" style={{ width: `${foePct}%` }} /><i className="cur" style={{ width: `${foePct}%` }} /></div>
+        <div ref={foeRef} className={`stFig foe ${hp.foe <= 0 ? 'down' : ''} ${over && lost ? 'win' : ''} ${e.beast?.mut ? 'mut' : ''}`} style={{ '--el': C.EL[foeEl]?.color } as CSSProperties}>
           {e.beast ? <Img src={C.monsterArt(e.beast.sp, e.beast.mut, true)} fb={<ElIcon el={foeEl} size={40} />} />
             : e.kind === 'npc' ? <Img src={npcArt(open.o.f)} className="stFace" fb={<ElIcon el={foeEl} size={40} />} /> : <span className="stSeal"><ElIcon el={foeEl} size={40} /></span>}
         </div>
@@ -144,8 +166,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       <div ref={layerRef} className="stFxLayer" aria-hidden="true" />
       {/* a technique whose pictures are not ready keeps the plain flying icon */}
       {cur && !cur.f && !beat.current.own && <span key={`p${i}`} className={`stProj ${foeActs ? 'l' : 'r'}`} style={{ '--el': col, animationDuration: `${beat.current.slot * 0.5}ms` } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={22} /> : <Icon name="atk" size={22} />}</span>}
-      {cur && <span key={`d${i}`} className={`stDmg ${curToFoe ? 'foe' : 'you'} ${cur.c ? 'crit' : ''} ${cur.f ? 'fx' : ''}`} style={{ '--el': col, animationDelay: `${beat.current.impact}ms` } as CSSProperties}>{cur.f ? (FX_LABEL[cur.f] || (() => ''))(cur.a ?? 0) : <>{cur.c ? 'Bạo kích! ' : ''}−{cur.d.toLocaleString('vi-VN')}</>}</span>}
-      {i >= acts.length && <div className={`stVerdict ${won ? 'win' : lost ? 'lose' : ''}`}>{won ? 'Đại thắng' : lost ? 'Thua trận' : 'Hòa'}</div>}
+      {over && <div className={`stVerdict ${won ? 'win' : lost ? 'lose' : ''}`}>{won ? 'Đại thắng' : lost ? 'Thua trận' : 'Hòa'}</div>}
     </div>
   );
 }

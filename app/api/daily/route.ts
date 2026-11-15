@@ -10,6 +10,6 @@ export async function GET() {
   return guard(async () => {
     await ensureDaily();
     const packs = dailyPacks();
-    return json({ ok: true, packs: packs.map((p, i) => ({ day: p.day, title: p.title, chronicle: i >= packs.length - 30 ? p.chronicle : '', tales: {}, beast: p.beast })) }, 200, { 'Cache-Control': 'public, max-age=60, s-maxage=300' });
+    return json({ ok: true, packs: packs.map((p, i) => ({ day: p.day, title: p.title, chronicle: i >= packs.length - 30 ? p.chronicle : '', tales: {}, beast: p.beast, weapon: p.weapon })) }, 200, { 'Cache-Control': 'public, max-age=60, s-maxage=300' });
   });
 }

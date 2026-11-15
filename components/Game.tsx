@@ -4,6 +4,7 @@ import { askConfirm, askPrompt, Toast } from './ds/Dialog';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
+import * as A from '@/lib/arts';
 import { type FeedEntry, pstats, levelOf, threshold, outfitTier, auraElement, atBottleneck, SP } from '@/lib/game';
 import type { GS } from '@/lib/client/types';
 import { authMe, authPost, gameGet, gameAct, watchNet } from '@/lib/client/api';
@@ -15,7 +16,7 @@ import { MarketModal, Window, SettingsModal, OddsModal, ReportModal, ZoneModal, 
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import lore from '@/content/lore.json';
-import { Img, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
+import { Img, GenImg, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
 import { ArtsPanel } from './Arts';
 import { EquipPanel, ItemPopup, useEquip, type Eqx } from './Equip';
 import { Logo, Lockup } from './Logo';
@@ -478,12 +479,12 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         </div>
         <nav className="topNav" aria-label="Chức năng">
           <button type="button" className="nav pic rank" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
-          <button type="button" className="nav alt" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
-          <button type="button" className="nav alt" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
-          <button type="button" className="nav alt" data-tone="jade" title="Linh Thú ngươi đã thu phục" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
-          <button type="button" className="nav alt" data-tone="jade" title="Thiên Thư" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
-          <button type="button" className="nav alt" data-tone="azure" title="Xác suất" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
-          <button type="button" className="nav alt" data-tone="violet" title="Cài đặt" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
+          <button type="button" className="nav pic alt market" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
+          <button type="button" className="nav pic alt arts" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
+          <button type="button" className="nav pic alt pen" data-tone="jade" title="Linh Thú ngươi đã thu phục" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
+          <button type="button" className="nav pic alt story" data-tone="jade" title="Thiên Thư" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
+          <button type="button" className="nav pic alt odds" data-tone="azure" title="Xác suất" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
+          <button type="button" className="nav pic alt settings" data-tone="violet" title="Cài đặt" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
           <button type="button" className={`nav pic kho ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" title="Kho báu: trang bị, thần thông, linh thú" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
         </nav>
         <div className="orbs">
@@ -547,10 +548,13 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
 
         <section className="panel feedPanel">
           <div className="miniStatus">
-            <div className="msTop"><b>{p.name}</b><small>{C.REALMS[p.realm]} · {C.SUBS[p.sub]} · {state}</small></div>
-            <Bar pct={(p.hp / S.maxHp) * 100} label={`Sinh lực ${fmt(p.hp)} / ${fmt(S.maxHp)}`} cls="hp" />
-            <Bar pct={L >= BALANCE.playableLevelCap ? 100 : (p.cp / th) * 100} label={bott ? 'Bình Cảnh, sẵn sàng đột phá' : `Tu Vi ${fmt(p.cp)} / ${fmt(th)}`} cls="cp" />
-            {bott && !storm && <button className="btn hot sm" onClick={() => setBreakOpen(true)}><Icon name="bolt" size={15} /> Đột Phá lên {C.REALMS[target]}</button>}
+            <button type="button" className="msFace" onClick={() => setView('hero')} aria-label="Xem nhân vật" title="Xem nhân vật">{p.avatar && p.avatar.url ? <Img src={`${p.avatar.url}?s=face`} className="faceImg" fb={<Logo size={34} />} /> : <Logo size={34} />}</button>
+            <div className="msInfo">
+              <div className="msTop"><b>{p.name}</b><small>{C.REALMS[p.realm]} · {C.SUBS[p.sub]} · {state}</small></div>
+              <Bar pct={(p.hp / S.maxHp) * 100} label={`Sinh lực ${fmt(p.hp)} / ${fmt(S.maxHp)}`} cls="hp" />
+              <Bar pct={L >= BALANCE.playableLevelCap ? 100 : (p.cp / th) * 100} label={bott ? 'Bình Cảnh, sẵn sàng đột phá' : `Tu Vi ${fmt(p.cp)} / ${fmt(th)}`} cls="cp" />
+              {bott && !storm && <button className="btn hot sm" onClick={() => setBreakOpen(true)}><Icon name="bolt" size={15} /> Đột Phá lên {C.REALMS[target]}</button>}
+            </div>
           </div>
           <div className="phead"><h3>Hành trình</h3><small>Mỗi lần gặp đều được máy chủ sinh ngẫu nhiên: loài, kích thước, tính cách, Dị Biến</small></div>
           {stage && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={() => setStage(null)} />}
@@ -605,7 +609,20 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
                   <div key={x.day} className="chap">
                     <h3>{x.day.split('-').reverse().join('/')} · {x.title}</h3>
                     {x.chronicle.split(/\n\s*\n/).map((t, i) => <p key={i}>{t}</p>)}
-                    <p className="secret">Yêu thú mới: <b>{x.beast.name}</b> ({x.beast.el[0]})</p>
+                    <div className="dailyNew">
+                      <div className="dailyArt">{x.beast.art ? <Img src={x.beast.art} className="fill" fb={<ElIcon el={x.beast.el[0]} size={40} />} /> : <ElIcon el={x.beast.el[0]} size={40} />}</div>
+                      <div className="dailyTxt">
+                        <b>Yêu thú mới: {x.beast.name}</b> <ElChip el={x.beast.el[0]} />
+                        {x.beast.legend && <small>{x.beast.legend}</small>}
+                        {!x.beast.art && <small className="wait">Ảnh đang được vẽ, quay lại sau ít phút.</small>}
+                      </div>
+                    </div>
+                    {x.weapon && (
+                      <div className="dailyNew">
+                        <div className="dailyArt"><GenImg spec={{ kind: 'item', slot: 'Weapon', base: x.weapon.base, tier: Math.min(1, ...x.weapon.tiers), e: '' }} pri={3} fb={<Icon name="atk" size={32} />} /></div>
+                        <div className="dailyTxt"><b>Pháp khí mới: {x.weapon.base}</b> <span className="chip">{A.ART(x.weapon.cls)?.name || x.weapon.cls}</span><small>Có thể rơi từ nay về sau, nhất là trong ít ngày đầu.</small></div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {D.dailyPacks().filter((x) => x.chronicle).length === 0 && <p className="secret">Chương đầu tiên chưa được viết. Hãy quay lại sau.</p>}

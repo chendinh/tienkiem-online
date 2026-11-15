@@ -46,6 +46,10 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS logs (id bigserial PRIMARY KEY, name text NOT NULL, at timestamptz NOT NULL DEFAULT now(), entry jsonb NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS logs_name ON logs (name, id)`,
   `CREATE TABLE IF NOT EXISTS story_cache (id text PRIMARY KEY, value jsonb NOT NULL)`,
+  // dissolved Thiên and Tiên items: only their look (name, picture id, element), shared by every player. Rows are never deleted.
+  `CREATE TABLE IF NOT EXISTS relics (id bigserial PRIMARY KEY, sig text NOT NULL UNIQUE, tier int NOT NULL, item jsonb NOT NULL, created timestamptz NOT NULL DEFAULT now())`,
+  `ALTER TABLE relics ADD COLUMN IF NOT EXISTS holder text`,   // the save (account id) that holds it now; null = free to find
+  `CREATE INDEX IF NOT EXISTS relics_free ON relics (id) WHERE holder IS NULL`,
   // generated pictures: id is the hash the game saves, sm is the small copy made on first request
   `CREATE TABLE IF NOT EXISTS images (id text PRIMARY KEY, kind text NOT NULL DEFAULT 'other', folder text NOT NULL DEFAULT 'other', ext text NOT NULL, data bytea NOT NULL, sm bytea, meta jsonb NOT NULL DEFAULT '{}', created timestamptz NOT NULL DEFAULT now())`,
   // a picture being drawn right now: stops two server instances from paying for the same picture twice

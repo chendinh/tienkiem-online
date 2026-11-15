@@ -2366,5 +2366,77 @@
   "date": "2026-11-14T21:52:04.483Z",
   "cacheId": "605ffcf0d01dc2dcacfb",
   "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a majestic wide horizontal ceremonial plaque of deep crimson lacquer with a thick gold border, two golden dragons curling around its left and right ends and a golden phoenix crest rising from the top centre, in the middle the two words “Phong Thần” in large embossed gold brush calligraphy lettering (exact spelling: P h o n g, then T h ầ n, where the letter ầ is the letter a with a circumflex hat ^ and a grave accent ` both drawn above it, clearly visible). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "ui/lbl_market.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7127,
+  "attempt": 0,
+  "requestId": "01a1ddf8-e400-7272-8e4b-b5db76fc91ec",
+  "cost": 0.05,
+  "date": "2026-11-15T06:51:11.341Z",
+  "cacheId": "26519e19d75fe7486145",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth deep green jade panel framed by a thick gold filigree border with carved cloud-scroll corners, a small gold ingot and a coin pouch at the top centre, in the middle the words “Phường Thị” in large embossed gold brush calligraphy lettering (exact spelling: P h ư ờ n g, then T h ị; ư is u with a horn, ờ is o with a horn and a grave accent, ị is i with a dot below). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "ui/lbl_arts.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7128,
+  "attempt": 0,
+  "requestId": "01a1ddf9-6906-70c0-b700-81f1b7ffca26",
+  "cost": 0.05,
+  "date": "2026-11-15T06:51:29.622Z",
+  "cacheId": "1955607d3f45335e3167",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth deep indigo-violet lacquer panel framed by a thick gold filigree border with carved cloud-scroll corners, a small floating sword at the top centre, in the middle the words “Thần Thông” in large embossed gold brush calligraphy lettering (exact spelling: T h ầ n, then T h ô n g; ầ is a with a circumflex and a grave accent, ô is o with a circumflex). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "ui/lbl_pen.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7129,
+  "attempt": 0,
+  "requestId": "01a1ddf9-b026-7b22-bd31-d4ccb4790d43",
+  "cost": 0.05,
+  "date": "2026-11-15T06:51:49.326Z",
+  "cacheId": "f79aac0d5adc74e7bcc8",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth forest-green jade panel framed by a thick gold filigree border with carved cloud-scroll corners, a small carved fox head at the top centre, in the middle the words “Linh Thú” in large embossed gold brush calligraphy lettering (exact spelling: L i n h, then T h ú; ú is u with an acute accent). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "ui/lbl_story.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7130,
+  "attempt": 0,
+  "requestId": "01a1ddf9-fd62-71d3-a671-2dcf1cac4118",
+  "cost": 0.05,
+  "date": "2026-11-15T06:52:10.109Z",
+  "cacheId": "4e912783fc6d749b490d",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth dark azure-blue lacquer panel framed by a thick gold filigree border with carved cloud-scroll corners, a small unrolled scroll at the top centre, in the middle the words “Thiên Thư” in large embossed gold brush calligraphy lettering (exact spelling: T h i ê n, then T h ư; ê is e with a circumflex, ư is u with a horn). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "ui/lbl_odds.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7131,
+  "attempt": 0,
+  "requestId": "01a1ddfa-4e07-7f81-88a9-ed704d79e507",
+  "cost": 0.05,
+  "date": "2026-11-15T06:52:29.927Z",
+  "cacheId": "2af9cf12a5ba43f933c8",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth deep purple jade panel framed by a thick gold filigree border with carved cloud-scroll corners, a small glowing crystal orb at the top centre, in the middle the words “Xác suất” in large embossed gold brush calligraphy lettering (exact spelling: X á c, then s u ấ t; á is a with an acute accent, ấ is a with a circumflex and an acute accent). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "ui/lbl_settings.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7132,
+  "attempt": 0,
+  "requestId": "01a1ddfa-9b51-7361-b7cf-d98fb922c86a",
+  "cost": 0.05,
+  "date": "2026-11-15T06:53:00.031Z",
+  "cacheId": "16141f652507865fcd62",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth dark bronze-slate panel framed by a thick gold filigree border with carved cloud-scroll corners, a small armillary sphere of gold rings at the top centre, in the middle the words “Cài đặt” in large embossed gold brush calligraphy lettering (exact spelling: C à i, then đ ặ t; à is a with a grave accent, đ is d with a stroke, ặ is a with a breve and a dot below). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
  }
 }

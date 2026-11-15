@@ -6,10 +6,10 @@ import { type ErrCode } from '../strings';
 import { appendLog, loadAccount, saveAccount, withLock } from './store';
 import { savepoint } from './db';
 import { type AccountFile, ApiError } from './auth';
-import { randomInt } from 'node:crypto';
+import { randomInt, createHash } from 'node:crypto';
 import { publish } from './ranking';
-import { ensureDaily } from './dailystore';
-import { dailyVersion, dailyPacks } from '../daily';
+import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
+import { dailyVersion, dailyPacks, relicSig } from '../daily';
 const dailyArtCount = () => dailyPacks().filter((p) => p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
 
 const T0 = Date.UTC(2026, 0, 1);
@@ -33,7 +33,7 @@ function decisionView(st: G.GameState, now: number) {
   return { ...d, preview: pv.ok ? pv.data : null };
 }
 export function toView(st: G.GameState, now: number) {
-  const { seed: _s, streams: _r, reqs: _q, pend: _p, auditQ: _a, ledger, ledgerDaily, reports, ...rest } = st;
+  const { seed: _s, streams: _r, reqs: _q, pend: _p, auditQ: _a, relicQ: _rq, ledger, ledgerDaily, reports, ...rest } = st;
   return {
     ...rest,
     ledger: ledger.slice(-40), ledgerBalance: G.ledgerSum(st), ledgerDaily,
@@ -129,7 +129,30 @@ const READ_ONLY = new Set(['preview']);
 
 // One save per request. The ranking row is refreshed after it; a failure there never undoes the save (see ranking.publish).
 async function commit(id: string, acct: AccountFile, st: G.GameState) { acct.state = st; await saveAccount(acct); try { await publish(id, st, Date.now()); } catch (e) { console.error('[tutien] ranking', e); } }
+// Settle this save's dealings with the shared relic pool before it is stored. A relic found here is claimed for this save; when another save claimed it
+// first, the item keeps its numbers but gets a new look of its own (name and picture derived from the save id), so no two saves ever show the same relic.
+const everyItem = (st: G.GameState): G.Item[] => [...st.bag, ...st.stash, ...Object.values(st.eq).filter((x): x is G.Item => !!x)];
+function rerollLook(it: G.Item, id: string) {
+  const h = createHash('sha1').update(`${it.rel}|${id}`).digest();
+  it.name = `${C.PROPER1[h[0] % C.PROPER1.length]} ${C.PROPER2[h[1] % C.PROPER2.length]} ${it.base}`;
+  if (it.tier === 5) { it.tien = C.TIEN_VAN[h[2] % C.TIEN_VAN.length]; it.name += ` · ${it.tien.replace(' Tiên Văn', '')}`; }
+  it.art = 1000 + (h.readUInt32BE(4) % (2 ** 30 - 1000));
+}
+export async function drainRelics(id: string, st: G.GameState) {
+  const q = st.relicQ; if (!q || !q.length) return;
+  st.relicQ = [];
+  const lost = new Set<string>();
+  for (const e of q) {
+    try {
+      if (e.op === 'take') { if (!(await claimRelic(e.sig, id))) lost.add(e.sig); }
+      else if (!lost.has(relicSig(e))) await giveRelic(e, id);   // a look that was not ours never goes back to the pool
+    } catch (err) { console.error('[tutien] relics', err); if (e.op === 'take') lost.add(e.sig); }   // no answer from the database: the relic is not ours to keep
+  }
+  for (const it of everyItem(st)) if (it.rel) { if (lost.has(it.rel)) rerollLook(it, id); delete it.rel; }
+  if (lost.size) await ensureDaily(true);
+}
 async function drainAudit(id: string, st: G.GameState, now: number) {
+  await drainRelics(id, st);
   const q = st.auditQ; st.auditQ = [];
   for (const e of q) await appendLog('audit.log', { at: now, acc: id, ...e, versions: G.versions() });
 }
@@ -180,6 +203,7 @@ export async function actGame(id: string, body: any): Promise<Out> {
     const now = serverNow();
     if (body.type === 'restart') {
       const st = createState(body.gender === 'f' || body.gender === 'm' ? body.gender : undefined, now);
+      try { await releaseHeld(id); } catch (err) { console.error('[tutien] relics', err); }
       await commit(id, acct, st);
       return { ok: true, state: toView(st, now) };
     }

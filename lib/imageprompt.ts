@@ -56,7 +56,7 @@ function readEq(eq: any) {
   const out: Record<string, { b: string; t: number; e: string; v?: number } | null> = {};
   for (const s of C.VISIBLE) {
     const v = eq && eq[s];
-    out[s] = v ? { b: oneOf(v.b, C.SLOT_BASE[s]), t: intIn(v.t, 0, 5), e: oneOf(v.e, C.EO, true), ...(v.v ? { v: intIn(v.v, 1, 2 ** 30) } : {}) } : null;
+    out[s] = v ? { b: oneOf(v.b, C.basesOf(s)), t: intIn(v.t, 0, 5), e: oneOf(v.e, C.EO, true), ...(v.v ? { v: intIn(v.v, 1, 2 ** 30) } : {}) } : null;
   }
   return out;
 }
@@ -65,7 +65,7 @@ const itemDesc = (v: { b: string; t: number; e: string }, energy = false) => `${
 
 // ---------- item icons: they are what the player sees AND what the editing model copies onto the avatar
 function readItem(spec: any) {
-  const slot = oneOf(spec.slot, C.SLOTS), tier = intIn(spec.tier, 0, 5), base = oneOf(spec.base, C.SLOT_BASE[slot], true);
+  const slot = oneOf(spec.slot, C.SLOTS), tier = intIn(spec.tier, 0, 5), base = oneOf(spec.base, C.basesOf(slot), true);
   // the element tints the item from Huyền (tier 2) up; plainer items have no element colour
   const e = tier >= 2 ? oneOf(spec.e === undefined ? '' : spec.e, C.EO, true) : '';
   // v: which look of the same kind of item (0 = the common one). Địa uses a few looks, Thiên and Tiên a different one for every item.

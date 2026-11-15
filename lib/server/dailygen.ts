@@ -3,7 +3,7 @@
 // The model only writes names and words, and its output is checked before it is saved.
 import { ask, llmEnabled, parseJson } from '../llm';
 import * as C from '../content';
-import { type DailyPack, type DailySpecies, dailyPacks } from '../daily';
+import { type DailyPack, type DailySpecies, type DailyWeapon, dailyPacks } from '../daily';
 import { ensureDaily, loadPacks, savePack } from './dailystore';
 import { withLock } from './db';
 import lore from '../../content/lore.json';
@@ -38,7 +38,9 @@ const RARITY = [
 ];
 const SIZES: [number, number][] = [[10, 40], [40, 90], [90, 160], [160, 300], [300, 700], [700, 1000]];
 
-export interface Plan { day: string; el: string; archetype: string; rarity: string; rarityVi: string; archVi: string; cm: number; f: number[]; tame: number; zones: string[] }
+// Chance that today's new weapon also drops at each rarity (Phàm, Hoàng, Huyền, Địa). Phàm always gets one.
+const WEAPON_TIER_P = [1, 0.5, 0.25, 0.1];
+export interface Plan { day: string; el: string; archetype: string; rarity: string; rarityVi: string; archVi: string; cm: number; f: number[]; tame: number; zones: string[]; weaponCls: string; weaponTiers: number[] }
 export function planFor(day: string): Plan {
   const r = rng(hash(`tutien-daily|${day}`));
   const idx = Math.floor(Date.parse(day + 'T00:00:00Z') / 86400e3);
@@ -51,14 +53,17 @@ export function planFor(day: string): Plan {
   const f = ARCH[archetype].f.map((v) => Math.round(Math.min(1.6, Math.max(0.5, v * ra.mult * (0.97 + r() * 0.06))) * 100) / 100);
   const pool = C.ZONES.map((z) => z.id), want = ra.zones.filter((i) => i < pool.length);
   const zones = want.sort(() => r() - 0.5).slice(0, 2).map((i) => pool[i]);
-  return { day, el, archetype, rarity: ra.id, rarityVi: ra.vi, archVi: ARCH[archetype].vi, cm, f, tame: ra.tame, zones };
+  const classes = [...new Set(Object.values(C.WEAPON_CLASS))].sort();
+  const weaponCls = classes[Math.floor(r() * classes.length)];
+  const weaponTiers = WEAPON_TIER_P.map((p, i) => (r() < p ? i : -1)).filter((i) => i >= 0);
+  return { day, el, archetype, rarity: ra.id, rarityVi: ra.vi, archVi: ARCH[archetype].vi, cm, f, tame: ra.tame, zones, weaponCls, weaponTiers };
 }
 
 // ---- the part the model writes
 const loreText = () => { const l: any = lore; return `Thế giới: ${l.worldName}. ${l.tagline}\nMối họa: ${l.threat || ''}\nPhe phái: ${(l.factions || []).map((f: any) => `${f.name}: ${f.text}`).join(' | ')}`; };
 const system = () => `Bạn là người viết truyện tiên hiệp bằng tiếng Việt cho một game treo máy, mỗi ngày viết một chương mới của biên niên sử thế giới. Văn phong mơ mộng, giàu hình ảnh, dùng từ Hán-Việt vừa phải, dễ đọc. Chỉ viết bằng tiếng Việt với chữ Latinh: tuyệt đối không dùng chữ Hán, chữ Trung Quốc hay phiên âm tiếng Trung. Không bạo lực quá mức, không nội dung nhạy cảm, không lấy nhân vật hay tình tiết từ tác phẩm có bản quyền. Mỗi ngày một chủ đề khác, không lặp lại tình tiết các ngày trước.\n\nBỐI CẢNH CHUNG:\n${loreText()}\n\nChỉ trả về JSON hợp lệ, không thêm lời dẫn.`;
 
-function userPrompt(plan: Plan, past: DailyPack[], names: string[]): string {
+function userPrompt(plan: Plan, past: DailyPack[], names: string[], weaponNames: string[]): string {
   const zones = C.ZONES.map((z) => `- ${z.id}: ${z.name}. ${z.blurb}`).join('\n');
   const prev = past.slice(-5).map((p) => `${p.day}: ${p.title}`).join('\n') || '(chưa có chương nào)';
   const last = past.length ? past[past.length - 1].chronicle.slice(0, 500) : '';
@@ -73,16 +78,28 @@ ${zones}
 LOÀI YÊU THÚ MỚI hôm nay (đã định sẵn, chỉ cần đặt tên và miêu tả): hệ ${plan.el}, độ hiếm ${plan.rarityVi}, dài khoảng ${plan.cm} cm, vai trò ${plan.archVi}. Xuất hiện ở: ${plan.zones.map((z) => C.ZONE(z).name).join(', ')}.
 Tên các loài đã có, không được trùng: ${names.join(', ')}.
 
+PHÁP KHÍ MỚI hôm nay (một loại vũ khí mới, không phải món đồ riêng lẻ): thuộc môn "${plan.weaponCls}", cùng nhóm với ${C.SLOT_BASE.Weapon.filter((b) => C.WEAPON_CLASS[b] === plan.weaponCls).join(', ')} nhưng có hình dáng khác hẳn. Tên các pháp khí đã có, không được trùng: ${weaponNames.join(', ')}.
+
 Trả về JSON đúng dạng:
 {"title":"tiêu đề chương, tối đa 60 ký tự",
 "chronicle":"ba đoạn cách nhau bằng hai dấu xuống dòng, tổng 150-220 từ, kể một sự kiện của ngày hôm nay trong thế giới, có nhắc đến loài yêu thú mới",
 "tales":{${C.ZONES.map((z) => `"${z.id}":["4 câu ngắn, mỗi câu 1-2 vế, tối đa 160 ký tự, tả cảnh hoặc chuyện nhỏ trên đường tu hành ở khu vực này hôm nay, có thể nhắc sự kiện trong chương"]`).join(',')}},
 "beast":{"name":"tên Hán-Việt 2 đến 4 chữ, có hệ ${plan.el} trong ý nghĩa tên",
 "en":"mô tả hình dáng bằng TIẾNG ANH, 20-45 từ, một con vật duy nhất, kiểu thần thú phương Đông, nêu màu sắc, vật liệu cơ thể và hiệu ứng ${plan.el}, không có người, không có chữ",
-"legend":"truyền thuyết về loài này bằng tiếng Việt, 50-80 từ"}}`;
+"legend":"truyền thuyết về loài này bằng tiếng Việt, 50-80 từ"},
+"weapon":{"name":"tên Hán-Việt 2 đến 3 chữ, là tên một loại pháp khí (như Trường Kiếm, Phất Trần), không phải tên riêng",
+"en":"mô tả bằng TIẾNG ANH đúng một món vũ khí kiểu Trung Hoa cổ, 15-40 từ, chỉ tả hình dạng, chất liệu và chi tiết; không có người, không có chữ, không có ánh sáng phép thuật"}}`;
 }
 
-function build(plan: Plan, raw: any, names: Set<string>): DailyPack {
+function buildWeapon(plan: Plan, raw: any, weaponNames: Set<string>): DailyWeapon {
+  const w = raw || {};
+  const base = TEXT(w.name, 3, 30);
+  if (!/^[\p{L} ]+$/u.test(base) || weaponNames.has(base.toLowerCase())) throw new Error('weapon name');
+  const en = TEXT(w.en, 30, 300);
+  if (!/^[A-Za-z0-9 ,.'\-]+$/.test(en)) throw new Error('weapon en');
+  return { base, en, cls: plan.weaponCls, tiers: plan.weaponTiers, day: plan.day };
+}
+function build(plan: Plan, raw: any, names: Set<string>, weaponNames: Set<string>): DailyPack {
   const title = TEXT(raw.title, 3, 80);
   const chronicle = TEXT(raw.chronicle, 400, 2400);
   const tales: Record<string, string[]> = {};
@@ -98,7 +115,7 @@ function build(plan: Plan, raw: any, names: Set<string>): DailyPack {
   if (!/^[A-Za-z0-9 ,.'\-]+$/.test(en)) throw new Error('en');
   const legend = TEXT(b.legend, 120, 700);
   const beast: DailySpecies = { id: 'd' + plan.day.replace(/-/g, ''), name, el: [plan.el], cm: plan.cm, f: plan.f, tame: plan.tame, day: plan.day, zones: plan.zones, legend, en };
-  return { day: plan.day, title, chronicle, tales, beast };
+  return { day: plan.day, title, chronicle, tales, beast, weapon: buildWeapon(plan, raw.weapon, weaponNames) };
 }
 
 export type DailyResult = { day: string; story: 'created' | 'exists' | 'disabled' | 'failed'; art: 'ready' | 'pending' | 'skipped' | 'none'; error?: string };
@@ -116,11 +133,12 @@ export async function runDaily(day: string, o: { art?: boolean; force?: boolean 
         if (past.some((p) => p.day === day) && !o.force) return;
         const plan = planFor(day);
         const names = new Set([...C.SPECIES.map((s) => s.name), ...past.map((p) => p.beast.name)].map((n) => n.toLowerCase()));
+        const weaponNames = new Set([...C.SLOT_BASE.Weapon, ...past.map((p) => p.weapon?.base || '')].filter(Boolean).map((n) => n.toLowerCase()));
         let pack: DailyPack | null = null, err = '';
         for (let i = 0; i < 3 && !pack; i++) {
           try {
-            const text = await ask({ model: MODEL(), system: system(), content: userPrompt(plan, past.filter((p) => p.day < day), [...names]), maxTokens: 4000, tag: 'daily', maxPerHour: 8 });
-            pack = build(plan, parseJson(text), names);
+            const text = await ask({ model: MODEL(), system: system(), content: userPrompt(plan, past.filter((p) => p.day < day), [...names], [...weaponNames]), maxTokens: 4500, tag: 'daily', maxPerHour: 8 });
+            pack = build(plan, parseJson(text), names, weaponNames);
           } catch (e: any) { err = String(e?.message || e); if (err === 'budget' || err === 'rate' || err === 'no-key') break; }
         }
         if (!pack) throw new Error(err || 'invalid');
@@ -138,8 +156,14 @@ export async function runDaily(day: string, o: { art?: boolean; force?: boolean 
 async function drawArt(day: string): Promise<DailyResult['art']> {
   const pack = dailyPacks().find((p) => p.day === day);
   if (!pack) return 'none';
-  if (pack.beast.art) return 'ready';
   const { request, idle } = await import('../imagegen');
+  // The new weapon's plain icons (Phàm and Hoàng have no element tint, so one picture each serves every player); the tinted ones are drawn when first seen.
+  if (pack.weapon) {
+    let waiting = false;
+    for (const t of pack.weapon.tiers.filter((x) => x <= 1)) { const r = await request({ kind: 'item', slot: 'Weapon', base: pack.weapon.base, tier: t, e: '', pri: 3 }); if (r.status === 'pending') waiting = true; }
+    if (waiting) await idle(120000);
+  }
+  if (pack.beast.art) return 'ready';
   let r = await request({ kind: 'monster', sp: pack.beast.id });
   if (r.status === 'pending') { await idle(240000); r = await request({ kind: 'monster', sp: pack.beast.id }); }
   if (r.status !== 'ready' || !r.url) return r.status === 'pending' ? 'pending' : 'skipped';
