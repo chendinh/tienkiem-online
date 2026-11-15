@@ -226,7 +226,6 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
         {!drawing && !hasPic && on && base.status === 'pending' && <div className="aiTag busy">AI đang vẽ nhân vật…</div>}
         {!drawing && hasPic && <div className={`aiTag ${changed ? 'stale' : ''}`}>{changed ? '✦ Trang bị đã đổi' : '✦ Khớp trang bị'}</div>}
         <div className="sparkle">{tier >= 3 && Array.from({ length: 12 }, (_, i) => <b key={i} style={{ left: `${(i * 37) % 90 + 5}%`, animationDelay: `${(i % 6) * 0.8}s` }} />)}</div>
-        <div className="heroTag"><b style={{ color: C.RCOLOR[tier] }}>{C.RARITY[tier]}</b> · {st.eq.Robe ? st.eq.Robe.name : 'Y phục thô'}</div>
       </div>
       {msg && <div className="hint warn">{msg}</div>}
       {oldArt && (

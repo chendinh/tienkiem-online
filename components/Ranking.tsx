@@ -134,7 +134,7 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
     <div className="rankProfile">
       {back}
       <div className="rkHead">
-        <div className="rkPic">{p.avatar ? <Img src={`${p.avatar}?s=face`} className="fill" fb={<Logo size={48} />} /> : <Logo size={48} />}</div>
+        <div className="rkPic">{p.avatar ? <Img src={p.avatar} className="fill" fb={<Logo size={48} />} /> : <Logo size={48} />}</div>
         <div className="rkWhoBig">
           <h2>{p.name}</h2>
           {p.dao && <div className="dao">{p.dao}</div>}

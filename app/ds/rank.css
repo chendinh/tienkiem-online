@@ -72,7 +72,7 @@
 
   /* the chosen one */
   .rkHead { display: flex; gap: var(--sp-4); align-items: flex-start; }
-  .rkPic { flex: none; width: 124px; aspect-ratio: 1 / 1; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line-gold-strong); background: var(--ink-800); display: grid; place-items: center; box-shadow: var(--sh-2); }
+  .rkPic { flex: none; width: 124px; aspect-ratio: 2 / 3; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line-gold-strong); background: var(--ink-800); display: grid; place-items: center; box-shadow: var(--sh-2); }
   .rkPic .fill { width: 100%; height: 100%; object-fit: cover; object-position: top; }
   .rkWhoBig { min-width: 0; }
   .rkWhoBig h2 { margin: 0; font-size: var(--fs-2xl); }
