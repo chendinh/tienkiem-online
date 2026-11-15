@@ -31,6 +31,7 @@ export const BALANCE = {
   highlightLimit: 10,
   reportHistory: 20,
   feedSize: 50,
+  feedLogKeep: 12,   // only the newest journey entries keep their fight log (older ones keep the summary): the logs were most of the save
   // zones (Requirement 6)
   phenomenonSlotSec: 10800,
   phenomenonP: 0.35,
@@ -198,7 +199,7 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   need(1 - b.sizeSpeedCoef * (b.sizeMax - 1) > 0, 'Hệ số kích thước của Speed phải dương tại Size_Max');
   // Requirement 14
   need(b.skillSlotsByRealm.length === 9 && b.skillSlotsByRealm.every((x, i) => isInt(x) && x >= 1 && (i === 0 || x >= b.skillSlotsByRealm[i - 1])), 'Skill_Slots_By_Realm phải gồm 9 số nguyên >= 1 và không giảm');
-  need(b.bookDropP >= 0 && b.bookDropP <= 1 && b.bookEliteMult >= 1 && b.bookTierWeights.length === 4 && b.bookTierWeights.every((x) => x > 0) && b.dupBookStones.length === 4 && b.dupBookStones.every((x) => isInt(x) && x >= 0) && b.playerCoefScale > 0 && b.healScale > 0 && isInt(b.pollSaveTicks) && b.pollSaveTicks >= 1 && b.methodAffinityBonus >= 0 && b.methodStatBias >= 0 && b.methodDropP >= 0 && b.methodDropP <= 1, 'Book_* không hợp lệ');
+  need(b.bookDropP >= 0 && b.bookDropP <= 1 && b.bookEliteMult >= 1 && b.bookTierWeights.length === 4 && b.bookTierWeights.every((x) => x > 0) && b.dupBookStones.length === 4 && b.dupBookStones.every((x) => isInt(x) && x >= 0) && b.playerCoefScale > 0 && b.healScale > 0 && isInt(b.pollSaveTicks) && b.pollSaveTicks >= 1 && isInt(b.feedLogKeep) && b.feedLogKeep >= 1 && b.feedLogKeep <= b.feedSize && b.methodAffinityBonus >= 0 && b.methodStatBias >= 0 && b.methodDropP >= 0 && b.methodDropP <= 1, 'Book_* không hợp lệ');
   need(b.offElementPenalty > 0 && b.offElementPenalty < 1 && b.spiritRegenPct >= 0 && b.spiritRegenPct <= 1 && b.foeCoefScale > 0 && b.beastCoefScale > 0, 'Skill_* không hợp lệ');
   need(b.weakMult > 0 && b.weakMult < b.neutralMult && b.neutralMult < b.strongMult && b.sameElementBonus >= 1, 'Element multiplier không hợp lệ');
   // Requirement 19, 20

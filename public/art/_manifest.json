@@ -2438,5 +2438,29 @@
   "date": "2026-11-15T06:53:00.031Z",
   "cacheId": "16141f652507865fcd62",
   "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth dark bronze-slate panel framed by a thick gold filigree border with carved cloud-scroll corners, a small armillary sphere of gold rings at the top centre, in the middle the words “Cài đặt” in large embossed gold brush calligraphy lettering (exact spelling: C à i, then đ ặ t; à is a with a grave accent, đ is d with a stroke, ặ is a with a breve and a dot below). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "zones/chodem_quay.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 6007,
+  "attempt": 0,
+  "requestId": "01a1de2b-6906-7773-9d59-a2df8e25d34f",
+  "cost": 0.05,
+  "date": "2026-11-15T07:46:09.372Z",
+  "cacheId": "30c1fb0439ee650a7e47",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A wide cinematic xianxia environment concept painting of a single small wooden xianxia night-market stall under a hanging red paper lantern, empty cloth-covered counter with a tiny incense burner and a faint spirit-light glow, narrow stone alley at night, soft blue mist, no people, no readable signs. Wide landscape composition with open space, no people in the foreground, no writing. No text, no watermark, no logo, no border."
+ },
+ "zones/chodem.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 29763,
+  "attempt": 2,
+  "requestId": "01a1de2c-0d0c-7da3-9a33-af890f96ba42",
+  "cost": 0.05,
+  "date": "2026-11-15T07:47:04.250Z",
+  "cacheId": "4c7282b49c36fae7ccd6",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A wide cinematic xianxia environment concept painting of a mysterious xianxia night market in an ancient mountain-town alley after midnight, rows of red and amber paper lanterns, cloaked cultivators browsing wooden stalls laid with jade tablets, swords and glowing spirit artifacts, drifting incense smoke, a crescent moon over tiled roofs, deep indigo and warm gold light, no readable signs. Wide landscape composition with open space, no people in the foreground, no writing. No text, no watermark, no logo, no border."
  }
 }

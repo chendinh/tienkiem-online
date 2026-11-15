@@ -258,7 +258,7 @@ function shareRelic(st: GameState, it: Item) {
 function dissolveItem(st: GameState, it: Item, rep?: Report, full = false) {
   shareRelic(st, it);
   earn(st, dissolveValue(it), 'dissolve', rep); if (rep) { rep.dissolved++; if (full) rep.dissolvedFull++; } }
-function feed(st: GameState, e: Omit<FeedEntry, 'id' | 'tick'>) { st.feed.unshift({ id: ++st.uid, tick: st.tick, ...e }); if (st.feed.length > B.feedSize) st.feed.length = B.feedSize; }
+function feed(st: GameState, e: Omit<FeedEntry, 'id' | 'tick'>) { st.feed.unshift({ id: ++st.uid, tick: st.tick, ...e }); if (st.feed.length > B.feedSize) st.feed.length = B.feedSize; for (let i = B.feedLogKeep; i < st.feed.length; i++) if (st.feed[i].log) delete st.feed[i].log; }
 
 // Put an Item_Instance away: auto-dissolve, bag, stash, or the rule for when both are full (Requirement 21.2 to 21.5). `x` is never locked.
 function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissolved' | 'auto' {

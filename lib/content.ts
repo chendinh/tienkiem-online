@@ -471,6 +471,8 @@ export const shopArt = (id: string) => `/art/shop/${id}.jpg`;
 export const matArt = (id: string) => `/art/shop/mat_${id}.jpg`;
 export const zoneArt = (id: string) => `/art/zones/${id}.jpg`;
 export const MARKET_ART = '/art/zones/market.jpg';
+export const NIGHT_ART = '/art/zones/chodem.jpg';
+export const NIGHT_EMPTY_ART = '/art/zones/chodem_quay.jpg';
 export const uiArt = (id: string) => `/art/ui/${id}.jpg`;
 export const bookArt = (cls: string) => `/art/shop/book_${cls}.jpg`;
 // English descriptions used only to build prompts on the server (the browser sends just the id).
@@ -523,6 +525,8 @@ export const PLACE_EN: Record<string, string> = {
   loivan: 'a high plateau under dark storm clouds, violet lightning striking ancient stone pillars, dramatic wind',
   cuuu: 'a surreal void between yin and yang, floating islands, swirling black and gold mist, a glowing rift of light in the sky',
   market: 'a bustling ancient fantasy market street at dusk, hanging lanterns, wooden stalls with elixir bottles and jade tablets, warm lamp light, no readable signs',
+  chodem: 'a mysterious xianxia night market in an ancient mountain-town alley after midnight, rows of red and amber paper lanterns, cloaked cultivators browsing wooden stalls laid with jade tablets, swords and glowing spirit artifacts, drifting incense smoke, a crescent moon over tiled roofs, deep indigo and warm gold light, no readable signs',
+  chodem_quay: 'a single small wooden xianxia night-market stall under a hanging red paper lantern, empty cloth-covered counter with a tiny incense burner and a faint spirit-light glow, narrow stone alley at night, soft blue mist, no people, no readable signs',
 };
 // Different looks for Địa and above (Requirement: rarer items are not drawn twice the same way).
 export const ITEM_DESIGNS = [

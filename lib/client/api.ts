@@ -45,4 +45,9 @@ export async function rankingGet(query: string): Promise<any> {
   if (status === 401) return { ok: false, code: 'E_AUTH' };
   return j;
 }
+export async function marketGet(query: string): Promise<any> {
+  const { status, j } = await retrying(() => send(`/api/market?${query}`));
+  if (status === 401) return { ok: false, code: 'E_AUTH' };
+  return j;
+}
 export const messageOf = (o: { ok: boolean; code?: string; msg?: string }) => (o.ok ? o.msg || '' : errText(o.code || 'E_SERVER'));

@@ -54,6 +54,15 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS images (id text PRIMARY KEY, kind text NOT NULL DEFAULT 'other', folder text NOT NULL DEFAULT 'other', ext text NOT NULL, data bytea NOT NULL, sm bytea, meta jsonb NOT NULL DEFAULT '{}', created timestamptz NOT NULL DEFAULT now())`,
   // a picture being drawn right now: stops two server instances from paying for the same picture twice
   `CREATE TABLE IF NOT EXISTS image_jobs (id text PRIMARY KEY, started bigint NOT NULL)`,
+  // Chợ Đêm: items a player put up for a swap (held here until swapped, withdrawn or expired) and the mailbox that delivers items to a save
+  `CREATE TABLE IF NOT EXISTS market_listings (id bigserial PRIMARY KEY, seller text NOT NULL, seller_info jsonb NOT NULL, item jsonb NOT NULL, want jsonb NOT NULL, status text NOT NULL DEFAULT 'open', created bigint NOT NULL, expires bigint NOT NULL, closed bigint)`,
+  `CREATE INDEX IF NOT EXISTS market_open ON market_listings (id DESC) WHERE status = 'open'`,
+  `CREATE INDEX IF NOT EXISTS market_seller ON market_listings (seller) WHERE status = 'open'`,
+  `CREATE TABLE IF NOT EXISTS market_offers (id bigserial PRIMARY KEY, listing bigint NOT NULL, bidder text NOT NULL, bidder_info jsonb NOT NULL, item jsonb NOT NULL, status text NOT NULL DEFAULT 'open', created bigint NOT NULL, closed bigint)`,
+  `CREATE INDEX IF NOT EXISTS market_offers_listing ON market_offers (listing) WHERE status = 'open'`,
+  `CREATE INDEX IF NOT EXISTS market_offers_bidder ON market_offers (bidder) WHERE status = 'open'`,
+  `CREATE TABLE IF NOT EXISTS market_inbox (id bigserial PRIMARY KEY, acc text NOT NULL, item jsonb NOT NULL, kind text NOT NULL, note jsonb NOT NULL DEFAULT '{}', created bigint NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS market_inbox_acc ON market_inbox (acc)`,
 ];
 
 // Create the tables once per server process. Everything runs in ONE transaction under a transaction-level advisory lock, so two

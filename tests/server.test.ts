@@ -294,3 +294,16 @@ test('an ordinary poll settles a copy without saving, and the result is the same
   await S.getGame(a.id);
   assert.ok((await saved()).tick > t0, 'a long gap is saved');
 });
+
+test('the save is stored compressed, a plain-JSON save from before is still read, and both come back the same', async () => {
+  const a = await signUp('gz@example.com');
+  const raw = async () => (await D.query<{ state: string }>('SELECT state FROM accounts WHERE id = $1', [a.id])).rows[0].state;
+  await editState(a.id, (st) => { st.stones += 0; });
+  const stored = await raw();
+  assert.ok(stored.startsWith('gz1:'), 'saved compressed');
+  const back = (await St.loadAccount(a.id))!.state;
+  assert.ok(stored.length < JSON.stringify(back).length, 'smaller than the JSON');
+  await D.query('UPDATE accounts SET state = $2 WHERE id = $1', [a.id, JSON.stringify(back)]);   // the way it used to be written
+  assert.deepEqual((await St.loadAccount(a.id))!.state, back);
+  assert.equal((await S.getGame(a.id)).state!.player.name, back.player.name);
+});

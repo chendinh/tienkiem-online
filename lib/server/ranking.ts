@@ -5,7 +5,7 @@ import { createHmac } from 'node:crypto';
 import * as G from '../game';
 import * as C from '../content';
 import { query, savepoint } from './db';
-import { loadAccount } from './store';
+import { loadAccount, decodeState } from './store';
 
 export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number; av?: string }
 export type Board = 'cult' | 'power';
@@ -29,7 +29,7 @@ function secret(): Promise<string> {
       const sec = (await query<{ v: string }>(`SELECT value #>> '{}' AS v FROM kv WHERE key = 'rank.secret'`)).rows[0].v;
       if (!(await query('SELECT 1 FROM rank_entries LIMIT 1')).rowCount) {
         for (const a of (await query<{ id: string; state: string | null }>('SELECT id, state FROM accounts WHERE state IS NOT NULL')).rows) {
-          try { const st = JSON.parse(a.state!); if (st && st.player) await upsert(entryOf(st, pidOf(sec, a.id), a.id, Date.now())); } catch {}
+          try { const st = decodeState(a.state!); if (st && st.player) await upsert(entryOf(st, pidOf(sec, a.id), a.id, Date.now())); } catch {}
         }
       }
       return sec;

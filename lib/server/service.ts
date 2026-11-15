@@ -8,6 +8,7 @@ import { savepoint } from './db';
 import { type AccountFile, ApiError } from './auth';
 import { randomInt, createHash } from 'node:crypto';
 import { publish } from './ranking';
+import * as M from './market';
 import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
 import { dailyVersion, dailyPacks, relicSig } from '../daily';
 const dailyArtCount = () => dailyPacks().filter((p) => p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
@@ -125,6 +126,12 @@ const INTENTS: Record<string, Handler> = {
   method: (st, b) => G.setMethod(st, b.name),
   cosmetic: (st, b) => cosmetic(st, b),
 };
+// Intents that also touch tables outside the save (Chợ Đêm). Same pipeline: they run inside the account lock, on a copy of the state.
+// They must refuse BEFORE writing to those tables (see market.ts), because a refusal still commits the transaction.
+type AsyncHandler = (acc: string, st: G.GameState, b: any, now: number) => Promise<G.Res>;
+const ASYNC_INTENTS: Record<string, AsyncHandler> = {
+  market_list: M.list, market_cancel: M.cancel, market_offer: M.offer, market_withdraw: M.withdraw, market_accept: M.accept, market_decline: M.decline, market_claim: M.claim,
+};
 const READ_ONLY = new Set(['preview']);
 
 // One save per request. The ranking row is refreshed after it; a failure there never undoes the save (see ranking.publish).
@@ -204,6 +211,7 @@ export async function actGame(id: string, body: any): Promise<Out> {
     if (body.type === 'restart') {
       const st = createState(body.gender === 'f' || body.gender === 'm' ? body.gender : undefined, now);
       try { await releaseHeld(id); } catch (err) { console.error('[tutien] relics', err); }
+      await M.purge(id);
       await commit(id, acct, st);
       return { ok: true, state: toView(st, now) };
     }
@@ -218,15 +226,15 @@ export async function actGame(id: string, body: any): Promise<Out> {
     };
     const view = (s: G.GameState) => toView(s, now);
     if (body.type === 'preview') { const r = G.previewBreakthrough(st0); return leave({ ok: r.ok, code: r.code, msg: r.msg, data: r.data, state: view(st0) }); }
-    const h = INTENTS[body.type];
-    if (!h || READ_ONLY.has(body.type)) return leave({ ok: false, code: 'E_BAD_REQUEST', state: view(st0) });
+    const ah = ASYNC_INTENTS[body.type], h = ah ? undefined : INTENTS[body.type];
+    if ((!h && !ah) || READ_ONLY.has(body.type)) return leave({ ok: false, code: 'E_BAD_REQUEST', state: view(st0) });
     // a repeated Request_Id returns the first result and changes nothing (Requirement 2.7, 2.8)
     const rid = typeof body.rid === 'string' && body.rid.length >= 8 && body.rid.length <= 80 ? body.rid : null;
     if (body.type !== 'cosmetic' && body.type !== 'ack' && !rid) return leave({ ok: false, code: 'E_BAD_REQUEST', state: view(st0) });
     if (rid && st0.reqs[rid]) { const r = st0.reqs[rid].res; return leave({ ok: r.ok, code: r.code, msg: r.msg, data: r.data, state: view(st0) }); }
     const work = structuredClone(st0);
     let res: G.Res;
-    try { res = h(work, body, now); } catch { return leave({ ok: false, code: 'E_SERVER', state: view(st0) }); }
+    try { res = ah ? await ah(id, work, body, now) : h!(work, body, now); } catch { return leave({ ok: false, code: 'E_SERVER', state: view(st0) }); }
     if (!res.ok) return leave({ ok: false, code: res.code, msg: res.msg, state: view(st0) });
     G.flushLedger(work, rid || `${body.type}:${now}`, now);
     if (rid) {

@@ -1,7 +1,7 @@
 'use client';
 import { ModalClose, XSeal } from './ds/ModalClose';
 import { askConfirm, askPrompt, Toast } from './ds/Dialog';
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
 import * as A from '@/lib/arts';
@@ -12,6 +12,7 @@ import { errText } from '@/lib/strings';
 import { BALANCE } from '@/lib/balance';
 import { AuthScreen } from './Auth';
 import { RankingModal } from './Ranking';
+import { NightMarketModal } from './NightMarket';
 import { MarketModal, Window, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
@@ -36,7 +37,13 @@ import { Credits } from './Credits';
 const POLL_MS = Math.min(BALANCE.onlinePollSec * 1000, 5000);   // never slower than Online_Poll_Interval
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function FeedRow({ e }: { e: FeedEntry }) {
+// A fight log is up to 56 cards. It is built only when the player opens it, and a row is drawn again only when its entry changes (the whole feed is replaced by a new copy at every poll).
+function FightLog({ log, foe, summary }: { log: string[]; foe: string; summary: string }) {
+  const [open, setOpen] = useState(false);
+  return <details className="flog" onToggle={(ev) => setOpen((ev.currentTarget as HTMLDetailsElement).open)}><summary><Icon name="atk" size={13} /> {summary} · xem diễn biến</summary>{open && <BattleLog log={log} foe={foe} />}</details>;
+}
+const FeedRow = memo(FeedRowInner, (a, b) => a.e.id === b.e.id && a.e.text === b.e.text && !!a.e.log === !!b.e.log);
+function FeedRowInner({ e }: { e: FeedEntry }) {
   if (e.beast) {
     const b = e.beast, sp = SP(b.sp);
     return (
@@ -53,7 +60,7 @@ function FeedRow({ e }: { e: FeedEntry }) {
             {e.chips?.map((c, i) => <span key={i} className="chip gold">{c}</span>)}
           </div>
           <SizeMeter b={b} />
-          {e.log && e.log.length > 0 && <details className="flog"><summary><Icon name="atk" size={13} /> {battleSummary(e.log, b.name)} · xem diễn biến</summary><BattleLog log={e.log} foe={b.name} /></details>}
+          {e.log && e.log.length > 0 && <FightLog log={e.log} foe={b.name} summary={battleSummary(e.log, b.name)} />}
         </div>
       </div>
     );
@@ -280,7 +287,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [ai, setAi] = useState<any>(null);
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
-  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'pen' | 'dex' | 'arts'>(null);
+  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'pen' | 'dex' | 'arts'>(null);
   const openWin = (w: 'market' | 'pen' | 'dex' | 'arts') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
@@ -480,6 +487,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         <nav className="topNav" aria-label="Chức năng">
           <button type="button" className="nav pic rank" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
           <button type="button" className="nav pic alt market" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
+          <button type="button" className="nav pic alt night" data-tone="violet" title="Chợ Đêm: đổi pháp khí với tu sĩ khác" aria-label="Chợ Đêm" onClick={() => { cue.open(); setModal('night'); }}><span className="navIco"><Icon name="moon" size={18} /></span><span className="lbl">Chợ Đêm</span></button>
           <button type="button" className="nav pic alt arts" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
           <button type="button" className="nav pic alt pen" data-tone="jade" title="Linh Thú ngươi đã thu phục" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
           <button type="button" className="nav pic alt story" data-tone="jade" title="Thiên Thư" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
@@ -495,6 +503,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
               <button type="button" className="btn sm" onClick={() => openWin('market')}><Icon name="stone" size={15} /> Phường Thị</button>
               <button type="button" className="btn sm" onClick={() => openWin('arts')}><Icon name="bolt" size={15} /> Thần Thông</button>
               <button type="button" className="btn sm" onClick={() => openWin('pen')}><Icon name="paw" size={15} /> Linh Thú</button>
+              <button type="button" className="btn sm" onClick={() => { cue.open(); setSideOpen(false); setModal('night'); }}><Icon name="moon" size={15} /> Chợ Đêm</button>
               <button type="button" className="btn sm" onClick={() => openWin('dex')}><Icon name="book" size={15} /> Sưu Tập</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setCodex('story'); }}><Icon name="scroll" size={15} /> Thiên Thư</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('odds'); }}><Icon name="luck" size={15} /> Xác suất</button>
@@ -684,6 +693,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
       </Window>}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} />}
+      {modal === 'night' && <NightMarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'rank' && <RankingModal onClose={() => setModal(null)} />}
       {modal === 'odds' && <OddsModal st={st} onClose={() => setModal(null)} />}
       {rep && p.prologueSeen && <ReportModal rep={rep} title="Chào mừng trở lại" onClose={() => ack(rep.id)} />}
