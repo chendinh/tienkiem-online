@@ -16,6 +16,9 @@
   small { color: var(--text-3); font-size: 0.86em; }
   a { color: var(--jade-300); }
   button, input, select, textarea { font: inherit; color: inherit; }
+  /* iOS Safari zooms the page when a focused field has font-size < 16px */
+  input, select, textarea { font-size: max(16px, 1em); }
+  input[type='checkbox'], input[type='radio'] { font-size: inherit; }
   button { -webkit-tap-highlight-color: transparent; }
   img { -webkit-user-drag: none; max-width: 100%; }
   [hidden] { display: none !important; }
