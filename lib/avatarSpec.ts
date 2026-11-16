@@ -48,6 +48,7 @@ export const equipSig = (st: Wearer) => { const s = equipSpec(st); return C.VISI
 // `v` is the look of the picture: none for common items (they share pictures), a few looks for Địa, one of its own for Thiên and Tiên.
 export const itemSpec = (it: Item) => ({ kind: 'item', slot: it.slot, base: it.base, tier: it.tier, e: it.tier >= 2 ? it.el : '', ...(it.art ? { v: it.art } : {}) });
 export const propSpec = (id: string) => ({ kind: 'prop', id });
+export const bookSpec = (id: string) => ({ kind: 'book', id });
 export const placeSpec = (id: string) => ({ kind: 'place', id });
 
 // Fixed pictures drawn once by scripts/pregen.ts and shipped in public/art.

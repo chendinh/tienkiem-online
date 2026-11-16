@@ -7,9 +7,9 @@ import { ElIcon } from './Icons';
 // The fight, told as a chronicle: who acted, which technique, who was hit, for how much, and why the number is what it is.
 // The server writes each action as a '~{json}' line (see `rec` in lib/game.ts). Older saves hold plain lines such as
 // "H1 Ngươi · Kim Quang Trảm: 66 bạo kích (x1.00, cùng hệ)"; those are read back into the same shape, minus what they never recorded.
-type Open = { t: 'open'; f: string; fe: string[]; fh: number; ph: number; pm: number };
+type Open = { t: 'open'; f: string; fe: string[]; fh: number; ph: number; pm: number; ar?: string };
 // w: p = you, b = your Linh Thú, m = the foe, u = unknown (old save)
-type Act = { r: number; w: 'p' | 'b' | 'm' | 'u'; u?: number; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; to?: string; d: number; c: number; x: number; s: number; h?: number; hm?: number };
+type Act = { r: number; w: 'p' | 'b' | 'm' | 'u'; u?: number; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; to?: string; d: number; c: number; x: number; am?: number; s: number; h?: number; hm?: number };
 type Line = { kind: 'open'; o: Open } | { kind: 'act'; a: Act } | { kind: 'text'; text: string };
 
 const SKILL_EL: Record<string, string> = {};
@@ -58,6 +58,8 @@ function why(a: Act): { cls: string; text: string; tip: string }[] {
   const out: { cls: string; text: string; tip: string }[] = [];
   if (a.x > 1) out.push({ cls: 'strong', text: `Khắc chế ×${a.x.toFixed(2)}`, tip: 'Hệ của chiêu thức khắc hệ của người bị đánh: sát thương tăng.' });
   else if (a.x < 1) out.push({ cls: 'weak', text: `Bị chế ×${a.x.toFixed(2)}`, tip: 'Hệ của chiêu thức bị hệ của người bị đánh chế ngự: sát thương giảm.' });
+  if (a.am && a.am > 1) out.push({ cls: 'strong', text: `Chiến trường ×${a.am.toFixed(2)}`, tip: 'Chiến trường này tăng sức mạnh cho hệ của chiêu thức.' });
+  else if (a.am && a.am < 1) out.push({ cls: 'weak', text: `Chiến trường ×${a.am.toFixed(2)}`, tip: 'Chiến trường này làm yếu hệ của chiêu thức.' });
   if (a.u && a.u > 1) out.push({ cls: 'same', text: `${a.u} đòn`, tip: 'Chiêu này bắn nhiều đòn trong một lượt; sát thương là tổng các đòn.' });
   if (a.s) out.push({ cls: 'same', text: 'Bản mệnh ×1.2', tip: 'Chiêu thức cùng hệ với Linh Căn của ngươi: sát thương tăng thêm 20%.' });
   if (a.c) out.push({ cls: 'crit', text: 'Bạo kích', tip: 'Đòn đánh trúng chỗ hiểm: sát thương nhân lên theo Bạo Thương.' });
@@ -95,6 +97,7 @@ export function BattleLog({ log, foe }: { log: string[]; foe?: string }) {
           </div>
         </div>
       )}
+      {open && C.ARENA(open.o.ar) && (() => { const ar = C.ARENA(open.o.ar)!; return <div className="barena" title={ar.note}><b>{ar.name}</b> · tăng <span className="up">{ar.boost.join(', ')}</span> · giảm <span className="down">{ar.weaken.join(', ')}</span></div>; })()}
       {lines.map((l, i) => {
         if (l.kind === 'open') return null;
         if (l.kind === 'text') {

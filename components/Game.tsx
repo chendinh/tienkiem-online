@@ -13,7 +13,8 @@ import { BALANCE } from '@/lib/balance';
 import { AuthScreen } from './Auth';
 import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
-import { MarketModal, Window, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
+import { DailyModal } from './Daily';
+import { MarketModal, Window, DaoModal, TitleModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import lore from '@/content/lore.json';
@@ -105,7 +106,7 @@ const WHY: Record<string, string> = { limited: 'Đã chạm giới hạn ảnh A
 // is drawn once per character, then the standing pose (an edit of the base, drawn automatically). After that the picture only changes when
 // the player presses the button: the AI redraws the SAME person, in the same pose, wearing what is equipped right now.
 function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: number; aura: string; on: boolean; offWhy: string; save: () => void; re: () => void; onBio: () => void }) {
-  const p = st.player, av = p.avatar;
+  const p = st.player, av = p.avatar, zoom = useZoom();
   const heroRef = useRef<HTMLDivElement>(null); useTilt(heroRef);
   const cue = useCue();
   const sig = equipSig(st);
@@ -220,7 +221,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
       <div ref={heroRef} className={`hero tier${tier}`} style={{ '--aura': C.EL[aura].color, '--rc': C.RCOLOR[tier] } as CSSProperties}>
         <div className="halo" />
         {hasPic
-          ? <Img key={av!.url} src={av!.url} className="heroImg genimg" style={av!.crop ? { height: `${100 / (1 - av!.crop)}%` } : undefined} fb={<Logo size={64} />} onBad={broken} />
+          ? <div className="heroZoom zoomable" role="button" tabIndex={0} title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'avatar', src: av!.url!, name: p.name, sub: `${p.dao ? p.dao + ' · ' : ''}${C.REALMS[p.realm]} · ${C.SUBS[p.sub]}`, crop: av!.crop })} onKeyDown={(e) => { if (e.key === 'Enter') zoom({ kind: 'avatar', src: av!.url!, name: p.name, crop: av!.crop }); }}><Img key={av!.url} src={av!.url} className="heroImg genimg" style={av!.crop ? { height: `${100 / (1 - av!.crop)}%` } : undefined} fb={<Logo size={64} />} onBad={broken} /></div>
           : <div className="heroPh"><Logo size={72} /><span>{!on ? offWhy : baseWhy || 'AI đang vẽ nhân vật…'}</span>{on && base.status === 'failed' && <button className="btn" onClick={() => setBaseTry((n) => n + 1)}>Thử lại</button>}</div>}
         {drawing && <div className="aiTag busy">{restyle ? (restyle.stage === 'base' ? 'AI đang vẽ lại nhân vật (ảnh gốc mới)…' : 'AI đang vẽ tư thế đứng…') : posing || roll ? 'AI đang vẽ tư thế đứng…' : 'AI đang vẽ theo trang bị…'}</div>}
         {!drawing && !hasPic && on && base.status === 'pending' && <div className="aiTag busy">AI đang vẽ nhân vật…</div>}
@@ -286,7 +287,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [ai, setAi] = useState<any>(null);
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
-  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'pen' | 'dex' | 'arts'>(null);
+  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title'>(null);
   const openWin = (w: 'market' | 'pen' | 'dex' | 'arts') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
@@ -461,7 +462,6 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     if (!r.ok) say(r.msg, false);
   };
   const toggleGen = (v: boolean) => { setGenOn(v); try { localStorage.setItem('tutien-genon', v ? '1' : '0'); } catch {} };
-  const restart = async () => { if (await askConfirm({ title: 'Bắt đầu lại', body: 'Xóa nhân vật hiện tại và bắt đầu lại từ đầu? Tiến trình sẽ mất.', ok: 'Bắt đầu lại', danger: true })) setIntro(true); };
   const state = st.decision ? 'Chờ quyết định' : st.recovery ? 'Điều Tức' : (p.injury || 0) > 0 ? 'Thương Thế' : p.heartDemon > 0 ? 'Tâm Ma' : st.set.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện';
   const ack = async (id: string) => { await act('ack', { id }); };
 
@@ -484,24 +484,26 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
           ]} />
         </div>
         <nav className="topNav" aria-label="Chức năng">
-          <button type="button" className="nav pic rank" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
+          <button type="button" className="nav pic rank quick" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
           <button type="button" className="nav pic alt market" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
           <button type="button" className="nav pic alt night" data-tone="violet" title="Chợ Đêm: đổi pháp khí với tu sĩ khác" aria-label="Chợ Đêm" onClick={() => { cue.open(); setModal('night'); }}><span className="navIco"><Icon name="moon" size={18} /></span><span className="lbl">Chợ Đêm</span></button>
+          <button type="button" className="nav pic alt daily quick" data-tone="gold" title="Nhiệm vụ và sự kiện hằng ngày" aria-label="Nhiệm vụ và sự kiện" onClick={() => { cue.open(); setModal('daily'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_quest')})` }} aria-hidden="true" /><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Nhiệm vụ</span></button>
           <button type="button" className="nav pic alt arts" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
           <button type="button" className="nav pic alt pen" data-tone="jade" title="Linh Thú ngươi đã thu phục" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
           <button type="button" className="nav pic alt story" data-tone="jade" title="Thiên Thư" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
           <button type="button" className="nav pic alt odds" data-tone="azure" title="Xác suất" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
           <button type="button" className="nav pic alt settings" data-tone="violet" title="Cài đặt" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
-          <button type="button" className={`nav pic kho ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" title="Kho báu: trang bị, thần thông, linh thú" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
+          <button type="button" className={`nav pic kho quick ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" title="Kho báu: trang bị, thần thông, linh thú" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_bag')})` }} aria-hidden="true" /><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
         </nav>
         <div className="orbs">
-          <MusicOrb onCredits={() => setCredits(true)} />
+          <span className="musicSlot"><MusicOrb onCredits={() => setCredits(true)} /></span>
           <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>
             <div className="pop-head"><b>Tùy chọn</b></div>
             <div className="popNav">
               <button type="button" className="btn sm" onClick={() => openWin('market')}><Icon name="stone" size={15} /> Phường Thị</button>
               <button type="button" className="btn sm" onClick={() => openWin('arts')}><Icon name="bolt" size={15} /> Thần Thông</button>
               <button type="button" className="btn sm" onClick={() => openWin('pen')}><Icon name="paw" size={15} /> Linh Thú</button>
+              <button type="button" className="btn sm" onClick={() => { cue.open(); setSideOpen(false); setModal('daily'); }}><Icon name="scroll" size={15} /> Nhiệm vụ</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setSideOpen(false); setModal('night'); }}><Icon name="moon" size={15} /> Chợ Đêm</button>
               <button type="button" className="btn sm" onClick={() => openWin('dex')}><Icon name="book" size={15} /> Sưu Tập</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setCodex('story'); }}><Icon name="scroll" size={15} /> Thiên Thư</button>
@@ -527,7 +529,10 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         <section className="panel heroPanel">
           <Hero st={st} tier={tier} aura={aura} on={genOn && !!ai && ai.enabled && !ai.locked} offWhy={!ai ? 'Đang chuẩn bị…' : !genOn ? 'Bật “Ảnh AI” để vẽ nhân vật' : !ai.enabled ? 'Chưa có nguồn ảnh AI (thiếu khóa trong .env.local)' : 'Nhà cung cấp ảnh tạm khóa 15 phút (lỗi 403)'} save={save} re={re} onBio={() => setCodex('bio')} />
           <h2 className="pname">{p.name}</h2>
-          {p.dao && <div className="dao">{p.dao}</div>}
+          <div className="idLines">
+            <button type="button" className={`dao ${p.dao ? '' : 'none'}`} onClick={() => setModal('dao')} title="Xem đạo hiệu và đặc quyền">{p.dao || 'Chưa có đạo hiệu'}</button>
+            <button type="button" className={`titleChip ${p.title ? '' : 'none'}`} onClick={() => setModal('title')} title="Xem chức vụ">{C.titleOf(p.title)?.name || 'Chưa có chức vụ'}</button>
+          </div>
           <div className="realm">{C.REALMS[p.realm]} · {C.SUBS[p.sub]} <small>(Lv{L})</small> <span className="state">{state}</span></div>
           <div className="chips">{p.linh.map((e) => <ElChip key={e} el={e} />)}<span className="chip">Độ thuần {p.purity}</span><span className="chip">{C.PERS[p.pers].n}</span></div>
           <Bar pct={(p.hp / S.maxHp) * 100} label={`Sinh lực ${fmt(p.hp)} / ${fmt(S.maxHp)}`} cls="hp" />
@@ -549,7 +554,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
               <small>Khu vực</small>
               <b>{zone?.name}</b>
               <span>Lv{zone?.lv[0]}–{zone?.lv[1]} · linh khí ×{zone?.density}</span>
-              {zone?.phen && <em>{zone.phen.name}</em>}
+              {zone?.phen && <em>{zone.phen.name}{zone.phen.effects[0] ? ` · ${zone.phen.effects[0]}` : ''}</em>}{zone?.dropEvent && <em className="dropEv">✦ Rơi Thiên/Tiên +1%</em>}
             </button>
           </div>
         </section>
@@ -590,7 +595,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
 
       <footer className="foot">
         <div>Máy chủ quyết định mọi kết quả và tiếp tục tính giờ khi ngươi vắng mặt (tối đa {st.config.offlineCapH} giờ). Ảnh minh họa tạm do AI tạo, chưa kiểm tra giấy phép thương mại.</div>
-        <div className="row"><button className="link" onClick={() => setCredits(true)}>Ghi công</button><a className="link" href="/design">Bộ quy chuẩn giao diện</a><button className="link" onClick={restart}>Bắt đầu lại</button></div>
+        <div className="row"><button className="link" onClick={() => setCredits(true)}>Ghi công</button><a className="link" href="/design">Bộ quy chuẩn giao diện</a></div>
       </footer>
 
       {!p.prologueSeen && !rep && (
@@ -690,8 +695,11 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             </div>
         {dexSel && <div className="legend"><b>{SP(dexSel).name}</b><p>{(lore as any).beasts[dexSel] || D.legendOf(dexSel)}</p></div>}
       </Window>}
+      {modal === 'dao' && <DaoModal dao={p.dao} email={email} onClose={() => setModal(null)} />}
+      {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
-      {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} />}
+      {modal === 'daily' && <DailyModal st={st} onClose={() => setModal(null)} onLore={() => setCodex('daily')} />}
       {modal === 'night' && <NightMarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'rank' && <RankingModal onClose={() => setModal(null)} />}
       {modal === 'odds' && <OddsModal st={st} onClose={() => setModal(null)} />}

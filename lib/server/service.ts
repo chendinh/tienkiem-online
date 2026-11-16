@@ -21,7 +21,7 @@ export function serverNow(): number {
   return T0 + (Date.now() - T0) * s;
 }
 
-export function createState(gender: 'f' | 'm' | undefined, now: number): G.GameState { return G.newGame(randomInt(1, 2 ** 31 - 1), gender, now); }
+export function createState(gender: 'f' | 'm' | undefined, now: number, email?: string): G.GameState { return G.newGame(randomInt(1, 2 ** 31 - 1), gender, now, email); }
 
 // What the browser may see: no seeds, no RNG positions, no request cache (Requirement 13.16).
 // The open question with the numbers the player needs, all computed here (Requirement 31.8).
@@ -39,7 +39,7 @@ export function toView(st: G.GameState, now: number) {
     ...rest,
     ledger: ledger.slice(-40), ledgerBalance: G.ledgerSum(st), ledgerDaily,
     pending: reports.filter((r) => !r.seen), decision: decisionView(st, now),
-    now, odds: G.oddsOf(st, now), zones: G.zonesView(st, now),
+    now, odds: G.oddsOf(st, now), zones: G.zonesView(st, now), events: G.eventsView(now),
     shop: C.SHOP.map((s) => ({ ...s, sell: G.sellPrice(s) })), materials: C.MATERIALS,
     caps: { bag: B.bagCapacity, stash: B.overflowCapacity, pen: B.penCapacity, party: B.maxParty, stoneMax: B.stoneMax, stackMax: B.stackMax, maxQty: B.maxPurchaseQty },
     config: { tickSec: B.tickSec, pollSec: B.onlinePollSec, confirmPurchase: B.confirmPurchaseThreshold, offlineCapH: B.offlineCapH, minOfflineSec: B.minOfflineSec },
@@ -51,8 +51,9 @@ export type GameView = ReturnType<typeof toView>;
 export interface Out { ok: boolean; code?: ErrCode; msg?: string; data?: any; state: GameView | null }
 
 // Saves written before a field existed get its default (so an old account keeps working).
-function upgrade(st: G.GameState | null): G.GameState | null {
+function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (!st) return st;
+  if (email && (!st.player.daoFix || !st.player.dao)) G.adoptDao(st, email);   // the đạo hiệu follows the e-mail address
   if (st.decision === undefined) st.decision = null;
   if (st.breakSnooze === undefined) st.breakSnooze = 0;
   if (st.set.autoFight === undefined) st.set.autoFight = B.defaults.autoFight;
@@ -65,7 +66,7 @@ function upgrade(st: G.GameState | null): G.GameState | null {
 }
 async function readAcct(id: string): Promise<AccountFile | null> {
   const a = await loadAccount(id);
-  if (a) a.state = upgrade(a.state);
+  if (a) a.state = upgrade(a.state, a.email);
   return a;
 }
 const AVATAR_URL = /^\/api\/img\/[a-f0-9]{20}$/;
@@ -209,7 +210,9 @@ export async function actGame(id: string, body: any): Promise<Out> {
     if (!acct) throw new ApiError('E_AUTH', 401);
     const now = serverNow();
     if (body.type === 'restart') {
-      const st = createState(body.gender === 'f' || body.gender === 'm' ? body.gender : undefined, now);
+      // making the character again is closed: it was used to roll for a better start. Only an account without a character may make one.
+      if (acct.state) return { ok: false, code: 'E_HAS_CHARACTER', state: toView(acct.state, now) };
+      const st = createState(body.gender === 'f' || body.gender === 'm' ? body.gender : undefined, now, acct.email);
       try { await releaseHeld(id); } catch (err) { console.error('[tutien] relics', err); }
       await M.purge(id);
       await commit(id, acct, st);

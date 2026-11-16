@@ -558,18 +558,18 @@ test('with Auto Learn off the Bí Công waits in the bag and learning it follows
 });
 test('technique slots: only known techniques of that môn, no repeats, no more than the Realm allows, and slotting then clearing restores the state', () => {
   const st = withWeapon(fresh(320), 'Trường Kiếm');
-  const [a, b, c] = A.attackTechs('kiem').map((t) => t.name);
-  st.arts.learned.push(a, b, c);
+  const [a, b, c, d] = A.attackTechs('kiem').map((t) => t.name);
+  st.arts.learned.push(a, b, c, d);
   const before = JSON.stringify(st.arts);
   assert.equal(A.slotsAt(0), B.skillSlotsByRealm[0]);
   assert.equal(G.setLoadout(st, 'kiem', [a, a]).code, 'E_BAD_SKILL');
-  assert.equal(G.setLoadout(st, 'kiem', [A.attackTechs('kiem')[3].name]).code, 'E_BAD_SKILL');   // not learned
+  assert.equal(G.setLoadout(st, 'kiem', ['Tên Không Có']).code, 'E_BAD_SKILL');   // not a technique
   assert.equal(G.setLoadout(st, 'kiem', [A.techsOf('cung')[0].name]).code, 'E_BAD_SKILL');    // another môn
-  assert.equal(G.setLoadout(st, 'kiem', [a, b, c]).code, 'E_SKILL_SLOTS');                    // Realm 1 has 2 slots
+  assert.equal(G.setLoadout(st, 'kiem', [a, b, c, d]).code, 'E_SKILL_SLOTS');                 // Realm 1 has 3 slots
   assert.equal(JSON.stringify(st.arts), before);
   assert.ok(G.setLoadout(st, 'kiem', [b, c]).ok); assert.deepEqual(G.playerSkills(st), [A.ART('kiem').basic, b, c]);
   assert.ok(G.setLoadout(st, 'kiem', [a]).ok); assert.deepEqual(st.arts.loadout.kiem, [a]);
-  st.player.realm = 2; assert.ok(G.setLoadout(st, 'kiem', [a, b, c]).ok);   // more slots with the Realm
+  st.player.realm = 4; assert.ok(G.setLoadout(st, 'kiem', [a, b, c, d]).ok);   // more slots with the Realm
 });
 test('a Tu Sĩ fights with the môn of its title and a bow shoots two strikes', () => {
   assert.equal(A.npcClass('Kiếm Tu Lý Vân'), 'kiem'); assert.equal(A.npcClass('Thể Tu Trần Hàn'), 'quyen');
@@ -652,4 +652,61 @@ test('Công Pháp scrolls drop, can wait in the bag, and are learned by reading 
     for (let k = 0; k < 80 && !got; k++) { G.settle(st, 40); const n = Object.keys(st.inv.books).find((x) => A.isMethod(x)); if (n) { got++; const x = A.methodOf(n); if (G.levelOf(st.player) >= x.minLevel) { assert.ok(G.learnBook(st, n).ok); assert.ok(st.arts.methods.includes(n)); } } }
   }
   assert.ok(got > 0, 'a Công Pháp scroll should drop within a few thousand ticks');
+});
+
+// ---------- đạo hiệu follows the e-mail, and chức vụ
+test('the đạo hiệu depends only on the e-mail address: same one every time, and the configured share of the addresses have one', () => {
+  assert.equal(G.daoOfEmail('A@Example.com '), G.daoOfEmail('a@example.com'));
+  let have = 0; const seen = new Set<string>(); const N = 3000;
+  for (let i = 0; i < N; i++) { const d = G.daoOfEmail(`user${i}@gmail.com`); if (d) { have++; seen.add(d); } }
+  assert.ok(Math.abs(have / N - B.daoShare) < 0.04, `share ${have / N}`);
+  assert.equal(seen.size, C.DAO.length);
+  // lowering the share later only leaves some addresses without one: the one an address would get never changes
+  const was = B.daoShare; (B as any).daoShare = 0.5;
+  try { for (let i = 0; i < 300; i++) { const e = `user${i}@gmail.com`; const d = G.daoOfEmail(e); (B as any).daoShare = 1; const full = G.daoOfEmail(e); (B as any).daoShare = 0.5; assert.ok(d === '' || d === full); } } finally { (B as any).daoShare = was; }
+});
+test('a character made for an e-mail takes its đạo hiệu and its starting privileges; making it again gives the same', () => {
+  let e = '', info: C.DaoInfo | undefined;
+  for (let i = 0; i < 200 && !info; i++) { e = `perk${i}@gmail.com`; info = C.daoInfo(G.daoOfEmail(e)); }
+  assert.ok(info);
+  const a = G.newGame(11, 'f', T0, e), b = G.newGame(99, 'm', T0, e), plain = G.newGame(11, 'f', T0, 'khong.dao.nao.ca@gmail.com');
+  assert.equal(a.player.dao, info!.name); assert.equal(b.player.dao, info!.name);
+  const k = info!.perks;
+  if (k.stones) assert.ok(a.stones >= k.stones, 'the Linh Thạch of the privilege is in the purse');
+  if (k.weaponTier !== undefined) assert.equal(a.eq.Weapon!.tier, k.weaponTier);
+  assert.ok(C.daoPerkLines(k).length > 0);
+  void plain;
+});
+test('an older character takes the đạo hiệu of its e-mail once, with the privileges', () => {
+  let e = '', info: C.DaoInfo | undefined;
+  for (let i = 0; i < 200 && !info; i++) { e = `old${i}@gmail.com`; info = C.daoInfo(G.daoOfEmail(e)); }
+  const st = G.newGame(21, 'm', T0); st.player.dao = 'Tên Cũ'; delete st.player.daoFix;
+  const before = st.stones + st.inv.taming.reduce((x, y) => x + y, 0) + st.inv.hp.reduce((x, y) => x + y, 0) + st.inv.trib + st.bag.length;
+  G.adoptDao(st, e);
+  assert.equal(st.player.dao, info!.name); assert.equal(st.player.daoFix, true);
+  const after = st.stones + st.inv.taming.reduce((x, y) => x + y, 0) + st.inv.hp.reduce((x, y) => x + y, 0) + st.inv.trib + st.inv.bt.reduce((x, y) => x + y, 0) + st.bag.length;
+  assert.ok(after > before, 'the privileges were given');
+  const snap = JSON.stringify(st); G.adoptDao(st, e); assert.equal(JSON.stringify(st), snap);   // only once
+});
+test('30 chức vụ, and fate gives, changes and takes them away while the character adventures', () => {
+  assert.equal(C.TITLES.length, 30); assert.equal(new Set(C.TITLES.map((t) => t.id)).size, 30); assert.ok(C.TITLES.every((t) => t.name && t.blurb));
+  const st = G.newGame(31, 'f', T0); Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 20;
+  const seen: string[] = []; let gained = 0, lost = 0, changed = 0, prev = st.player.title;
+  for (let k = 0; k < 120; k++) {
+    G.settle(st, 500);
+    const t = st.player.title;
+    if (t !== prev) { if (!prev) gained++; else if (!t) lost++; else changed++; prev = t; }
+  }
+  for (const e of st.feed) if (e.kind === 'destiny') seen.push(e.text);
+  assert.ok(gained + lost + changed >= 3, `${gained}/${changed}/${lost}`);
+  assert.ok(gained > 0 && lost + changed > 0);
+  assert.ok(st.player.title === undefined || C.titleOf(st.player.title));
+});
+test('chức vụ changes come out the same however the ticks are split, and never move the random streams', () => {
+  const a = G.newGame(41, 'f', T0), b = G.newGame(41, 'f', T0);
+  G.settle(a, 6000); G.settle(b, 2000); G.settle(b, 1000); G.settle(b, 3000);
+  assert.equal(a.player.title, b.player.title); assert.deepEqual(a.player.titleHist, b.player.titleHist);
+  const hold = G.newGame(41, 'f', T0); const was = B.destinyP; (B as any).destinyP = 0;
+  try { G.settle(hold, 6000); } finally { (B as any).destinyP = was; }
+  assert.equal(JSON.stringify(hold.streams), JSON.stringify(a.streams));
 });

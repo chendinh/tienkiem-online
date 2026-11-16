@@ -66,7 +66,7 @@ async function openSession(acc: string, ua: string, now: number): Promise<string
 
 // Create the Account together with its Player_Character and Game_State, or nothing at all (Requirement 1.1, 1.5).
 // Everything runs in one transaction, so a failure leaves no half-made account behind.
-export async function register(rawEmail: unknown, rawPassword: unknown, ua: string, now: number, makeState: (accountId: string) => any): Promise<{ token: string; email: string }> {
+export async function register(rawEmail: unknown, rawPassword: unknown, ua: string, now: number, makeState: (accountId: string, email: string) => any): Promise<{ token: string; email: string }> {
   const { email, password } = checkCredentialsShape(rawEmail, rawPassword);
   const pw = await hashPassword(password);
   const id = randomBytes(12).toString('hex');
@@ -74,7 +74,7 @@ export async function register(rawEmail: unknown, rawPassword: unknown, ua: stri
     // the unique index on email_key decides between two sign-ups with the same address, also across server instances
     const ins = await query('INSERT INTO acct_auth (id, email, email_key, salt, hash, created) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email_key) DO NOTHING', [id, email, emailKey(email), pw.salt, pw.hash, now]);
     if (!ins.rowCount) throw new ApiError('E_EMAIL_TAKEN', 409);
-    await saveAccount({ id, email, created: now, state: makeState(id) });
+    await saveAccount({ id, email, created: now, state: makeState(id, email) });
     const token = await openSession(id, ua, now);
     return { token, email };
   });

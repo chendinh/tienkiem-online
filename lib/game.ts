@@ -11,7 +11,7 @@ export interface Bio { bio: string; motto: string; secret: string }
 // Portrait state: base = plain portrait, pose = the same portrait in a graceful standing pose (an edit of base, drawn right after it),
 // url = what is shown now, sig = equipment that image shows (see avatarSpec), art = art direction version (ART_V).
 export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number }
-export interface Player { avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
+export interface Player { title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
 export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
@@ -49,11 +49,14 @@ export interface GameState {
   decision: Decision | null; breakSnooze: number;
   dailySeen?: string;   // the last day whose chronicle chapter was announced in the feed
   relicQ?: D.RelicOp[];   // what the server must do with the shared relic pool for this save: claim a relic that was found, give back one that was dissolved (never sent to the browser)
-  relicDay?: { day: string; n: number };   // how many shared items this save found today
+  relicDay?: { day: string; n: number };
+  quest?: DayQuest;   // today's quest: tame the day's new creature   // how many shared items this save found today
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
 export type Decision = { id: number; kind: 'tame'; beast: Beast; log: string[]; until?: number } | { id: number; kind: 'npc'; npc: NpcFoe } | { id: number; kind: 'break' };
+// Daily quest: tame `need` of the creature that is new today. The reward (a share of the Tu Vi of this Level) is paid once, when the last one is tamed.
+export interface DayQuest { day: string; sp: string; n: number; need: number; done: boolean; reward: number }
 export interface Res { ok: boolean; code?: ErrCode; msg: string; data?: any }
 export type InvResult = Res;
 
@@ -103,6 +106,28 @@ export function phenomenonInSlot(zoneId: string, slot: number, seed = worldSeed(
   return C.PHEN(z.phen[z.phen.length - 1].id);
 }
 export const phenomenonAt = (zoneId: string, ms: number) => phenomenonInSlot(zoneId, phenSlot(ms));
+// Thiên/Tiên drop event: some 15-minute windows raise the chance of a Thiên or Tiên drop in ONE zone. Like the phenomena it depends only on World_Seed and the window.
+export const dropSlot = (ms: number) => Math.floor(ms / 1000 / B.dropEventSlotSec);
+export function dropEventZone(slot: number, seed = worldSeed()): string | null {
+  if (hash01(`${seed}|dropev|${slot}`) >= B.dropEventP) return null;
+  return C.ZONES[Math.floor(hash01(`${seed}|dropevz|${slot}`) * C.ZONES.length)].id;
+}
+export const dropEventAt = (zoneId: string, ms: number) => dropEventZone(dropSlot(ms)) === zoneId;
+// The windows that are running or coming up (what the news announces): `ahead` windows from the current one.
+export function eventsView(nowMs: number, ahead = 12) {
+  const s0 = dropSlot(nowMs), ms = B.dropEventSlotSec * 1000, out: { zone: string; name: string; startsAt: number; endsAt: number; active: boolean; bonus: number }[] = [];
+  for (let k = 0; k < ahead; k++) { const z = dropEventZone(s0 + k); if (z) out.push({ zone: z, name: C.ZONE(z).name, startsAt: (s0 + k) * ms, endsAt: (s0 + k + 1) * ms, active: k === 0, bonus: B.dropEventBonus }); }
+  return out;
+}
+// What a phenomenon does, in numbers (the zone list and the news show these, not only the sentence).
+export function phenEffects(ph: C.Phenomenon): string[] {
+  const out: string[] = [];
+  if (ph.cult) out.push(`Tu Vi ${ph.cult > 1 ? '+' : '−'}${Math.round(Math.abs(ph.cult - 1) * 100)}%`);
+  if (ph.luck) out.push(`May mắn ${ph.luck > 0 ? '+' : '−'}${Math.abs(ph.luck)}`);
+  if (ph.species) out.push('Yêu thú theo hệ ×3');
+  if (ph.enc) for (const [k, v] of Object.entries(ph.enc)) out.push(`${({ monster: 'Yêu thú', npc: 'Tu sĩ', resource: 'Tài nguyên', event: 'Kỳ ngộ' } as Record<string, string>)[k]} ×${v}`);
+  return out;
+}
 
 // ---------- stats
 // The read-only helpers below also run in the browser on the view the server sends, which has no seeds.
@@ -160,7 +185,7 @@ function rollTier(st: GameState, luckBonus = 0): number {
   const R = rates(), luck = effLuck(st, luckBonus);
   const w = B.rarityWeights.map((x, k) => x * Math.pow(1 + B.luckRarityGain * luck, k) * (k >= 2 ? R.boost : 1));
   const tot = w.reduce((a, b) => a + b, 0);
-  const P = pityP((w[4] + w[5]) / tot, st.pity.item, R.itemS, R.itemH);
+  const P = pityP((w[4] + w[5]) / tot, st.pity.item, R.itemS, R.itemH) + (dropEventAt(st.zone, st.clock) ? B.dropEventBonus : 0);
   if (next(st.streams, 'loot') < P) { st.pity.item = 0; return next(st.streams, 'loot') < B.rarityWeights[5] / (B.rarityWeights[4] + B.rarityWeights[5]) ? 5 : 4; }
   st.pity.item++;
   return weighted(st.streams, 'loot', w.slice(0, 4));
@@ -690,13 +715,16 @@ export function playerSkills(st: Pick<GameState, 'eq' | 'arts'>): string[] {
   if (!cls) return [C.NEUTRAL_SKILL];
   return [A.ART(cls).basic, ...(st.arts.loadout[cls] || []).filter((n) => st.arts.learned.includes(n))];
 }
-function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: Beast[], reduce = 1) {
+// The arena of a fight: one of the two of the zone, picked from the tick so the server and the browser agree without storing anything.
+export const arenaFor = (zoneId: string, tick: number): C.Arena | null => { const l = C.ARENAS.filter((a) => a.zone === zoneId); return l.length ? l[Math.floor(hash01(`arena|${zoneId}|${tick}`) * l.length)] : null; };
+function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: Beast[], reduce = 1, arena: C.Arena | null = null) {
   const g = st.streams, p = st.player, log: string[] = [];
+  const am = (el?: string) => C.arenaMult(arena, el);
   const push = (s: string) => { if (log.length < B.combatLogLines) log.push(s); };
   let mhp = m.stats[0];
   const monster = m.skills && m.skills.length ? m.skills : m.el.flatMap((e) => C.SKILLS[e] || []);
   const foe = caster(monster, m.el, m.level ?? 99, m.stats[1] || 0);
-  push(rec({ t: 'open', f: m.name, fe: m.el, fh: m.stats[0], ph: p.hp, pm: S.maxHp }));
+  push(rec({ t: 'open', f: m.name, fe: m.el, fh: m.stats[0], ph: p.hp, pm: S.maxHp, ...(arena ? { ar: arena.id } : {}) }));
   const you = caster(playerSkills(st), p.linh, levelOf(p), S.maxSpirit);
   const pals = party.map((b) => ({ b, el: SP(b.sp).el, c: caster(b.skills, SP(b.sp).el, b.level, b.stats[1] || 0) }));
   const V = B.damageVariance;
@@ -739,18 +767,18 @@ function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: B
           push(rec({ r, w: 'p', n: 'Ngươi', k: def.name, e: '', to: self || def.target !== 'Kẻ Địch' ? 'Ngươi' : m.name, d: 0, c: 0, x: 1, s: 0, f: def.fx.kind, a, ts: self ? 'p' : 'm', h: self ? p.hp : Math.max(0, mhp), hm: self ? S.maxHp : m.stats[0] }));
         } else {
           const dd = m.stats[3] * (1 - (live(foe.side.fx.defDown, r)?.amt || 0));
-          const mult = def.el ? elemMult(def.el, m.el) : B.neutralMult, same = def.el && p.linh.includes(def.el) ? B.sameElementBonus : 1;
-          const h = hit(atk, dd, def.coef * off * same * B.playerCoefScale, mult, S.crit + (cu ? cu.amt : 0) + (def.crit || 0), S.critdmg, def.hits || 1, def.pierce || 0);
+          const mult = def.el ? elemMult(def.el, m.el) : B.neutralMult, aw = am(def.el), same = def.el && p.linh.includes(def.el) ? B.sameElementBonus : 1;
+          const h = hit(atk, dd, def.coef * off * same * B.playerCoefScale, mult * aw, S.crit + (cu ? cu.amt : 0) + (def.crit || 0), S.critdmg, def.hits || 1, def.pierce || 0);
           mhp -= h.d;
-          push(rec({ r, w: 'p', n: 'Ngươi', k: def.name, e: def.el, to: m.name, d: h.d, c: h.c ? 1 : 0, x: +mult.toFixed(2), s: same > 1 ? 1 : 0, u: def.hits && def.hits > 1 ? def.hits : undefined, h: Math.max(0, mhp), hm: m.stats[0] }));
+          push(rec({ r, w: 'p', n: 'Ngươi', k: def.name, e: def.el, to: m.name, d: h.d, c: h.c ? 1 : 0, x: +mult.toFixed(2), ...(aw !== 1 ? { am: aw } : {}), s: same > 1 ? 1 : 0, u: def.hits && def.hits > 1 ? def.hits : undefined, h: Math.max(0, mhp), hm: m.stats[0] }));
         }
         for (const x of pals) {
           if (mhp <= 0) break;
-          const sk = pickSkill(x.c, r, m.el, { hp: 1, max: 1, foe: foe.side, foeHp: mhp / m.stats[0] }), bm = sk.def.el ? elemMult(sk.def.el, m.el) : B.neutralMult;
+          const sk = pickSkill(x.c, r, m.el, { hp: 1, max: 1, foe: foe.side, foeHp: mhp / m.stats[0] }), bm = sk.def.el ? elemMult(sk.def.el, m.el) : B.neutralMult, bw = am(sk.def.el || x.el[0]);
           const tu = live(you.side.fx.atkUp, r), team = tu && tu.team ? 1 + tu.amt : 1;
-          const bh = hit(x.b.stats[2] * team, m.stats[3] * (1 - (live(foe.side.fx.defDown, r)?.amt || 0)), sk.def.coef * sk.off * B.beastCoefScale, bm, 5, 150);
+          const bh = hit(x.b.stats[2] * team, m.stats[3] * (1 - (live(foe.side.fx.defDown, r)?.amt || 0)), sk.def.coef * sk.off * B.beastCoefScale, bm * bw, 5, 150);
           mhp -= bh.d;
-          push(rec({ r, w: 'b', n: x.b.name, k: sk.def.name, e: sk.def.el || x.el[0], to: m.name, d: bh.d, c: 0, x: +bm.toFixed(2), s: 0, h: Math.max(0, mhp), hm: m.stats[0] }));
+          push(rec({ r, w: 'b', n: x.b.name, k: sk.def.name, e: sk.def.el || x.el[0], to: m.name, d: bh.d, c: 0, x: +bm.toFixed(2), ...(bw !== 1 ? { am: bw } : {}), s: 0, h: Math.max(0, mhp), hm: m.stats[0] }));
         }
       } else {
         if (foe.side.skip > 0) { foe.side.skip--; push(rec({ r, w: 'm', n: m.name, k: 'Choáng váng', e: '', to: m.name, d: 0, c: 0, x: 1, s: 0, f: 'skip', ts: 'm', h: Math.max(0, mhp), hm: m.stats[0] })); continue; }
@@ -764,10 +792,10 @@ function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: B
           push(rec({ r, w: 'm', n: m.name, k: def.name, e: '', to: self || def.target !== 'Kẻ Địch' ? m.name : 'Ngươi', d: 0, c: 0, x: 1, s: 0, f: def.fx.kind, a, ts: self ? 'm' : 'p', h: self ? Math.max(0, mhp) : p.hp, hm: self ? m.stats[0] : S.maxHp }));
         } else {
           const guard = live(you.side.fx.guard, r), dd = S.def * (1 - (live(you.side.fx.defDown, r)?.amt || 0));
-          const em = def.el ? elemMult(def.el, p.linh) : B.neutralMult, h = hit(atk, dd, def.coef * off * B.foeCoefScale, em, 5 + (def.crit || 0), 150, def.hits || 1, def.pierce || 0);
+          const em = def.el ? elemMult(def.el, p.linh) : B.neutralMult, fw = am(def.el || m.el[0]), h = hit(atk, dd, def.coef * off * B.foeCoefScale, em * fw, 5 + (def.crit || 0), 150, def.hits || 1, def.pierce || 0);
           const dmg = Math.max(B.minDamage, Math.round(h.d * reduce * (1 - (guard ? guard.amt : 0))));
           p.hp -= dmg;
-          push(rec({ r, w: 'm', n: m.name, k: def.name, e: def.el || m.el[0], to: 'Ngươi', d: dmg, c: h.c ? 1 : 0, x: +em.toFixed(2), s: 0, u: def.hits && def.hits > 1 ? def.hits : undefined, h: Math.max(0, p.hp), hm: S.maxHp }));
+          push(rec({ r, w: 'm', n: m.name, k: def.name, e: def.el || m.el[0], to: 'Ngươi', d: dmg, c: h.c ? 1 : 0, x: +em.toFixed(2), ...(fw !== 1 ? { am: fw } : {}), s: 0, u: def.hits && def.hits > 1 ? def.hits : undefined, h: Math.max(0, p.hp), hm: S.maxHp }));
         }
       }
     }
@@ -800,6 +828,22 @@ const missed = (m: Beast, why: 'pen' | 'tal', chips: string[], rep?: Report, log
   chips.push(why === 'pen' ? 'Linh Thú Viên đầy, bỏ qua' : 'Hết Khế Ước Phù, bỏ qua');
 };
 // The taming roll itself: spends one Khế Ước Phù of `grade`, draws from the `tame` stream, adds the Linh Thú on success.
+// The daily quest: today's new creature, tamed `questTame` times. Counts every successful taming (by hand or automatic) on the day the creature is new.
+function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) {
+  const day = D.dayKey(st.clock), pack = D.packOn(day);
+  if (!pack || pack.beast.id !== spId) return;
+  if (!st.quest || st.quest.day !== day) st.quest = { day, sp: spId, n: 0, need: B.questTame, done: false, reward: 0 };
+  const q = st.quest;
+  q.n++;
+  if (q.done || q.n < q.need) return;
+  q.done = true;
+  q.reward = Math.round(cultThreshold(levelOf(st.player)) * B.questCultPct);
+  st.player.cp += q.reward; if (rep) rep.cp += q.reward;
+  chips.push(`Nhiệm vụ ngày xong: +${q.reward} Tu Vi`);
+  feed(st, { kind: 'story', text: `Nhiệm vụ hôm nay hoàn thành: thu phục ${q.need} ${pack.beast.name}. Thưởng ${q.reward.toLocaleString('vi-VN')} Tu Vi.` });
+  if (rep) rep.highlights.push({ prio: 70, kind: 'quest', text: `Hoàn thành nhiệm vụ ngày: +${q.reward} Tu Vi` });
+  advance(st, rep);
+}
 function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: string[], rep?: Report, log?: string[]): boolean {
   st.inv.taming[grade]--;
   const pt = tameProb(st, sp, m, grade);
@@ -809,6 +853,7 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
     st.beasts.push(m); e.tamed++; if (m.mut) e.mutTamed++;
     if (rep) { rep.tamed++; if (m.mut) rep.mutTamed++; if (first) rep.highlights.push({ prio: 10, kind: 'species', text: `Lần đầu thu phục ${sp.name}`, beast: m }); }
     chips.push(`Thu phục thành công (${Math.round(pt * 100)}%)`);
+    questTamed(st, sp.id, chips, rep);
     if (rep && m.mut) rep.highlights.push({ prio: 95, kind: 'mutation', text: `Thu phục ${m.name} Dị Biến!`, beast: m, log });
     return true;
   }
@@ -857,7 +902,7 @@ function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: 
   const S = pstats(st), L = levelOf(st.player);
   const m = genBeast(st, zone, ph, L, rep), sp = SP(m.sp);
   if (rep) { rep.encounters++; rep.enc.monster++; if (m.mut) rep.highlights.push({ prio: 90, kind: 'mutation', text: `Gặp ${m.name} Dị Biến!`, beast: m }); }
-  const r = fightCore(st, S, { name: m.name, stats: m.stats, el: sp.el, skills: m.skills, level: m.level }, bestParty(st));
+  const r = fightCore(st, S, { name: m.name, stats: m.stats, el: sp.el, skills: m.skills, level: m.level }, bestParty(st), 1, arenaFor(zone.id, st.tick));
   const chips: string[] = [];
   if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1, { el: sp.el[0], boost: m.elite || m.mut ? B.bookEliteMult : 1 }); tryTame(st, m, sp, chips, rep, r.log); }
   else if (r.outcome === 'lose') { defeated(st); if (rep) rep.losses++; } else if (rep) rep.draws++;
@@ -880,7 +925,7 @@ function makeNpc(st: GameState, zone: C.Zone): NpcFoe {
 function fightNpc(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, npc: NpcFoe, rep?: Report) {
   const S = pstats(st);
   if (rep) { rep.encounters++; rep.enc.npc++; }
-  const r = fightCore(st, S, { name: npc.name, stats: npc.stats, el: npc.el, level: npc.level, skills: A.npcSkills(npc.name, npc.el) }, bestParty(st));
+  const r = fightCore(st, S, { name: npc.name, stats: npc.stats, el: npc.el, level: npc.level, skills: A.npcSkills(npc.name, npc.el) }, bestParty(st), 1, arenaFor(zone.id, st.tick));
   const chips: string[] = [];
   if (r.outcome === 'win') victory(st, zone, ph, npc.level, rep, chips, B.npcRewardMult * (npc.elite ? 1.3 : 1), { cls: A.npcClass(npc.name), boost: npc.elite ? B.bookEliteMult : 1 });
   else if (r.outcome === 'lose') {
@@ -961,6 +1006,7 @@ export function tick(st: GameState, rep?: Report) {
     const news = D.newsAt(st.clock);
     if (news && st.dailySeen !== news.day) { st.dailySeen = news.day; feed(st, { kind: 'story', text: news.text }); }
     else if (mode0 === 'adventure' && !st.recovery) { const t = D.taleAt(zone.id, st.clock, st.tick); if (t) feed(st, { kind: 'event', text: t }); }
+    if (mode0 === 'adventure' && !st.recovery) destinyAt(st, rep);
   }
   // recovery of HP, Auto_Pill, then the Recovery_State check
   const S = pstats(st);
@@ -998,7 +1044,7 @@ export function defaultSettings(): Settings {
   const d = B.defaults;
   return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, hideRank: false, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0 } };
 }
-export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now()): GameState {
+export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string): GameState {
   const streams = newStreams(seed);
   const n = weighted(streams, 'gen', B.linhCountWeights) + 1;
   const linh = shuffle(streams, 'gen', C.EO).slice(0, n);
@@ -1018,11 +1064,67 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
   earn(st, B.startingStones + origin.stones, 'starting_grant');
   st.inv.taming[0] = B.startingTaming + origin.talis; st.inv.hp[0] = B.startingHpPills;
   st.eq.Weapon = genItem(st, 1, 0, 'Weapon', 0, true); st.eq.Robe = genItem(st, 1, 0, 'Robe', 0, true);
+  // the đạo hiệu belongs to the e-mail address (making the character again gives the same one) and brings its starting privileges
+  if (email) { player.dao = daoOfEmail(email); player.daoFix = true; }
+  grantDaoPerks(st);
+  if (hash01(`${seed}|title0`) < B.startTitleP) player.title = C.TITLES[Math.floor(hash01(`${seed}|title0|which`) * C.TITLES.length)].id;
   initArts(st);
   player.hp = pstats(st).maxHp;
   feed(st, { kind: 'system', text: `${player.name} bắt đầu hành trình tu tiên.` });
   flushLedger(st, 'create', now);
   return st;
+}
+// ---------- Đạo hiệu (belongs to the e-mail) and chức vụ (comes and goes with fate)
+export function daoOfEmail(email: string): string {
+  const key = String(email).trim().toLowerCase();
+  if (hash01(`dao|${key}`) >= B.daoShare) return '';   // B.daoShare of the addresses have one; which one is a second, independent roll
+  return C.DAO[Math.min(C.DAO.length - 1, Math.floor(hash01(`dao-pick|${key}`) * C.DAO.length))];
+}
+// The starting privileges of the đạo hiệu. `retro`: a character made before đạo hiệu had privileges gets them now, once; the weapon goes to the bag.
+export function grantDaoPerks(st: GameState, retro = false) {
+  const info = C.daoInfo(st.player.dao); if (!info) return;
+  const k = info.perks, cap = (x: number) => Math.min(B.stackMax, x);
+  if (k.stones) earn(st, k.stones, 'dao_grant');
+  (k.taming || []).forEach((n, i) => { st.inv.taming[i] = cap(st.inv.taming[i] + n); });
+  (k.hp || []).forEach((n, i) => { st.inv.hp[i] = cap(st.inv.hp[i] + n); });
+  (k.bt || []).forEach((n, i) => { st.inv.bt[i] = cap(st.inv.bt[i] + n); });
+  if (k.trib) st.inv.trib = cap(st.inv.trib + k.trib);
+  if (k.weaponTier !== undefined) {
+    const w = genItem(st, retro ? levelOf(st.player) : 1, k.weaponTier, 'Weapon', 0, !retro);
+    if (!retro) st.eq.Weapon = w; else if (st.bag.length < B.bagCapacity) st.bag.push(w);
+  }
+}
+// An account made before the đạo hiệu followed the e-mail: it takes the one of its address, and the privileges, once.
+// An account that followed the address but had none (when the share was lower) gets one now. One that already has a đạo hiệu keeps it, whatever the share is later.
+export function adoptDao(st: GameState, email: string) {
+  const p = st.player, d = daoOfEmail(email);
+  if (p.daoFix && (p.dao || !d)) return;
+  p.daoFix = true; p.dao = d || p.dao;
+  grantDaoPerks(st, true);
+}
+// Fate: a person on the road gives a chức vụ, swaps it for another, or takes it away. It is decided by a hash of the save and the tick, so it does not touch the
+// game's random streams (nothing else in the journey changes), and it comes out the same however the ticks are split.
+export function destinyAt(st: GameState, rep?: Report) {
+  const h = hash01(`${st.seed}|destiny|${st.tick}`);
+  if (h >= B.destinyP) return;
+  const u = h / B.destinyP, p = st.player, cur = C.titleOf(p.title);
+  const at = <T,>(arr: T[], k: string): T => arr[Math.floor(hash01(`${st.seed}|destiny|${st.tick}|${k}`) * arr.length)];
+  const who = at(C.DESTINY_WHO, 'who');
+  const set = (id: string | undefined) => { if (cur) p.titleHist = [...(p.titleHist || []), cur.id].slice(-8); p.title = id; };
+  let text: string;
+  if (!cur) {
+    if (u >= 0.8) return;
+    const t = at(C.TITLES, 'new'); set(t.id);
+    text = `Giữa đường, ${who} ${at(C.DESTINY_GIVE, 'give')}. Từ nay ngươi mang chức «${t.name}».`;
+  } else if (u < 0.45) {
+    const t = at(C.TITLES.filter((x) => x.id !== cur.id), 'new'); set(t.id);
+    text = `${who[0].toUpperCase()}${who.slice(1)} chặn đường ngươi, ${at(C.DESTINY_GIVE, 'give')}. Chức «${cur.name}» của ngươi đổi thành «${t.name}».`;
+  } else if (u < 0.7) {
+    set(undefined);
+    text = `${who[0].toUpperCase()}${who.slice(1)} ${at(C.DESTINY_LOSE, 'lose')}. Chức «${cur.name}» của ngươi không còn nữa.`;
+  } else return;
+  feed(st, { kind: 'destiny', text });
+  if (rep) rep.highlights.push({ prio: 45, kind: 'destiny', text });
 }
 function newReport(st: GameState, elapsedSec: number): Report {
   return {
@@ -1090,7 +1192,7 @@ export function zonesView(st: GameState, nowMs: number) {
   const L = levelOf(st.player), slotMs = B.phenomenonSlotSec * 1000;
   return C.ZONES.map((z) => {
     const slot = phenSlot(nowMs), ph = phenomenonInSlot(z.id, slot);
-    return { id: z.id, name: z.name, blurb: z.blurb, lv: z.lv, minLevel: z.minLevel, density: z.density, open: z.minLevel <= L, phen: ph ? { name: ph.name, text: ph.text, endsAt: (slot + 1) * slotMs } : null };
+    return { id: z.id, name: z.name, blurb: z.blurb, lv: z.lv, minLevel: z.minLevel, density: z.density, open: z.minLevel <= L, phen: ph ? { name: ph.name, text: ph.text, effects: phenEffects(ph), endsAt: (slot + 1) * slotMs } : null, next: (() => { const n = phenomenonInSlot(z.id, slot + 1); return n ? { name: n.name, effects: phenEffects(n), startsAt: (slot + 1) * slotMs } : null; })(), dropEvent: dropEventAt(z.id, nowMs) };
   });
 }
 export const versions = () => ({ balance: BALANCE_VERSION, catalog: CATALOG_VERSION, generator: GENERATOR_VERSION });

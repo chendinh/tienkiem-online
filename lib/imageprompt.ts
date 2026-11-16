@@ -1,5 +1,6 @@
 import * as C from './content';
 import { buildOf, faceOf, poseOf } from './look';
+import * as A from './arts';
 
 // One art direction for every picture. Specs are small and validated, so clients cannot inject prompts.
 // Consistency rules: (1) same style block everywhere, (2) fixed seeds, (3) anything that must show the SAME subject
@@ -243,6 +244,18 @@ export function buildPlan(spec: any): Plan {
       return { kind: 'item', prompt: `${ITEM_CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Perfectly symmetrical, straight-on orthographic view with no perspective, evenly lit, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} No person, no hands. ${NEG}`, width: wide ? 1024 : 512, height: wide ? 384 : 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
     }
     return { kind: 'item', prompt: `${ITEM_CORE}. Premium 3D RPG item render with magical glowing details, an inventory icon of ${C.PROP_EN[id]}, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: 5000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
+  }
+  // A secret manual (Bí Kíp) of one technique, or a Công Pháp scripture: its cover shows the môn and the element, its richness shows the rarity.
+  if (spec.kind === 'book') {
+    const names = [...Object.values(A.TECHS).filter((t) => !t.basic).map((t) => t.name), ...A.METHODS.map((m) => m.name)];
+    const id = oneOf(spec.id, names), t = A.TECHS[id], mt = A.METHODS.find((m) => m.name === id);
+    const tier = t ? t.tier : mt!.tier, el = t ? t.el : mt!.el;
+    const cover = ['a worn bamboo-slip scroll rolled up and tied with a hemp cord, simple and humble', 'a silk-bound manual with a jade-green cloth cover, silver corner caps and a braided silk tie', 'an ornate manual with a deep purple lacquered cover, gold-engraved corner plates and a carved jade clasp', 'a legendary radiant manual with a gold and orange lacquered cover, a coiling dragon in relief, a glowing seal and floating motes of golden light'][tier];
+    const emblem: Record<string, string> = { kiem: 'a sword', thuong: 'a spear', cung: 'a bow', dao: 'a broad saber', quyen: 'a clenched fist', cam: 'a guqin zither', tieu: 'a bamboo flute', phat: 'a folded paper charm' };
+    const grp: Record<string, string> = { 'Phòng Thủ': 'a round shield of light', 'Hồi Phục': 'a blooming lotus', 'Cường Hóa': 'a rising flame of power', 'Suy Yếu': 'a cracked ward', 'Khống Chế': 'a binding rope of light' };
+    const mark = mt ? 'an abstract lotus and swirling qi' : t!.group === 'Tấn Công' ? emblem[t!.cls] : `${grp[t!.group] || 'a swirl of qi'} beside ${emblem[t!.cls]}`;
+    const accent = el ? `${C.EL_ACCENT[el]} glow and magical particles` : 'soft white-gold glow';
+    return { kind: 'item', prompt: `${ITEM_CORE}. Premium 3D RPG item render with magical glowing details, an inventory icon of a single ${mt ? 'cultivation scripture' : 'martial secret manual'}: ${cover}, the cover embossed with an abstract emblem of ${mark}, ${accent}, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: 9000 + names.indexOf(id) * 31, pri: 3 };
   }
   if (spec.kind === 'place') {
     const id = oneOf(spec.id, Object.keys(C.PLACE_EN));

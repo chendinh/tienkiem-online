@@ -5,7 +5,7 @@ import * as C from '@/lib/content';
 import type { Beast, Item } from '@/lib/game';
 import { rankingGet } from '@/lib/client/api';
 import { errText } from '@/lib/strings';
-import { BeastArt, ElChip, ItemIcon, Img, fmt } from './ui';
+import { BeastArt, ElChip, ItemIcon, Img, fmt, useZoom } from './ui';
 import { ElIcon, SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { Seg } from './ds/Seg';
@@ -14,7 +14,7 @@ import { Logo } from './Logo';
 type Board = 'cult' | 'power';
 interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; av?: string }
 interface Profile {
-  pid: string; name: string; dao: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
+  pid: string; name: string; dao: string; title?: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
   stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number;
   rank: { cult: number; power: number }; active: number;
 }
@@ -120,6 +120,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
 }
 
 function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
+  const zoom = useZoom();
   const [p, setP] = useState<Profile | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -138,6 +139,7 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
         <div className="rkWhoBig">
           <h2>{p.name}</h2>
           {p.dao && <div className="dao">{p.dao}</div>}
+          {p.title && <div className="titleChip static">{p.title}</div>}
           <div className="realm">{C.REALMS[p.realm]} · {C.SUBS[p.sub]} <small>(Lv{p.level})</small></div>
           <div className="chips">
             {p.linh.map((e) => <ElChip key={e} el={e} />)}<span className="chip">Độ thuần {p.purity}</span><span className="chip">{C.PERS[p.pers].n}</span><span className="chip">{C.ORIGINS[p.origin].n}</span>

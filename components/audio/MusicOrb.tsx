@@ -4,11 +4,11 @@ import { Icon } from '../ds/Icon';
 import { getAudio, useAudio } from '@/lib/audio';
 
 // The music button in the header: an orb with a tiny equaliser while music plays, and a panel with the track, volume and switches.
-export function MusicOrb({ onCredits }: { onCredits: () => void }) {
+// The panel itself (track, volume, switches): used in the header popover and in the Settings window.
+export function MusicPanel({ onCredits }: { onCredits: () => void }) {
   const a = useAudio(); const eng = getAudio();
-  const icon = a.playing && a.music ? <span className="eq" aria-hidden="true"><i /><i /><i /><i /></span> : <Icon name={a.music ? 'music' : 'music-off'} size={19} />;
   return (
-    <Popover icon={icon} label="Nhạc nền và âm thanh" active={a.playing && a.music} width={330}>
+    <>
       <div className="pop-head"><b>Nhạc nền</b>
         <label className="tg"><input type="checkbox" checked={a.music} onChange={(e) => eng?.setMusic(e.target.checked)} /><span className="sr-only">Bật nhạc nền</span></label>
       </div>
@@ -30,6 +30,15 @@ export function MusicOrb({ onCredits }: { onCredits: () => void }) {
         <label className="tg"><input type="checkbox" checked={a.sfx} onChange={(e) => eng?.setSfx(e.target.checked)} /><span className="sr-only">Bật âm thanh giao diện</span></label>
       </div>
       <button type="button" className="link pop-credit" onClick={onCredits}>Ghi công nhạc và tư liệu</button>
+    </>
+  );
+}
+export function MusicOrb({ onCredits }: { onCredits: () => void }) {
+  const a = useAudio();
+  const icon = a.playing && a.music ? <span className="eq" aria-hidden="true"><i /><i /><i /><i /></span> : <Icon name={a.music ? 'music' : 'music-off'} size={19} />;
+  return (
+    <Popover icon={icon} label="Nhạc nền và âm thanh" active={a.playing && a.music} width={330}>
+      <MusicPanel onCredits={onCredits} />
     </Popover>
   );
 }

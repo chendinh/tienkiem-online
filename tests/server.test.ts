@@ -38,7 +38,7 @@ const outbox = async () => (await D.query<{ entry: any }>(`SELECT entry FROM log
 
 const now = () => Date.now();
 async function signUp(email: string, pw = 'matkhau-dai-123') {
-  const r = await A.register(email, pw, 'test', now(), () => S.createState('f', now()));
+  const r = await A.register(email, pw, 'test', now(), (_i: string, e: string) => S.createState('f', now(), e));
   const u = await A.sessionUser(r.token, now());
   assert.ok(u); return { ...r, id: u!.id };
 }
@@ -51,11 +51,12 @@ test('registration: validation, duplicate email ignoring case, one character per
   assert.equal(await code(A.register('khong-hop-le', 'matkhau-dai-123', '', now(), () => null)), 'E_EMAIL');
   assert.equal(await code(A.register('a@b.vn', 'ngan', '', now(), () => null)), 'E_PASSWORD');
   const a = await signUp('Nguoi.Choi@Example.com');
-  assert.equal(await code(A.register('nguoi.choi@example.COM', 'matkhau-dai-123', '', now(), () => S.createState(undefined, now()))), 'E_EMAIL_TAKEN');
+  assert.equal(await code(A.register('nguoi.choi@example.COM', 'matkhau-dai-123', '', now(), (_i: string, e: string) => S.createState(undefined, now(), e))), 'E_EMAIL_TAKEN');
   const g = await S.getGame(a.id);
   assert.ok(g.state && g.state.player.look.g === 'f');
   assert.equal(g.state!.player.realm, 0); assert.equal(g.state!.player.cp, 0);
-  assert.equal(g.state!.stones, B.BALANCE.startingStones + (await import('../lib/content')).ORIGINS[g.state!.player.origin].stones);
+  const CC = await import('../lib/content');
+  assert.equal(g.state!.stones, B.BALANCE.startingStones + CC.ORIGINS[g.state!.player.origin].stones + (CC.daoInfo(g.state!.player.dao)?.perks.stones || 0));   // the đạo hiệu of the address may add Linh Thạch
   assert.equal(g.state!.ledger[0].reason, 'starting_grant');
 });
 test('the browser view carries no seeds or RNG positions (Requirement 13.16)', async () => {
@@ -222,7 +223,7 @@ test('Bảng Phong Thần: boards, hiding, profiles without private data, remova
 });
 
 test('two sign-ups with the same email at once: exactly one wins (unique index, Requirement 1)', async () => {
-  const outs = await Promise.all([1, 2, 3].map(() => code(A.register('race@example.com', 'matkhau-dai-123', 'ua', now(), () => S.createState('f', now())))));
+  const outs = await Promise.all([1, 2, 3].map(() => code(A.register('race@example.com', 'matkhau-dai-123', 'ua', now(), (_i: string, e: string) => S.createState('f', now(), e)))));
   assert.equal(outs.filter((o) => o === 'ok').length, 1, outs.join());
   assert.equal(outs.filter((o) => o === 'E_EMAIL_TAKEN').length, 2, outs.join());
   assert.equal((await D.query(`SELECT 1 FROM acct_auth WHERE email_key = 'race@example.com'`)).rowCount, 1);
@@ -306,4 +307,29 @@ test('the save is stored compressed, a plain-JSON save from before is still read
   await D.query('UPDATE accounts SET state = $2 WHERE id = $1', [a.id, JSON.stringify(back)]);   // the way it used to be written
   assert.deepEqual((await St.loadAccount(a.id))!.state, back);
   assert.equal((await S.getGame(a.id)).state!.player.name, back.player.name);
+});
+
+test('making the character again is closed for an account that has one', async () => {
+  const a = await signUp('again@example.com');
+  const before = (await S.getGame(a.id)).state!;
+  const r = await S.actGame(a.id, { type: 'restart', rid: 'again-0000001', gender: 'm' });
+  assert.equal(r.ok, false); assert.equal(r.code, 'E_HAS_CHARACTER');
+  assert.equal((await S.getGame(a.id)).state!.player.name, before.player.name);
+  // the đạo hiệu is the one of the address, and the same address always gives the same one
+  assert.equal(before.player.dao, G.daoOfEmail('again@example.com'));
+});
+
+test('every account gets the đạo hiệu of its e-mail: on its next read, or at once with the backfill; a dry run writes nothing', async () => {
+  const BF = await import('../lib/server/daobackfill'), CC = await import('../lib/content');
+  const a = await signUp('backfill@example.com');
+  await editState(a.id, (st) => { st.player.dao = 'Tên Cũ'; delete st.player.daoFix; });
+  const dry = await BF.backfillDao(false);
+  assert.ok(dry.changed.some((c) => c.id === a.id));
+  assert.equal((await St.loadAccount(a.id))!.state.player.dao, 'Tên Cũ', 'a dry run writes nothing');
+  const done = await BF.backfillDao(true);
+  assert.ok(done.changed.some((c) => c.id === a.id));
+  const st = (await St.loadAccount(a.id))!.state;
+  assert.equal(st.player.dao, G.daoOfEmail('backfill@example.com')); assert.equal(st.player.daoFix, true);
+  assert.ok(CC.daoInfo(st.player.dao), 'with the share at 1 everybody has one');
+  assert.equal((await BF.backfillDao(true)).changed.filter((c) => c.id === a.id).length, 0, 'once only');
 });

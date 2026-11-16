@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     switch (b && b.action) {
       case 'register': {
         const gender = b.gender === 'f' || b.gender === 'm' ? b.gender : undefined;
-        const r = await register(b.email, b.password, ua, now, () => createState(gender, now));
+        const r = await register(b.email, b.password, ua, now, (_id, email) => createState(gender, now, email));
         return json({ ok: true, user: { email: r.email } }, 200, { 'Set-Cookie': sessionCookie(r.token) });
       }
       case 'login': {

@@ -84,7 +84,7 @@ class Engine {
   }
   private level() { const t = this.tracks[this.idx]; return Math.min(1, this.prefs.vol * (t?.gain ?? 1)); }
   private async play(fade = 2600) {
-    if (!this.tracks.length || this.idx < 0) return;
+    if (!this.tracks.length || this.idx < 0 || this.prefs.vol <= 0) return;
     const a = this.els[this.cur], t = this.tracks[this.idx];
     if (!a.src || !a.src.endsWith(t.src)) a.src = t.src;
     try { await a.play(); this.ramp(a, this.level(), fade); this.refresh({ playing: true }); } catch { this.refresh({ playing: false }); }
@@ -95,7 +95,7 @@ class Engine {
     this.fading = true; const old = this.els[this.cur]; this.cur = 1 - this.cur; this.idx = (this.idx + dir + this.tracks.length) % this.tracks.length;
     const a = this.els[this.cur], t = this.tracks[this.idx]; a.src = t.src; a.currentTime = 0; a.volume = 0;
     this.refresh();
-    if (this.prefs.music && this.unlocked) { a.play().then(() => { this.ramp(a, this.level(), XFADE); this.refresh({ playing: true }); }).catch(() => this.refresh({ playing: false })); }
+    if (this.prefs.music && this.prefs.vol > 0 && this.unlocked) { a.play().then(() => { this.ramp(a, this.level(), XFADE); this.refresh({ playing: true }); }).catch(() => this.refresh({ playing: false })); }
     this.ramp(old, 0, XFADE, () => { old.pause(); this.fading = false; });
   }
   prev() { this.next(-1); }
@@ -104,7 +104,18 @@ class Engine {
     if (on) { this.unlock(); this.ctx?.resume?.(); this.play(); this.refresh(); }
     else { const a = this.els[this.cur]; this.ramp(a, 0, 700, () => a.pause()); this.refresh({ playing: false }); }
   }
-  setVol(v: number) { this.prefs.vol = Math.max(0, Math.min(1, v)); this.save(); const a = this.els[this.cur]; if (this.snap.playing) { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); a.volume = this.level(); } this.refresh(); }
+  // The slider is the master volume: at 0 nothing plays at all (both music players are stopped and the interface sounds are skipped), not just very quietly.
+  setVol(v: number) {
+    this.prefs.vol = Math.max(0, Math.min(1, v)); this.save();
+    if (this.prefs.vol <= 0) {
+      this.els.forEach((a) => { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); this.timers.delete(a); a.volume = 0; a.pause(); });
+      this.fading = false; this.refresh({ playing: false }); return;
+    }
+    const a = this.els[this.cur];
+    if (this.snap.playing) { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); a.volume = this.level(); }
+    else if (this.prefs.music && this.unlocked) { this.play(600); }
+    this.refresh();
+  }
   setSfx(on: boolean) { this.prefs.sfx = on; this.save(); this.refresh(); if (on) { this.unlock(); this.sfx('chime'); } }
 
   // ---- interface sounds
@@ -124,7 +135,7 @@ class Engine {
   }
   private lastSfx: Record<string, number> = {};
   sfx(name: Sfx) {
-    if (!this.prefs.sfx || !this.ctx || !this.out) return;
+    if (!this.prefs.sfx || this.prefs.vol <= 0 || !this.ctx || !this.out) return;
     const now = performance.now(), gap = name === 'tick' ? 60 : 280; if (now - (this.lastSfx[name] || 0) < gap) return; this.lastSfx[name] = now;
     if (this.ctx.state === 'suspended') this.ctx.resume?.();
     const bell = [1, 2.76, 5.4, 8.93], pl = { type: 'triangle' as const, lp: 2600, attack: 0.003 };

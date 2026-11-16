@@ -1,6 +1,6 @@
 'use client';
 import { ModalClose } from './ds/ModalClose';
-import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as C from '@/lib/content';
 import { SP, type Beast, type Item } from '@/lib/game';
 import { itemSpec } from '@/lib/avatarSpec';
@@ -12,7 +12,9 @@ import { Icon } from './ds/Icon';
 export const GenCtx = createContext(true);
 
 // Click-to-enlarge popup. Any component can call useZoom()(payload) to show a big picture with details.
-export type ZoomItem = { kind: 'item'; it: Item } | { kind: 'beast'; b: Beast } | { kind: 'species'; id: string; mut?: boolean; text?: string };
+export type ZoomItem = { kind: 'item'; it: Item } | { kind: 'beast'; b: Beast } | { kind: 'species'; id: string; mut?: boolean; text?: string }
+  | { kind: 'avatar'; src: string; name: string; sub?: string; crop?: number }   // a character's portrait
+  | { kind: 'prop'; src: string; name: string; text?: string };   // a shop good or a material
 const ZoomCtx = createContext<(z: ZoomItem) => void>(() => {});
 export const useZoom = () => useContext(ZoomCtx);
 
@@ -29,6 +31,52 @@ export function ZoomProvider({ children }: { children: ReactNode }) {
       {children}
       {z && <ZoomView z={z} close={() => setZ(null)} />}
     </ZoomCtx.Provider>
+  );
+}
+
+// The big picture of a popup: pinch, wheel or double-tap to zoom, drag to move. The page itself never zooms or pans (touch-action: none),
+// so a pinch on the picture can no longer zoom the whole browser page and break the layout of the fixed popups.
+export function PanZoom({ children }: { children: ReactNode }) {
+  const [t, setT] = useState({ k: 1, x: 0, y: 0 });
+  const box = useRef<HTMLDivElement>(null);
+  const ptrs = useRef(new Map<number, { x: number; y: number }>());
+  const last = useRef<{ d: number; cx: number; cy: number } | null>(null);
+  const tap = useRef(0);
+  const clamp = (k: number, x: number, y: number) => {
+    const r = box.current?.getBoundingClientRect(), w = r?.width || 0, h = r?.height || 0;
+    const kk = Math.min(5, Math.max(1, k)), mx = (w * (kk - 1)) / 2, my = (h * (kk - 1)) / 2;
+    return { k: kk, x: kk === 1 ? 0 : Math.min(mx, Math.max(-mx, x)), y: kk === 1 ? 0 : Math.min(my, Math.max(-my, y)) };
+  };
+  const zoomAt = (k: number, cx: number, cy: number, cur = t) => {
+    const r = box.current!.getBoundingClientRect(), ox = cx - (r.left + r.width / 2), oy = cy - (r.top + r.height / 2), nk = Math.min(5, Math.max(1, k)), f = nk / cur.k;
+    setT(clamp(nk, ox - (ox - cur.x) * f, oy - (oy - cur.y) * f));
+  };
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const wheel = (e: WheelEvent) => { e.preventDefault(); zoomAt(t.k * Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  });
+  const dist = () => { const [a, b] = [...ptrs.current.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 }; };
+  return (
+    <div ref={box} className="panZoom" style={{ touchAction: 'none' }}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId); ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (ptrs.current.size === 2) last.current = dist();
+        else if (e.pointerType !== 'mouse' || e.detail === 2) { const n = Date.now(); if (n - tap.current < 320) { t.k > 1 ? setT({ k: 1, x: 0, y: 0 }) : zoomAt(2.5, e.clientX, e.clientY); tap.current = 0; } else tap.current = n; }
+      }}
+      onPointerMove={(e) => {
+        const p = ptrs.current.get(e.pointerId); if (!p) return;
+        const dx = e.clientX - p.x, dy = e.clientY - p.y; ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (ptrs.current.size >= 2 && last.current) { const n = dist(); zoomAt(t.k * (n.d / (last.current.d || 1)), n.cx, n.cy); setT((c) => clamp(c.k, c.x + n.cx - last.current!.cx, c.y + n.cy - last.current!.cy)); last.current = n; }
+        else if (t.k > 1) setT((c) => clamp(c.k, c.x + dx, c.y + dy));
+      }}
+      onPointerUp={(e) => { ptrs.current.delete(e.pointerId); last.current = null; }}
+      onPointerCancel={(e) => { ptrs.current.delete(e.pointerId); last.current = null; }}
+      onDoubleClick={(e) => { t.k > 1 ? setT({ k: 1, x: 0, y: 0 }) : zoomAt(2.5, e.clientX, e.clientY); }}>
+      <div className="panZoomIn" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.k})` }}>{children}</div>
+      {t.k > 1 && <button type="button" className="btn sm panZoomReset" onClick={() => setT({ k: 1, x: 0, y: 0 })}>Thu về</button>}
+    </div>
   );
 }
 
@@ -55,10 +103,20 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
         <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>} {b.name}</h2>
         <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {b.power}</span>{b.elite && <span className="chip">Tinh Anh</span>}</div>
         <SizeMeter b={b} />
-        <ul className="itLines big"><li>Sinh Lực {fmt(b.stats[0])}</li><li>Công Kích {fmt(b.stats[2])}</li><li>Phòng Ngự {fmt(b.stats[3])}</li><li>Thân Pháp {fmt(b.stats[4])}</li></ul>
+        <ul className="itLines big beastStats">
+          <li>Sinh Lực {fmt(b.stats[0])}</li><li>Linh Lực {fmt(b.stats[1])}</li><li>Công Kích {fmt(b.stats[2])}</li><li>Phòng Ngự {fmt(b.stats[3])}</li><li>Thân Pháp {fmt(b.stats[4])}</li>
+          <li>Kích thước {b.cm} cm · {C.SIZE_CLASS[b.cls]}</li>
+        </ul>
+        {b.apt && b.apt.length === 5 && <div className="aptRow" aria-label="Tư chất">{['Sinh Lực', 'Linh Lực', 'Công', 'Phòng', 'Thân'].map((n, k) => <span key={n} title={`Tư chất ${n}`}><small>{n}</small><b>{b.apt[k].toFixed(2)}</b></span>)}</div>}
         {b.skills.length > 0 && <div className="hint">Thần thông: {b.skills.join(', ')}.</div>}
       </>
     );
+  } else if (z.kind === 'avatar') {
+    pic = <Img src={z.src} className="fill" style={z.crop ? { height: `${100 / (1 - z.crop)}%`, objectPosition: 'top' } : undefined} fb={<Icon name="lotus" size={80} />} />;
+    body = (<><h2>{z.name}</h2>{z.sub && <p className="zoomText">{z.sub}</p>}</>);
+  } else if (z.kind === 'prop') {
+    pic = <Img src={z.src} className="fill" fb={<span>✦</span>} />;
+    body = (<><h2>{z.name}</h2>{z.text && <p className="zoomText">{z.text}</p>}</>);
   } else {
     const sp = SP(z.id);
     pic = <Img src={C.monsterArt(z.id, z.mut)} className="fill" fb={<ElIcon el={sp.el[0]} size={80} />} />;
@@ -74,7 +132,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
     <div className="modal zoom" onClick={close} role="dialog" aria-modal="true">
       <ModalClose onClose={close} />
       <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()} style={{ '--rc': rc } as CSSProperties}>
-        <div className="zoomPic">{pic}</div>
+        <div className="zoomPic"><PanZoom>{pic}</PanZoom></div>
         <div className="zoomInfo">{body}</div>
         <button className="btn big" onClick={close}>Đóng</button>
       </div>

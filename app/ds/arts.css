@@ -205,4 +205,47 @@
   .artEmpty svg { color: var(--gold-300); }
   .artEmpty > b { font-family: var(--font-display); font-size: var(--fs-lg); color: var(--gold-300); }
   .artEmpty p { margin: 0; max-width: 46ch; font-size: var(--fs-sm); line-height: 1.55; color: var(--text-2); }
+
+  /* ===== Bí kíp: three or more slots in a row at the top (used in the fight), the shelf of unused books below ===== */
+  .bkGuide { line-height: 1.6; }
+  .bkRar { display: inline-block; margin: 0 2px; padding: 0 8px; border-radius: var(--r-pill); font-size: var(--fs-2xs); color: var(--rc); border: 1px solid color-mix(in srgb, var(--rc) 60%, transparent); }
+  .bkH { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-4) 0 var(--sp-2); color: var(--gold-300); font-size: var(--fs-md); letter-spacing: 0.05em; }
+  .bkH small { color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0; }
+  .bkSlots { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: var(--sp-2); }
+  .bkSlot { --rc: var(--line-gold); position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 164px; padding: var(--sp-2); text-align: center; border-radius: var(--r-md); cursor: pointer; transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base), border-color var(--dur-base); }
+  .bkSlot.empty { border: 2px dashed color-mix(in srgb, var(--gold-300) 45%, transparent); background: radial-gradient(circle at 50% 40%, rgb(255 255 255 / 0.05), rgb(0 0 0 / 0.3)); color: var(--text-3); font-size: var(--fs-xs); }
+  .bkSlot.full { border: 2px solid var(--rc); background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc) 22%, transparent), rgb(0 0 0 / 0.45)); box-shadow: 0 0 22px -8px var(--rc), inset 0 0 18px -8px var(--rc); }
+  .bkSlot.over, .bkSlot.ready { border-color: var(--jade-300); box-shadow: 0 0 0 2px var(--jade-300), 0 0 22px -4px var(--jade-300); color: var(--jade-200); }
+  .bkSlot.swap { border-style: dashed; }
+  .bkSlot:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
+  .bkNo { position: absolute; top: 6px; left: 8px; font-family: var(--font-display); font-size: var(--fs-xs); color: var(--gold-300); opacity: 0.85; }
+  .bkPlus { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; border: 1px dashed var(--line-gold); color: var(--gold-300); opacity: 0.7; }
+  .bkArt { position: relative; display: block; width: 76px; height: 76px; padding: 0; overflow: hidden; border-radius: var(--r-sm); border: 1.5px solid var(--rc, var(--line)); background: #0a1319; cursor: grab; box-shadow: 0 0 16px -4px var(--rc, transparent); }
+  button.bkArt { cursor: zoom-in; }
+  .bkSlot .bkArt { width: 84px; height: 84px; }
+  .bkName { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: var(--fs-sm); color: var(--rc, var(--gold-200)); }
+  .bkSub { color: var(--text-3); font-size: var(--fs-2xs); }
+  .bkX { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.6); color: var(--text-2); cursor: pointer; }
+  .bkX:hover { color: var(--cinnabar-300); border-color: var(--cinnabar-300); }
+  .bkShelf { display: grid; gap: var(--sp-2); padding: var(--sp-2); border-radius: var(--r-md); border: 1px solid var(--line); background: rgb(0 0 0 / 0.2); }
+  .bkShelf.over { border-color: var(--jade-300); box-shadow: inset 0 0 0 1px var(--jade-300); }
+  .bkCard { --rc: var(--line); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 10%, rgb(0 0 0 / 0.35)), rgb(0 0 0 / 0.25)); }
+  .bkCard.st-known { cursor: grab; }
+  .bkCard.st-ready { border-style: dashed; box-shadow: 0 0 14px -6px var(--gold-300); }
+  .bkCard.st-wait, .bkCard.st-none { opacity: 0.62; }
+  .bkCard.st-none .bkArt { filter: grayscale(0.85) brightness(0.7); }
+  .bkCard.held { box-shadow: 0 0 0 2px var(--jade-300), 0 0 18px -4px var(--jade-300); opacity: 1; }
+  .bkBody { display: grid; gap: 3px; min-width: 0; }
+  .bkBody .acTags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .bkText { color: var(--text-2); font-size: var(--fs-xs); line-height: 1.45; }
+  .bkAct { display: grid; justify-items: end; gap: 4px; }
+  .bkHeld { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--jade-300); background: rgb(4 18 20 / 0.94); color: var(--jade-200); font-size: var(--fs-sm); }
+  @media (max-width: 640px) {
+    .bkSlot { min-height: 138px; padding: 4px; }
+    .bkSlot .bkArt { width: 60px; height: 60px; }
+    .bkName { font-size: var(--fs-xs); }
+    .bkCard { grid-template-columns: auto minmax(0, 1fr); }
+    .bkAct { grid-column: 1 / -1; justify-items: stretch; }
+    .bkArt { width: 60px; height: 60px; }
+  }
 }

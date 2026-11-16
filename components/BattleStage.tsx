@@ -5,7 +5,7 @@ import type { FeedEntry } from '@/lib/game';
 import { fxOf, fxColor } from '@/lib/skillfx';
 import { Icon } from './ds/Icon';
 import { ElIcon } from './Icons';
-import { Img } from './ui';
+import { Img, useZoom } from './ui';
 import { useFx } from './fx/FxProvider';
 import { playSkill, warmFx } from './fx/SkillFx';
 import { parseLog, FX_LABEL } from './Battle';
@@ -30,9 +30,9 @@ const recipientIsFoe = (a: Act) => (a.f ? (SELF_FX.has(a.f) ? a.w === 'm' : a.w 
 const colorOf = (a: Act) => fxColor(a.e, a.f);
 
 export function BattleStage({ e, hero, heroEl, onDone }: Props) {
-  const fx = useFx();
+  const fx = useFx(), zoom = useZoom();
   const parsed = useMemo(() => parseLog(e.log || [], e.beast?.name), [e.id]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const open = parsed.find((l) => l.kind === 'open') as { kind: 'open'; o: { f: string; fe: string[]; fh: number; ph: number; pm: number } } | undefined;
+  const open = parsed.find((l) => l.kind === 'open') as { kind: 'open'; o: { f: string; fe: string[]; fh: number; ph: number; pm: number; ar?: string } } | undefined;
   const acts = useMemo(() => parsed.flatMap((l) => (l.kind === 'act' && l.a.w !== 'u' ? [l.a as Act] : [])), [parsed]);
   const verdict = (parsed.find((l) => l.kind === 'text') as { kind: 'text'; text: string } | undefined)?.text;
   const [i, setI] = useState(-1);
@@ -138,16 +138,18 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   const col = cur ? colorOf(cur) : 'var(--gold-300)';
   const foeEl = open.o.fe[0], won = verdict === 'Thắng', lost = verdict === 'Bại';
   const over = i >= acts.length;   // the fight is finished: the verdict is on screen
+  const arena = C.ARENA(open.o.ar);
   const youPct = Math.max(0, Math.min(100, (hp.you / Math.max(1, open.o.pm)) * 100)), foePct = Math.max(0, Math.min(100, (hp.foe / Math.max(1, open.o.fh)) * 100));
 
   return (
     <div className="stage" ref={stageRef} role="img" aria-label={`Giao chiến với ${open.o.f}: ${verdict || ''}`}>
-      <div className="stSky" /><div className="stGround" />
+      <div className="stSky" style={arena ? { backgroundImage: `linear-gradient(180deg, rgb(4 10 16 / 0.25), rgb(4 10 16 / 0.7)), url(${C.arenaArt(arena.id)})` } : undefined} /><div className="stGround" />
+      {arena && <div className="stArena" title={`${arena.note} Tăng: ${arena.boost.join(', ')}. Giảm: ${arena.weaken.join(', ')}.`}><b>{arena.name}</b><span className="up">{arena.boost.map((el) => <ElIcon key={el} el={el} size={12} />)}</span><span className="down">{arena.weaken.map((el) => <ElIcon key={el} el={el} size={12} />)}</span></div>}
       {cur && <div key={`k${i}`} className={`stSkill ${foeActs ? 'foe' : ''}`} style={{ '--el': col } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={14} /> : <Icon name="atk" size={14} />}<span>{cur.w === 'b' ? `${cur.n} · ` : ''}«{cur.k || 'Đòn đánh'}»</span></div>}
 
       <div className="stSide you">
         <div className="stBar you"><i className="lag" style={{ width: `${youPct}%` }} /><i className="cur" style={{ width: `${youPct}%` }} /></div>
-        <div ref={youRef} className={`stFig ${hp.you <= 0 ? 'down' : ''} ${over && won ? 'win' : ''}`} style={{ '--el': C.EL[heroEl]?.color } as CSSProperties}>
+        <div ref={youRef} onClick={hero ? () => zoom({ kind: 'avatar', src: hero, name: 'Ngươi' }) : undefined} className={`stFig ${hp.you <= 0 ? 'down' : ''} ${over && won ? 'win' : ''}`} style={{ '--el': C.EL[heroEl]?.color } as CSSProperties}>
           {hero ? <Img src={`${hero}?s=face`} fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
         </div>
         <small>Ngươi</small>
@@ -155,7 +157,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
 
       <div className="stSide foe">
         <div className="stBar foe"><i className="lag" style={{ width: `${foePct}%` }} /><i className="cur" style={{ width: `${foePct}%` }} /></div>
-        <div ref={foeRef} className={`stFig foe ${hp.foe <= 0 ? 'down' : ''} ${over && lost ? 'win' : ''} ${e.beast?.mut ? 'mut' : ''}`} style={{ '--el': C.EL[foeEl]?.color } as CSSProperties}>
+        <div ref={foeRef} onClick={e.beast ? () => zoom({ kind: 'beast', b: e.beast! }) : undefined} className={`stFig foe ${hp.foe <= 0 ? 'down' : ''} ${over && lost ? 'win' : ''} ${e.beast?.mut ? 'mut' : ''}`} style={{ '--el': C.EL[foeEl]?.color } as CSSProperties}>
           {e.beast ? <Img src={C.monsterArt(e.beast.sp, e.beast.mut, true)} fb={<ElIcon el={foeEl} size={40} />} />
             : e.kind === 'npc' ? <Img src={npcArt(open.o.f)} className="stFace" fb={<ElIcon el={foeEl} size={40} />} /> : <span className="stSeal"><ElIcon el={foeEl} size={40} /></span>}
         </div>

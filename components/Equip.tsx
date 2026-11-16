@@ -7,7 +7,7 @@ import type { Item } from '@/lib/game';
 import { levelOf, dissolveValue } from '@/lib/game';
 import type { GS } from '@/lib/client/types';
 import type { Act, ActRes } from './Panels';
-import { ElChip, GenImg, ItemIcon, STAT_VI, fmt } from './ui';
+import { ElChip, GenImg, ItemIcon, PanZoom, STAT_VI, fmt } from './ui';
 import { ElIcon } from './Icons';
 import { itemSpec } from '@/lib/avatarSpec';
 import { SlotIcon } from './Icons';
@@ -152,7 +152,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
     <div className="modal zoom" onClick={eqx.close} role="dialog" aria-modal="true" aria-label={it.name}>
       <ModalClose onClose={eqx.close} />
       <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()} style={{ '--rc': rc } as CSSProperties}>
-        <div className="zoomPic"><GenImg spec={itemSpec(it)} pri={1} fb={<ElIcon el={it.el} size={80} />} /></div>
+        <div className="zoomPic"><PanZoom><GenImg spec={itemSpec(it)} pri={1} fb={<ElIcon el={it.el} size={80} />} /></PanZoom></div>
         <div className="zoomInfo">
           <h2 style={{ color: rc }}>{it.name}</h2>
           <div className="chips">

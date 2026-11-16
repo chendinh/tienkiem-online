@@ -137,7 +137,6 @@ export const skillDef = (name: string): SkillDef => SKILL_DEFS[name] || SKILL_DE
 export const FAMILY = ['Lý', 'Trần', 'Vương', 'Lâm', 'Diệp', 'Tiêu', 'Mộ Dung', 'Tống', 'Liễu', 'Bạch', 'Tô', 'Cố', 'Nguyệt', 'Thượng Quan'];
 export const SYL1 = ['Thanh', 'Vân', 'Hàn', 'Nguyệt', 'Tuyết', 'Phong', 'Linh', 'Dao', 'Ngọc', 'Minh', 'Lăng', 'Tịch', 'Mặc', 'Y'];
 export const SYL2 = ['Hi', 'Nhi', 'Tâm', 'Ảnh', 'Lan', 'Hoa', 'Uyên', 'Vũ', 'Dung', 'Nghiên', 'Ca', 'Trúc'];
-export const DAO = ['Thanh Vân Tử', 'Bạch Hạc Chân Nhân', 'Vô Ưu Cư Sĩ', 'Phiêu Miểu Tiên Tử', 'Tử Hà Quân', 'Linh Tê Đạo Nhân'];
 
 export const SLOTS = ['Weapon', 'Headwear', 'Robe', 'Footwear', 'Back', 'Accessory', 'Ring', 'Talisman'];
 // Slots that can be seen on the portrait (Ring and Talisman are too small to draw).
@@ -475,6 +474,28 @@ export const NIGHT_ART = '/art/zones/chodem.jpg';
 export const NIGHT_EMPTY_ART = '/art/zones/chodem_quay.jpg';
 export const uiArt = (id: string) => `/art/ui/${id}.jpg`;
 export const bookArt = (cls: string) => `/art/shop/book_${cls}.jpg`;
+// One picture per technique (Bí Kíp) and per Công Pháp scroll, shared by every player: drawn once by scripts/pregen.ts into public/art/books.
+export const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+export const techArt = (name: string) => `/art/books/${slug(name)}.jpg`;
+// ---------- Chiến trường: every fight happens on one of 10 arenas (two per zone, chosen by the tick). An arena strengthens the techniques of some
+// elements and weakens those of others, for everybody on it (the player, Linh Thú and the foe). Pictures: public/art/arenas (scripts/pregen.ts).
+export interface Arena { id: string; zone: string; name: string; note: string; boost: string[]; weaken: string[] }
+export const ARENA_BOOST = 1.12, ARENA_WEAKEN = 0.88;
+export const ARENAS: Arena[] = [
+  { id: 'thanvan_suoi', zone: 'thanhvan', name: 'Linh Tuyền Cốc', note: 'Suối linh chảy qua thung lũng mù sương.', boost: ['Thủy', 'Mộc'], weaken: ['Hỏa'] },
+  { id: 'thanvan_cothu', zone: 'thanhvan', name: 'Cổ Thụ Đài', note: 'Đài đá dưới gốc cổ thụ ngàn năm.', boost: ['Mộc', 'Thổ'], weaken: ['Kim'] },
+  { id: 'hannguyet_truc', zone: 'hannguyet', name: 'Nguyệt Quang Trúc Hải', note: 'Rừng trúc dưới trăng lạnh.', boost: ['Âm', 'Thủy'], weaken: ['Dương'] },
+  { id: 'hannguyet_dam', zone: 'hannguyet', name: 'Hàn Đàm', note: 'Đầm băng phản chiếu ánh trăng.', boost: ['Thủy'], weaken: ['Hỏa', 'Lôi'] },
+  { id: 'xichviem_dungnham', zone: 'xichviem', name: 'Dung Nham Trì', note: 'Hồ dung nham sôi sục.', boost: ['Hỏa'], weaken: ['Thủy', 'Mộc'] },
+  { id: 'xichviem_lo', zone: 'xichviem', name: 'Thiết Hỏa Lò', note: 'Lò rèn cổ bên vách núi lửa.', boost: ['Kim', 'Hỏa'], weaken: ['Mộc'] },
+  { id: 'loivan_dai', zone: 'loivan', name: 'Lôi Đài Cổ', note: 'Đài đá giữa bão sấm.', boost: ['Lôi'], weaken: ['Mộc', 'Thủy'] },
+  { id: 'loivan_nhai', zone: 'loivan', name: 'Vân Nhai', note: 'Vách đá trên biển mây đen.', boost: ['Lôi', 'Dương'], weaken: ['Âm'] },
+  { id: 'cuuu_khe', zone: 'cuuu', name: 'U Minh Liệt Khe', note: 'Khe nứt hư không nuốt ánh sáng.', boost: ['Âm'], weaken: ['Dương', 'Kim'] },
+  { id: 'cuuu_nhatnguyet', zone: 'cuuu', name: 'Nhật Nguyệt Giao Thực', note: 'Nhật nguyệt giao nhau trên đài vỡ.', boost: ['Dương', 'Âm'], weaken: ['Thổ'] },
+];
+export const ARENA = (id: string | undefined) => ARENAS.find((a) => a.id === id) || null;
+export const arenaMult = (a: Arena | null, el?: string) => (!a || !el ? 1 : a.boost.includes(el) ? ARENA_BOOST : a.weaken.includes(el) ? ARENA_WEAKEN : 1);
+export const arenaArt = (id: string) => `/art/arenas/${id}.jpg`;
 // English descriptions used only to build prompts on the server (the browser sends just the id).
 export const PROP_EN: Record<string, string> = {
   taming0: 'a rectangular spirit-taming contract tablet of warm yellow jade with a glowing knot pattern and a silk tassel',
@@ -517,6 +538,9 @@ export const PROP_EN: Record<string, string> = {
   ui_btn_c: 'a wide horizontal ancient talisman-shaped button plaque of dark teal jade with silver and gold inlay borders, pointed leaf-shaped ends with curled cloud tips and a thin glowing jade rim, a smooth empty centre panel',
   ui_seal_a: 'a round xianxia seal medallion of dark green jade with a thick gold ring border, eight small gold cloud ornaments around the rim and a smooth empty dark jade centre disc',
   ui_seal_b: 'a round xianxia seal medallion of deep red lacquer with a gold ring border, small gold lotus petals around the rim and a smooth empty dark lacquer centre disc',
+  ui_ico_rank: 'a round xianxia medallion icon that fills about 92 percent of the picture: a thick gold ring border with small gold cloud ornaments around a dark green jade disc, in the centre a golden crown above a mountain peak with a soft gold glow',
+  ui_ico_bag: 'a round xianxia medallion icon that fills about 92 percent of the picture: a thick gold ring border with small gold cloud ornaments around a deep purple lacquer disc, in the centre a golden-corded embroidered qiankun cloth pouch with a glowing gold knot',
+  ui_ico_quest: 'a round xianxia medallion icon that fills about 96 percent of the picture: a thick gold ring border with small gold cloud ornaments around a deep red lacquer disc, in the centre a smooth blank carved jade command token with a gold tassel and a bright golden flame rising above it, completely smooth surfaces',
 };
 export const PLACE_EN: Record<string, string> = {
   thanhvan: 'a misty green mountain valley at dawn with a clear stream, bamboo and pines, soft golden light rays, a serene beginning of a journey',
@@ -527,9 +551,107 @@ export const PLACE_EN: Record<string, string> = {
   market: 'a bustling ancient fantasy market street at dusk, hanging lanterns, wooden stalls with elixir bottles and jade tablets, warm lamp light, no readable signs',
   chodem: 'a mysterious xianxia night market in an ancient mountain-town alley after midnight, rows of red and amber paper lanterns, cloaked cultivators browsing wooden stalls laid with jade tablets, swords and glowing spirit artifacts, drifting incense smoke, a crescent moon over tiled roofs, deep indigo and warm gold light, no readable signs',
   chodem_quay: 'a single small wooden xianxia night-market stall under a hanging red paper lantern, empty cloth-covered counter with a tiny incense burner and a faint spirit-light glow, narrow stone alley at night, soft blue mist, no people, no readable signs',
+  arena_thanvan_suoi: 'a wide xianxia duel arena beside a crystal-clear spirit spring in a misty green valley, smooth flat mossy stone ground in the foreground, bamboo and pines, soft golden light rays, cyan glowing water',
+  arena_thanvan_cothu: 'a wide xianxia duel arena, a circular ancient stone platform beneath the roots of a colossal thousand-year tree, glowing green leaves, flat stone ground in the foreground, warm dappled light',
+  arena_hannguyet_truc: 'a wide xianxia duel arena, a clearing of flat pale stone inside a moonlit bamboo sea under a huge full moon, cold silver fog, blue teal tones, drifting fireflies',
+  arena_hannguyet_dam: 'a wide xianxia duel arena on a frozen pond of dark ice reflecting the moon, flat icy ground in the foreground, frost crystals, pale blue mist, cold moonlight',
+  arena_xichviem_dungnham: 'a wide xianxia duel arena, a flat basalt platform in the middle of a bubbling lava lake, rivers of glowing orange lava, black rock arches, drifting embers',
+  arena_xichviem_lo: 'a wide xianxia duel arena inside an ancient cliff-side forge cavern, flat dark iron-plated floor in the foreground, glowing molten metal channels, anvils and weapon racks in the dim background, orange sparks',
+  arena_loivan_dai: 'a wide xianxia duel arena, a huge flat carved stone thunder platform on a high plateau, violet lightning striking ancient pillars around it, dark storm clouds, dramatic wind',
+  arena_loivan_nhai: 'a wide xianxia duel arena on a flat cliff-top ledge above a sea of dark thunder clouds, golden sunset glow breaking through the clouds, forks of lightning in the distance',
+  arena_cuuu_khe: 'a wide xianxia duel arena, a flat black stone floor beside a glowing rift in the void swallowing light, floating broken islands, swirling black and violet mist, faint gold cracks',
+  arena_cuuu_nhatnguyet: 'a wide xianxia duel arena, a cracked flat circular platform in the void under a solar eclipse where sun and moon overlap, black and gold light, floating stone fragments',
 };
 // Different looks for Địa and above (Requirement: rarer items are not drawn twice the same way).
 export const ITEM_DESIGNS = [
   'with flowing cloud-swirl filigree', 'with a dragon-scale pattern', 'with lotus-petal motifs', 'with phoenix-feather detailing', 'with a star-map inlay of tiny gems', 'with intertwined bamboo-knot ornament',
   'with a crane-wing silhouette', 'with flame-like curves', 'with wave and mist patterns', 'with a crescent-moon motif', 'with thorny vine ornament', 'with a sun-ray burst design',
 ];
+
+// ---------- Đạo hiệu (a name that belongs to the e-mail address) and its starting privileges
+// About three accounts in ten have one (see daoOfEmail in game.ts). It is decided by the address alone, so making the character again does not change it.
+// The privileges are given once, when the character is made. `taming` and `hp` are counts per grade (Hoàng..., Hạng 1...), `bt` per Realm of the pill.
+export interface DaoPerks { stones?: number; taming?: number[]; hp?: number[]; bt?: number[]; trib?: number; weaponTier?: number }
+export interface DaoInfo { name: string; blurb: string; perks: DaoPerks }
+export const DAO_INFO: DaoInfo[] = [
+  { name: 'Thanh Vân Tử', blurb: 'Người của Thanh Vân Sơn Cốc, nơi mọi đạo đồ bắt đầu. Mây núi ở đó vẫn nhớ tên ngươi.', perks: { stones: 80, taming: [3, 0, 0, 0] } },
+  { name: 'Bạch Hạc Chân Nhân', blurb: 'Hạc trắng từng đưa tin cho ngươi giữa mây. Người đời tin ngươi có phúc đức từ kiếp trước.', perks: { hp: [6, 0, 0], trib: 1 } },
+  { name: 'Vô Ưu Cư Sĩ', blurb: 'Sống nhàn giữa đời, của cải tự tìm đến. Ngươi chẳng mấy khi phải lo chuyện ăn tiêu.', perks: { stones: 200 } },
+  { name: 'Phiêu Miểu Tiên Tử', blurb: 'Bóng dáng ngươi như ẩn như hiện giữa sương. Linh thú thường chịu lại gần ngươi hơn người khác.', perks: { taming: [0, 2, 0, 0], hp: [2, 1, 0] } },
+  { name: 'Tử Hà Quân', blurb: 'Sinh ra lúc ráng tím phủ đầu núi. Pháp khí đầu đời của ngươi mang theo chút linh khí.', perks: { weaponTier: 1 } },
+  { name: 'Linh Tê Đạo Nhân', blurb: 'Một sợi linh tê nối lòng ngươi với thiên đạo. Cửa ải đầu tiên sẽ dễ vượt hơn.', perks: { taming: [2, 0, 0, 0], bt: [1, 0, 0, 0] } },
+  { name: 'Huyền Băng Lão Tổ', blurb: 'Hơi lạnh quanh ngươi chưa bao giờ tan. Thương thế đến gần ngươi cũng chậm lại.', perks: { hp: [4, 2, 0], stones: 40 } },
+  { name: 'Xích Diễm Chân Quân', blurb: 'Lửa trong người ngươi nóng hơn người thường. Pháp khí cầm lên là ấm tay.', perks: { weaponTier: 1, stones: 30 } },
+  { name: 'Lôi Đình Tán Nhân', blurb: 'Sấm đánh trúng nơi ngươi đứng mà ngươi vẫn sống. Thiên kiếp sau này chưa chắc làm khó được ngươi.', perks: { bt: [1, 0, 0, 0], trib: 1 } },
+  { name: 'Thanh Liên Cư Sĩ', blurb: 'Hoa sen nở trong đầm nơi ngươi dừng chân. Linh thú thấy ngươi hiền nên dễ lại gần.', perks: { taming: [2, 1, 0, 0] } },
+  { name: 'Hồng Trần Khách', blurb: 'Đã nếm đủ chuyện đời trước khi bước vào đạo. Túi tiền và bình thuốc của ngươi đều đã sẵn.', perks: { stones: 150, hp: [2, 0, 0] } },
+  { name: 'Mạc Sơn Đạo Nhân', blurb: 'Ở ẩn dưới chân núi Mạc từ rất lâu. Nghề quen tay: bắt linh thú bằng khế ước.', perks: { taming: [4, 0, 0, 0] } },
+  { name: 'Vân Hạc Tiên Sinh', blurb: 'Đi theo đàn hạc qua mây, học được cách giữ gìn sức lực trên đường dài.', perks: { hp: [3, 2, 0], taming: [1, 0, 0, 0] } },
+  { name: 'Ngọc Hư Tử', blurb: 'Tâm sáng như ngọc. Ai gặp ngươi cũng muốn tặng thứ gì đó cho yên lòng.', perks: { stones: 100, trib: 1 } },
+  { name: 'Cửu Thiên Lữ Khách', blurb: 'Đi tới đâu cũng như đang ngó xuống từ chín tầng trời. Linh thú tin ngươi nhanh hơn thường.', perks: { taming: [0, 3, 0, 0] } },
+  { name: 'Tuyết Nguyệt Tiên Tử', blurb: 'Trăng trên tuyết là thứ ngươi thấy đầu tiên. Dáng người nhẹ như không, ít khi bị thương nặng.', perks: { hp: [5, 1, 0], stones: 40 } },
+  { name: 'Hắc Phong Cư Sĩ', blurb: 'Gió đen thổi qua nơi ngươi sinh ra. Một món binh khí cũ ngươi đem theo vẫn còn sắc.', perks: { weaponTier: 1 } },
+  { name: 'Kim Ô Chân Nhân', blurb: 'Nắng gắt nơi ngươi lớn lên làm da ngươi sạm lại nhưng ví dày lên.', perks: { stones: 120, taming: [2, 0, 0, 0] } },
+  { name: 'Trúc Lâm Ẩn Sĩ', blurb: 'Sống giữa rừng trúc, quen pha thuốc từ lá. Bình đan nhà ngươi lúc nào cũng đầy.', perks: { hp: [8, 0, 0] } },
+  { name: 'Thiên Cơ Đạo Trưởng', blurb: 'Biết trước vài chuyện nhỏ. Lúc cần, ngươi luôn có sẵn một viên đan phá cảnh.', perks: { bt: [1, 0, 0, 0], stones: 60 } },
+  { name: 'Hạo Nhiên Tiên Sinh', blurb: 'Chính khí đầy người, tà ma tránh xa. Linh thú hiếm cũng tin ngươi hơn.', perks: { taming: [0, 2, 0, 0], trib: 1 } },
+  { name: 'Phong Ngọc Công Tử', blurb: 'Phong thái nhàn nhã của kẻ chưa từng thiếu thốn. Tiền bạc đến và đi dễ dàng.', perks: { stones: 90, hp: [3, 0, 0] } },
+  { name: 'Dạ Du Thần', blurb: 'Quen đi đêm một mình. Trên đường không ai, ngươi có đủ khế ước và thuốc để tự lo.', perks: { taming: [3, 0, 0, 0], hp: [2, 0, 0] } },
+  { name: 'Thiên Sơn Lão Nhân', blurb: 'Người già nhất trong thôn dưới Thiên Sơn kể ngươi có phúc. Họ đóng góp đôi chút để tiễn ngươi lên đường.', perks: { stones: 60, taming: [1, 1, 0, 0], hp: [2, 1, 0] } },
+  { name: 'Bích Hà Tiên Tử', blurb: 'Ráng xanh phủ trên đầu ngươi lúc ngươi sinh ra. Hai tấm phù hộ thân là quà của người nhà.', perks: { trib: 2 } },
+  { name: 'Vạn Pháp Đạo Nhân', blurb: 'Học một chút của mọi môn. Một món pháp khí tốt và vài khế ước đủ cho ngươi bắt đầu.', perks: { weaponTier: 1, taming: [1, 0, 0, 0] } },
+];
+export const DAO = DAO_INFO.map((d) => d.name);
+export const daoInfo = (name: string): DaoInfo | undefined => DAO_INFO.find((d) => d.name === name);
+
+// ---------- Chức vụ: a post the character holds for a while. 30 of them. They bring nothing yet: they are only a name next to the character.
+// Fate (a person met on the road) gives, changes or takes one away while the character adventures (see destinyAt in game.ts).
+export interface TitleDef { id: string; name: string; blurb: string }
+export const TITLES: TitleDef[] = [
+  ['khachkhanh', 'Khách Khanh Thanh Vân Tông', 'Được tông môn mời làm khách, ra vào sơn môn không bị cản.'],
+  ['chapsu', 'Ngoại Môn Chấp Sự', 'Trông coi việc vặt của đệ tử ngoại môn, nói gì người ta cũng nghe nửa câu.'],
+  ['truonglao', 'Trưởng Lão Danh Dự', 'Cái danh nhiều hơn cái quyền, nhưng đi đâu cũng được chào hỏi.'],
+  ['tuansonsu', 'Tuần Sơn Sứ', 'Đi tuần quanh sơn môn, xua yêu thú lạc đường.'],
+  ['thuto', 'Thủ Tọa Kiếm Đường', 'Đứng đầu một nhóm kiếm tu trẻ, tay chưa từng rời chuôi kiếm.'],
+  ['dancp', 'Đan Các Cung Phụng', 'Được Đan Các nuôi để thử đan mới, mỗi lần uống đều thấp thỏm.'],
+  ['phutran', 'Phù Trận Khách Khanh', 'Biết vẽ vài đạo phù, được các phù sư kính nể.'],
+  ['hophap', 'Hộ Pháp Hàn Nguyệt Lâm', 'Giữ rừng trúc dưới trăng, đêm đêm nghe tiếng sáo từ xa.'],
+  ['tranthu', 'Trấn Thủ Linh Mạch', 'Canh một mạch linh khí nhỏ, ngày ngày ngồi thiền bên nó.'],
+  ['sugia', 'Sứ Giả Truyền Tin', 'Chạy tin giữa các tông môn, chân nhanh hơn phép.'],
+  ['thivi', 'Thị Vệ Của Thành Chủ', 'Đứng gác trước cổng một tòa thành nhỏ, lương ít nhưng yên ổn.'],
+  ['dientich', 'Điển Tịch Quan', 'Giữ kho sách cũ, biết chỗ nào có bí kíp mà chưa dám mở.'],
+  ['duocvien', 'Dược Viên Quản Sự', 'Chăm vườn linh thảo, tay lúc nào cũng dính bùn và hương thuốc.'],
+  ['thuhoc', 'Linh Thú Sư Học Đồ', 'Đang học cách nói chuyện với linh thú, chưa con nào chịu nghe.'],
+  ['daosu', 'Truyền Công Đạo Sư', 'Dạy người khác điều mình vừa mới hiểu.'],
+  ['tetuu', 'Tế Tửu Học Cung', 'Trông coi học cung, mỗi sáng đọc một đoạn kinh cho đệ tử nghe.'],
+  ['phomon', 'Phó Môn Chủ Danh Nghĩa', 'Một môn phái nhỏ sắp diệt vong ban cho cái danh này, kèm lời nhờ cậy.'],
+  ['cungphung', 'Cung Phụng Của Thế Gia', 'Được một thế gia nuôi để phòng khi cần ra tay.'],
+  ['thamhiem', 'Thám Hiểm Đoàn Trưởng', 'Dẫn một đoàn người liều lĩnh đi tìm bí cảnh, chưa lần nào về đủ người.'],
+  ['khaison', 'Khai Sơn Tiên Phong', 'Đi trước dọn đường cho đoàn người sau, quen với mùi yêu khí.'],
+  ['thuho', 'Thủ Hộ Cổ Miếu', 'Giữ một ngôi miếu hoang, khói hương lạnh nhưng thần vẫn nghe.'],
+  ['luckhach', 'Lữ Khách Ngộ Đạo', 'Không thuộc về đâu, chỉ đi và nhìn, thỉnh thoảng thấy mình đã hiểu ra điều gì.'],
+  ['chuongquy', 'Chưởng Quầy Phường Thị', 'Có một sạp nhỏ ở Phường Thị, giá cả toàn do ngươi nói.'],
+  ['thoren', 'Thợ Rèn Linh Khí', 'Tay chai sạn vì búa, tai quen với tiếng lửa kêu.'],
+  ['hoasu', 'Họa Sư Thiên Cơ', 'Vẽ lại những gì mình thấy trên đường, vài nét bỗng thành điềm báo.'],
+  ['camsu', 'Cầm Sư Dưới Trăng', 'Gảy đàn bên suối, ai nghe cũng im lặng một lúc.'],
+  ['kiemkhach', 'Kiếm Khách Vô Danh', 'Kiếm tốt nhưng không ai biết tên, ngươi thấy thế cũng được.'],
+  ['quantinh', 'Quan Tinh Thuật Sĩ', 'Ngước nhìn sao mỗi đêm, đoán được vài chuyện nhỏ sắp tới.'],
+  ['dexi', 'Đệ Tử Ký Danh', 'Tên có trong sổ tông môn nhưng chưa có sư phụ.'],
+  ['hanhgia', 'Hành Giả Vân Du', 'Đi theo mây, ở đâu qua đêm cũng được.'],
+].map(([id, name, blurb]) => ({ id: id.replace(/\s/g, ''), name, blurb }));
+export const titleOf = (id?: string | null): TitleDef | undefined => (id ? TITLES.find((t) => t.id === id) : undefined);
+// The people fate puts on the road, and what they do (used to write the line in the journey; the numbers come from a hash, not from the game's random streams).
+export const DESTINY_WHO = ['một lão đạo sĩ râu bạc', 'một vị tiên tử áo lam', 'một thiếu niên đeo kiếm gỗ', 'một lão thương nhân của Phường Thị', 'một ni cô lặng lẽ bên suối', 'một trưởng lão tông môn áo xám', 'một thư sinh đọc sách dưới trăng', 'một lão ngư ông bên hồ', 'một cô gái bán hoa trên núi', 'một hành giả che nửa mặt'];
+export const DESTINY_GIVE = ['nhìn ngươi hồi lâu rồi gật đầu', 'trao cho ngươi một tấm lệnh bài gỗ', 'nói một câu như chỉ điểm cả đời', 'mời ngươi một chén trà nguội', 'đặt tay lên vai ngươi và mỉm cười'];
+export const DESTINY_LOSE = ['thu lại tấm lệnh bài, chẳng nói gì', 'lắc đầu bảo ngươi chưa xứng', 'chỉ nhìn ngươi, rồi chức vị tan như khói', 'nói thời của ngươi ở đó đã hết'];
+// The privileges of a đạo hiệu as plain lines for the window that shows it.
+export function daoPerkLines(k: DaoPerks): string[] {
+  const out: string[] = [];
+  if (k.stones) out.push(`+${k.stones} Linh Thạch`);
+  (k.taming || []).forEach((n, i) => { if (n) out.push(`+${n} Khế Ước Phù hạng ${GRADES[i]}`); });
+  (k.hp || []).forEach((n, i) => { if (n) out.push(`+${n} Hồi Khí Đan hạng ${i + 1}`); });
+  (k.bt || []).forEach((n, i) => { if (n) out.push(`+${n} Phá Cảnh Đan (vào ${REALMS[i + 1]})`); });
+  if (k.trib) out.push(`+${k.trib} Độ Kiếp Phù`);
+  if (k.weaponTier !== undefined) out.push(`Pháp khí khởi đầu hạng ${RARITY[k.weaponTier]}`);
+  return out;
+}

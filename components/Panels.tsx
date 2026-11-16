@@ -9,9 +9,10 @@ import type { Report, Beast } from '@/lib/game';
 import { releaseValue, upkeepDue, SP } from '@/lib/game';
 import { allSpecies } from '@/lib/daily';
 import { Icon } from './ds/Icon';
+import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
 import { askConfirm, Toast } from './ds/Dialog';
-import { BeastArt, ElChip, Img, ItemCard, SizeMeter, fmt } from './ui';
+import { BeastArt, ElChip, Img, ItemCard, SizeMeter, fmt, useZoom } from './ui';
 
 export type ActRes = { ok: boolean; msg: string; data?: any; code?: string };
 export type Act = (type: string, payload?: any) => Promise<ActRes>;
@@ -30,7 +31,8 @@ export function ZonePicker({ st, act, say }: { st: GS; act: Act; say: (t: string
           <b className="zn">{z.name}</b>
           <span className="zs">Lv{z.lv[0]}–{z.lv[1]} · linh khí ×{z.density}</span>
           {!z.open && <span className="zs lock">Cần Lv{z.minLevel} để vào</span>}
-          {z.phen && <span className="phenTag" title={z.phen.text}>{z.phen.name} · đến {hhmm(z.phen.endsAt)}</span>}
+          {z.phen && <span className="phenTag" title={z.phen.text}>{z.phen.name}{z.phen.effects.length > 0 && ` · ${z.phen.effects.join(' · ')}`} · đến {hhmm(z.phen.endsAt)}</span>}
+          {z.dropEvent && <span className="phenTag drop" title="Sự kiện: tỷ lệ rơi pháp khí Thiên và Tiên tăng trong khu vực này">✦ Rơi Thiên/Tiên +{Math.round(st.events[0]?.bonus * 100) || 1}%</span>}
         </button>
       ))}
     </div>
@@ -40,45 +42,67 @@ export function ZonePicker({ st, act, say }: { st: GS; act: Act; say: (t: string
 // ---------- Phường Thị (Requirement 24)
 const owned = (st: GS, s: { kind: string; idx: number }) => (s.kind === 'taming' ? st.inv.taming[s.idx] : s.kind === 'hp' ? st.inv.hp[s.idx] : s.kind === 'bt' ? st.inv.bt[s.idx] : st.inv.trib);
 export function ShopPanel({ st, act }: { st: GS; act: Act }) {
+  const zoom = useZoom();
   const [qty, setQty] = useState<Record<string, number>>({});
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const q = (id: string) => qty[id] || 1;
-  const run = async (type: 'buy' | 'sell', item: string, price: number) => {
-    const n = q(item);
+  const set = (id: string, n: number, max: number) => setQty((o) => ({ ...o, [id]: Math.min(Math.max(1, max), Math.max(1, Math.floor(n) || 1)) }));
+  const run = async (type: 'buy' | 'sell', item: string, price: number, n = q(item)) => {
     if (type === 'buy' && price * n > st.config.confirmPurchase && !(await askConfirm({ title: 'Xác nhận mua', body: `Mua ${n} món với ${fmt(price * n)} Linh Thạch?`, ok: 'Mua' }))) return;
     const r = await act(type, { item, qty: n });
     setMsg({ t: r.msg, ok: r.ok });
   };
-  const input = (id: string, max: number) => <input className="inp" type="number" min={1} max={max} value={q(id)} aria-label="Số lượng" onChange={(e) => setQty({ ...qty, [id]: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} />;
+  // quantity: a stepper with the number in the middle, and the usual amounts one tap away
+  const qtyBox = (id: string, max: number) => (
+    <div className="qtyBox">
+      <div className="qtyStep">
+        <button type="button" className="btn sm" aria-label="Giảm" disabled={q(id) <= 1} onClick={() => set(id, q(id) - 1, max)}>−</button>
+        <input className="inp" type="number" inputMode="numeric" min={1} max={max} value={q(id)} aria-label="Số lượng" onChange={(e) => set(id, Number(e.target.value), max)} />
+        <button type="button" className="btn sm" aria-label="Tăng" disabled={q(id) >= max} onClick={() => set(id, q(id) + 1, max)}>+</button>
+      </div>
+      <div className="qtyQuick" role="group" aria-label="Số lượng nhanh">
+        {[1, 2, 5, 10].map((n) => <button key={n} type="button" className={`chip qk ${q(id) === n ? 'on' : ''}`} disabled={n > max} onClick={() => set(id, n, max)}>{n}</button>)}
+      </div>
+    </div>
+  );
   const mats = st.materials.filter((m) => (st.inv.mat[m.id] || 0) > 0);
   return (
     <div>
       <div className="marketBanner" style={{ backgroundImage: `url(${C.MARKET_ART})` }}><b>Phường Thị</b><span>Hàng bán không giới hạn, mua bán công khai</span></div>
-      <div className="hint">Phường Thị bán không giới hạn tồn kho. Giá bán lại bằng {Math.round((st.shop[0].sell / st.shop[0].price) * 100)}% giá mua. Ngươi có <b>{fmt(st.stones)}</b> Linh Thạch.</div>
+      <div className="hint">Giá bán lại bằng {Math.round((st.shop[0].sell / st.shop[0].price) * 100)}% giá mua. Ngươi có <b>{fmt(st.stones)}</b> Linh Thạch.</div>
       <Toast msg={msg} />
       <div className="shopScroll">
-      {st.shop.map((s) => (
-        <div key={s.id} className="shopRow">
-          <div className="shopMain"><Img src={C.shopArt(s.id)} className="shopImg" fb={<span>✦</span>} /><div><b>{s.name}</b> <small>đang có {fmt(owned(st, s))} · mua {fmt(s.price)} · bán lại {fmt(s.sell)}</small><small>{s.note}</small></div></div>
-          <div className="shopAct">
-            {input(s.id, st.caps.maxQty)}
-            <button className="btn sm hot" onClick={() => run('buy', s.id, s.price)}>Mua</button>
-            <button className="btn sm" disabled={owned(st, s) <= 0} onClick={() => run('sell', s.id, s.price)}>Bán</button>
-          </div>
+        <div className="shopGrid">
+          {st.shop.map((s) => (
+            <div key={s.id} className="shopCard">
+              <button type="button" className="shopZoom" title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'prop', src: C.shopArt(s.id), name: s.name, text: s.note })}><Img src={C.shopArt(s.id)} className="shopImg" fb={<span>✦</span>} /></button>
+              <b className="shopName">{s.name}</b>
+              <small className="shopNote">{s.note}</small>
+              <div className="shopPrice"><span>Mua <b>{fmt(s.price)}</b></span><span>Bán lại <b>{fmt(s.sell)}</b></span><span>Đang có <b>{fmt(owned(st, s))}</b></span></div>
+              {qtyBox(s.id, st.caps.maxQty)}
+              <div className="shopBtns">
+                <button className="btn hot" onClick={() => run('buy', s.id, s.price)}>Mua {fmt(s.price * q(s.id))}</button>
+                <button className="btn" disabled={owned(st, s) <= 0} onClick={() => run('sell', s.id, s.price)}>Bán</button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-      <h4>Nguyên liệu</h4>
-      {mats.length === 0 && <div className="empty">Chưa có nguyên liệu. Gặp Tài Nguyên khi lịch luyện sẽ nhặt được.</div>}
-      {mats.map((m) => (
-        <div key={m.id} className="shopRow">
-          <div className="shopMain"><Img src={C.matArt(m.id)} className="shopImg" fb={<span>✦</span>} /><div><b>{m.name}</b> <small>đang có {fmt(st.inv.mat[m.id])} · bán {fmt(m.price)} mỗi cái</small></div></div>
-          <div className="shopAct">
-            {input(`mat:${m.id}`, st.inv.mat[m.id])}
-            <button className="btn sm" onClick={() => run('sell', `mat:${m.id}`, m.price)}>Bán</button>
-            <button className="btn sm" onClick={async () => { const n = st.inv.mat[m.id]; if (!(await askConfirm({ title: 'Bán hết nguyên liệu', body: `Bán toàn bộ ${n} ${m.name}?`, ok: 'Bán hết', danger: true }))) return; const r = await act('sell', { item: `mat:${m.id}`, qty: n }); setMsg({ t: r.msg, ok: r.ok }); }}>Bán hết</button>
-          </div>
+        <h4>Nguyên liệu</h4>
+        {mats.length === 0 && <div className="empty">Chưa có nguyên liệu. Gặp Tài Nguyên khi lịch luyện sẽ nhặt được.</div>}
+        <div className="shopGrid">
+          {mats.map((m) => (
+            <div key={m.id} className="shopCard">
+              <button type="button" className="shopZoom" title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'prop', src: C.matArt(m.id), name: m.name })}><Img src={C.matArt(m.id)} className="shopImg" fb={<span>✦</span>} /></button>
+              <b className="shopName">{m.name}</b>
+              <div className="shopPrice"><span>Bán <b>{fmt(m.price)}</b>/cái</span><span>Đang có <b>{fmt(st.inv.mat[m.id])}</b></span></div>
+              {qtyBox(`mat:${m.id}`, st.inv.mat[m.id])}
+              <div className="shopBtns">
+                <button className="btn" onClick={() => run('sell', `mat:${m.id}`, m.price)}>Bán {fmt(m.price * Math.min(q(`mat:${m.id}`), st.inv.mat[m.id]))}</button>
+                <button className="btn" onClick={async () => { const n = st.inv.mat[m.id]; if (!(await askConfirm({ title: 'Bán hết nguyên liệu', body: `Bán toàn bộ ${n} ${m.name}?`, ok: 'Bán hết', danger: true }))) return; const r = await act('sell', { item: `mat:${m.id}`, qty: n }); setMsg({ t: r.msg, ok: r.ok }); }}>Bán hết</button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
       </div>
     </div>
   );
@@ -86,7 +110,7 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
 
 // ---------- Settings (Requirement 3, 9, 21, 23, 31.5)
 const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
-export function SettingsModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
+export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
   const s = st.set;
   const [ret, setRet] = useState(String(s.retreatPct)), [res, setRes] = useState(String(s.resumePct));
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
@@ -100,6 +124,8 @@ export function SettingsModal({ st, act, onClose }: { st: GS; act: Act; onClose:
         <h2>Cài đặt</h2>
         <Toast msg={msg} />
         <div className="setGrid">
+          <h3>Âm nhạc và âm thanh</h3>
+          <div className="musicBox"><MusicPanel onCredits={() => { onClose(); onCredits?.(); }} /></div>
           <h3>Nghỉ ngơi</h3>
           <div className="row">
             <label className="field">Nghỉ khi sinh lực dưới (%)<input type="number" min={1} max={99} value={ret} onChange={(e) => setRet(e.target.value)} /></label>
@@ -279,6 +305,36 @@ export function Window({ title, icon, sub, wide, onClose, children }: { title: s
 export function MarketModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
   return <Window title="Phường Thị" icon="stone" sub="Mua Khế Ước Phù, Đan Dược; bán nguyên liệu" onClose={onClose}><ShopPanel st={st} act={act} /></Window>;
 }
+// Đạo hiệu: what it is and the starting privileges it gave. It belongs to the e-mail address of the account.
+export function DaoModal({ dao, email, onClose }: { dao: string; email: string; onClose: () => void }) {
+  const info = C.daoInfo(dao);
+  return (
+    <Window title={info ? `Đạo hiệu: ${info.name}` : 'Đạo hiệu'} icon="crown" sub="Gắn với tài khoản e-mail, không đổi dù ngươi chơi lại" onClose={onClose}>
+      {info ? (
+        <>
+          <p className="tag">{info.blurb}</p>
+          <h3>Đặc quyền ban đầu</h3>
+          <ul className="itLines big">{C.daoPerkLines(info.perks).map((l) => <li key={l}>{l}</li>)}</ul>
+          <div className="hint">Những đặc quyền này được trao một lần, lúc ngươi bước vào đạo đồ. {B.daoShare >= 1 ? ' Hiện mọi tài khoản đều được Thiên Đạo ban một đạo hiệu, sau này sẽ hiếm hơn.' : ' Không phải tài khoản nào cũng có: Thiên Đạo chỉ ban cho một phần.'}</div>
+        </>
+      ) : (
+        <div className="hint">Tài khoản này chưa có đạo hiệu. Thiên Đạo chỉ ban đạo hiệu cho một phần các tài khoản, quyết định theo địa chỉ e-mail và không thay đổi.</div>
+      )}
+      <div className="hint">Tài khoản: <b>{email}</b></div>
+    </Window>
+  );
+}
+// Chức vụ: only a name for now (it gives nothing). It comes and goes when fate puts someone on the road.
+export function TitleModal({ title, hist, onClose }: { title?: string; hist?: string[]; onClose: () => void }) {
+  const cur = C.titleOf(title), past = (hist || []).map((id) => C.titleOf(id)).filter(Boolean).reverse();
+  return (
+    <Window title={cur ? `Chức vụ: ${cur.name}` : 'Chức vụ'} icon="scroll" sub="Danh xưng ngươi đang mang, thay đổi theo duyên số" onClose={onClose}>
+      {cur ? <p className="tag">{cur.blurb}</p> : <div className="hint">Ngươi chưa mang chức vụ nào. Đi lịch luyện: biết đâu có người định mệnh chặn đường và trao cho ngươi một chức.</div>}
+      <div className="hint">Chức vụ hiện chỉ là danh xưng, chưa mang lại lợi ích gì. Nó có thể đổi sang chức khác, hoặc mất đi, khi ngươi gặp người định mệnh trên đường.</div>
+      {past.length > 0 && <><h3>Từng giữ</h3><ul className="itLines big">{past.map((t, i) => <li key={i}>{t!.name}</li>)}</ul></>}
+    </Window>
+  );
+}
 export function ZoneModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   return (
@@ -288,7 +344,7 @@ export function ZoneModal({ st, act, onClose }: { st: GS; act: Act; onClose: () 
         <h2>Chọn khu vực</h2>
         <Toast msg={msg} />
         <ZonePicker st={st} act={act} say={(t, ok = true) => { setMsg({ t, ok }); if (ok) onClose(); }} />
-        {st.zones.filter((z) => z.id === st.zone && z.phen).map((z) => <div key={z.id} className="hint"><b>{z.phen!.name}:</b> {z.phen!.text}</div>)}
+        {st.zones.filter((z) => z.id === st.zone && z.phen).map((z) => <div key={z.id} className="hint"><b>{z.phen!.name}:</b> {z.phen!.text} {z.phen!.effects.length > 0 && <span className="effRow">{z.phen!.effects.map((e) => <span key={e} className="chip gold">{e}</span>)}</span>}</div>)}
         <button className="btn big" onClick={onClose}>Đóng</button>
       </div>
     </div>
@@ -342,6 +398,27 @@ function TameTimer({ id, ms, onExpire }: { id: number; ms: number; onExpire: () 
     </div>
   );
 }
+// What makes this creature worth a Khế Ước: a species the player does not have yet, stronger than the party, or rare.
+function tameInfo(st: GS, b: Beast): { t: string; cls: string; tip: string }[] {
+  const out: { t: string; cls: string; tip: string }[] = [];
+  const have = st.beasts.filter((x) => x.sp === b.sp), sp = SP(b.sp);
+  if (have.length === 0) out.push({ t: 'Loài mới', cls: 'new', tip: 'Ngươi chưa có Linh Thú nào thuộc loài này.' });
+  else out.push({ t: `Đã có ${have.length}`, cls: '', tip: 'Số Linh Thú cùng loài ngươi đang nuôi.' });
+  const party = st.beasts.slice().sort((a, c) => c.power - a.power).slice(0, st.caps.party);
+  if (party.length < st.caps.party) out.push({ t: 'Có chỗ xuất chiến', cls: 'up', tip: 'Đội xuất chiến còn trống: con này sẽ ra trận ngay.' });
+  else {
+    const weakest = party[party.length - 1], best = party[0];
+    if (b.power > best.power) out.push({ t: `Mạnh nhất, hơn ${fmt(b.power - best.power)}`, cls: 'up', tip: 'Mạnh hơn cả Linh Thú mạnh nhất đang xuất chiến.' });
+    else if (b.power > weakest.power) out.push({ t: `Mạnh hơn đội, +${fmt(b.power - weakest.power)}`, cls: 'up', tip: `Mạnh hơn ${weakest.name} (con yếu nhất đang xuất chiến), sẽ thay vào đội.` });
+    else out.push({ t: 'Yếu hơn đội xuất chiến', cls: 'down', tip: 'Không mạnh bằng ba Linh Thú đang xuất chiến, chỉ nuôi để sưu tập.' });
+  }
+  if (b.mut) out.push({ t: 'Dị Biến', cls: 'rare', tip: 'Biến dị cực hiếm, chỉ số vượt trội.' });
+  if (b.elite) out.push({ t: 'Tinh Anh', cls: 'rare', tip: 'Linh Thú tinh anh mạnh hơn cùng loài.' });
+  if (b.cls >= 4) out.push({ t: 'Khổng Lồ', cls: 'rare', tip: 'Kích thước thuộc nhóm lớn nhất.' });
+  if (sp.tame < 0.7) out.push({ t: 'Khó thu phục', cls: 'rare', tip: 'Loài khó thu phục, tỷ lệ thấp hơn bình thường.' });
+  if ((st.best[b.sp]?.tamed || 0) === 0 && have.length > 0) out.push({ t: 'Chưa từng thu phục', cls: '', tip: 'Ngươi giữ con cùng loài từ nguồn khác, chưa tự thu phục.' });
+  return out;
+}
 export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpenBreak: () => void }) {
   const d = st.decision;
   const [msg, setMsg] = useState('');
@@ -355,9 +432,11 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
     </>);
   } else if (d.kind === 'tame') {
     const b = d.beast as Beast;
+    const info = tameInfo(st, b);
     body = (<>
       <BeastArt b={b} box={56} onOpen={() => {}} />
-      <div className="dbText"><b>{b.mut ? '✦ Dị Biến ' : b.elite ? 'Tinh Anh ' : ''}{b.name} đã gục</b><small>Lv{b.level} · {C.SIZE_CLASS[b.cls]} {b.cm} cm · {C.PERS[b.pers].n}. Thu phục không?</small></div>
+      <div className="dbText"><b>{b.mut ? '✦ Dị Biến ' : b.elite ? 'Tinh Anh ' : ''}{b.name} đã gục</b><small>Lv{b.level} · {C.SIZE_CLASS[b.cls]} {b.cm} cm · {C.PERS[b.pers].n} · sức {fmt(b.power)}. Thu phục không?</small>
+        <div className="dbTags">{info.map((t) => <span key={t.t} className={`dbTag ${t.cls}`} title={t.tip}>{t.t}</span>)}</div></div>
       <div className="dbBtns">
         {d.grades.map((g) => <button key={g.grade} className="btn hot sm" disabled={g.have <= 0 || d.penFull} title={`Còn ${g.have} Khế Ước ${C.GRADES[g.grade]}`} onClick={() => go('tame', { grade: g.grade })}>{C.GRADES[g.grade]} {pct(g.p)} ({g.have})</button>)}
         <button className="btn sm" onClick={() => go('skip')}>Bỏ qua</button>

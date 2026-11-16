@@ -11,6 +11,7 @@ import * as G from '../game';
 import * as C from '../content';
 import { BALANCE as B } from '../balance';
 import { query, savepoint } from './db';
+import { isStack, stackInfo, takeStack, giveStack, stackCount, MAX_QTY, type Stack } from '../goods';
 
 export const MAX_OPEN = 5;                   // stalls one player can keep at once
 export const MAX_OFFERS = 5;                 // offers one player can have out at once
@@ -29,13 +30,29 @@ const cleanWant = (w: any): Want | null => {
   if (typeof slot !== 'string' || (slot !== '' && !C.SLOTS.includes(slot))) return null;
   return { tier, slot };
 };
+// What changes hands is a piece of gear or a counted stack (a Bí Kíp scroll, a material, a pill: see lib/goods.ts).
+type Goods = G.Item | Stack;
+const nameOf = (g: Goods) => (isStack(g) ? `${g.qty} ${stackInfo(g.key)?.name || 'vật phẩm'}` : g.name);
 // What leaves a save: the item without the marks that only mean something inside the old save.
-const parcel = (it: G.Item): G.Item => { const { locked: _l, rel: _r, ...rest } = it; return rest as G.Item; };
+const parcel = <T extends Goods>(g: T): T => { if (isStack(g)) return g; const { locked: _l, rel: _r, ...rest } = g as G.Item; return rest as unknown as T; };
 const infoOf = (st: G.GameState): Info => {
   const p = st.player;
   return { name: p.name, dao: p.dao, realm: p.realm, sub: p.sub, level: G.levelOf(p), g: p.look.g, ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
 };
-// Where an item may be taken from: the bag or the stash, never what is worn, never what the player locked.
+// What may be taken from a save: gear from the bag or the stash (never what is worn or locked), or a quantity of a counted good the player really holds.
+// `take` removes it; it is called only after every refusal has been decided.
+type Pick = { goods: Goods; take: () => void; undo: () => void };
+function pickGoods(st: G.GameState, id: any, key: any, qty: any): Pick | G.Res {
+  if (typeof key === 'string' && key) {
+    if (!stackInfo(key)) return G.fail('E_BAD_REQUEST');
+    if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) return G.fail('E_BAD_QTY');
+    if (stackCount(st, key) < qty) return G.fail('E_NO_STOCK');
+    return { goods: { stack: true, key, qty }, take: () => { takeStack(st, key, qty); }, undo: () => { giveStack(st, key, qty); } };
+  }
+  const f = find(st, id);
+  if (isRes(f)) return f;
+  return { goods: f.it, take: () => { f.list.splice(f.i, 1); }, undo: () => { f.list.splice(f.i, 0, f.it); } };
+}
 function find(st: G.GameState, id: any): { it: G.Item; list: G.Item[]; i: number } | G.Res {
   if (!Number.isInteger(id)) return G.fail('E_BAD_REQUEST');
   for (const list of [st.bag, st.stash]) {
@@ -45,25 +62,26 @@ function find(st: G.GameState, id: any): { it: G.Item; list: G.Item[]; i: number
   return Object.values(st.eq).some((x) => x && x.id === id) ? G.fail('E_WORN') : G.fail('E_NOT_FOUND');
 }
 const isRes = (x: any): x is G.Res => x && typeof x.ok === 'boolean';
-// Put a received item in the bag, else the stash. Never dissolves anything (unlike a drop found on a journey).
-function receive(st: G.GameState, it: G.Item): boolean {
-  const mine: G.Item = { ...parcel(it), id: ++st.uid };
+// Put a received good in the save: gear in the bag, else the stash; a stack onto its counter. Never dissolves anything (unlike a drop found on a journey).
+function receive(st: G.GameState, g: Goods): boolean {
+  if (isStack(g)) return giveStack(st, g.key, g.qty);
+  const mine: G.Item = { ...parcel(g), id: ++st.uid };
   if (st.bag.length < B.bagCapacity) { st.bag.push(mine); return true; }
   if (st.stash.length < B.overflowCapacity) { st.stash.push(mine); return true; }
   st.uid--;
   return false;
 }
-const mail = (acc: string, item: G.Item, kind: 'swap' | 'return', note: any, now: number) =>
+const mail = (acc: string, item: Goods, kind: 'swap' | 'return', note: any, now: number) =>
   query(`INSERT INTO market_inbox (acc, item, kind, note, created) VALUES ($1, $2::jsonb, $3, $4::jsonb, $5)`, [acc, JSON.stringify(item), kind, JSON.stringify(note), now]);
-// Into the caller's bag when there is room, otherwise into their mailbox. Returns true when it went straight to the bag.
-async function deliver(st: G.GameState, acc: string, item: G.Item, note: any, now: number): Promise<boolean> {
+// Into the caller's save when there is room, otherwise into their mailbox. Returns true when it went straight in.
+async function deliver(st: G.GameState, acc: string, item: Goods, note: any, now: number): Promise<boolean> {
   if (receive(st, item)) return true;
   await mail(acc, item, 'return', note, now);
   return false;
 }
 // A Thiên or Tiên relic belongs to one save in the shared pool; when it changes hands the pool follows.
-async function moveRelic(it: G.Item, from: string, to: string) {
-  if (!it.art || it.art < 1000) return;
+async function moveRelic(it: Goods, from: string, to: string) {
+  if (isStack(it) || !it.art || it.art < 1000) return;
   await query('UPDATE relics SET holder = $3 WHERE sig = $1 AND holder = $2', [`${it.tier}|${it.slot}|${it.base}|${it.art}`, from, to]);
 }
 // Close every open offer on a stall (except one) and send each item back to its owner's mailbox.
@@ -77,23 +95,23 @@ const sendBack = (listing: number, status: string, why: string, by: string, now:
 export async function list(acc: string, st: G.GameState, b: any, now: number): Promise<G.Res> {
   const want = cleanWant(b.want);
   if (!want) return G.fail('E_BAD_REQUEST');
-  const f = find(st, b.id);
+  const f = pickGoods(st, b.id, b.key, b.qty);
   if (isRes(f)) return f;
   const open = (await query<{ n: string }>(`SELECT count(*) AS n FROM market_listings WHERE seller = $1 AND status = 'open'`, [acc])).rows[0];
   if (Number(open.n) >= MAX_OPEN) return G.fail('E_MARKET_LIMIT');
-  const it = f.it;
+  const it = f.goods;
   await savepoint(() => query(
     'INSERT INTO market_listings (seller, seller_info, item, want, created, expires) VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6)',
     [acc, JSON.stringify(infoOf(st)), JSON.stringify(parcel(it)), JSON.stringify(want), now, now + TTL_MS],
   ));
-  f.list.splice(f.i, 1);
-  return G.ok(`Đã bày ${it.name} lên quầy Chợ Đêm. Quầy mở ba ngày.`);
+  f.take();
+  return G.ok(`Đã bày ${nameOf(it)} lên quầy Chợ Đêm. Quầy mở ba ngày.`);
 }
 
 // The seller takes the stall down: the item comes back, every offer on it goes back to its owner.
 export async function cancel(acc: string, st: G.GameState, b: any, now: number): Promise<G.Res> {
   if (!Number.isInteger(b.listing)) return G.fail('E_BAD_REQUEST');
-  const row = (await query<{ item: G.Item }>(`SELECT item FROM market_listings WHERE id = $1 AND seller = $2 AND status = 'open' FOR UPDATE`, [b.listing, acc])).rows[0];
+  const row = (await query<{ item: Goods }>(`SELECT item FROM market_listings WHERE id = $1 AND seller = $2 AND status = 'open' FOR UPDATE`, [b.listing, acc])).rows[0];
   if (!row) return G.fail('E_MARKET_GONE');
   let back = false;
   await savepoint(async () => {
@@ -101,39 +119,39 @@ export async function cancel(acc: string, st: G.GameState, b: any, now: number):
     await sendBack(b.listing, 'declined', 'closed', st.player.name, now);
     back = await deliver(st, acc, row.item, { why: 'closed' }, now);
   });
-  return G.ok(back ? `Đã rút ${row.item.name} về túi.` : `Túi và kho đã đầy: ${row.item.name} nằm trong hòm thư Chợ Đêm, dọn chỗ rồi nhận.`);
+  return G.ok(back ? `Đã rút ${nameOf(row.item)} về túi.` : `Túi đã đầy: ${nameOf(row.item)} nằm trong hòm thư Chợ Đêm, dọn chỗ rồi nhận.`);
 }
 
 // A visitor offers one of their items for the stall. The item is held until the seller answers or the visitor withdraws it.
 export async function offer(acc: string, st: G.GameState, b: any, now: number): Promise<G.Res> {
   if (!Number.isInteger(b.listing)) return G.fail('E_BAD_REQUEST');
-  const l = (await query<{ seller: string; item: G.Item; expires: string }>(`SELECT seller, item, expires FROM market_listings WHERE id = $1 AND status = 'open' FOR UPDATE`, [b.listing])).rows[0];
+  const l = (await query<{ seller: string; item: Goods; expires: string }>(`SELECT seller, item, expires FROM market_listings WHERE id = $1 AND status = 'open' FOR UPDATE`, [b.listing])).rows[0];
   if (!l || Number(l.expires) < now) return G.fail('E_MARKET_GONE');
   if (l.seller === acc) return G.fail('E_MARKET_OWN');
-  const f = find(st, b.give);
+  const f = pickGoods(st, b.give, b.giveKey, b.giveQty);
   if (isRes(f)) return f;
   const mine = (await query<{ n: string; here: string }>(`SELECT count(*) AS n, count(*) FILTER (WHERE listing = $2) AS here FROM market_offers WHERE bidder = $1 AND status = 'open'`, [acc, b.listing])).rows[0];
   if (Number(mine.here) > 0) return G.fail('E_MARKET_DUP');
   if (Number(mine.n) >= MAX_OFFERS) return G.fail('E_MARKET_OFFER_LIMIT');
   const all = (await query<{ n: string }>(`SELECT count(*) AS n FROM market_offers WHERE listing = $1 AND status = 'open'`, [b.listing])).rows[0];
   if (Number(all.n) >= MAX_PER_STALL) return G.fail('E_MARKET_FULL');
-  const it = f.it;
+  const it = f.goods;
   await savepoint(() => query('INSERT INTO market_offers (listing, bidder, bidder_info, item, created) VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)', [b.listing, acc, JSON.stringify(infoOf(st)), JSON.stringify(parcel(it)), now]));
-  f.list.splice(f.i, 1);
-  return G.ok(`Đã gửi ${it.name} làm đề nghị đổi ${l.item.name}. Món này được giữ cho tới khi chủ quầy trả lời, ngươi có thể rút về bất cứ lúc nào.`);
+  f.take();
+  return G.ok(`Đã gửi ${nameOf(it)} làm đề nghị đổi ${nameOf(l.item)}. Món này được giữ cho tới khi chủ quầy trả lời, ngươi có thể rút về bất cứ lúc nào.`);
 }
 
 // The visitor takes an offer back.
 export async function withdraw(acc: string, st: G.GameState, b: any, now: number): Promise<G.Res> {
   if (!Number.isInteger(b.offer)) return G.fail('E_BAD_REQUEST');
-  const o = (await query<{ item: G.Item }>(`SELECT item FROM market_offers WHERE id = $1 AND bidder = $2 AND status = 'open' FOR UPDATE`, [b.offer, acc])).rows[0];
+  const o = (await query<{ item: Goods }>(`SELECT item FROM market_offers WHERE id = $1 AND bidder = $2 AND status = 'open' FOR UPDATE`, [b.offer, acc])).rows[0];
   if (!o) return G.fail('E_MARKET_GONE');
   let back = false;
   await savepoint(async () => {
     await query(`UPDATE market_offers SET status = 'withdrawn', closed = $2 WHERE id = $1`, [b.offer, now]);
     back = await deliver(st, acc, o.item, { why: 'withdrawn' }, now);
   });
-  return G.ok(back ? `Đã rút ${o.item.name} về túi.` : `Túi và kho đã đầy: ${o.item.name} nằm trong hòm thư Chợ Đêm, dọn chỗ rồi nhận.`);
+  return G.ok(back ? `Đã rút ${nameOf(o.item)} về túi.` : `Túi đã đầy: ${nameOf(o.item)} nằm trong hòm thư Chợ Đêm, dọn chỗ rồi nhận.`);
 }
 
 // The seller picks one offer: the stall's item goes to the visitor, the offered item to the seller, every other offer goes back.
@@ -141,22 +159,22 @@ export async function accept(acc: string, st: G.GameState, b: any, now: number):
   if (!Number.isInteger(b.offer)) return G.fail('E_BAD_REQUEST');
   const o0 = (await query<{ listing: string }>(`SELECT listing FROM market_offers WHERE id = $1`, [b.offer])).rows[0];
   if (!o0) return G.fail('E_MARKET_GONE');
-  const l = (await query<{ id: string; item: G.Item; expires: string }>(`SELECT id, item, expires FROM market_listings WHERE id = $1 AND seller = $2 AND status = 'open' FOR UPDATE`, [o0.listing, acc])).rows[0];
+  const l = (await query<{ id: string; item: Goods; expires: string }>(`SELECT id, item, expires FROM market_listings WHERE id = $1 AND seller = $2 AND status = 'open' FOR UPDATE`, [o0.listing, acc])).rows[0];
   if (!l) return G.fail('E_MARKET_GONE');
-  const o = (await query<{ bidder: string; item: G.Item; bidder_info: Info }>(`SELECT bidder, item, bidder_info FROM market_offers WHERE id = $1 AND status = 'open' FOR UPDATE`, [b.offer])).rows[0];
+  const o = (await query<{ bidder: string; item: Goods; bidder_info: Info }>(`SELECT bidder, item, bidder_info FROM market_offers WHERE id = $1 AND status = 'open' FOR UPDATE`, [b.offer])).rows[0];
   if (!o) return G.fail('E_MARKET_GONE');
   const lid = Number(l.id);
   let got = false;
   await savepoint(async () => {
     await query(`UPDATE market_listings SET status = 'done', closed = $2 WHERE id = $1`, [lid, now]);
     await query(`UPDATE market_offers SET status = 'accepted', closed = $2 WHERE id = $1`, [b.offer, now]);
-    await mail(o.bidder, l.item, 'swap', { by: st.player.name, took: o.item.name }, now);
+    await mail(o.bidder, l.item, 'swap', { by: st.player.name, took: nameOf(o.item) }, now);
     await sendBack(lid, 'declined', 'other', st.player.name, now, b.offer);
     await moveRelic(l.item, acc, o.bidder);
     await moveRelic(o.item, o.bidder, acc);
     got = await deliver(st, acc, o.item, { why: 'accepted' }, now);
   });
-  return G.ok(`Đã đổi ${l.item.name} lấy ${o.item.name} của ${o.bidder_info.name}.${got ? '' : ' Túi đầy nên món nhận được nằm trong hòm thư Chợ Đêm.'}`);
+  return G.ok(`Đã đổi ${nameOf(l.item)} lấy ${nameOf(o.item)} của ${o.bidder_info.name}.${got ? '' : ' Túi đầy nên món nhận được nằm trong hòm thư Chợ Đêm.'}`);
 }
 
 // The seller turns one offer down; the stall stays open.
@@ -164,19 +182,19 @@ export async function decline(acc: string, st: G.GameState, b: any, now: number)
   if (!Number.isInteger(b.offer)) return G.fail('E_BAD_REQUEST');
   const o0 = (await query<{ listing: string }>(`SELECT listing FROM market_offers WHERE id = $1`, [b.offer])).rows[0];
   if (!o0) return G.fail('E_MARKET_GONE');
-  const l = (await query<{ item: G.Item }>(`SELECT item FROM market_listings WHERE id = $1 AND seller = $2 AND status = 'open' FOR UPDATE`, [o0.listing, acc])).rows[0];
+  const l = (await query<{ item: Goods }>(`SELECT item FROM market_listings WHERE id = $1 AND seller = $2 AND status = 'open' FOR UPDATE`, [o0.listing, acc])).rows[0];
   if (!l) return G.fail('E_MARKET_GONE');
-  const o = (await query<{ bidder: string; item: G.Item }>(`SELECT bidder, item FROM market_offers WHERE id = $1 AND status = 'open' FOR UPDATE`, [b.offer])).rows[0];
+  const o = (await query<{ bidder: string; item: Goods }>(`SELECT bidder, item FROM market_offers WHERE id = $1 AND status = 'open' FOR UPDATE`, [b.offer])).rows[0];
   if (!o) return G.fail('E_MARKET_GONE');
   await savepoint(async () => {
     await query(`UPDATE market_offers SET status = 'declined', closed = $2 WHERE id = $1`, [b.offer, now]);
-    await mail(o.bidder, o.item, 'return', { why: 'declined', by: st.player.name, listing: l.item.name }, now);
+    await mail(o.bidder, o.item, 'return', { why: 'declined', by: st.player.name, listing: nameOf(l.item) }, now);
   });
-  return G.ok(`Đã từ chối ${o.item.name}, món đó về hòm thư của người gửi.`);
+  return G.ok(`Đã từ chối ${nameOf(o.item)}, món đó về hòm thư của người gửi.`);
 }
 
 export async function claim(acc: string, st: G.GameState, _b: any, _now: number): Promise<G.Res> {
-  const rows = (await query<{ id: string; item: G.Item }>('SELECT id, item FROM market_inbox WHERE acc = $1 ORDER BY id FOR UPDATE', [acc])).rows;
+  const rows = (await query<{ id: string; item: Goods }>('SELECT id, item FROM market_inbox WHERE acc = $1 ORDER BY id FOR UPDATE', [acc])).rows;
   if (!rows.length) return G.fail('E_MARKET_EMPTY');
   const done: string[] = [];
   for (const r of rows) { if (!receive(st, r.item)) break; done.push(r.id); }

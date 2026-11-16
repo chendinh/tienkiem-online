@@ -6,7 +6,7 @@ import { levelOf } from '@/lib/game';
 import { BALANCE } from '@/lib/balance';
 import type { GS } from '@/lib/client/types';
 import type { Act } from './Panels';
-import { Img, ElChip } from './ui';
+import { Img, ElChip, useZoom } from './ui';
 import { Seg } from './ds/Seg';
 import { Icon } from './ds/Icon';
 import { Toast } from './ds/Dialog';
@@ -146,13 +146,13 @@ export function ArtsPanel({ st, act }: { st: GS; act: Act }) {
       </div>
 
       <Seg<View> label="Thần Thông" value={view} onChange={(v) => go(v, v === 'known' ? flt : 'all')} options={[
-        { v: 'cls', label: <><Icon name="atk" size={14} /><span>Bộ chiêu</span></>, title: 'Chiêu thức của pháp khí đang cầm: học và xếp vào ô chiêu' },
+        { v: 'cls', label: <><Icon name="book" size={14} /><span>Bí kíp</span></>, title: 'Kéo bí kíp lên ô để dùng trong trận, bí kíp ở kệ là chưa dùng' },
         { v: 'known', label: <><Icon name="scroll" size={14} /><span>Sổ chiêu</span></>, title: 'Mọi chiêu thức của tám môn pháp: đã học, có bí kíp, chưa học' },
-        { v: 'books', label: <><Icon name="book" size={14} /><span>Bí kíp{bag.qty > 0 && <em className={bag.ready ? 'hot' : ''}>{bag.qty}</em>}</span></>, title: 'Bí Công và kinh Công Pháp trong túi' },
+        { v: 'books', label: <><Icon name="scroll" size={14} /><span>Trong túi{bag.qty > 0 && <em className={bag.ready ? 'hot' : ''}>{bag.qty}</em>}</span></>, title: 'Bí Công và kinh Công Pháp trong túi' },
         { v: 'method', label: <><Icon name="lotus" size={14} /><span>Công Pháp</span></>, title: 'Công pháp tu luyện đang dùng' },
       ]} />
       <Toast msg={msg} />
-      {view === 'cls' && <ClassView st={st} run={run} />}
+      {view === 'cls' && <ShelfView st={st} run={run} />}
       {view === 'known' && <KnownView st={st} run={run} flt={flt} setFlt={setFlt} />}
       {view === 'books' && <BooksView st={st} run={run} />}
       {view === 'method' && <MethodView st={st} run={run} />}
@@ -160,59 +160,46 @@ export function ArtsPanel({ st, act }: { st: GS; act: Act }) {
   );
 }
 
-// ---------- Bộ chiêu: the môn of the weapon in hand, its techniques grouped by what the player has of them
-function ClassView({ st, run }: { st: GS; run: Run }) {
-  const L = levelOf(st.player);
+// ---------- Bí Kíp: the techniques of one môn as books. The slots at the top are what is used in the fight; the shelf below is everything else.
+// Drag a book from the shelf onto a slot (or tap the book, then tap the slot). Drag a book off a slot, or tap its ✕, to put it back.
+function ShelfView({ st, run }: { st: GS; run: Run }) {
+  const L = levelOf(st.player), zoom = useZoom();
   const cur = A.weaponClass(st.eq.Weapon && st.eq.Weapon.base);
   const [pick, setPick] = useState<string>(cur || A.ARTS[0].id);
-  const slots = A.slotsAt(st.player.realm), used = st.arts.loadout[pick] || [];
-  const full = used.length >= slots;
-  const toggle = (name: string) => run('loadout', { cls: pick, names: used.includes(name) ? used.filter((n) => n !== name) : [...used, name] });
-  const wep = st.eq.Weapon, a = A.ART(pick), basic = A.basicOf(pick);
+  const [held, setHeld] = useState<string | null>(null);   // the book that was tapped (or is being dragged)
+  const [over, setOver] = useState<number | 'shelf' | null>(null);
+  const slots = A.slotsAt(st.player.realm), used = (st.arts.loadout[pick] || []).filter((n) => st.arts.learned.includes(n));
+  const a = A.ART(pick), basic = A.basicOf(pick), wep = st.eq.Weapon;
   const rows = A.techsOf(pick).map((t) => ({ t, s: techStatus(st, t) }));
-  const of = (...s: Status[]) => rows.filter((r) => s.includes(r.s));
-  const inSlots = of('on'), learnedOnly = of('known'), bagged = of('ready', 'wait'), missing = of('none');
-
-  const card = ({ t, s }: { t: A.Tech; s: Status }) => {
-    const low = L < t.minLevel;
-    return (
-      <ArtCard key={t.name} name={t.name} ri={rarOf(t)} pips={t.tier + 1} state={s} lv={t.minLevel}
-        tags={<><GroupChip g={t.group} />{t.el && <ElChip el={t.el} />}<span className={`chip lv ${low ? 'low' : ''}`}>Lv{t.minLevel}</span></>}
-        text={techText(t)} stats={techStats(t)}
-        foot={s === 'on' || s === 'known'
-          ? <>
-            <button type="button" className={`btn sm ${s === 'on' ? 'ghost' : 'hot'}`} disabled={s === 'known' && full} onClick={() => toggle(t.name)}>{s === 'on' ? 'Bỏ khỏi ô chiêu' : 'Đưa vào ô chiêu'}</button>
-            {s === 'known' && full && <small className="acNote">Hết ô chiêu của môn này. Bỏ một chiêu khác ra trước.</small>}
-          </>
-          : <button type="button" className="btn sm hot" disabled={s === 'wait'} onClick={() => run('learn', { name: t.name })}>{s === 'wait' ? `Cần Lv${t.minLevel} để học (ngươi Lv${L})` : 'Học ngay bằng bí kíp trong túi'}</button>} />
-    );
+  const shelf = ['known', 'ready', 'wait', 'none'].flatMap((k) => rows.filter((r) => (r.s === 'on' ? 'known' : r.s) === k && r.s !== 'on'));
+  const save = (names: string[]) => { setHeld(null); setOver(null); return run('loadout', { cls: pick, names }); };
+  const put = (name: string, i: number) => {
+    if (!st.arts.learned.includes(name) || A.TECHS[name]?.cls !== pick) return;
+    const arr = [...used], o = arr.indexOf(name);
+    if (i < arr.length) { if (o >= 0) [arr[o], arr[i]] = [arr[i], arr[o]]; else arr[i] = name; }
+    else { if (o >= 0) arr.splice(o, 1); arr.push(name); }
+    if (arr.length > slots) return;
+    save(arr);
   };
+  const take = (name: string) => save(used.filter((n) => n !== name));
+  const drag = (name: string) => (e: React.DragEvent) => { e.dataTransfer.setData('text/plain', name); e.dataTransfer.effectAllowed = 'move'; setHeld(name); };
+  const dropOn = (i: number | 'shelf') => (e: React.DragEvent) => { e.preventDefault(); const n = e.dataTransfer.getData('text/plain'); if (i === 'shelf') { if (used.includes(n)) take(n); } else put(n, i); setOver(null); };
+  const allow = (i: number | 'shelf') => (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== i) setOver(i); };
+  const info = (t: A.Tech) => zoom({ kind: 'prop', src: C.techArt(t.name), name: t.name, text: `${C.RARITY[rarOf(t)]} · ${A.ART(t.cls).name} · ${t.desc}` });
+  const heldTech = held ? A.TECHS[held] : null;
 
   return (
     <>
-      <details className="artGuide" open={st.arts.learned.length < 2}>
-        <summary><Icon name="info" size={15} /> Thần Thông dùng thế nào?</summary>
-        <ol>
-          <li><b>Nhặt bí kíp</b>: thắng yêu thú hoặc Tu Sĩ có khoảng {Math.round(100 * BALANCE.bookDropP)}% rơi một quyển Bí Công. Quyển nhặt được nằm ở tab «Bí kíp».</li>
-          <li><b>Học</b>: bấm «Học» ở quyển trong túi để biết chiêu đó.</li>
-          <li><b>Đưa vào ô chiêu</b>: chỉ chiêu nằm trong ô mới được tung trong trận. Thêm ô khi lên Cảnh Giới.</li>
-        </ol>
-        <div className="rarLegend" aria-label="Màu độ hiếm">{RAR_NOTE.map((n, i) => <span key={n} style={{ '--rc': C.RCOLOR[i + 1] } as CSSProperties}><i />{n}</span>)}</div>
-      </details>
-
-      <div className="hint">
-        {wep
-          ? <>Đang cầm <b>{wep.name}</b>, nên ngươi dùng <b>{A.ART(cur).name}</b>. Đổi pháp khí là đổi môn pháp.</>
-          : <>Chưa cầm pháp khí: ngươi chỉ có đòn «{C.NEUTRAL_SKILL}».</>}
+      <div className="bkGuide hint">
+        Chỉ <b>bí kíp nằm trong ô</b> ở hàng trên mới được tung trong trận. Bí kíp nằm ở kệ phía dưới là chưa dùng tới. <b>Kéo bí kíp lên ô</b> (hoặc bấm bí kíp rồi bấm ô) để dùng, kéo xuống kệ để cất. Màu viền là độ hiếm: {RAR_NOTE.map((n, i) => <span key={n} className="bkRar" style={{ '--rc': C.RCOLOR[i + 1] } as CSSProperties}>{n.split(':')[0]}</span>)}.
       </div>
-
       <div className="artPicks" role="group" aria-label="Môn pháp">
         {A.ARTS.map((x) => {
           const list = A.techsOf(x.id), k = list.filter((t) => st.arts.learned.includes(t.name)).length, ready = list.filter((t) => techStatus(st, t) === 'ready').length;
           return (
-            <button key={x.id} type="button" className={`artPick ${x.id === pick ? 'on' : ''}`} aria-pressed={x.id === pick} title={`${x.name}: ${x.style}. Đã học ${k}/${list.length}${ready ? `, ${ready} chiêu học được ngay` : ''}`} onClick={() => setPick(x.id)}>
+            <button key={x.id} type="button" className={`artPick ${x.id === pick ? 'on' : ''}`} aria-pressed={x.id === pick} title={`${x.name}: ${x.style}. Đã học ${k}/${list.length}${ready ? `, ${ready} bí kíp học được ngay` : ''}`} onClick={() => { setPick(x.id); setHeld(null); }}>
               {x.id === cur && <span className="curMark" title="Môn của pháp khí đang cầm"><Icon name="check" size={10} /></span>}
-              {ready > 0 && <span className="readyMark" title={`${ready} chiêu có bí kíp, học được ngay`}><Icon name="book" size={10} />{ready}</span>}
+              {ready > 0 && <span className="readyMark" title={`${ready} bí kíp học được ngay`}><Icon name="book" size={10} />{ready}</span>}
               <Img src={C.bookArt(x.id)} className="pickImg" fb={<span>✦</span>} />
               <b>{x.short}</b>
               <small>{k}/{list.length}</small>
@@ -220,33 +207,66 @@ function ClassView({ st, run }: { st: GS; run: Run }) {
           );
         })}
       </div>
-
-      <div className="artHead">
-        <Img src={C.bookArt(pick)} className="artBook" fb={<span>✦</span>} />
-        <div className="ahInfo">
-          <h4>{a.name}{pick === cur && <span className="curTag">Đang cầm</span>}</h4>
-          <small>{a.blurb}</small>
-          <div className="slotMeter" title="Số chiêu được xếp vào trận">
-            <span>Ô chiêu</span>
-            {Array.from({ length: slots }, (_, i) => <i key={i} className={i < used.length ? 'on' : ''} />)}
-            <b>{used.length}/{slots}</b>
-          </div>
-        </div>
+      <div className="hint">
+        {pick === cur && wep ? <>Đang cầm <b>{wep.name}</b>: ngươi dùng <b>{a.name}</b>. </> : pick === cur ? <>Chưa cầm pháp khí. </> : <>Môn này chưa dùng được: cầm pháp khí của <b>{a.name}</b> mới tung được. </>}
+        Đòn cơ bản <b>{basic.name}</b> luôn có, không tốn Linh Lực.
       </div>
 
-      <Group title="Đòn cơ bản" note="luôn có, không tốn Linh Lực">
-        <ArtCard name={basic.name} ri={0} pips={0} state="basic" tags={<GroupChip g="Tấn Công" />} text={techText(basic)} stats={techStats(basic)} />
-      </Group>
-      <Group title="Đang dùng trong trận" note={`${used.length}/${slots} ô`} tone="on">
-        {inSlots.length ? <div className="artList">{inSlots.map(card)}</div> : <div className="hint">Chưa xếp chiêu nào vào ô: trong trận ngươi chỉ dùng đòn cơ bản.</div>}
-      </Group>
-      {learnedOnly.length > 0 && <Group title="Đã học, chưa xếp vào ô" note="chưa được dùng trong trận" tone="known"><div className="artList">{learnedOnly.map(card)}</div></Group>}
-      {bagged.length > 0 && <Group title="Có bí kíp trong túi" note="chưa học" tone="ready"><div className="artList">{bagged.map(card)}</div></Group>}
-      {missing.length > 0 && (
-        <Group title="Chưa học, chưa có bí kíp" note={`${missing.length} chiêu, bấm để xem chi tiết`} tone="none">
-          <div className="lockList">{missing.map(({ t }) => techLock(t, L))}</div>
-        </Group>
-      )}
+      <h5 className="bkH">Đang dùng trong trận <small>{used.length}/{slots} ô</small></h5>
+      <div className="bkSlots" style={{ '--n': slots } as CSSProperties} role="group" aria-label="Ô bí kíp">
+        {Array.from({ length: slots }, (_, i) => {
+          const name = used[i], t = name ? A.TECHS[name] : null, ri = t ? rarOf(t) : 0;
+          return (
+            <div key={i} className={`bkSlot ${t ? 'full' : 'empty'} ${over === i ? 'over' : ''} ${held && !t ? 'ready' : ''} ${held && t ? 'swap' : ''}`} style={{ '--rc': t ? C.RCOLOR[ri] : undefined } as CSSProperties}
+              onDragOver={allow(i)} onDragLeave={() => setOver(null)} onDrop={dropOn(i)}
+              onClick={() => { if (held) put(held, i); else if (t) info(t); }}
+              role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') { if (held) put(held, i); else if (t) info(t); } }}
+              aria-label={t ? `Ô ${i + 1}: ${t.name}` : `Ô ${i + 1} trống`}>
+              <span className="bkNo">{i + 1}</span>
+              {t ? (
+                <>
+                  <span className="bkArt" draggable onDragStart={drag(t.name)} onDragEnd={() => { setHeld(null); setOver(null); }}><Img src={C.techArt(t.name)} className="fill" fb={<Icon name="book" size={30} />} /></span>
+                  <b className="bkName">{t.name}</b>
+                  <small className="bkSub">{t.el || t.group}</small>
+                  <button type="button" className="bkX" aria-label={`Cất ${t.name} xuống kệ`} title="Cất xuống kệ" onClick={(e) => { e.stopPropagation(); take(t.name); }}><Icon name="close" size={12} /></button>
+                </>
+              ) : (
+                <><span className="bkPlus"><Icon name="book" size={26} /></span><small>{held ? 'Đặt vào đây' : 'Kéo bí kíp vào ô'}</small></>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {used.length === 0 && <div className="hint warn">Chưa có bí kíp nào trong ô: trong trận ngươi chỉ dùng đòn cơ bản.</div>}
+
+      <h5 className="bkH">Kệ bí kíp, chưa dùng tới <small>{shelf.length} quyển của {a.name}</small></h5>
+      <div className={`bkShelf ${over === 'shelf' ? 'over' : ''}`} onDragOver={allow('shelf')} onDragLeave={() => setOver(null)} onDrop={dropOn('shelf')}>
+        {shelf.length === 0 && <div className="empty">Mọi bí kíp của môn này đang nằm trong ô.</div>}
+        {shelf.map(({ t, s }) => {
+          const ri = rarOf(t), low = L < t.minLevel, can = s === 'known', pickd = held === t.name;
+          return (
+            <article key={t.name} className={`bkCard r${ri} st-${s} ${pickd ? 'held' : ''}`} style={{ '--rc': C.RCOLOR[ri] } as CSSProperties}
+              draggable={can} onDragStart={can ? drag(t.name) : undefined} onDragEnd={() => { setHeld(null); setOver(null); }}
+              onClick={() => { if (can) setHeld(pickd ? null : t.name); }}>
+              <button type="button" className="bkArt" title="Bấm để xem ảnh lớn" onClick={(e) => { e.stopPropagation(); info(t); }}><Img src={C.techArt(t.name)} className="fill" fb={<Icon name="book" size={30} />} /></button>
+              <div className="bkBody">
+                <b className="bkName">{t.name}</b>
+                <span className="acTags"><span className="rarTag">{C.RARITY[ri]}</span><GroupChip g={t.group} />{t.el && <ElChip el={t.el} />}<span className={`chip lv ${low ? 'low' : ''}`}>Lv{t.minLevel}</span></span>
+                <small className="bkText">{techText(t)}</small>
+                <span className="acStats">{techStats(t)}</span>
+                {s === 'none' && <small className="acNote"><Icon name="lock" size={11} /> Chưa có bí kíp này. {dropHint(t)}</small>}
+              </div>
+              <div className="bkAct">
+                {s === 'known' && <button type="button" className="btn sm hot" onClick={(e) => { e.stopPropagation(); if (used.length < slots) put(t.name, used.length); else setHeld(t.name); }}>{used.length < slots ? 'Đưa vào ô' : 'Chọn ô để thay'}</button>}
+                {s === 'ready' && <button type="button" className="btn sm hot" onClick={(e) => { e.stopPropagation(); run('learn', { name: t.name }); }}>Học bí kíp</button>}
+                {s === 'wait' && <button type="button" className="btn sm" disabled>Cần Lv{t.minLevel}</button>}
+                {s === 'none' && <StateChip s="none" short />}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {heldTech && <div className="bkHeld" role="status">Đang chọn <b>{heldTech.name}</b>: bấm một ô phía trên để đặt vào. <button type="button" className="btn sm ghost" onClick={() => setHeld(null)}>Bỏ chọn</button></div>}
     </>
   );
 }
@@ -264,11 +284,6 @@ function LockedRow({ name, ri, tags, text, stats, hint }: { name: string; ri: nu
     </details>
   );
 }
-const techLock = (t: A.Tech, L: number) => (
-  <LockedRow key={t.name} name={t.name} ri={rarOf(t)} text={techText(t)} stats={techStats(t)} hint={dropHint(t)}
-    tags={<><GroupChip g={t.group} />{t.el && <ElChip el={t.el} />}<span className={`chip lv ${L < t.minLevel ? 'low' : ''}`}>Lv{t.minLevel}</span></>} />
-);
-
 // ---------- Sổ chiêu: every technique of the eight môn, with what the player has of each
 function KnownView({ st, run, flt, setFlt }: { st: GS; run: Run; flt: Flt; setFlt: (f: Flt) => void }) {
   const L = levelOf(st.player);
@@ -315,7 +330,7 @@ function KnownView({ st, run, flt, setFlt }: { st: GS; run: Run; flt: Flt; setFl
                         {s === 'none' && <span className="acNote"><Icon name="book" size={12} /> {dropHint(t)}{low ? ` Cần đạt Lv${t.minLevel} (ngươi Lv${L}).` : ''}</span>}
                         {s === 'wait' && <span className="acNote">{`Đã có bí kíp trong túi, nhưng cần Lv${t.minLevel} (ngươi Lv${L}) mới học được.`}</span>}
                         {s === 'ready' && <button type="button" className="btn sm hot" onClick={() => run('learn', { name: t.name })}>Học ngay bằng bí kíp trong túi</button>}
-                        {s === 'known' && <span className="acNote">Đã học nhưng chưa xếp vào ô chiêu: vào tab «Bộ chiêu» để xếp.</span>}
+                        {s === 'known' && <span className="acNote">Đã học nhưng chưa xếp vào ô chiêu: vào tab «Bí kíp» để xếp.</span>}
                         {s === 'on' && <span className="acNote">Đang nằm trong ô chiêu: ngươi sẽ tung chiêu này trong trận.</span>}
                       </div>
                     )}
