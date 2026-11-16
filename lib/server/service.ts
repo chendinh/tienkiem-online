@@ -60,6 +60,9 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (st.set.hideRank === undefined) st.set.hideRank = false;
   if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
   if (!st.inv.books) st.inv.books = {};
+  if (st.set.tame.strong === undefined) st.set.tame.strong = false;
+  if (st.set.retreatPct < B.minRetreatPct) st.set.retreatPct = B.minRetreatPct;   // below 30% of health the character never goes out to fight
+  if (st.set.resumePct <= st.set.retreatPct) st.set.resumePct = Math.min(100, st.set.retreatPct + 1);
   if (!st.arts) { st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); }   // an old save starts with the Hoàng technique of the môn of its weapon
   if (st.arts && !st.arts.methods) G.initArts(st);   // a save from before Công Pháp starts with the first one
   return st;
@@ -120,6 +123,7 @@ const INTENTS: Record<string, Handler> = {
   buy: (st, b) => (typeof b.item === 'string' ? G.buy(st, b.item, b.qty) : G.fail('E_BAD_REQUEST')),
   sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : G.fail('E_BAD_REQUEST')),
   pill: (st, b) => G.useHpPill(st, b.grade),
+  craft: (st, b) => G.craft(st, b.id, b.qty),
   break: (st, b) => G.attemptBreakthrough(st, { pill: b.pill === true, trib: b.trib === true, src: 'player' }),
   ack: (st, b) => { const r = st.reports.find((x) => x.id === b.id); if (!r) return G.fail('E_NOT_FOUND'); r.seen = true; return G.ok(''); },
   learn: (st, b) => G.learnBook(st, b.name),

@@ -25,7 +25,7 @@ export const ERR = {
   E_WORN: 'Món này đang được mặc. Hãy tháo ra trước.',
   E_ZONE_LOCKED: 'Chưa đủ cấp độ để vào khu vực này.',
   E_BAD_ZONE: 'Khu vực không tồn tại.',
-  E_BAD_THRESHOLDS: 'Ngưỡng nghỉ phải nhỏ hơn ngưỡng quay lại, và ngưỡng quay lại tối đa 100%.',
+  E_BAD_THRESHOLDS: 'Ngưỡng nghỉ phải từ 30% trở lên (dưới 30% sinh lực không được đi giao chiến), nhỏ hơn ngưỡng quay lại, và ngưỡng quay lại tối đa 100%.',
   E_BAD_SETTING: 'Giá trị cài đặt không hợp lệ.',
   E_NO_STOCK: 'Ngươi không có vật phẩm này.',
   E_HP_FULL: 'Sinh lực đã đầy.',

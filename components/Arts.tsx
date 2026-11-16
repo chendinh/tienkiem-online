@@ -7,7 +7,6 @@ import { BALANCE } from '@/lib/balance';
 import type { GS } from '@/lib/client/types';
 import type { Act } from './Panels';
 import { Img, ElChip, useZoom } from './ui';
-import { Seg } from './ds/Seg';
 import { Icon } from './ds/Icon';
 import { Toast } from './ds/Dialog';
 
@@ -145,12 +144,18 @@ export function ArtsPanel({ st, act }: { st: GS; act: Act }) {
         </button>
       </div>
 
-      <Seg<View> label="Thần Thông" value={view} onChange={(v) => go(v, v === 'known' ? flt : 'all')} options={[
-        { v: 'cls', label: <><Icon name="book" size={14} /><span>Bí kíp</span></>, title: 'Kéo bí kíp lên ô để dùng trong trận, bí kíp ở kệ là chưa dùng' },
-        { v: 'known', label: <><Icon name="scroll" size={14} /><span>Sổ chiêu</span></>, title: 'Mọi chiêu thức của tám môn pháp: đã học, có bí kíp, chưa học' },
-        { v: 'books', label: <><Icon name="scroll" size={14} /><span>Trong túi{bag.qty > 0 && <em className={bag.ready ? 'hot' : ''}>{bag.qty}</em>}</span></>, title: 'Bí Công và kinh Công Pháp trong túi' },
-        { v: 'method', label: <><Icon name="lotus" size={14} /><span>Công Pháp</span></>, title: 'Công pháp tu luyện đang dùng' },
-      ]} />
+      <div className="artTabs" role="tablist" aria-label="Thần Thông">
+        {([
+          ['cls', 'book', 'Bí kíp', 'Kéo bí kíp lên ô để dùng trong trận, bí kíp ở kệ là chưa dùng', 0],
+          ['known', 'scroll', 'Sổ chiêu', 'Mọi chiêu thức của tám môn pháp: đã học, có bí kíp, chưa học', 0],
+          ['books', 'chest', 'Trong túi', 'Bí Công và kinh Công Pháp đang nằm trong túi', bag.qty],
+          ['method', 'lotus', 'Công Pháp', 'Công pháp tu luyện đang dùng', 0],
+        ] as [View, string, string, string, number][]).map(([v, icon, text, tip, n]) => (
+          <button key={v} type="button" role="tab" aria-selected={view === v} className={`artTab ${view === v ? 'on' : ''}`} title={tip} onClick={() => go(v, v === 'known' ? flt : 'all')}>
+            <Icon name={icon} size={20} /><span>{text}</span>{n > 0 && <em className={bag.ready ? 'hot' : ''}>{n}</em>}
+          </button>
+        ))}
+      </div>
       <Toast msg={msg} />
       {view === 'cls' && <ShelfView st={st} run={run} />}
       {view === 'known' && <KnownView st={st} run={run} flt={flt} setFlt={setFlt} />}

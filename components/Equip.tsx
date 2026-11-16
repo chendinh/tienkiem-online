@@ -222,7 +222,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
         <h4>Túi Càn Khôn <small>{st.bag.length}/{st.caps.bag}</small></h4>
         <div className="cleanRow">
           <select className="inp" aria-label="Dọn túi tới hạng" value={clean} onChange={(e) => setClean(Number(e.target.value))}>{C.RARITY.slice(0, 4).map((n, i) => <option key={n} value={i}>Phân giải tới hạng {n}</option>)}</select>
-          <button className="btn sm" onClick={() => eqx.dissolveMany(clean)}>Dọn túi</button>
+          <button className="btn sm" title="Phân giải ra Linh Thạch mọi món không khóa tới hạng đã chọn. Món có mũi tên xanh (mạnh hơn đồ đang mặc, hoặc ô còn trống) luôn được giữ lại." onClick={() => eqx.dissolveMany(clean)}>Dọn túi</button>
         </div>
       </div>
       <div className="bagWrap">

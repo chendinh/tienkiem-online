@@ -7,7 +7,6 @@ import * as C from '@/lib/content';
 import type { GS } from '@/lib/client/types';
 import type { Report, Beast } from '@/lib/game';
 import { releaseValue, upkeepDue, SP } from '@/lib/game';
-import { allSpecies } from '@/lib/daily';
 import { Icon } from './ds/Icon';
 import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
@@ -116,7 +115,6 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const patch = async (p: any) => { const r = await act('settings', { patch: p }); setMsg({ t: r.msg, ok: r.ok }); return r.ok; };
   const toggleIn = (arr: number[], v: number) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-  const toggleSp = (id: string) => patch({ tame: { species: s.tame.species.includes(id) ? s.tame.species.filter((x) => x !== id) : [...s.tame.species, id] } });
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Cài đặt">
       <ModalClose onClose={onClose} />
@@ -128,12 +126,12 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <div className="musicBox"><MusicPanel onCredits={() => { onClose(); onCredits?.(); }} /></div>
           <h3>Nghỉ ngơi</h3>
           <div className="row">
-            <label className="field">Nghỉ khi sinh lực dưới (%)<input type="number" min={1} max={99} value={ret} onChange={(e) => setRet(e.target.value)} /></label>
-            <label className="field">Quay lại khi hồi tới (%)<input type="number" min={2} max={100} value={res} onChange={(e) => setRes(e.target.value)} /></label>
+            <label className="field">Nghỉ khi sinh lực dưới (%, từ {B.minRetreatPct})<input type="number" min={B.minRetreatPct} max={99} value={ret} onChange={(e) => setRet(e.target.value)} /></label>
+            <label className="field">Quay lại khi hồi tới (%, tối đa 100)<input type="number" min={B.minRetreatPct + 1} max={100} value={res} onChange={(e) => setRes(e.target.value)} /></label>
             <button className="btn" onClick={() => patch({ retreatPct: Number(ret), resumePct: Number(res) })}>Lưu ngưỡng</button>
           </div>
           <div className="row">
-            <label className="tg"><input type="checkbox" checked={s.autoPill} onChange={(e) => patch({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan (hạng thấp nhất trước)</label>
+            <label className="tg"><input type="checkbox" checked={s.autoPill} onChange={(e) => patch({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan ngay sau mỗi trận, chọn loại vừa đủ cho đến khi đầy sinh lực</label>
           </div>
           <h3>Tự động</h3>
           <div className="row">
@@ -154,19 +152,16 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <label className="tg"><input type="checkbox" checked={s.hideRank} onChange={(e) => patch({ hideRank: e.target.checked })} /> Ẩn khỏi Bảng Phong Thần (người khác không thấy tên, trang bị và Linh Thú của ngươi)</label>
           <h3>Tự thu phục</h3>
           <label className="tg"><input type="checkbox" checked={s.autoTame} onChange={(e) => patch({ autoTame: e.target.checked })} /> Bật tự thu phục sau khi thắng</label>
+          <label className="tg"><input type="checkbox" checked={s.tame.strong} onChange={(e) => patch({ tame: { strong: e.target.checked } })} /> Chỉ bắt quái mạnh: mạnh hơn con yếu nhất trong đội xuất chiến, hoặc khi đội chưa đủ {st.caps.party} con (thay cho bộ lọc loài và kích cỡ)</label>
           <label className="field">Hạng Khế Ước Phù sẽ dùng
             <select value={s.tame.grade} onChange={(e) => patch({ tame: { grade: Number(e.target.value) } })}>
               {C.GRADES.map((g, i) => <option key={g} value={i}>{g} (đang có {st.inv.taming[i]})</option>)}
             </select>
           </label>
           <div className="row">
-            <label className="tg"><input type="checkbox" checked={s.tame.alwaysMut} onChange={(e) => patch({ tame: { alwaysMut: e.target.checked } })} /> Luôn thử với Dị Biến</label>
+            <label className="tg"><input type="checkbox" checked={s.tame.alwaysMut} onChange={(e) => patch({ tame: { alwaysMut: e.target.checked } })} /> Luôn thử với Dị Biến (luôn dùng phù cao nhất đang có)</label>
             <label className="tg"><input type="checkbox" checked={s.tame.newOnly} onChange={(e) => patch({ tame: { newOnly: e.target.checked } })} /> Chỉ loài chưa từng thu phục</label>
           </div>
-          <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend>Loài được phép (không chọn = mọi loài)</legend>
-            <div className="chipPick">{allSpecies().map((sp) => <label key={sp.id}><input type="checkbox" checked={s.tame.species.includes(sp.id)} onChange={() => toggleSp(sp.id)} />{sp.name}</label>)}</div>
-          </fieldset>
           <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend>Kích thước được phép</legend>
             <div className="chipPick">{C.SIZE_CLASS.map((n, i) => <label key={n}><input type="checkbox" checked={s.tame.sizes.includes(i)} onChange={() => patch({ tame: { sizes: toggleIn(s.tame.sizes, i) } })} />{n}</label>)}</div>
@@ -304,6 +299,38 @@ export function Window({ title, icon, sub, wide, onClose, children }: { title: s
 }
 export function MarketModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
   return <Window title="Phường Thị" icon="stone" sub="Mua Khế Ước Phù, Đan Dược; bán nguyên liệu" onClose={onClose}><ShopPanel st={st} act={act} /></Window>;
+}
+// Luyện Đan: materials become Hồi Khí Đan. Free; only the materials are used.
+export function AlchemyModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
+  const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
+  const have = (m: string) => st.inv.mat[m] || 0;
+  const maxOf = (r: C.Recipe) => Math.min(B.stackMax - st.inv.hp[r.grade], ...Object.entries(r.need).map(([m, n]) => Math.floor(have(m) / n)));
+  const run = async (id: string, qty: number) => { const r = await act('craft', { id, qty }); setMsg({ t: r.msg, ok: r.ok }); };
+  return (
+    <Window title="Luyện Đan" icon="lotus" sub="Ghép linh thảo và khoáng vật nhặt được thành Hồi Khí Đan, không tốn Linh Thạch" onClose={onClose}>
+      <div className="hint">Đang có Hồi Khí Đan: {st.inv.hp.map((n, i) => `hạng ${i + 1}: ${n}`).join(' · ')}. Đan luyện ra được dùng để hồi sinh lực sau mỗi trận khi bật tự dùng đan.</div>
+      {msg && <div className={`eqMsg ${msg.ok ? 'ok' : 'err'}`} role="status">{msg.t}</div>}
+      <div className="recipes">
+        {C.RECIPES.map((r) => {
+          const max = Math.max(0, maxOf(r));
+          return (
+            <div key={r.id} className="recipe">
+              <Img src={C.shopArt(r.id)} className="shopImg" fb={<span>✦</span>} />
+              <div className="recMain">
+                <b>Hồi Khí Đan hạng {r.grade + 1}</b> <small>hồi {Math.round(B.pillRestore[r.grade] * 100)}% sinh lực{r.grade >= B.injuryCurePillGrade ? ', chữa Thương Thế' : ''} · đang có {st.inv.hp[r.grade]}</small>
+                <div className="recNeed">{Object.entries(r.need).map(([m, n]) => <span key={m} className={have(m) >= n ? 'ok' : 'lack'}>{C.MAT(m).name} {have(m)}/{n}</span>)}</div>
+              </div>
+              <div className="recAct">
+                <button className="btn sm hot" disabled={max < 1} onClick={() => run(r.id, 1)}>Luyện 1</button>
+                <button className="btn sm" disabled={max < 2} onClick={() => run(r.id, max)}>Tối đa ({max})</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="hint">Linh thảo hái ở Thanh Vân Sơn Cốc, Thanh Trúc Tinh ở Thanh Vân và Hàn Nguyệt Lâm, Hàn Ngọc Tủy ở Hàn Nguyệt Lâm. Vật liệu không dùng vẫn bán được ở Phường Thị.</div>
+    </Window>
+  );
 }
 // Đạo hiệu: what it is and the starting privileges it gave. It belongs to the e-mail address of the account.
 export function DaoModal({ dao, email, onClose }: { dao: string; email: string; onClose: () => void }) {

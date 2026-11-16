@@ -54,6 +54,12 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS images (id text PRIMARY KEY, kind text NOT NULL DEFAULT 'other', folder text NOT NULL DEFAULT 'other', ext text NOT NULL, data bytea NOT NULL, sm bytea, meta jsonb NOT NULL DEFAULT '{}', created timestamptz NOT NULL DEFAULT now())`,
   // a picture being drawn right now: stops two server instances from paying for the same picture twice
   `CREATE TABLE IF NOT EXISTS image_jobs (id text PRIMARY KEY, started bigint NOT NULL)`,
+  // Which pictures show which item look. asset_key is the stable key of lib/assetKey.ts (no prompt in it); style is STYLE_VERSION at drawing time.
+  // Rows are only ever added: a new style or prompt adds a row and the older pictures stay usable beside it.
+  `CREATE TABLE IF NOT EXISTS image_index (asset_key text NOT NULL, image_id text NOT NULL, style int NOT NULL DEFAULT 1, created timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (asset_key, image_id))`,
+  `CREATE INDEX IF NOT EXISTS image_index_key ON image_index (asset_key, style DESC, created DESC)`,
+  // item looks that were asked for but had no picture (AI off, budget used up, hourly cap): drawn later by scripts/draw-wanted.ts
+  `CREATE TABLE IF NOT EXISTS image_wanted (asset_key text PRIMARY KEY, spec jsonb NOT NULL, tier int NOT NULL DEFAULT 0, hits int NOT NULL DEFAULT 1, added timestamptz NOT NULL DEFAULT now())`,
   // Chợ Đêm: items a player put up for a swap (held here until swapped, withdrawn or expired) and the mailbox that delivers items to a save
   `CREATE TABLE IF NOT EXISTS market_listings (id bigserial PRIMARY KEY, seller text NOT NULL, seller_info jsonb NOT NULL, item jsonb NOT NULL, want jsonb NOT NULL, status text NOT NULL DEFAULT 'open', created bigint NOT NULL, expires bigint NOT NULL, closed bigint)`,
   `CREATE INDEX IF NOT EXISTS market_open ON market_listings (id DESC) WHERE status = 'open'`,

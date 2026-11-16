@@ -6,7 +6,8 @@ const g = globalThis as any;
 const REFRESH_MS = 60_000;
 const KEY = /^daily:\d{4}-\d{2}-\d{2}$/;
 
-export async function loadPacks(limit = 800): Promise<DailyPack[]> {
+// No default cap: every pack ever published must stay in the registry, or old daily weapons lose their class and icon spec.
+export async function loadPacks(limit = 100000): Promise<DailyPack[]> {
   const r = await query<{ key: string; value: DailyPack }>(`SELECT key, value FROM kv WHERE key LIKE 'daily:%' ORDER BY key DESC LIMIT $1`, [limit]);
   return r.rows.filter((x) => KEY.test(x.key) && x.value && x.value.beast).map((x) => x.value).reverse();
 }

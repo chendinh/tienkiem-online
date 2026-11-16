@@ -4,6 +4,7 @@ import { buildPlan, itemObject, STYLE_VERSION, type Plan } from './imageprompt';
 import * as C from './content';
 import { ask, llmEnabled, parseJson, imageBudget, addImageCost } from './llm';
 import { hasImage, getImage, putImage, claimJob, releaseJobs } from './server/images';
+import { keyOfSpec, indexImage, lookupKey, wantImage, dropWanted } from './server/imageindex';
 
 // Server-side image service: one art direction, a shared picture cache, a small priority queue, spend caps.
 // Subjects that must stay identical (outfit changes, mutated monsters) are drawn by EDITING a reference image.
@@ -299,6 +300,9 @@ async function run(j: Job) {
       id: j.id, kind: kindFolder(j.kind), folder, ext, data: out.buf,
       meta: { crop: P.crop, spec: j.spec, provider: P.name, model: out.model, kind: j.kind, prompt: j.prompt, editPrompt: j.editPrompt, ref: j.refIds ? j.refIds.join(',') : undefined, seed: j.seed, requestId: out.requestId, cost: out.cost, attempt: j.attempt, date: new Date().toISOString() },
     });
+    const ik = keyOfSpec(j.spec);
+    // the picture is already saved: a failure of the index must not turn it into a failed job (the backfill script adds missing rows)
+    if (ik) { try { await indexImage(ik, j.id, STYLE_VERSION); await dropWanted(ik); } catch (e: any) { console.warn('[imagegen] could not index', j.id, String(e?.message || e).slice(0, 100)); } }
   } catch (err: any) {
     S.failed.set(j.id, Date.now());
     const detail = err?.body ? JSON.stringify(err.body).slice(0, 240) : '';
@@ -357,9 +361,17 @@ async function refPicture(r: any, pri: number): Promise<{ status: Result['status
 }
 export async function request(spec: any): Promise<Result> {
   const P = provider();
-  if (!P.enabled) return { status: 'disabled' };
   let plan: Plan;
   try { plan = buildPlan(spec); } catch { return { status: 'invalid' }; }
+  // Item icons are found by their look (never by prompt), so they keep showing when the AI is off or the prompt was reworded.
+  // A look that has no picture yet is noted in image_wanted and drawn later.
+  const key = keyOfSpec(spec);
+  const found = (f: { id: string; crop: number }): Result => ({ status: 'ready', url: `/api/img/${f.id}`, crop: f.crop });
+  const limited = async (): Promise<Result> => { if (key) await wantImage(key, spec); return { status: 'limited' }; };
+  if (!P.enabled) {
+    if (key) { const f = await lookupKey(key); if (f) return found(f); await wantImage(key, spec); }
+    return { status: 'disabled' };
+  }
   // An edit needs all its reference pictures first (only the fal provider can edit; others redraw from the full text).
   // Every reference is requested before answering, so the missing ones are drawn one after another without extra round trips.
   const refIds: string[] = [];
@@ -376,17 +388,19 @@ export async function request(spec: any): Promise<Result> {
   const id = crypto.createHash('sha1').update(`${STYLE_VERSION}|${P.name}|${tag}|${plan.prompt}|${refIds.length ? plan.editPrompt : ''}|${refIds.join(',')}|${plan.width}x${plan.height}|${plan.seed}`).digest('hex').slice(0, 20);
   const hit = await hasImage(id);
   if (hit) return { status: 'ready', url: `/api/img/${id}`, crop: hit.crop };
+  // Same look drawn under an older prompt or style: it is still a valid picture of this item, so show it instead of paying for a new one.
+  if (key) { const f = await lookupKey(key); if (f) return found(f); }
   if (S.inflight.has(id)) { const q = S.queue.find((x) => x.id === id); if (q) q.seen = Date.now(); return { status: 'pending' }; }
   const f = S.failed.get(id);
   if (f && Date.now() - f < 45 * 1000) return { status: 'failed' };
   // pictures that already exist are always served; only NEW paid drawings stop while the provider is locked or the budget is used up
-  if (S.locked && S.locked.until > Date.now()) return { status: 'limited' };
-  if (P.paid) { const ib = await imageBudget(); if (ib.spentUsd >= ib.capUsd) return { status: 'limited' }; }
+  if (S.locked && S.locked.until > Date.now()) return limited();
+  if (P.paid) { const ib = await imageBudget(); if (ib.spentUsd >= ib.capUsd) return limited(); }
   const hourAgo = Date.now() - 3600 * 1000;
   S.started = S.started.filter((x) => x.t > hourAgo);
   const isItem = plan.kind === 'item';
   const max = Number(isItem ? process.env.IMAGE_ITEM_MAX_PER_HOUR || (P.paid ? 150 : 200) : process.env.IMAGE_MAX_PER_HOUR || (P.paid ? 40 : 200));
-  if (S.started.filter((x) => x.item === isItem).length + S.queue.filter((x) => (x.kind === 'item') === isItem).length >= max) return { status: 'limited' };
+  if (S.started.filter((x) => x.item === isItem).length + S.queue.filter((x) => (x.kind === 'item') === isItem).length >= max) return limited();
   // Another server instance may already be drawing this picture (the claim is in the database): then it is simply "pending" here too.
   if (!(await claimJob(id))) return { status: 'pending' };
   // The picture may have been finished and its claim released between the first look and the claim: never pay for it twice.

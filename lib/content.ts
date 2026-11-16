@@ -525,6 +525,7 @@ export const PROP_EN: Record<string, string> = {
   book_tieu: 'an ancient Chinese music manual, a thin bound book with a plain smooth teal leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a flute, glowing faintly',
   book_phat: 'an ancient Chinese daoist manual, a thin bound book with a plain smooth ivory-white leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a fly whisk, glowing faintly',
   book_method: 'an ancient Chinese cultivation scripture, a rolled scroll of aged paper with a smooth plain jade-green silk wrapping and carved jade end rollers, closed with a silk cord and a small carved jade charm in the shape of a lotus, glowing faintly',
+  ui_lbl_alchemy: 'a wide horizontal xianxia button plaque with a smooth deep amber-bronze panel framed by a thick gold filigree border with carved cloud-scroll corners, a small gold alchemy cauldron with a wisp of smoke at the top centre, in the middle the words “Luyện Đan” in large embossed gold brush calligraphy lettering (exact spelling: L u y ệ n, then Đ a n; ệ is e with a circumflex and a dot below, Đ is D with a horizontal stroke)',
   ui_lbl_market: 'a wide horizontal xianxia button plaque with a smooth deep green jade panel framed by a thick gold filigree border with carved cloud-scroll corners, a small gold ingot and a coin pouch at the top centre, in the middle the words “Phường Thị” in large embossed gold brush calligraphy lettering (exact spelling: P h ư ờ n g, then T h ị; ư is u with a horn, ờ is o with a horn and a grave accent, ị is i with a dot below)',
   ui_lbl_arts: 'a wide horizontal xianxia button plaque with a smooth deep indigo-violet lacquer panel framed by a thick gold filigree border with carved cloud-scroll corners, a small floating sword at the top centre, in the middle the words “Thần Thông” in large embossed gold brush calligraphy lettering (exact spelling: T h ầ n, then T h ô n g; ầ is a with a circumflex and a grave accent, ô is o with a circumflex)',
   ui_lbl_pen: 'a wide horizontal xianxia button plaque with a smooth forest-green jade panel framed by a thick gold filigree border with carved cloud-scroll corners, a small carved fox head at the top centre, in the middle the words “Linh Thú” in large embossed gold brush calligraphy lettering (exact spelling: L i n h, then T h ú; ú is u with an acute accent)',
@@ -655,3 +656,14 @@ export function daoPerkLines(k: DaoPerks): string[] {
   if (k.weaponTier !== undefined) out.push(`Pháp khí khởi đầu hạng ${RARITY[k.weaponTier]}`);
   return out;
 }
+
+// ---------- Luyện Đan (the Alchemy window): recipes that turn materials into Hồi Khí Đan. Free: only the materials are used.
+export interface Recipe { id: string; grade: number; need: Record<string, number> }
+export const RECIPES: Recipe[] = [
+  { id: 'hp0', grade: 0, need: { linhthao: 8 } },
+  { id: 'hp1', grade: 1, need: { linhthao: 12, truc: 4 } },
+  { id: 'hp2', grade: 2, need: { linhthao: 10, truc: 8, ngoc: 4 } },
+];
+
+// A tall (portrait) version of each zone scene for phones: drawn at 9:16, shown instead of the wide one when the screen is taller than it is wide.
+for (const z of ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu']) PLACE_EN[`${z}_v`] = PLACE_EN[z];

@@ -241,11 +241,11 @@ test('HP pills heal by grade and are refused at full HP (Requirement 24.12)', ()
   assert.equal(st.player.hp, Math.min(S.maxHp, 1 + Math.floor(B.pillRestore[1] * S.maxHp)));
   assert.equal(G.useHpPill(st, 1).code, 'E_NO_STOCK');
 });
-test('Auto_Pill uses the lowest grade first (Requirement 3.10)', () => {
+test('Auto_Pill picks the pill that fits the missing health (Requirement 3.10, changed: it now works right after a fight, see the auto pills test below)', () => {
   const st = fresh(6); st.set.mode = 'retreat'; st.set.autoPill = true; st.inv.hp = [2, 5, 5];
   st.player.hp = 1;
   G.settle(st, 1);
-  assert.equal(st.inv.hp[0], 1); assert.equal(st.inv.hp[1], 5);
+  assert.equal(st.inv.hp[2], 4, 'only the biggest pill fills what was missing'); assert.equal(st.inv.hp[0], 2); assert.equal(st.player.hp, G.pstats(st).maxHp);
 });
 test('release value follows the formula (Requirement 24.8)', () => {
   const st = fresh(6);
@@ -262,8 +262,8 @@ test('settings validation (Requirement 3.15)', () => {
   assert.equal(G.setSettings(st, { retreatPct: 0 }).code, 'E_BAD_THRESHOLDS');
   assert.equal(G.setSettings(st, { resumePct: 101 }).code, 'E_BAD_THRESHOLDS');
   assert.equal(st.set.retreatPct, B.defaults.retreatPct); assert.equal(st.set.resumePct, B.defaults.resumePct);
-  assert.ok(G.setSettings(st, { retreatPct: 20, resumePct: 60, dissolveMax: -1, tame: { grade: 2, sizes: [1, 2] } }).ok);
-  assert.equal(st.set.retreatPct, 20); assert.deepEqual(st.set.tame.sizes, [1, 2]);
+  assert.ok(G.setSettings(st, { retreatPct: 35, resumePct: 60, dissolveMax: -1, tame: { grade: 2, sizes: [1, 2] } }).ok);
+  assert.equal(st.set.retreatPct, 35); assert.deepEqual(st.set.tame.sizes, [1, 2]);
   assert.equal(G.setSettings(st, { autoTame: 'yes' }).code, 'E_BAD_SETTING');
   assert.equal(st.set.hideRank, false); assert.ok(G.setSettings(st, { hideRank: true }).ok); assert.equal(st.set.hideRank, true);
   assert.equal(G.setSettings(st, { hideRank: 1 }).code, 'E_BAD_SETTING');
@@ -416,14 +416,19 @@ test('Linh Thú upkeep is charged every 10 minutes and never below zero', () => 
 test('bulk dissolve and bulk sale only touch what the player allows', () => {
   const st = fresh(10); st.set.dissolveMax = -1;
   const a = G.genItem(st, 1, 0), b = G.genItem(st, 1, 1), c = G.genItem(st, 1, 4), d = G.genItem(st, 1, 0); d.locked = true;
-  st.bag.push(a, b, c, d); st.stash.push(G.genItem(st, 1, 0));
+  const sx = G.genItem(st, 1, 0);
+  st.bag.push(a, b, c, d); st.stash.push(sx);
+  // something far stronger is worn in every slot these pieces belong to, so none of them is an upgrade (the green arrow)
+  for (const x of [a, b, c, d, sx]) st.eq[x.slot] = { ...x, id: 9000 + x.id, power: 1e9 };
+  const free = C.SLOTS.find((x) => ![a, b, c, d, sx].some((y) => y.slot === x))!;
+  const up = G.genItem(st, 1, 0, free); st.eq[free] = { ...up, id: 9999, power: 1 }; st.bag.push(up);   // an upgrade (stronger than what is worn there): it must stay
   const s0 = st.stones;
   assert.equal(G.dissolveMany(st, 9).code, 'E_BAD_REQUEST');
   const r = G.dissolveMany(st, 1);
-  assert.ok(r.ok); assert.equal((r.data as any).n, 3);
-  assert.deepEqual(st.bag.map((x) => x.id).sort(), [c.id, d.id].sort()); assert.equal(st.stash.length, 0);
+  assert.ok(r.ok); assert.equal((r.data as any).n, 3); assert.equal((r.data as any).kept, 1);
+  assert.deepEqual(st.bag.map((x) => x.id).sort(), [c.id, d.id, up.id].sort()); assert.equal(st.stash.length, 0);
   assert.equal(st.stones, s0 + (r.data as any).stones);
-  assert.equal(G.dissolveMany(st, 0).code, 'E_NOT_FOUND');
+  assert.equal(G.dissolveMany(st, 0).code, 'E_NOT_FOUND');   // only the locked piece, the Địa piece and the upgrade are left
   const mk = (id: number, level: number, mut = false) => ({ id, level, mut, sp: 'ho', name: 'x', apt: [1, 1, 1, 1, 1], cls: 2, power: level * 10 }) as G.Beast;
   st.beasts = [mk(1, 9), mk(2, 8), mk(3, 7), mk(4, 2), mk(5, 3, true), mk(6, 1)];
   const sold = G.releaseMany(st);
@@ -709,4 +714,60 @@ test('chức vụ changes come out the same however the ticks are split, and nev
   const hold = G.newGame(41, 'f', T0); const was = B.destinyP; (B as any).destinyP = 0;
   try { G.settle(hold, 6000); } finally { (B as any).destinyP = was; }
   assert.equal(JSON.stringify(hold.streams), JSON.stringify(a.streams));
+});
+
+// ---------- auto settings: strong creatures only, health thresholds, pills after a fight, alchemy
+const beastP = (id: number, power: number, mut = false) => ({ id, power, level: 5, apt: [1, 1, 1, 1, 1], cls: 2, mut, sp: 'ho', name: 'x', stats: [1, 1, 1, 1, 1], skills: [], size: 1, cm: 1, pers: 0 }) as unknown as G.Beast;
+test('"strong creatures only": any creature while the Party is not full, then only one stronger than the weakest of the Party', () => {
+  const st = fresh(700), sp = C.SPECIES[0];
+  st.set.tame.strong = true; st.set.tame.alwaysMut = false;
+  st.beasts = [beastP(1, 100), beastP(2, 90)];
+  assert.equal(G.matchesFilter(st, beastP(9, 10), sp), true, 'the Party has room');
+  st.beasts.push(beastP(3, 80));
+  assert.equal(G.matchesFilter(st, beastP(9, 79), sp), false); assert.equal(G.matchesFilter(st, beastP(9, 80), sp), false);
+  assert.equal(G.matchesFilter(st, beastP(9, 81), sp), true);
+  st.beasts.push(beastP(4, 500));   // only the three strongest go into battle: the weakest of those is 90 now
+  assert.equal(G.matchesFilter(st, beastP(9, 85), sp), false); assert.equal(G.matchesFilter(st, beastP(9, 95), sp), true);
+  st.set.tame.strong = false; st.set.tame.sizes = [0, 1, 2, 3, 4];
+  assert.equal(G.matchesFilter(st, beastP(9, 1), sp), true, 'off: the old filter applies');
+});
+test('an auto tame of a Dị Biến always uses the best Khế Ước Phù the player has; an ordinary creature uses the chosen grade', () => {
+  const sp = C.SPECIES[0], mk = (mut: boolean) => { const st = fresh(800); st.set.autoTame = true; st.set.tame.grade = 0; st.set.tame.alwaysMut = true; st.inv.taming = [5, 0, 5, 0]; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; G.tryTame(st, beastP(77, 10, mut), sp, []); return st; };
+  const mut = mk(true), plain = mk(false);
+  assert.deepEqual(mut.inv.taming, [5, 0, 4, 0], 'Dị Biến: the Địa talisman');
+  assert.deepEqual(plain.inv.taming, [4, 0, 5, 0], 'ordinary: the Hoàng one chosen in the settings');
+});
+test('the retreat setting cannot go below 30% and the character never goes out to fight under it', () => {
+  const st = fresh(710);
+  assert.equal(G.setSettings(st, { retreatPct: 29 }).code, 'E_BAD_THRESHOLDS');
+  assert.equal(G.setSettings(st, { retreatPct: 30, resumePct: 100 }).ok, true);
+  assert.equal(G.setSettings(st, { retreatPct: 30, resumePct: 101 }).code, 'E_BAD_THRESHOLDS');
+  assert.equal(G.setSettings(st, { retreatPct: 50, resumePct: 50 }).code, 'E_BAD_THRESHOLDS');
+  // an old save with a lower setting still stops at 30%
+  const low = fresh(711); Object.assign(low.set, { retreatPct: 10, resumePct: 40, autoPill: false }); low.player.hp = Math.floor(G.pstats(low).maxHp * 0.25);
+  G.tick(low); assert.equal(low.recovery, true, 'below 30% the character rests');
+});
+test('auto pills are used right after a fight: the smallest pill that fills what is missing, the biggest again and again otherwise, none for a scratch', () => {
+  const st = fresh(720), S = G.pstats(st);
+  st.inv.hp = [5, 5, 5];
+  st.player.hp = S.maxHp - Math.floor(S.maxHp * 0.25);   // 25% missing: a grade 1 pill (30%) fills it
+  G.autoHeal(st); assert.equal(st.player.hp, S.maxHp); assert.deepEqual(st.inv.hp, [4, 5, 5]);
+  st.player.hp = S.maxHp - Math.floor(S.maxHp * 0.5);    // 50% missing: grade 2 (60%)
+  G.autoHeal(st); assert.equal(st.player.hp, S.maxHp); assert.deepEqual(st.inv.hp, [4, 4, 5]);
+  st.player.hp = S.maxHp - 3;                            // a scratch: nothing is wasted
+  G.autoHeal(st); assert.deepEqual(st.inv.hp, [4, 4, 5]);
+  st.inv.hp = [0, 3, 0]; st.player.hp = 1;               // only a 60% pill: used again until full
+  G.autoHeal(st); assert.equal(st.player.hp, S.maxHp); assert.equal(st.inv.hp[1], 1);
+  st.inv.hp = [0, 0, 0]; st.player.hp = 1; G.autoHeal(st); assert.equal(st.player.hp, 1);
+});
+test('Luyện Đan: materials become pills for free, and a refusal changes nothing', () => {
+  const st = fresh(730);
+  st.inv.mat = { linhthao: 20, truc: 5 };
+  const stones = st.stones, r1 = G.craft(st, 'hp0', 2);
+  assert.ok(r1.ok); assert.equal(st.inv.mat.linhthao, 4); assert.equal(st.stones, stones, 'free');
+  const before = JSON.stringify(st.inv);
+  assert.equal(G.craft(st, 'hp0', 1).ok, false); assert.equal(G.craft(st, 'hp2', 1).ok, false); assert.equal(G.craft(st, 'nope', 1).code, 'E_NOT_FOUND'); assert.equal(G.craft(st, 'hp0', 0).code, 'E_BAD_QTY');
+  assert.equal(JSON.stringify(st.inv), before);
+  st.inv.mat = { linhthao: 12, truc: 4 }; const h1 = st.inv.hp[1];
+  assert.ok(G.craft(st, 'hp1', 1).ok); assert.equal(st.inv.hp[1], h1 + 1); assert.equal(st.inv.mat.linhthao, undefined);
 });

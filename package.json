@@ -22,7 +22,9 @@
     "thumbs": "tsx scripts/thumbs.ts",
     "db:dev": "tsx scripts/dev-db.ts",
     "db:migrate": "tsx scripts/migrate-to-db.ts",
-    "dao:backfill": "tsx scripts/dao-backfill.ts"
+    "dao:backfill": "tsx scripts/dao-backfill.ts",
+    "img:index": "tsx scripts/index-images.ts",
+    "img:wanted": "tsx scripts/draw-wanted.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.1",

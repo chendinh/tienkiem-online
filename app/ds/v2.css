@@ -138,3 +138,11 @@
   .effRow { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; }
   em.dropEv { color: var(--gold-200); }
 }
+@layer game {
+  /* settings: nothing may push the window wider than the screen (the hidden checkboxes of the chip pickers sit inside their chip) */
+  .setGrid > * { min-width: 0; }
+  .chipPick label { position: relative; max-width: 100%; }
+  .setGrid .row > * { min-width: 0; max-width: 100%; }
+  .setGrid .tg { align-items: flex-start; }
+  .setGrid .field input[type="number"] { max-width: 100%; }
+}

@@ -69,7 +69,7 @@ export function Atmosphere({ scene = 'night', aura = '#62cfae', zone }: { scene?
     <div ref={root} className="atmo" style={{ '--aura': aura } as CSSProperties} aria-hidden="true">
       <div className={`atmo-scene night ${!zone && scene === 'night' ? 'on' : ''}`} />
       <div className={`atmo-scene dawn ${!zone && scene === 'dawn' ? 'on' : ''}`} />
-      {ZONE_IDS.map((id) => <div key={id} className={`atmo-scene zone ${scene} ${zone === id ? 'on' : ''}`} style={{ backgroundImage: `url(/art/zones/${id}.jpg)` }} />)}
+      {ZONE_IDS.map((id) => <div key={id} className={`atmo-scene zone z-${id} ${scene} ${zone === id ? 'on' : ''}`} />)}
       <div className="atmo-tint" />
       <div className="atmo-mist a" />
       <div className="atmo-mist b" />

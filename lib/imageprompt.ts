@@ -259,7 +259,11 @@ export function buildPlan(spec: any): Plan {
   }
   if (spec.kind === 'place') {
     const id = oneOf(spec.id, Object.keys(C.PLACE_EN));
-    return { kind: 'place', prompt: `${CORE}. A wide cinematic xianxia environment concept painting of ${C.PLACE_EN[id]}. Wide landscape composition with open space, no people in the foreground, no writing. ${NEG}`, width: 1280, height: 720, seed: 6000 + Object.keys(C.PLACE_EN).indexOf(id), pri: 3 };
+    const tall = id.endsWith('_v');   // the phone version: a vertical picture, sky above and ground below, the interesting part in the middle third
+    return { kind: 'place', prompt: tall
+      ? `${CORE}. A tall vertical cinematic xianxia environment concept painting of ${C.PLACE_EN[id]}. Portrait composition (9:16) with sky and distant mountains in the upper part, the scene in the middle and open ground below, no people in the foreground, no writing. ${NEG}`
+      : `${CORE}. A wide cinematic xianxia environment concept painting of ${C.PLACE_EN[id]}. Wide landscape composition with open space, no people in the foreground, no writing. ${NEG}`,
+      width: tall ? 720 : 1280, height: tall ? 1280 : 720, seed: 6000 + Object.keys(C.PLACE_EN).indexOf(id), pri: 3 };
   }
   return bad();
 }

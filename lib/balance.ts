@@ -52,6 +52,8 @@ export const BALANCE = {
   bookTierWeights: [8, 4, 2, 1],         // how often a Bí Công of each tier (Hoàng to Thiên) is the one that drops
   bookDropP: 0.10, bookEliteMult: 1.5,   // chance of a Bí Công after a win; Tinh Anh and Dị Biến foes are likelier
   dupBookStones: [10, 25, 60, 150],      // Linh Thạch for a Bí Công of a technique the player already knows, by tier (Hoàng, Huyền, Địa, Thiên)
+  minRetreatPct: 30,             // the character never goes out to fight with less than this share of health, and the retreat setting cannot go below it
+  pillMinUse: 0.5,               // an auto pill is used only when what is missing is at least this share of what the pill restores
   daoShare: 1,                   // the share of e-mail addresses that get a đạo hiệu. 1 = everybody (for now, for fun); lower it later and only NEW accounts are affected
   destinyP: 1 / 2400,            // per tick of adventure: the chance that fate puts a person on the road who gives, changes or takes away the character's chức vụ
   startTitleP: 0.35,             // a new character starts with a chức vụ with this chance
@@ -190,7 +192,8 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   need(b.offlineCapH > 0 && b.minOfflineSec >= 0, 'Offline_Cap hoặc Min_Offline_Seconds không hợp lệ');
   need(inRange(b.epiphanyP, 0, 1) && b.epiphanyMult > 1, 'Epiphany_Probability phải trong [0,1] và Epiphany_Multiplier > 1');
   need(b.recoveryRegen > 0 && b.adventureRegen > 0, 'Regen_Rate phải dương');
-  need(b.defaults.retreatPct > 0 && b.defaults.retreatPct < b.defaults.resumePct && b.defaults.resumePct <= 100, 'Retreat_Threshold/Resume_Threshold mặc định phải thỏa 0 < R < S <= 100');
+  need(b.minRetreatPct >= 1 && b.minRetreatPct <= 90 && b.pillMinUse >= 0 && b.pillMinUse <= 1, 'Min_Retreat_Pct/Pill_Min_Use không hợp lệ');
+  need(b.defaults.retreatPct >= b.minRetreatPct && b.defaults.retreatPct < b.defaults.resumePct && b.defaults.resumePct <= 100, 'Retreat_Threshold/Resume_Threshold mặc định phải thỏa 0 < R < S <= 100');
   // Requirement 6
   need(b.dropEventSlotSec > 0 && inRange(b.dropEventP, 0, 1) && inRange(b.dropEventBonus, 0, 1) && isInt(b.questTame) && b.questTame >= 1 && inRange(b.questCultPct, 0, 1), 'Drop_Event hoặc Daily_Quest không hợp lệ');
   need(b.phenomenonSlotSec > 0 && inRange(b.phenomenonP, 0, 1), 'Phenomenon_Slot_Duration hoặc Phenomenon_Probability không hợp lệ');

@@ -29,7 +29,8 @@ export interface Report {
   bt: { ok: number; fail: number; lostCp: number }; phen: Record<string, number>; highlights: Highlight[]; blockedTicks: number; robbed: number; upkeep: number;
   fromLevel: number; toLevel: number; beforeTier: number; afterTier: number;
 }
-export interface TameFilter { species: string[]; newOnly: boolean; alwaysMut: boolean; sizes: number[]; grade: number }
+// strong: tame only a creature stronger than the weakest of the Party, or any creature while the Party is not full (it replaces the species and size filters)
+export interface TameFilter { species: string[]; newOnly: boolean; alwaysMut: boolean; sizes: number[]; grade: number; strong: boolean }
 export interface Settings {
   mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; hideRank: boolean; autoLearn: boolean;
   retreatPct: number; resumePct: number; dissolveMax: number; tame: TameFilter;
@@ -413,6 +414,32 @@ function applyHpPill(st: GameState, grade: number) {
   p.hp = Math.min(S.maxHp, p.hp + Math.floor(B.pillRestore[grade] * S.maxHp));
   if (grade >= B.injuryCurePillGrade) p.injury = 0;
 }
+// Auto pills: as soon as health is missing (right after a fight) the pills are used so that the next fight starts full. The smallest pill that fills what
+// is missing; if none does, the biggest one, again and again. A pill is not wasted on a scratch: it must make up at least `pillMinUse` of what it can restore.
+export function autoHeal(st: GameState, rep?: Report) {
+  const S = pstats(st), p = st.player, used: number[] = [0, 0, 0];
+  for (let n = 0; n < 12 && p.hp < S.maxHp; n++) {
+    const missing = S.maxHp - p.hp, amt = (i: number) => Math.floor(B.pillRestore[i] * S.maxHp);
+    let g = -1;
+    for (let i = 0; i < 3; i++) if (st.inv.hp[i] > 0 && amt(i) >= missing) { g = i; break; }
+    if (g < 0) for (let i = 2; i >= 0; i--) if (st.inv.hp[i] > 0) { g = i; break; }
+    if (g < 0 || missing < B.pillMinUse * amt(g)) break;
+    st.inv.hp[g]--; applyHpPill(st, g); used[g]++; if (rep) rep.used.hp++;
+  }
+  const parts = used.map((n, i) => (n ? `hạng ${i + 1} ×${n}` : '')).filter(Boolean);
+  if (parts.length) feed(st, { kind: 'system', text: `Tự dùng Hồi Khí Đan ${parts.join(', ')} cho đầy sinh lực.` });
+}
+// ---------- Luyện Đan: herbs and minerals become Hồi Khí Đan, free of charge (the Alchemy window)
+export function craft(st: GameState, id: any, qty: any): Res {
+  const r = C.RECIPES.find((x) => x.id === id);
+  if (!r) return fail('E_NOT_FOUND');
+  if (!Number.isInteger(qty) || qty < 1 || qty > B.maxPurchaseQty) return fail('E_BAD_QTY');
+  for (const [m, n] of Object.entries(r.need)) if ((st.inv.mat[m] || 0) < n * qty) return fail('E_NO_STOCK', `Không đủ ${C.MAT(m).name} để luyện ${qty} viên.`);
+  if (st.inv.hp[r.grade] + qty > B.stackMax) return fail('E_STACK_MAX');
+  for (const [m, n] of Object.entries(r.need)) { st.inv.mat[m] -= n * qty; if (st.inv.mat[m] <= 0) delete st.inv.mat[m]; }
+  st.inv.hp[r.grade] += qty;
+  return ok(`Đã luyện ${qty} Hồi Khí Đan hạng ${r.grade + 1}.`);
+}
 export function useHpPill(st: GameState, grade: number): Res {
   if (!Number.isInteger(grade) || grade < 0 || grade > 2) return fail('E_BAD_REQUEST');
   if (st.inv.hp[grade] <= 0) return fail('E_NO_STOCK');
@@ -430,13 +457,21 @@ export function releaseBeast(st: GameState, id: number): Res {
 
 // ---------- bulk actions the player starts by hand
 // Dissolve every item that is not locked and not worn, up to a rarity (the player picks it; nothing happens on its own).
+// "Dọn túi": dissolves what is not locked up to a rarity, but always keeps an upgrade (the green arrow: stronger than what is worn in that slot, or the slot is empty), so the player decides about those by hand.
 export function dissolveMany(st: GameState, maxTier: number): Res {
   if (!Number.isInteger(maxTier) || maxTier < 0 || maxTier > 5) return fail('E_BAD_REQUEST');
-  let n = 0, gain = 0;
+  let n = 0, gain = 0, kept = 0;
   for (const list of [st.bag, st.stash]) {
-    for (let i = list.length - 1; i >= 0; i--) { const it = list[i]; if (!it.locked && it.tier <= maxTier) { list.splice(i, 1); shareRelic(st, it); gain += earn(st, dissolveValue(it), 'dissolve'); n++; } }
+    for (let i = list.length - 1; i >= 0; i--) {
+      const it = list[i];
+      if (it.locked || it.tier > maxTier) continue;
+      const cur = st.eq[it.slot];
+      if (!cur || it.power > cur.power) { kept++; continue; }
+      list.splice(i, 1); shareRelic(st, it); gain += earn(st, dissolveValue(it), 'dissolve'); n++;
+    }
   }
-  return n === 0 ? fail('E_NOT_FOUND', 'Không có món nào phù hợp để phân giải.') : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.`, { n, stones: gain });
+  const keepNote = kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '';
+  return n === 0 ? fail('E_NOT_FOUND', `Không có món nào phù hợp để phân giải.${keepNote}`) : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain, kept });
 }
 // Sell every Linh Thú that is not in the Party and not a Dị Biến.
 export function releaseMany(st: GameState): Res {
@@ -495,13 +530,14 @@ export function setSettings(st: GameState, patch: any): Res {
   const cur = st.set, next_: Settings = { ...cur, tame: { ...cur.tame } };
   for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'hideRank', 'autoLearn'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
   for (const k of ['retreatPct', 'resumePct'] as const) if (k in patch) { if (!Number.isInteger(patch[k])) return fail('E_BAD_THRESHOLDS'); next_[k] = patch[k]; }
-  if (!(next_.retreatPct > 0 && next_.retreatPct < next_.resumePct && next_.resumePct <= 100)) return fail('E_BAD_THRESHOLDS');
+  if (!(next_.retreatPct >= B.minRetreatPct && next_.retreatPct < next_.resumePct && next_.resumePct <= 100)) return fail('E_BAD_THRESHOLDS');
   if ('dissolveMax' in patch) { if (!Number.isInteger(patch.dissolveMax) || patch.dissolveMax < -1 || patch.dissolveMax > 5) return fail('E_BAD_SETTING'); next_.dissolveMax = patch.dissolveMax; }
   if (patch.tame !== undefined) {
     const t = patch.tame;
     if (!t || typeof t !== 'object') return fail('E_BAD_SETTING');
     if ('species' in t) { if (!Array.isArray(t.species) || t.species.some((s: any) => !C.SPECIES.some((x) => x.id === s))) return fail('E_BAD_SETTING'); next_.tame.species = [...new Set<string>(t.species)]; }
     if ('newOnly' in t) { if (!isBool(t.newOnly)) return fail('E_BAD_SETTING'); next_.tame.newOnly = t.newOnly; }
+    if ('strong' in t) { if (!isBool(t.strong)) return fail('E_BAD_SETTING'); next_.tame.strong = t.strong; }
     if ('alwaysMut' in t) { if (!isBool(t.alwaysMut)) return fail('E_BAD_SETTING'); next_.tame.alwaysMut = t.alwaysMut; }
     if ('sizes' in t) { if (!Array.isArray(t.sizes) || t.sizes.some((s: any) => !Number.isInteger(s) || s < 0 || s > 4)) return fail('E_BAD_SETTING'); next_.tame.sizes = [...new Set<number>(t.sizes)].sort(); }
     if ('grade' in t) { if (!Number.isInteger(t.grade) || t.grade < 0 || t.grade > 3) return fail('E_BAD_SETTING'); next_.tame.grade = t.grade; }
@@ -814,10 +850,10 @@ export const tameProb = (st: GameState, sp: C.Species, m: Beast, grade: number) 
   const d = levelOf(st.player) - m.level;
   return clamp(B.tameBase * sp.tame * C.PERS[m.pers].tame * B.tameGradeMult[grade] * Math.max(0, 1 + B.tameLevelStep * d), B.tameMin, B.tameMax);
 };
-function matchesFilter(st: GameState, m: Beast, sp: C.Species): boolean {
+export function matchesFilter(st: GameState, m: Beast, sp: C.Species): boolean {
   const f = st.set.tame;
   if (m.mut && f.alwaysMut) return true;
-  if (f.species.length > 0 && !f.species.includes(sp.id)) return false;
+  if (f.strong) { const party = bestParty(st); return party.length < B.maxParty || m.power > Math.min(...party.map((b) => b.power)); }
   if (!f.sizes.includes(m.cls)) return false;
   if (f.newOnly && (st.best[sp.id]?.tamed || 0) > 0) return false;
   return true;
@@ -861,10 +897,12 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
   return false;
 }
 // After a Victory over a Monster. Auto_Tame on: the filter decides. Auto_Tame off: a notable creature (Dị Biến, Tinh Anh, very small or large, new species) asks the player.
-function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[], rep?: Report, log?: string[]) {
+export function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[], rep?: Report, log?: string[]) {
   if (st.set.autoTame) {
     if (!matchesFilter(st, m, sp)) return;
-    const g = st.set.tame.grade;
+    // a Dị Biến always gets the best Khế Ước Phù the player has
+    let g = st.set.tame.grade;
+    if (m.mut) for (let i = st.inv.taming.length - 1; i >= 0; i--) if (st.inv.taming[i] > 0) { g = i; break; }
     if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
     if (st.inv.taming[g] <= 0) return missed(m, 'tal', chips, rep, log);
     rollTame(st, m, sp, g, chips, rep, log);
@@ -1012,13 +1050,11 @@ export function tick(st: GameState, rep?: Report) {
   const S = pstats(st);
   const regen = mode0 === 'retreat' || st.recovery ? B.recoveryRegen : B.adventureRegen;
   p.hp = Math.min(S.maxHp, p.hp + Math.ceil(S.maxHp * regen));
-  if (st.set.autoPill && p.hp < (S.maxHp * st.set.retreatPct) / 100) {
-    const g = st.inv.hp.findIndex((n) => n > 0);
-    if (g >= 0) { st.inv.hp[g]--; applyHpPill(st, g); if (rep) rep.used.hp++; feed(st, { kind: 'system', text: `Tự dùng Hồi Khí Đan hạng ${g + 1}.` }); }
-  }
+  if (st.set.autoPill) autoHeal(st, rep);
   if (st.set.mode === 'adventure') {
-    if (st.recovery && p.hp >= (S.maxHp * st.set.resumePct) / 100) st.recovery = false;
-    else if (!st.recovery && p.hp < (S.maxHp * st.set.retreatPct) / 100) st.recovery = true;
+    const retreat = Math.max(B.minRetreatPct, st.set.retreatPct);   // below this share of health the character never goes out to fight
+    if (st.recovery && p.hp >= (S.maxHp * Math.max(retreat + 1, st.set.resumePct)) / 100) st.recovery = false;
+    else if (!st.recovery && p.hp < (S.maxHp * retreat) / 100) st.recovery = true;
   } else st.recovery = false;
   // Tu Vi at the end of the tick, from the state at its start
   let g = cultRate(L0) * B.linhSpeedByCount[p.linh.length - 1] * p.purity * (1 + S0.cult / 100) * A.methodSpeed(st.arts.method, p.linh) * zone.density * ((ph && ph.cult) || 1)
@@ -1042,7 +1078,7 @@ export function tick(st: GameState, rep?: Report) {
 // ---------- state
 export function defaultSettings(): Settings {
   const d = B.defaults;
-  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, hideRank: false, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0 } };
+  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, hideRank: false, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0, strong: false } };
 }
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string): GameState {
   const streams = newStreams(seed);

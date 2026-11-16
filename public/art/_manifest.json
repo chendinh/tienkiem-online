@@ -3302,5 +3302,77 @@
   "date": "2026-11-16T03:14:46.071Z",
   "cacheId": "8c44ff4cf992877fb81c",
   "prompt": "High-end Eastern Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. Premium 3D RPG item render with magical glowing details, an inventory icon of a single cultivation scripture: a legendary radiant manual with a gold and orange lacquered cover, a coiling dragon in relief, a glowing seal and floating motes of golden light, the cover embossed with an abstract emblem of an abstract lotus and swirling qi, sunlit gold glow and magical particles, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. Ornament is only abstract (clouds, lotus petals, knots, gems, smooth filigree) and the surface has no writing of any kind: no characters, letters, runes or engraved marks. No person, no hands. No text, no watermark, no logo, no border."
+ },
+ "ui/lbl_alchemy.jpg": {
+  "kind": "label",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 7127,
+  "attempt": 0,
+  "requestId": "01a1e296-131e-7f00-a8a8-6e14ed38e1b3",
+  "cost": 0.05,
+  "date": "2026-11-16T04:21:16.027Z",
+  "cacheId": "2cb1a7dba6d879f10f3d",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A flat front-facing game interface asset: a wide horizontal xianxia button plaque with a smooth deep amber-bronze panel framed by a thick gold filigree border with carved cloud-scroll corners, a small gold alchemy cauldron with a wisp of smoke at the top centre, in the middle the words “Luyện Đan” in large embossed gold brush calligraphy lettering (exact spelling: L u y ệ n, then Đ a n; ệ is e with a circumflex and a dot below, Đ is D with a horizontal stroke). Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo."
+ },
+ "zones/thanhvan_v.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 6018,
+  "attempt": 0,
+  "requestId": "01a1e296-82f2-7720-ab29-27c6473c8fba",
+  "cost": 0.05,
+  "date": "2026-11-16T04:21:34.957Z",
+  "cacheId": "5fbcdfddde69a5f677b6",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A tall vertical cinematic xianxia environment concept painting of a misty green mountain valley at dawn with a clear stream, bamboo and pines, soft golden light rays, a serene beginning of a journey. Portrait composition (9:16) with sky and distant mountains in the upper part, the scene in the middle and open ground below, no people in the foreground, no writing. No text, no watermark, no logo, no border."
+ },
+ "zones/hannguyet_v.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 6019,
+  "attempt": 0,
+  "requestId": "01a1e296-ccb4-7fb3-8b54-8ff08f05d667",
+  "cost": 0.05,
+  "date": "2026-11-16T04:21:53.265Z",
+  "cacheId": "6d69066d33715a1df4da",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A tall vertical cinematic xianxia environment concept painting of a moonlit bamboo forest under a pale full moon, cold silver fog, blue and teal tones, glowing fireflies. Portrait composition (9:16) with sky and distant mountains in the upper part, the scene in the middle and open ground below, no people in the foreground, no writing. No text, no watermark, no logo, no border."
+ },
+ "zones/xichviem_v.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 6020,
+  "attempt": 0,
+  "requestId": "01a1e297-1406-7913-8858-20399c004bc8",
+  "cost": 0.05,
+  "date": "2026-11-16T04:22:13.880Z",
+  "cacheId": "ecc7178b533680dff49d",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A tall vertical cinematic xianxia environment concept painting of a volcanic canyon with rivers of glowing lava, black rock arches, red-orange light and drifting embers. Portrait composition (9:16) with sky and distant mountains in the upper part, the scene in the middle and open ground below, no people in the foreground, no writing. No text, no watermark, no logo, no border."
+ },
+ "zones/cuuu_v.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 6022,
+  "attempt": 0,
+  "requestId": "01a1e297-cac0-76a3-9b00-16d23296f490",
+  "cost": 0.05,
+  "date": "2026-11-16T04:23:01.500Z",
+  "cacheId": "44abf0b677e124b9189a",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A tall vertical cinematic xianxia environment concept painting of a surreal void between yin and yang, floating islands, swirling black and gold mist, a glowing rift of light in the sky. Portrait composition (9:16) with sky and distant mountains in the upper part, the scene in the middle and open ground below, no people in the foreground, no writing. No text, no watermark, no logo, no border."
+ },
+ "zones/loivan_v.jpg": {
+  "kind": "place",
+  "provider": "fal",
+  "model": "google/nano-banana-2.1",
+  "seed": 29778,
+  "attempt": 2,
+  "requestId": "01a1e298-6c58-70b1-8543-8aab5b0f0094",
+  "cost": 0.05,
+  "date": "2026-11-16T04:23:39.956Z",
+  "cacheId": "d77115576e3829441217",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, magical glowing particles, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render. A tall vertical cinematic xianxia environment concept painting of a high plateau under dark storm clouds, violet lightning striking ancient stone pillars, dramatic wind. Portrait composition (9:16) with sky and distant mountains in the upper part, the scene in the middle and open ground below, no people in the foreground, no writing. No text, no watermark, no logo, no border."
  }
 }

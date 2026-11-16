@@ -276,6 +276,29 @@ test('a stored picture is found under the same id the file version used (saved g
   assert.equal(await IG.fileFor('not-an-id'), null);
 });
 
+test('an item icon is found by its look when the AI is off or the prompt changed; a missing one is noted for later', async () => {
+  const I = await import('../lib/server/images'), X = await import('../lib/server/imageindex'), IG = await import('../lib/imagegen'), { query } = await import('../lib/server/db');
+  const spec = { kind: 'item', slot: 'Weapon', base: 'Trường Kiếm', tier: 2, e: 'Hỏa' };
+  const key = X.keyOfSpec(spec)!;
+  const old = 'aaaaaaaaaaaaaaaaaaaa', newer = 'bbbbbbbbbbbbbbbbbbbb', jpg = Buffer.from([0xff, 0xd8, 1]);
+  await I.putImage({ id: old, kind: 'item', folder: 'item/Weapon', ext: 'jpg', data: jpg, meta: { crop: 0.05 } });
+  await X.indexImage(key, old, 1);
+  process.env.IMAGE_PROVIDER = 'off';
+  assert.deepEqual(await IG.request(spec), { status: 'ready', url: `/api/img/${old}`, crop: 0.05 }, 'AI off still shows the picture');
+  // a newer style of the same look wins, the older picture stays
+  await I.putImage({ id: newer, kind: 'item', folder: 'item/Weapon', ext: 'jpg', data: jpg, meta: { crop: 0.06 } });
+  await X.indexImage(key, newer, 2);
+  assert.equal((await X.lookupKey(key))!.id, newer);
+  assert.ok(await I.hasImage(old));
+  // a look with no picture: nothing is drawn, it is written to image_wanted (counted again on the next ask)
+  const none = { kind: 'item', slot: 'Robe', base: 'Vũ Y', tier: 4, e: 'Kim', v: 777777 };
+  assert.deepEqual(await IG.request(none), { status: 'disabled' });
+  await IG.request(none);
+  const w = (await query<{ hits: number; tier: number }>('SELECT hits, tier FROM image_wanted WHERE asset_key = $1', [X.keyOfSpec(none)!])).rows[0];
+  assert.deepEqual(w, { hits: 2, tier: 4 });
+  process.env.IMAGE_PROVIDER = 'pollinations';
+});
+
 test('an ordinary poll settles a copy without saving, and the result is the same as saving every time', async () => {
   const a = await signUp('poll@example.com');
   const saved = async () => (await St.loadAccount(a.id))!.state;

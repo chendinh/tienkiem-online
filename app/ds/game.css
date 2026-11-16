@@ -477,6 +477,7 @@
   .top .nav.pic.rank { --plaque: url('/art/ui/cut/lbl_rank.png'); width: 128px; }
   .top .nav.pic.kho { --plaque: url('/art/ui/cut/lbl_kho.png'); width: 121px; }
   .top .nav.pic.market { --plaque: url('/art/ui/cut/lbl_market.png'); width: 136px; }
+  .top .nav.pic.alchemy { --plaque: url('/art/ui/cut/lbl_alchemy.png'); width: 136px; }
   .top .nav.pic.arts { --plaque: url('/art/ui/cut/lbl_arts.png'); width: 109px; }
   .top .nav.pic.pen { --plaque: url('/art/ui/cut/lbl_pen.png'); width: 118px; }
   .top .nav.pic.story { --plaque: url('/art/ui/cut/lbl_story.png'); width: 133px; }
@@ -570,4 +571,57 @@
   .aptRow small { font-size: var(--fs-2xs); color: var(--text-3); }
   .aptRow b { color: var(--gold-200); font-variant-numeric: tabular-nums; }
   .beastStats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px var(--sp-3); }
+}
+@layer game {
+  /* Luyện Đan */
+  .recipes { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0; }
+  .recipe { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.25); }
+  .recipe .shopImg { flex: none; width: 56px; height: 56px; border-radius: var(--r-sm); object-fit: cover; }
+  .recMain { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .recMain small { color: var(--text-3); font-size: var(--fs-xs); }
+  .recNeed { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--fs-xs); }
+  .recNeed .ok { color: var(--jade-300); } .recNeed .lack { color: var(--cinnabar-300); }
+  .recAct { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  @media (max-width: 560px) { .recipe { flex-wrap: wrap; } .recAct { flex-direction: row; width: 100%; } .recAct .btn { flex: 1; } }
+}
+@layer game {
+  /* phones: the header must stay on one row. Smaller seals and orbs, tighter gaps (it used to wrap and spill below the bar) */
+  @media (max-width: 720px) {
+    .top { gap: 6px; padding-inline: 10px; flex-wrap: nowrap; overflow: visible; }
+    .top .brand .lkMark { width: 32px; height: 32px; }
+    .top .topMid { min-width: 0; margin-left: 0; }
+    .top .seg > button { padding: 4px 8px; }
+    .top .topNav { gap: 4px; flex: none; }
+    .top .nav.pic.rank, .top .nav.pic.kho, .top .nav.pic { width: 38px; height: 38px; }
+    .top .nav.pic .navIco svg, .top .nav .navIco svg { width: 18px; height: 18px; }
+    .top .orbs { gap: 4px; }
+    .top .orbs .btn.orb { width: 36px; min-height: 36px; }
+  }
+  @media (max-width: 400px) {
+    .top { gap: 4px; padding-inline: 8px; }
+    .top .brand .lkMark { width: 28px; height: 28px; }
+    .top .seg > button { padding: 4px 6px; }
+    .top .nav.pic.rank, .top .nav.pic.kho, .top .nav.pic { width: 34px; height: 34px; }
+    .top .nav .navIco svg { width: 16px; height: 16px; }
+    .top .orbs .btn.orb { width: 32px; min-height: 32px; }
+  }
+}
+@layer game {
+  /* phone header, second pass: the three round medallions (Phong Thần, Nhiệm vụ, Kho báu) were 44 px in a 56 px bar and their glow and drop shadow
+     reached the gold line at the bottom of the bar. The bar is a little taller, the medallions smaller and centred, and their shadows stay inside the bar. */
+  @media (max-width: 720px) {
+    .app { --topH: 60px; }
+    .app .top { height: var(--topH); box-sizing: border-box; align-items: center; overflow: hidden; }
+    .app .top .topNav { align-items: center; gap: 6px; }
+    .app .top .nav.pic.quick, .app .top .nav.pic.alt.daily.quick { width: 40px; height: 40px; margin: 0; align-self: center; filter: none; transform: none; }
+    .app .top .nav.pic.quick .navArt { width: 38px; height: 38px; border-width: 1.5px; box-shadow: 0 0 5px -1px color-mix(in srgb, var(--gold-400) 70%, transparent), inset 0 0 6px rgb(0 0 0 / 0.5); }
+    .app .top .nav.pic.quick:hover, .app .top .nav.pic.quick:active { filter: none; transform: none; }
+    .app .top .nav.pic.quick:active .navArt { transform: scale(0.92); }
+    .app .top .nav.pic.quick.on .navArt { box-shadow: 0 0 0 2px var(--jade-300); }
+    .app .top .orbs { align-items: center; }
+  }
+  @media (max-width: 400px) {
+    .app .top .nav.pic.quick, .app .top .nav.pic.alt.daily.quick { width: 36px; height: 36px; }
+    .app .top .nav.pic.quick .navArt { width: 34px; height: 34px; }
+  }
 }

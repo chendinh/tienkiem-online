@@ -97,10 +97,11 @@ export const newsAt = (ms: number): { day: string; text: string } | null => {
 
 export const legendOf = (id: string) => REG.find((p) => p.beast.id === id)?.beast.legend || '';
 
-// Marks shown on an item: `isNew` while its weapon kind is still within its first FEATURE_DAYS days, `exclusive` for every Thiên or Tiên weapon
+// Marks shown on an item: `isNew` while its weapon kind is still within its first FEATURE_DAYS days, `exclusive` for every Thiên or Tiên item of any slot
 // (each of them has a picture of its own). Read only from the registry and the item, so it needs no saved state.
 export function itemMarks(it: { slot: string; base: string; tier: number }, nowMs = Date.now()): { isNew: boolean; exclusive: boolean } {
-  if (it.slot !== 'Weapon') return { isNew: false, exclusive: false };
+  const exclusive = it.tier >= 4;
+  if (it.slot !== 'Weapon') return { isNew: false, exclusive };
   const p = REG.find((x) => x.weapon && x.weapon.base === it.base);
-  return { isNew: !!p && ageDays(p.day, nowMs) < FEATURE_DAYS, exclusive: it.tier >= 4 };
+  return { isNew: !!p && ageDays(p.day, nowMs) < FEATURE_DAYS, exclusive };
 }

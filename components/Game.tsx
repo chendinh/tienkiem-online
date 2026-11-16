@@ -14,7 +14,7 @@ import { AuthScreen } from './Auth';
 import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
 import { DailyModal } from './Daily';
-import { MarketModal, Window, DaoModal, TitleModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
+import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import lore from '@/content/lore.json';
@@ -287,8 +287,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [ai, setAi] = useState<any>(null);
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
-  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title'>(null);
-  const openWin = (w: 'market' | 'pen' | 'dex' | 'arts') => { cue.open(); setSideOpen(false); setModal(w); };
+  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title' | 'alchemy'>(null);
+  const openWin = (w: 'market' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
@@ -486,6 +486,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         <nav className="topNav" aria-label="Chức năng">
           <button type="button" className="nav pic rank quick" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
           <button type="button" className="nav pic alt market" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
+          <button type="button" className="nav pic alt alchemy" data-tone="gold" title="Luyện Đan: ghép linh thảo thành Hồi Khí Đan, miễn phí" aria-label="Luyện Đan" onClick={() => openWin('alchemy')}><span className="navIco"><Icon name="lotus" size={18} /></span><span className="lbl">Luyện Đan</span></button>
           <button type="button" className="nav pic alt night" data-tone="violet" title="Chợ Đêm: đổi pháp khí với tu sĩ khác" aria-label="Chợ Đêm" onClick={() => { cue.open(); setModal('night'); }}><span className="navIco"><Icon name="moon" size={18} /></span><span className="lbl">Chợ Đêm</span></button>
           <button type="button" className="nav pic alt daily quick" data-tone="gold" title="Nhiệm vụ và sự kiện hằng ngày" aria-label="Nhiệm vụ và sự kiện" onClick={() => { cue.open(); setModal('daily'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_quest')})` }} aria-hidden="true" /><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Nhiệm vụ</span></button>
           <button type="button" className="nav pic alt arts" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
@@ -501,6 +502,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             <div className="pop-head"><b>Tùy chọn</b></div>
             <div className="popNav">
               <button type="button" className="btn sm" onClick={() => openWin('market')}><Icon name="stone" size={15} /> Phường Thị</button>
+              <button type="button" className="btn sm" onClick={() => openWin('alchemy')}><Icon name="lotus" size={15} /> Luyện Đan</button>
               <button type="button" className="btn sm" onClick={() => openWin('arts')}><Icon name="bolt" size={15} /> Thần Thông</button>
               <button type="button" className="btn sm" onClick={() => openWin('pen')}><Icon name="paw" size={15} /> Linh Thú</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setSideOpen(false); setModal('daily'); }}><Icon name="scroll" size={15} /> Nhiệm vụ</button>
@@ -587,6 +589,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             <button type="button" className="sc" onClick={() => openWin('pen')}><Icon name="paw" size={17} /><span>Linh Thú</span><em>{st.beasts.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('dex')}><Icon name="book" size={17} /><span>Sưu Tập</span><em>{seenSpecies}/{speciesAll.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('market')}><Icon name="stone" size={17} /><span>Phường Thị</span></button>
+            <button type="button" className="sc" onClick={() => openWin('alchemy')}><Icon name="lotus" size={17} /><span>Luyện Đan</span></button>
           </div>
           <EquipPanel st={st} eqx={eqx} />
         </section>
@@ -700,6 +703,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} />}
       {modal === 'daily' && <DailyModal st={st} onClose={() => setModal(null)} onLore={() => setCodex('daily')} />}
+      {modal === 'alchemy' && <AlchemyModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'night' && <NightMarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'rank' && <RankingModal onClose={() => setModal(null)} />}
       {modal === 'odds' && <OddsModal st={st} onClose={() => setModal(null)} />}
