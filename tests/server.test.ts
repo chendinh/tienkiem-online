@@ -356,3 +356,37 @@ test('every account gets the đạo hiệu of its e-mail: on its next read, or a
   assert.ok(CC.daoInfo(st.player.dao), 'with the share at 1 everybody has one');
   assert.equal((await BF.backfillDao(true)).changed.filter((c) => c.id === a.id).length, 0, 'once only');
 });
+
+test('bots: made once, never log in, appear on the board with a page, play when stepped, and can be removed', async () => {
+  const BS = await import('../lib/server/botseed'), BR = await import('../lib/server/bots'), R = await import('../lib/server/ranking'), Bt = await import('../lib/bots');
+  const made = await BS.createBots(3, now(), false);
+  assert.equal(made.created.length, 3); assert.equal((await BS.createBots(3, now(), false)).created.length, 0, 'running it again makes nothing new');
+  const list = await BR.botAccounts();
+  assert.equal(list.length, 3);
+  assert.equal(await code(A.login(Bt.botEmail(1), 'matkhau-dai-123', 'ua', 'ip-bot', now())), 'E_CREDENTIALS', 'nobody can log in as a bot');
+  assert.equal(await code(A.register(Bt.botEmail(1), 'matkhau-dai-123', 'ua', now(), (_i: string, e: string) => S.createState('f', now(), e))), 'E_EMAIL_TAKEN');
+  const viewer = await signUp('bot-viewer@example.com');
+  const level0 = (await R.board('cult', viewer.id, now() + 10_000)).rows.filter((r) => made.created.some((c) => c.name === r.name));
+  assert.equal(level0.length, 3, 'the bots are on the board');
+  // let them play three hours
+  const later = now() + 3 * 3600 * 1000;
+  const out = await BR.runBots(later);
+  assert.equal(out.bots, 3); assert.equal(out.failed, 0); assert.ok(out.ticks > 500, String(out.ticks));
+  const a = (await St.loadAccount(list[0].id))!.state;
+  assert.ok(a.kills > 0 && a.clock === later && a.decision === null);
+  const board = await R.board('cult', viewer.id, later + 10_000);
+  const row = board.rows.find((r) => r.name === a.player.name)!;
+  assert.ok(row && row.level >= 1);
+  assert.ok(!JSON.stringify(board).includes('bot.tienkiem.local'), 'no bot e-mail leaves the server');
+  const prof: any = await R.profile(row.pid, later + 10_000);
+  assert.ok(prof && prof.name === a.player.name && prof.stats.maxHp > 0);
+  // the claim in kv: one run per interval
+  await D.query(`DELETE FROM kv WHERE key = 'bots.at'`);
+  const before = (await St.loadAccount(list[0].id))!.state.tick;
+  await BR.kickBots(Date.now() + 4 * 3600 * 1000);
+  const mid = (await St.loadAccount(list[0].id))!.state.tick;
+  assert.ok(mid > before, 'a kick brings the bots up to date');
+  assert.equal(await BS.removeBots(), 3);
+  assert.equal((await BR.botAccounts()).length, 0);
+  assert.equal(await St.loadAccount(list[0].id), null);
+});

@@ -1,13 +1,18 @@
+import { after } from 'next/server';
 import { getGame, actGame } from '@/lib/server/service';
+import { kickBots } from '@/lib/server/bots';
 import { json, checkWrite, readBody, guard, requireUser } from '@/lib/server/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;   // the bots may be brought up to date after the answer is sent
 
 // GET: settle up to the server clock and return the state.
 export async function GET(req: Request) {
   return guard(async () => {
     const u = await requireUser(req);
-    return json(await getGame(u.id));
+    const out = await getGame(u.id);
+    after(() => kickBots());   // a player is online: the bots play too (at most once every 10 minutes)
+    return json(out);
   });
 }
 // POST: one intent ({ type, rid, ... }). The browser never sends a result, only what it wants to do.
