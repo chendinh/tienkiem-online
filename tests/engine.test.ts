@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../lib/game';
 import * as C from '../lib/content';
+import * as D from '../lib/daily';
 import { BALANCE as B, cultRate, cultThreshold, validateBalance } from '../lib/balance';
 import { validateCatalog } from '../lib/validate';
 
@@ -929,4 +930,23 @@ test('a fight is always the last journey row of its group: the taming row and th
     checked++;
   }
   assert.ok(checked > 0);
+});
+
+test('finishing the daily quest is counted for good (not only the latest 30 days), once per finished quest', () => {
+  const st = fresh(990);
+  assert.equal(G.questCount(st), 0);
+  const day = new Date(T0).toISOString().slice(0, 10), sp = { ...C.SPECIES[0], id: 'dailytest', day, zones: [], legend: '', en: 'Daily Test' } as any;
+  D.setDaily([{ day, title: 't', chronicle: 'c', tales: {}, beast: sp }]);
+  try {
+    st.set.autoTame = true; st.set.tame.grade = 0; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 };
+    for (let i = 0; i < 400 && !(st.quest && st.quest.done); i++) { st.beasts = []; st.inv.taming = [5, 0, 0, 0]; G.tryTame(st, { ...beastP(i + 1, 10), sp: sp.id } as G.Beast, sp, []); }
+    assert.ok(st.quest && st.quest.done, 'the quest was finished');
+    assert.equal(st.questDone, 1); assert.equal(G.questCount(st), 1);
+    for (let i = 0; i < 20; i++) { st.beasts = []; st.inv.taming = [5, 0, 0, 0]; G.tryTame(st, { ...beastP(i + 900, 10), sp: sp.id } as G.Beast, sp, []); }
+    assert.equal(st.questDone, 1, 'finishing it again on the same day does not count twice');
+  } finally { D.setDaily([]); }
+  const old = fresh(991);   // a save from before the counter: it counts the days it still remembers
+  old.questDays = Array.from({ length: 30 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`);
+  assert.equal(G.questCount(old), 30);
+  old.questDone = 41; assert.equal(G.questCount(old), 41);
 });

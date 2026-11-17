@@ -12,15 +12,17 @@ import { Seg } from './ds/Seg';
 import { Logo } from './Logo';
 
 type Board = 'cult' | 'power';
-interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; av?: string }
+interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd?: number; av?: string }
 interface Profile {
   pid: string; name: string; dao: string; title?: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
-  stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number;
+  stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number; quests?: number;
   rank: { cult: number; power: number }; active: number;
 }
 const ago = (t: number) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 2 ? 'đang chơi' : m < 60 ? `${m} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
 const STATS: [string, string, string][] = [['maxHp', 'Sinh Lực', 'hp'], ['atk', 'Công Kích', 'atk'], ['def', 'Phòng Ngự', 'def'], ['spd', 'Thân Pháp', 'spd'], ['crit', 'Bạo Kích %', 'crit'], ['critdmg', 'Bạo Thương %', 'crit'], ['luck', 'May Mắn', 'luck'], ['cult', 'Tu Luyện %', 'cult']];
 const elColor = (r: Row) => C.EL[r.el[0]]?.color || 'var(--gold-300)';
+// The tag of honour for finishing the daily quest, with how many times it was done.
+const QuestTag = ({ n, big }: { n?: number; big?: boolean }) => (n && n > 0 ? <span className={`questTag${big ? ' big' : ''}`} title={`Đã hoàn thành nhiệm vụ ngày ${n} lần`}><Icon name="scroll" size={big ? 15 : 12} /> Nhiệm vụ ngày ×{n}</span> : null);
 const MEDAL = ['', 'Thiên Bảng', 'Địa Bảng', 'Nhân Bảng'];
 
 // Bảng Phong Thần: a stele of the strongest cultivators. The first three stand on a podium, the rest follow in a list,
@@ -59,6 +61,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
         <span className={`podSeal ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />}</span>
         <b className="podName">{r.name}</b>
         <small className="podDao">{who(r)}{r.me ? ' · ngươi' : ''}</small>
+        <QuestTag n={r.qd} />
         <span className="podRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}</span>
         <span className="podMetric">{metric(r)}</span>
         <span className="podStand"><i>{r.rank}</i><em>{MEDAL[k]}</em></span>
@@ -70,7 +73,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
     <button key={r.pid} type="button" className={`rkRow ${r.me ? 'me' : ''} ${pid === r.pid ? 'sel' : ''}`} style={{ '--el': elColor(r), '--pct': `${pct(r)}%` } as CSSProperties} onClick={() => setPid(r.pid)} aria-label={`Hạng ${r.rank}, ${r.name}`}>
       <span className="rkNum">{r.rank}</span>
       <span className={`rkEl ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={18} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={18} />}</span>
-      <span className="rkWho"><b>{r.name}</b><small>{who(r)}{r.me ? ' · ngươi' : ''}</small></span>
+      <span className="rkWho"><b>{r.name}</b><small>{who(r)}{r.me ? ' · ngươi' : ''}</small><QuestTag n={r.qd} /></span>
       <span className="rkRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}<small>Lv{r.level}</small></span>
       <span className="rkMetric">{metric(r)}</span>
       <i className="rkBar" aria-hidden="true" />
@@ -140,6 +143,7 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
           <h2>{p.name}</h2>
           {p.dao && <div className="dao">{p.dao}</div>}
           {p.title && <div className="titleChip static">{p.title}</div>}
+          <QuestTag n={p.quests} big />
           <div className="realm">{C.REALMS[p.realm]} · {C.SUBS[p.sub]} <small>(Lv{p.level})</small></div>
           <div className="chips">
             {p.linh.map((e) => <ElChip key={e} el={e} />)}<span className="chip">Độ thuần {p.purity}</span><span className="chip">{C.PERS[p.pers].n}</span><span className="chip">{C.ORIGINS[p.origin].n}</span>

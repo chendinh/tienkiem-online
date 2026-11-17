@@ -54,6 +54,7 @@ export interface GameState {
   quest?: DayQuest;   // today's quest: tame the day's new creature   // how many shared items this save found today
   tot?: { items: number[] };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
   questDays?: string[];   // the days (UTC) the daily quest was finished, the latest 30
+  questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -884,6 +885,8 @@ const missed = (m: Beast, why: 'pen' | 'tal', chips: string[], rep?: Report, log
 };
 // The taming roll itself: spends one Khế Ước Phù of `grade`, draws from the `tame` stream, adds the Linh Thú on success.
 // The daily quest: today's new creature, tamed `questTame` times. Counts every successful taming (by hand or automatic) on the day the creature is new.
+// Times the daily quest was finished. Saves from before the counter existed count at least the days they still remember.
+export const questCount = (st: Pick<GameState, 'questDone' | 'questDays'>) => Math.max(st.questDone || 0, (st.questDays || []).length);
 function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) {
   const day = D.dayKey(st.clock), pack = D.packOn(day);
   if (!pack || pack.beast.id !== spId) return;
@@ -892,6 +895,7 @@ function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) 
   q.n++;
   if (q.done || q.n < q.need) return;
   q.done = true;
+  st.questDone = questCount(st) + 1;
   st.questDays = [...(st.questDays || []).filter((d) => d !== day), day].slice(-30);
   q.reward = Math.round(cultThreshold(levelOf(st.player)) * B.questCultPct);
   st.player.cp += q.reward; if (rep) rep.cp += q.reward;

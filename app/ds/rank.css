@@ -59,6 +59,9 @@
   .rkWho b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rkWho small, .rkRealm small { color: var(--text-3); font-size: var(--fs-xs); }
   .rkWho small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .questTag { display: inline-flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; color: var(--gold-200, var(--gold-300)); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 22%, transparent), color-mix(in srgb, var(--gold-400) 8%, transparent)); border: 1px solid color-mix(in srgb, var(--gold-400) 50%, transparent); }
+  .questTag.big { padding: 3px 11px; font-size: var(--fs-sm, 0.9rem); }
+  .podium .questTag, .pod .questTag { margin-top: 2px; }
   .rkRealm { display: grid; justify-items: end; font-size: var(--fs-sm); white-space: nowrap; }
   .rkMetric { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--gold-200); font-variant-numeric: tabular-nums; }
   .rkBar { position: absolute; left: 0; bottom: 0; height: 2px; width: var(--pct, 0%); background: linear-gradient(90deg, transparent, var(--el)); opacity: 0.7; }
