@@ -547,7 +547,7 @@ test('with Auto Learn off the Bí Công waits in the bag and learning it follows
   const st = fresh(310); Object.assign(st.set, { autoLearn: false, autoFight: true, autoBreak: true }); st.inv.trib = 10; G.settle(st, 3000);
   const names = Object.keys(st.inv.books);
   assert.ok(names.length > 0);
-  const n = names.find((x) => A.TECHS[x].minLevel <= G.levelOf(st.player) && !st.arts.learned.includes(x));
+  const n = names.find((x) => A.TECHS[x] && A.TECHS[x].minLevel <= G.levelOf(st.player) && !st.arts.learned.includes(x));
   assert.equal(G.learnBook(st, 'Không Có Chiêu Này').code, 'E_BAD_SKILL');
   const none = Object.values(A.TECHS).find((t) => !t.basic && !(st.inv.books[t.name] > 0))!;
   assert.equal(G.learnBook(st, none.name).code, 'E_NO_BOOK');
@@ -871,4 +871,62 @@ test('fal usage: the day-by-day charge is read from time_series, pages are follo
     delete process.env.FAL_BILLING_KEY; delete process.env.FAL_KEY;
     assert.equal(await F.falUsage(now, 3, paged), null, 'no key, nothing asked');
   } finally { was.b === undefined ? delete process.env.FAL_BILLING_KEY : (process.env.FAL_BILLING_KEY = was.b); was.k === undefined ? delete process.env.FAL_KEY : (process.env.FAL_KEY = was.k); }
+});
+
+// ---------- journey rows for taming, plain drops and the Thiên/Tiên event
+test('every taming attempt writes its own journey row: success, failure and a miss', () => {
+  const sp = C.SPECIES[0];
+  const mk = (seed: number) => { const st = fresh(seed); st.set.autoTame = true; st.set.tame.grade = 0; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; return st; };
+  // no Khế Ước Phù: the miss is told
+  const none = mk(900); none.inv.taming = [0, 0, 0, 0];
+  const missNote = G.tryTame(none, beastP(1, 10), sp, []);
+  assert.ok(missNote && !missNote.won && /Khế Ước Phù/.test(missNote.text));
+  // many tries: both outcomes happen, and the note always says which one it was
+  let won = 0, lost = 0;
+  for (let i = 0; i < 60; i++) {
+    const st = mk(901 + i); st.inv.taming = [3, 0, 0, 0];
+    const chips: string[] = [], n = G.tryTame(st, beastP(i + 1, 10), sp, chips)!;
+    assert.ok(n, 'an auto tame always reports');
+    assert.equal(n.won, st.beasts.length === 1);
+    assert.match(n.text, n.won ? /^Thu phục thành công/ : /^Thu phục thất bại/);
+    if (n.won) won++; else lost++;
+  }
+  assert.ok(won > 0 && lost > 0, `both outcomes seen (won ${won}, lost ${lost})`);
+});
+test('a taming the player answers by hand also lands in the journey with its result', () => {
+  const sp = C.SPECIES[0];
+  const st = fresh(950); st.inv.taming = [9, 0, 0, 0]; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 };
+  st.decision = { id: ++st.uid, kind: 'tame', beast: beastP(5, 10, true), log: [] };
+  const r = G.decide(st, { id: st.decision.id, choice: 'tame', grade: 0 });
+  assert.ok(r.ok);
+  const row = st.feed[0];
+  assert.equal(row.kind, 'tame'); assert.ok(row.beast); assert.equal(row.outcome, r.data && (r.data as any).won ? 'win' : 'lose');
+  assert.match(row.text, /Dị Biến/);
+});
+test('plain (Phàm) items and items dissolved by the setting are shown in the journey too', () => {
+  const st = fresh(960); st.set.autoEquip = false; st.set.dissolveMax = 5;
+  for (let i = 0; i < 400 && !st.feed.some((e) => e.kind === 'item' && e.item && e.item.tier === 0); i++) G.tick(st);
+  const plain = st.feed.find((e) => e.kind === 'item' && e.item && e.item.tier === 0);
+  assert.ok(plain, 'a Phàm item has its row');
+});
+test('while the Thiên/Tiên event runs in the zone, the weight of meeting a Linh Thú is raised by 50%', () => {
+  for (const z of C.ZONES) {
+    const base = G.encounterWeights(z, null), ev = G.encounterWeights(z, null, true);
+    assert.equal(ev[0], base[0] * B.dropEventMonsterMult); assert.equal(B.dropEventMonsterMult, 1.5);
+    assert.deepEqual(ev.slice(1), base.slice(1));
+    const share = (w: number[]) => w[0] / w.reduce((a, b) => a + b, 0);
+    assert.ok(share(ev) > share(base));
+  }
+});
+test('a fight is always the last journey row of its group: the taming row and the drops of that fight have lower ids', () => {
+  const st = fresh(970); st.set.autoTame = true; st.set.autoFight = true; st.inv.taming = [50, 0, 0, 0];
+  let checked = 0;
+  for (let i = 0; i < 600 && checked < 5; i++) {
+    const before = st.uid; G.tick(st);
+    const fight = st.feed.find((e) => e.kind === 'monster' && e.id > before);
+    if (!fight) continue;
+    for (const e of st.feed) if (e.id > before && ['item', 'equip', 'tame'].includes(e.kind)) assert.ok(e.id < fight.id, `${e.kind} row ${e.id} comes before its fight row ${fight.id}`);
+    checked++;
+  }
+  assert.ok(checked > 0);
 });

@@ -110,7 +110,7 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
 
             <section className="dqSec">
               <h3>Sự kiện rơi pháp khí Thiên / Tiên</h3>
-              <p className="dqNote">Mỗi lần một vùng, kéo dài 15 phút: tỷ lệ mỗi món rơi ra là Thiên hoặc Tiên được <b>cộng thêm {Math.round(B.dropEventBonus * 100)}%</b> (cộng thẳng vào xác suất). Tin được báo trước ở đây.</p>
+              <p className="dqNote">Mỗi lần một vùng, kéo dài 15 phút: tỷ lệ mỗi món rơi ra là Thiên hoặc Tiên được <b>cộng thêm {Math.round(B.dropEventBonus * 100)}%</b> (cộng thẳng vào xác suất). Trong vùng đó, tỷ lệ gặp Linh Thú cũng tăng thêm <b>{Math.round((B.dropEventMonsterMult - 1) * 100)}%</b>, gặp Tu Sĩ và kỳ ngộ ít đi. Tin được báo trước ở đây.</p>
               {st.events.length === 0 && <div className="empty">Hai giờ tới chưa có sự kiện nào. Quay lại sau.</div>}
               <div className="dqEvents">
                 {st.events.map((e) => (

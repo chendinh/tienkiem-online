@@ -55,8 +55,9 @@ function FeedRowInner({ e }: { e: FeedEntry }) {
         <div className="fbody">
           <div className="fname">
             {b.mut && <em className="mutBadge">✦ Dị Biến</em>} {b.name} <small>Lv{b.level}</small>
-            <span className={`out ${e.outcome}`}>{e.outcome === 'win' ? 'Thắng' : e.outcome === 'lose' ? 'Bại' : 'Hòa'}</span>
+            <span className={`out ${e.outcome}`}>{e.kind === 'tame' ? (e.outcome === 'win' ? 'Thu phục' : 'Thất bại') : e.outcome === 'win' ? 'Thắng' : e.outcome === 'lose' ? 'Bại' : 'Hòa'}</span>
           </div>
+          {e.kind === 'tame' && e.text && <div>{e.text}</div>}
           <div className="chips">
             <ElChip el={sp.el[0]} />
             <span className="chip">{C.PERS[b.pers].n}</span>
@@ -326,13 +327,23 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; }
     stRef.current = v; re();
   }, [re]);
-  // The next fight of the queue goes on stage; when there is none, the state that was kept aside is shown at last.
+  // The next fight of the queue goes on stage. The moment a fight is over its result (drops, taming, rewards) goes into the journey, even when more fights are waiting:
+  // with fights back to back the queue never empties, so waiting for it to empty would never show anything. Only the rows that belong to fights not yet replayed stay hidden.
+  // When there is no fight left, the state that was kept aside is shown whole.
   const nextFight = useCallback(() => {
     if (watchdog.current) { clearTimeout(watchdog.current); watchdog.current = null; }
-    const f = fightQ.current.shift() || null;
+    const done = stageNow.current, f = fightQ.current.shift() || null;
     stageNow.current = f; setStage(f);
-    if (f) { watchdog.current = setTimeout(() => { if (stageNow.current === f) nextFight(); }, 40000); return; }   // a replay that never reports back cannot freeze the screen
-    const h = held.current; held.current = null; if (h) commit(h);
+    const h = held.current;
+    if (f) {
+      watchdog.current = setTimeout(() => { if (stageNow.current === f) nextFight(); }, 40000);   // a replay that never reports back cannot freeze the screen
+      if (h && done) {
+        const lastId = fightQ.current.length ? fightQ.current[fightQ.current.length - 1].id : f.id;
+        commit({ ...h, feed: h.feed.filter((x) => x.id <= done.id || x.id > lastId) });
+      }
+      return;
+    }
+    held.current = null; if (h) commit(h);
   }, [commit]);
   const apply = useCallback((v: GS) => {
     const top = v.feed[0]?.id ?? 0, seen = seenFeed.current;
@@ -492,7 +503,8 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         if (e.kind === 'level') cue.levelUp();
         else if (e.kind === 'break') { if (e.text.startsWith('Đột phá thành công')) cue.breakOk(); else if (e.text.startsWith('Đột phá thất bại')) cue.breakFail(); }
         else if ((e.kind === 'item' || e.kind === 'equip') && e.item) cue.drop(e.item.tier);
-        else if (e.kind === 'monster' && e.beast) { if (e.beast.mut) cue.mutant(); else if (e.chips?.some((c) => /thu phục/i.test(c))) cue.tame(); }
+        else if (e.kind === 'tame' && e.outcome === 'win') cue.tame();
+        else if (e.kind === 'monster' && e.beast && e.beast.mut) cue.mutant();
       }
     }
     const sig = equipSig(cur);

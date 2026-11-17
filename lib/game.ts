@@ -323,7 +323,7 @@ function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
     return;
   }
   const where = shelve(st, it, rep);
-  if (it.tier >= 1) feed(st, { kind: 'item', text: `${from}Nhặt được ${it.name} (${where === 'bag' ? 'vào túi' : where === 'stash' ? 'vào kho tạm, túi đã đầy' : where === 'auto' ? 'tự động phân giải theo cài đặt' : 'túi và kho đã đầy nên bị phân giải'})`, item: it });
+  feed(st, { kind: 'item', text: `${from}Nhặt được ${it.name} (${where === 'bag' ? 'vào túi' : where === 'stash' ? 'vào kho tạm, túi đã đầy' : where === 'auto' ? 'tự động phân giải theo cài đặt' : 'túi và kho đã đầy nên bị phân giải'})`, item: it });
 }
 const clampHp = (st: GameState) => { st.player.hp = Math.min(st.player.hp, pstats(st).maxHp); };
 const findIn = (st: GameState, id: number): { it: Item; where: 'bag' | 'stash' | 'eq'; i: number; slot?: string } | null => {
@@ -495,9 +495,10 @@ export function decide(st: GameState, b: { id: number; choice: string; grade?: n
     if (st.beasts.length >= B.penCapacity) return fail('E_PEN_FULL');
     if (st.inv.taming[b.grade!] <= 0) return fail('E_NO_STOCK');
     const chips: string[] = [];
+    const pct = tamePct(st, m, sp, b.grade!);
     const won = rollTame(st, m, sp, b.grade!, chips, undefined, d.log);
     st.decision = null;
-    feed(st, { kind: 'tame', text: `${m.mut ? 'Dị Biến ' : ''}${m.name} (Lv${m.level}): ${chips[0]}`, beast: won ? m : undefined, chips: [] });
+    feedTame(st, tameNote(m, b.grade!, won, pct));
     return ok(chips[0], { won });
   }
   if (d.kind === 'npc') {
@@ -868,9 +869,18 @@ export function matchesFilter(st: GameState, m: Beast, sp: C.Species): boolean {
   return true;
 }
 const notable = (st: GameState, m: Beast) => m.mut || !!m.elite || m.cls === 0 || m.cls === 4 || (st.best[m.sp]?.tamed || 0) === 0;
-const missed = (m: Beast, why: 'pen' | 'tal', chips: string[], rep?: Report, log?: string[]) => {
+// What a taming attempt (or a creature that could not be tried) writes into the journey, so the player always sees the result: success, failure or a miss.
+export interface TameNote { text: string; won: boolean; beast: Beast }
+const tameName = (m: Beast) => `${m.mut ? 'Dị Biến ' : ''}${m.name} (Lv${m.level})`;
+const tamePct = (st: GameState, m: Beast, sp: C.Species, grade: number) => Math.round(tameProb(st, sp, m, grade) * 100);   // read BEFORE the roll: a quest reward can raise the Level after it
+const tameNote = (m: Beast, grade: number, won: boolean, pct: number): TameNote => {
+  return { won, beast: m, text: won ? `Thu phục thành công ${tameName(m)} bằng Khế Ước Phù hạng ${C.GRADES[grade]} (tỷ lệ ${pct}%). Đã vào Linh Thú Viên.` : `Thu phục thất bại ${tameName(m)}, mất 1 Khế Ước Phù hạng ${C.GRADES[grade]} (tỷ lệ ${pct}%). Linh Thú đã chạy mất.` };
+};
+const feedTame = (st: GameState, n: TameNote | null) => { if (n) feed(st, { kind: 'tame', text: n.text, beast: n.beast, outcome: n.won ? 'win' : 'lose', chips: [] }); };
+const missed = (m: Beast, why: 'pen' | 'tal', chips: string[], rep?: Report, log?: string[]): TameNote => {
   if (rep) { if (why === 'pen') rep.skipPen++; else rep.skipTalisman++; if (m.mut) rep.highlights.push({ prio: 85, kind: 'mutation', text: `Bỏ lỡ ${m.name} Dị Biến (${why === 'pen' ? 'Linh Thú Viên đầy' : 'hết Khế Ước Phù'})`, beast: m, log }); }
   chips.push(why === 'pen' ? 'Linh Thú Viên đầy, bỏ qua' : 'Hết Khế Ước Phù, bỏ qua');
+  return { won: false, beast: m, text: `Không thu phục được ${tameName(m)}: ${why === 'pen' ? 'Linh Thú Viên đã đầy' : 'đã hết Khế Ước Phù'}.` };
 };
 // The taming roll itself: spends one Khế Ước Phù of `grade`, draws from the `tame` stream, adds the Linh Thú on success.
 // The daily quest: today's new creature, tamed `questTame` times. Counts every successful taming (by hand or automatic) on the day the creature is new.
@@ -907,22 +917,23 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
   return false;
 }
 // After a Victory over a Monster. Auto_Tame on: the filter decides. Auto_Tame off: a notable creature (Dị Biến, Tinh Anh, very small or large, new species) asks the player.
-export function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[], rep?: Report, log?: string[]) {
+export function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[], rep?: Report, log?: string[]): TameNote | null {
   if (st.set.autoTame) {
-    if (!matchesFilter(st, m, sp)) return;
+    if (!matchesFilter(st, m, sp)) return null;
     // a Dị Biến always gets the best Khế Ước Phù the player has
     let g = st.set.tame.grade;
     if (m.mut) for (let i = st.inv.taming.length - 1; i >= 0; i--) if (st.inv.taming[i] > 0) { g = i; break; }
     if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
     if (st.inv.taming[g] <= 0) return missed(m, 'tal', chips, rep, log);
-    rollTame(st, m, sp, g, chips, rep, log);
-    return;
+    const pct = tamePct(st, m, sp, g);
+    return tameNote(m, g, rollTame(st, m, sp, g, chips, rep, log), pct);
   }
-  if (!notable(st, m)) return;
+  if (!notable(st, m)) return null;
   if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
   if (st.inv.taming.every((n) => n <= 0)) return missed(m, 'tal', chips, rep, log);
   st.decision = { id: ++st.uid, kind: 'tame', beast: m, log: log || [], until: st.clock + B.tameDecisionSec * 1000 };
   chips.push('Chờ ngươi quyết định thu phục');
+  return null;
 }
 
 // One drop roll from the Zone's Drop_Table (Requirement 20.1 to 20.5). Returns a chip for what was given.
@@ -956,9 +967,11 @@ function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: 
   if (rep) { rep.encounters++; rep.enc.monster++; if (m.mut) rep.highlights.push({ prio: 90, kind: 'mutation', text: `Gặp ${m.name} Dị Biến!`, beast: m }); }
   const r = fightCore(st, S, { name: m.name, stats: m.stats, el: sp.el, skills: m.skills, level: m.level }, bestParty(st), 1, arenaFor(zone.id, st.tick));
   const chips: string[] = [];
-  if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1, { el: sp.el[0], boost: m.elite || m.mut ? B.bookEliteMult : 1 }); tryTame(st, m, sp, chips, rep, r.log); }
+  let tn: TameNote | null = null;
+  if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1, { el: sp.el[0], boost: m.elite || m.mut ? B.bookEliteMult : 1 }); tn = tryTame(st, m, sp, chips, rep, r.log); }
   else if (r.outcome === 'lose') { defeated(st); if (rep) rep.losses++; } else if (rep) rep.draws++;
-  feed(st, { kind: 'monster', text: '', beast: m, outcome: r.outcome, chips, log: r.log });
+  feedTame(st, tn);   // the taming result is its own row, just under the fight it came from
+  feed(st, { kind: 'monster', text: '', beast: m, outcome: r.outcome, chips, log: r.log });   // always the LAST row of its fight: the client reveals the rows of a fight up to this id
 }
 // Defeat: Recovery_State and Thương Thế (lower atk, def and spd for a while).
 function defeated(st: GameState) { st.recovery = true; st.player.injury = B.injuryTicks; }
@@ -1024,9 +1037,10 @@ function runEvent(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: Re
   if (rep && ev.rare) rep.highlights.push({ prio: 40, kind: 'event', text: ev.text });
   else if (rep && !ev.bad) rep.highlights.push({ prio: 10, kind: 'event', text: ev.text });
 }
-export function encounterWeights(zone: C.Zone, ph: C.Phenomenon | null): number[] {
+export function encounterWeights(zone: C.Zone, ph: C.Phenomenon | null, dropEvent = false): number[] {
   const m: C.Phenomenon['enc'] = (ph && ph.enc) || {};
-  return [zone.enc.monster * (m.monster ?? 1), zone.enc.npc * (m.npc ?? 1), zone.enc.resource * (m.resource ?? 1), zone.enc.event * (m.event ?? 1)];
+  const boost = dropEvent ? B.dropEventMonsterMult : 1;   // the Thiên/Tiên event runs here: Linh Thú come 50% more often, so the Tu Sĩ and the events are met less often
+  return [zone.enc.monster * (m.monster ?? 1) * boost, zone.enc.npc * (m.npc ?? 1), zone.enc.resource * (m.resource ?? 1), zone.enc.event * (m.event ?? 1)];
 }
 
 export const upkeepDue = (st: Pick<GameState, 'beasts'>) => st.beasts.reduce((a, b) => a + Math.ceil(b.level / B.upkeepLevelDiv), 0);
@@ -1050,7 +1064,7 @@ export function tick(st: GameState, rep?: Report) {
   }
   if (st.decision) { if (rep) rep.blockedTicks++; }   // the journey waits for the player's answer
   else if (mode0 === 'adventure' && !st.recovery && next(st.streams, 'enc') < B.encounterChance) {
-    const k = weighted(st.streams, 'enc', encounterWeights(zone, ph));
+    const k = weighted(st.streams, 'enc', encounterWeights(zone, ph, dropEventAt(zone.id, startMs)));
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
@@ -1213,7 +1227,7 @@ export const ticksForAbsence = (sec: number) => (sec < B.minOfflineSec ? 0 : Mat
 // ---------- what the server tells the client that depends on current state (Requirement 6.13, 10.16, 20.14, 31.8)
 export function oddsOf(st: GameState, nowMs: number) {
   const R = rates(), zone = C.ZONE(st.zone), ph = phenomenonAt(zone.id, nowMs), luck = effLuck(st, (ph && ph.luck) || 0);
-  const ew = encounterWeights(zone, ph), et = ew.reduce((a, b) => a + b, 0);
+  const ew = encounterWeights(zone, ph, dropEventAt(zone.id, nowMs)), et = ew.reduce((a, b) => a + b, 0);
   const sw = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, nowMs)], stot = sw.reduce((a, b) => a + b, 0);
   const dt = zone.drop.reduce((a, d) => a + d.w, 0);
   const p = st.player, canBreak = levelOf(p) < B.playableLevelCap;
