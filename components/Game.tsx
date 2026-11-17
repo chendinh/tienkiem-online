@@ -25,6 +25,8 @@ import { EquipPanel, ItemPopup, useEquip, type Eqx } from './Equip';
 import { Logo, Lockup } from './Logo';
 import { ElIcon } from './Icons';
 import { BattleLog, battleSummary } from './Battle';
+import * as G from '@/lib/game';
+import { PURE_INTENTS, decideIsPure } from '@/lib/intents';
 import { LoadingNote } from './LoadingNote';
 import { BattleStage } from './BattleStage';
 import { Icon } from './ds/Icon';
@@ -83,6 +85,13 @@ function FeedRowInner({ e }: { e: FeedEntry }) {
     </div>
   );
 }
+
+// A copy the instant actions may edit: everything they touch is copied (the bag, the worn items, the pen, the stocks, the settings, the journey), the rest is shared.
+// `pend` (what the engine counts for the report) is not sent to the browser, but the rules still write to it.
+const forkState = (st: GS): GS => ({
+  ...st, bag: st.bag.map((x) => ({ ...x })), stash: st.stash.map((x) => ({ ...x })), eq: Object.fromEntries(Object.entries(st.eq).map(([k, v]) => [k, v ? { ...v } : v])) as GS['eq'],
+  player: { ...st.player }, beasts: [...st.beasts], inv: structuredClone(st.inv), set: structuredClone(st.set), arts: structuredClone(st.arts), feed: [...st.feed], pend: {},
+} as GS);
 
 function ZoomBridge({ r }: { r: { current: ((z: any) => void) | null } }) { r.current = useZoom(); return null; }
 
@@ -363,7 +372,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const actAt = useRef(0);
   const inflight = useRef(0);        // player requests on their way: a poll that answers meanwhile may carry the state from before the click, so it is dropped
   const [busy, setBusy] = useState(0);   // requests the player started and that have not been answered yet (shows a thin bar, see .busyBar)
-  const act: Act = useCallback(async (type, payload = {}): Promise<ActRes> => {
+  const actNet: Act = useCallback(async (type, payload = {}): Promise<ActRes> => {
     setBusy((n) => n + 1); inflight.current++;
     let out: Awaited<ReturnType<typeof gameAct>>;
     // A request that never gets through answers with a refusal instead of throwing, so every caller can show it (before, the click just did nothing).
@@ -384,6 +393,45 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     }
     return { ok: out.ok, msg: out.ok ? out.msg || '' : out.msg || errText(out.code || 'E_SERVER'), data: out.data, code: out.code };
   }, [apply, onSignOut]);
+
+  // ---- instant actions. What needs no dice (lib/intents.ts) is done on the screen at once, with the very same rules the server uses, on a copy of the state;
+  // the server is told in the background, one request after another, and its answer replaces the copy. The caller gets the result right away, so nothing
+  // waits for the network. If the server refuses, its state is shown and the player is told; if the request never got through, the old state comes back.
+  type Op = { type: string; payload: any; local: (s: G.GameState) => G.Res };
+  const optQ = useRef<Op[]>([]), optRun = useRef(false), optBase = useRef<GS | null>(null), optLast = useRef<GS | null>(null);
+  const runOpt = useCallback(async () => {
+    if (optRun.current) return;
+    optRun.current = true;
+    while (optQ.current.length) {
+      const op = optQ.current[0];
+      const r = await actNet(op.type, op.payload);
+      optQ.current.shift();
+      if (!r.ok) say(r.msg, false);
+      if (optQ.current.length) {
+        // the answer put the server's state on the screen: the changes still on their way go back on top of it, so nothing seems to undo itself
+        const cur = stRef.current;
+        if (cur) { const f = forkState(cur); for (const o of optQ.current) o.local(f as unknown as G.GameState); stRef.current = f; optLast.current = f; }
+      } else if (!r.ok && stRef.current === optLast.current && optBase.current) stRef.current = optBase.current;
+      re();
+    }
+    optRun.current = false;
+  }, [actNet, say, re]);
+  const act: Act = useCallback(async (type, payload = {}): Promise<ActRes> => {
+    // The question of the journey: a skip, an avoid or a "later" is decided here. A taming or a fight has chance in it, so only the question closes at once
+    // and the result (a new row in the journey) comes with the server's answer.
+    const closeAsk = (s: G.GameState, b: any): G.Res => (s.decision && s.decision.id === b.id ? ((s.decision = null), G.ok('')) : G.fail('E_NO_DECISION'));
+    const pure = type === 'decide' ? (decideIsPure(payload) ? (s: G.GameState, b: any) => G.decide(s, b) : payload && (payload.choice === 'tame' || payload.choice === 'fight') ? closeAsk : undefined) : PURE_INTENTS[type];
+    const st = stRef.current;
+    if (!pure || !st) return actNet(type, payload);
+    const f = forkState(st), r = pure(f as unknown as G.GameState, payload);
+    if (!r.ok) return { ok: false, msg: r.msg, code: r.code, data: r.data };
+    if (!optQ.current.length && !optRun.current) optBase.current = st;
+    optQ.current.push({ type, payload, local: (s) => pure(s, payload) });
+    stRef.current = f; optLast.current = f;
+    re();
+    void runOpt();
+    return { ok: true, msg: r.msg, data: r.data };
+  }, [actNet, runOpt, re]);
 
   // Portraits, biography and prologue flag are presentation only: they are sent to the server shortly after they change.
   const save = useCallback(() => {

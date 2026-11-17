@@ -964,3 +964,29 @@ test('a Dị Biến is never sold or let go: not by hand, not by the quick sale'
   st.beasts = [mk(7, true), mk(8, true)];
   assert.equal(G.releaseMany(st).ok, false); assert.equal(st.beasts.length, 2);
 });
+
+test('the instant actions give the same result on the browser view (no seeds, no pend) as on the full save', async () => {
+  const { PURE_INTENTS, decideIsPure } = await import('../lib/intents');
+  const full = fresh(1100); G.settle(full, 4000);
+  full.stones = 5000; full.inv.mat = { ...full.inv.mat, linhthao: 20, truc: 20 }; full.inv.hp = [3, 3, 3];
+  const mk = (id: number, mut: boolean) => ({ ...beastP(id, id, mut), name: 'x', sp: 'ho' }) as G.Beast;
+  full.beasts.push(mk(901, true), mk(902, false), mk(903, false), mk(904, false), mk(905, false));
+  const strip = (s: G.GameState) => { const { seed: _a, streams: _b, reqs: _c, pend: _d, auditQ: _e, relicQ: _f, reports: _g, ...rest } = structuredClone(s) as any; return { ...rest, pend: {} } as G.GameState; };
+  const view = strip(full);
+  const item = [...full.bag, ...full.stash][0];
+  const steps: [string, any][] = [
+    ['buy', { item: 'taming0', qty: 2 }], ['sell', { item: 'taming0', qty: 1 }], ['sell', { item: 'mat:linhthao', qty: 3 }], ['craft', { id: C.RECIPES[0].id, qty: 1 }],
+    ['release', { id: 902 }], ['release', { id: 901 }], ['releaseMany', {}], ['pill', { grade: 0 }], ['mode', { mode: 'retreat' }], ['settings', { patch: { dissolveMax: 1 } }],
+    ...(item ? [['equip', { id: item.id }], ['lock', { id: item.id }], ['unequip', { slot: item.slot }]] as [string, any][] : []),
+    ['dissolveMany', { maxTier: 1 }],
+  ];
+  for (const [type, payload] of steps) {
+    const a = PURE_INTENTS[type](full, payload), b = PURE_INTENTS[type](view, payload);
+    assert.equal(b.ok, a.ok, `${type}: same verdict`); assert.equal(b.msg, a.msg, `${type}: same message`);
+    assert.equal(view.stones, full.stones, `${type}: stones`); assert.deepEqual(view.inv, full.inv, `${type}: stocks`);
+    assert.deepEqual(view.beasts.map((x) => x.id), full.beasts.map((x) => x.id), `${type}: pen`);
+    assert.deepEqual([...view.bag, ...view.stash].map((x) => x.id), [...full.bag, ...full.stash].map((x) => x.id), `${type}: bag`);
+  }
+  assert.ok(full.beasts.some((x) => x.id === 901), 'the Dị Biến was never sold');
+  assert.equal(decideIsPure({ choice: 'skip' }), true); assert.equal(decideIsPure({ choice: 'tame' }), false); assert.equal(decideIsPure({ choice: 'fight' }), false);
+});

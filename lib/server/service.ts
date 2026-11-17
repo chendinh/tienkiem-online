@@ -9,6 +9,7 @@ import { type AccountFile, ApiError } from './auth';
 import { randomInt, createHash } from 'node:crypto';
 import { publish } from './ranking';
 import * as M from './market';
+import { PURE_INTENTS } from '../intents';
 import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
 import { dailyVersion, dailyPacks, relicSig } from '../daily';
 const dailyArtCount = () => dailyPacks().filter((p) => p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
@@ -109,27 +110,10 @@ function cosmetic(st: G.GameState, b: any): G.Res {
 
 type Handler = (st: G.GameState, b: any, now: number) => G.Res;
 const INTENTS: Record<string, Handler> = {
-  mode: (st, b) => G.setMode(st, b.mode),
-  zone: (st, b) => G.setZone(st, b.zone),
-  settings: (st, b) => G.setSettings(st, b.patch),
-  equip: (st, b) => (Number.isInteger(b.id) ? G.equipFromBag(st, b.id) : G.fail('E_BAD_REQUEST')),
-  unequip: (st, b) => (typeof b.slot === 'string' && b.slot in st.eq ? G.unequip(st, b.slot) : G.fail('E_BAD_REQUEST')),
-  unstash: (st, b) => (Number.isInteger(b.id) ? G.unstash(st, b.id) : G.fail('E_BAD_REQUEST')),
-  lock: (st, b) => (Number.isInteger(b.id) ? G.toggleLock(st, b.id) : G.fail('E_BAD_REQUEST')),
-  dissolve: (st, b) => (Number.isInteger(b.id) ? G.dissolveBagItem(st, b.id) : G.fail('E_BAD_REQUEST')),
-  dissolveMany: (st, b) => G.dissolveMany(st, b.maxTier),
-  releaseMany: (st) => G.releaseMany(st),
+  ...PURE_INTENTS,
   decide: (st, b) => G.decide(st, b),
-  release: (st, b) => (Number.isInteger(b.id) ? G.releaseBeast(st, b.id) : G.fail('E_BAD_REQUEST')),
-  buy: (st, b) => (typeof b.item === 'string' ? G.buy(st, b.item, b.qty) : G.fail('E_BAD_REQUEST')),
-  sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : G.fail('E_BAD_REQUEST')),
-  pill: (st, b) => G.useHpPill(st, b.grade),
-  craft: (st, b) => G.craft(st, b.id, b.qty),
   break: (st, b) => G.attemptBreakthrough(st, { pill: b.pill === true, trib: b.trib === true, src: 'player' }),
   ack: (st, b) => { const r = st.reports.find((x) => x.id === b.id); if (!r) return G.fail('E_NOT_FOUND'); r.seen = true; return G.ok(''); },
-  learn: (st, b) => G.learnBook(st, b.name),
-  loadout: (st, b) => G.setLoadout(st, b.cls, b.names),
-  method: (st, b) => G.setMethod(st, b.name),
   cosmetic: (st, b) => cosmetic(st, b),
 };
 // Intents that also touch tables outside the save (Chợ Đêm). Same pipeline: they run inside the account lock, on a copy of the state.

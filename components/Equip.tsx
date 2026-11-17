@@ -5,10 +5,9 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Drag
 import * as C from '@/lib/content';
 import type { Item } from '@/lib/game';
 import { levelOf, dissolveValue } from '@/lib/game';
-import * as G from '@/lib/game';
 import { errText } from '@/lib/strings';
 import type { GS } from '@/lib/client/types';
-import type { Act, ActRes } from './Panels';
+import type { Act } from './Panels';
 import { ElChip, GenImg, ItemIcon, PanZoom, STAT_VI, fmt } from './ui';
 import { ElIcon } from './Icons';
 import { itemSpec } from '@/lib/avatarSpec';
@@ -16,9 +15,6 @@ import { SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
 
-type Op = { type: string; payload: any; local: (s: G.GameState) => G.Res };
-// A copy the optimistic change may edit: the bag, the stash, the worn items and the player are copied, everything else is shared.
-const fork = (st: GS): GS => ({ ...st, bag: st.bag.map((x) => ({ ...x })), stash: st.stash.map((x) => ({ ...x })), eq: Object.fromEntries(Object.entries(st.eq).map(([k, v]) => [k, v ? { ...v } : v])) as GS['eq'], player: { ...st.player }, pend: {} } as GS);   // `pend` (what the engine counts for the report) is not sent to the browser, the rules still write to it
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
 export type Eqx = ReturnType<typeof useEquip>;
@@ -52,48 +48,15 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   }, []);
   const dragEnd = useCallback(() => { if (dragTimer.current) clearTimeout(dragTimer.current); setDragging(false); setHeld(null); }, []);
 
-  // Report the result; a successful change is saved and puts the item down.
-  const finish = useCallback((r: ActRes) => {
-    say(r.msg, r.ok);
-    if (r.ok) { setHeld(null); setDragging(false); setSel(null); }
-    re();
-    return r.ok;
-  }, [say, re]);
-
-  // Wearing, taking off, moving out of the stash and locking show on the screen at once and say nothing: the picture is the confirmation.
-  // The same rules (lib/game.ts) run here on a copy of the state; the server is told in the background, one request after another.
-  // If the server refuses, its own state replaces ours and only then is the player told. A request that never got through puts the old state back.
-  const queue = useRef<Op[]>([]), running = useRef(false), base = useRef<GS | null>(null), lastOpt = useRef<GS | null>(null);
-  const run = useCallback(async () => {
-    if (running.current) return;
-    running.current = true;
-    while (queue.current.length) {
-      const op = queue.current[0];
-      let r: ActRes;
-      try { r = await act(op.type, op.payload); } catch { r = { ok: false, msg: errText('E_SERVER'), code: 'E_SERVER' }; }
-      queue.current.shift();
-      if (!r.ok) say(r.msg || errText(r.code || 'E_SERVER'), false);
-      if (queue.current.length) {
-        // the answer put the server's state on the screen: the changes still on their way go back on top of it, so nothing seems to undo itself
-        const cur = stRef.current;
-        if (cur) { const f = fork(cur); for (const o of queue.current) o.local(f as unknown as G.GameState); stRef.current = f; lastOpt.current = f; }
-      } else if (!r.ok && stRef.current === lastOpt.current && base.current) stRef.current = base.current;   // no answer came back: the screen returns to what is true
-      re();
-    }
-    running.current = false;
-  }, [act, say, re, stRef]);
-  const go = useCallback((type: string, payload: any, local: Op['local'], keepOpen = false): boolean => {
-    const st = stRef.current; if (!st) return false;
-    const f = fork(st), r = local(f as unknown as G.GameState);
-    if (!r.ok) { say(r.msg, false); return false; }
-    if (!queue.current.length && !running.current) base.current = st;
-    queue.current.push({ type, payload, local });
-    stRef.current = f; lastOpt.current = f;
+  // Wearing, taking off, moving out of the stash, locking and dissolving show on the screen at once and say nothing when they work: the picture is the
+  // confirmation. `act` answers right away (the instant path in Game.tsx) and tells the server in the background; a refusal is the only thing said.
+  const go = useCallback(async (type: string, payload: any, keepOpen = false): Promise<boolean> => {
+    const r = await act(type, payload);
+    if (!r.ok) { say(r.msg || errText(r.code || 'E_SERVER'), false); re(); return false; }
     setHeld(null); setDragging(false); if (!keepOpen) setSel(null);
     re();
-    void run();
     return true;
-  }, [stRef, say, re, run]);
+  }, [act, say, re]);
 
   // `target` is the slot the player dropped on; without it the item goes to the slot it belongs to.
   const equipItem = useCallback(async (id: number, target?: string) => {
@@ -104,47 +67,25 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
       say(`${it.name} là ${C.SLOT_VI[it.slot]} (${C.SLOT_HINT[it.slot]}), không đặt vào ô ${C.SLOT_VI[target]}. Hãy thả vào ô ${C.SLOT_VI[it.slot]} đang sáng.`, false);
       return false;
     }
-    return go('equip', { id }, (s) => G.equipFromBag(s, id));
+    return go('equip', { id });
   }, [stRef, say, go]);
-  const takeOff = useCallback(async (slot: string) => go('unequip', { slot }, (s) => G.unequip(s, slot)), [go]);
-  const moveToBag = useCallback(async (id: number) => go('unstash', { id }, (s) => G.unstash(s, id)), [go]);
-  const lock = useCallback(async (id: number) => { go('lock', { id }, (s) => G.toggleLock(s, id), true); }, [go]);
+  const takeOff = useCallback(async (slot: string) => go('unequip', { slot }), [go]);
+  const moveToBag = useCallback(async (id: number) => go('unstash', { id }), [go]);
+  const lock = useCallback(async (id: number) => { go('lock', { id }, true); }, [go]);
   const dissolve = useCallback(async (id: number) => {
     const st = stRef.current; if (!st) return;
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id);
     if (it && it.tier >= 3 && !(await askConfirm({ title: 'Phân giải pháp bảo', body: `Phân giải ${it.name} (hạng ${C.RARITY[it.tier]})? Không thể hoàn tác.`, ok: 'Phân giải', danger: true }))) return;
-    go('dissolve', { id }, (s) => G.dissolveBagItem(s, id));
+    go('dissolve', { id });
   }, [stRef, go]);
-  // "Dọn túi" is applied on the screen at once (same rule as lib/game.ts dissolveMany) and confirmed by the server in the background.
-  // If the server refuses or cannot be reached, the bag is put back and the player is told, so the screen never stays wrong.
-  const [cleanBusy, setCleanBusy] = useState(false);
-  const cleanLock = useRef(false);
+  // "Dọn túi": the same instant path (lib/game.ts dissolveMany runs on the screen first); the message says how many went and what they gave.
+  const cleanBusy = false;
   const dissolveMany = useCallback(async (maxTier: number) => {
-    const st = stRef.current; if (!st || cleanLock.current) return;
-    const gone = new Set<number>(); let stones = 0;
-    for (const it of [...st.bag, ...st.stash]) {
-      if (it.locked || it.tier > maxTier) continue;
-      const cur = st.eq[it.slot];
-      if (!cur || it.power > cur.power) continue;   // an upgrade is always kept
-      gone.add(it.id); stones += dissolveValue(it);
-    }
-    if (gone.size === 0) { say('Không có món nào phù hợp để phân giải.', false); return; }
-    cleanLock.current = true; setCleanBusy(true);
-    const next = { ...st, bag: st.bag.filter((x) => !gone.has(x.id)), stash: st.stash.filter((x) => !gone.has(x.id)), stones: Math.min(st.caps.stoneMax, st.stones + stones) };
-    stRef.current = next;
     setSel(null); setHeld(null); setDragging(false);
-    say(`Đã phân giải ${gone.size} món, nhận khoảng ${stones} Linh Thạch.`, true);
+    const r = await act('dissolveMany', { maxTier });
+    say(r.msg || errText(r.code || 'E_SERVER'), r.ok);
     re();
-    try {
-      const r = await act('dissolveMany', { maxTier });
-      // The answer already replaced the state with the server's own. Only the message may differ (exact amount, or a refusal).
-      if (r.ok) say(r.msg, true);
-      else { if (stRef.current === next) stRef.current = st; say(r.msg || 'Chưa dọn được túi. Hãy thử lại.', false); }
-    } catch {
-      if (stRef.current === next) stRef.current = st;
-      say('Máy chủ chưa phản hồi nên túi được trả về như cũ. Hãy thử lại sau.', false);
-    } finally { cleanLock.current = false; setCleanBusy(false); re(); }
-  }, [stRef, act, re, say]);
+  }, [act, say, re]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
   return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, dissolve, dissolveMany, cleanBusy, sel, open, close };

@@ -15,12 +15,12 @@ function Lotus() {
   );
 }
 
-// A small notice from the bottom edge while the game is waiting for the server. It appears only if the wait is longer than a blink
-// (instant actions never show it) and stays a moment after, so it never flashes on and off.
+// A small notice from the bottom edge while the game is waiting for the server. It appears only if the wait is longer than 200 ms
+// (an action the screen already shows never stays long enough to) and stays a moment after, so it never flashes on and off.
 export function LoadingNote({ active }: { active: boolean }) {
   const [show, setShow] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setShow(active), active ? 350 : 450);
+    const t = setTimeout(() => setShow(active), active ? 200 : 450);
     return () => clearTimeout(t);
   }, [active]);
   if (!show) return null;

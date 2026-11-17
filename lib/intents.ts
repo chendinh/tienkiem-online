@@ -1,0 +1,31 @@
+// The player's actions that need no dice: the same rules run on the server (the real thing) and in the browser (what the screen shows at once,
+// before the server has answered). Both sides call exactly these handlers, so they cannot disagree. Actions with chance (taming, fighting,
+// breakthrough) or tables outside the save (Chợ Đêm) are not here: they wait for the server.
+import * as G from './game';
+
+export type PureHandler = (st: G.GameState, b: any) => G.Res;
+const int = (x: any) => Number.isInteger(x);
+const bad = () => G.fail('E_BAD_REQUEST');
+
+export const PURE_INTENTS: Record<string, PureHandler> = {
+  mode: (st, b) => G.setMode(st, b.mode),
+  zone: (st, b) => G.setZone(st, b.zone),
+  settings: (st, b) => G.setSettings(st, b.patch),
+  equip: (st, b) => (int(b.id) ? G.equipFromBag(st, b.id) : bad()),
+  unequip: (st, b) => (typeof b.slot === 'string' && b.slot in st.eq ? G.unequip(st, b.slot) : bad()),
+  unstash: (st, b) => (int(b.id) ? G.unstash(st, b.id) : bad()),
+  lock: (st, b) => (int(b.id) ? G.toggleLock(st, b.id) : bad()),
+  dissolve: (st, b) => (int(b.id) ? G.dissolveBagItem(st, b.id) : bad()),
+  dissolveMany: (st, b) => G.dissolveMany(st, b.maxTier),
+  releaseMany: (st) => G.releaseMany(st),
+  release: (st, b) => (int(b.id) ? G.releaseBeast(st, b.id) : bad()),
+  buy: (st, b) => (typeof b.item === 'string' ? G.buy(st, b.item, b.qty) : bad()),
+  sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : bad()),
+  pill: (st, b) => G.useHpPill(st, b.grade),
+  craft: (st, b) => G.craft(st, b.id, b.qty),
+  learn: (st, b) => G.learnBook(st, b.name),
+  loadout: (st, b) => G.setLoadout(st, b.cls, b.names),
+  method: (st, b) => G.setMethod(st, b.name),
+};
+// Answering the question the journey waits for: only the answers without chance can be shown at once.
+export const decideIsPure = (b: any) => !!b && (b.choice === 'skip' || b.choice === 'avoid' || b.choice === 'later');
