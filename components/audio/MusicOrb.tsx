@@ -7,6 +7,7 @@ import { getAudio, useAudio } from '@/lib/audio';
 // The panel itself (track, volume, switches): used in the header popover and in the Settings window.
 export function MusicPanel({ onCredits }: { onCredits: () => void }) {
   const a = useAudio(); const eng = getAudio();
+  const pct = Math.round(Math.round(a.vol * 10) * 10); // steps of 10
   return (
     <>
       <div className="pop-head"><b>Nhạc nền</b>
@@ -22,10 +23,13 @@ export function MusicPanel({ onCredits }: { onCredits: () => void }) {
           </div>
         </div>
       ) : <p className="muted pop-note">{a.ready ? '' : 'Chưa có bài nhạc nào. Thêm tệp vào public/audio và khai báo trong playlist.json.'}</p>}
-      <label className="vol"><Icon name="volume" size={17} />
-        <input type="range" min={0} max={100} value={Math.round(a.vol * 100)} style={{ ['--pct' as string]: `${Math.round(a.vol * 100)}%` }} aria-label="Âm lượng nhạc nền" onChange={(e) => eng?.setVol(Number(e.target.value) / 100)} />
-        <span className="num">{Math.round(a.vol * 100)}</span>
-      </label>
+      <div className="vol vol-step" role="group" aria-label="Âm lượng nhạc nền">
+        <Icon name="volume" size={17} />
+        <button type="button" className="btn icon ghost vol-btn" aria-label="Giảm âm lượng" title="Giảm" disabled={pct <= 0} onClick={() => eng?.setVol((pct - 10) / 100)}>−</button>
+        <div className="vol-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
+        <button type="button" className="btn icon ghost vol-btn" aria-label="Tăng âm lượng" title="Tăng" disabled={pct >= 100} onClick={() => eng?.setVol((pct + 10) / 100)}>+</button>
+        <span className="num" aria-live="polite">{pct}</span>
+      </div>
       <div className="pop-row"><span>Âm thanh giao diện <small>chuông, đàn, sấm</small></span>
         <label className="tg"><input type="checkbox" checked={a.sfx} onChange={(e) => eng?.setSfx(e.target.checked)} /><span className="sr-only">Bật âm thanh giao diện</span></label>
       </div>

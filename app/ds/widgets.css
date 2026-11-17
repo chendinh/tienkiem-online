@@ -32,6 +32,11 @@
   .np-ctl { display: flex; gap: 2px; }
   .vol { display: grid; grid-template-columns: auto 1fr 2.2em; align-items: center; gap: var(--sp-3); margin: var(--sp-2) 0 var(--sp-3); color: var(--gold-300); font-size: var(--fs-xs); }
   .vol .num { text-align: right; color: var(--text-2); }
+  .vol-step { grid-template-columns: auto auto 1fr auto 2.2em; gap: var(--sp-2); }
+  .vol-btn { width: 40px; height: 40px; min-width: 40px; padding: 0; font-size: 22px; line-height: 1; touch-action: manipulation; }
+  .vol-btn:disabled { opacity: 0.35; }
+  .vol-bar { height: 6px; border-radius: 6px; background: rgb(255 255 255 / 0.14); overflow: hidden; }
+  .vol-bar i { display: block; height: 100%; background: var(--jade-400); transition: width 0.15s; }
 
   .credit { margin: var(--sp-2) 0; padding: var(--sp-2) var(--sp-3); border-left: 2px solid var(--line-gold); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 6%, transparent), transparent); }
   .credit p { margin: 2px 0 0; font-size: var(--fs-xs); line-height: 1.55; color: var(--text-3); word-break: break-word; }
