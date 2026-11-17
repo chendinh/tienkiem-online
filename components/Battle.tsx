@@ -9,7 +9,7 @@ import { ElIcon } from './Icons';
 // "H1 Ngươi · Kim Quang Trảm: 66 bạo kích (x1.00, cùng hệ)"; those are read back into the same shape, minus what they never recorded.
 type Open = { t: 'open'; f: string; fe: string[]; fh: number; ph: number; pm: number; ar?: string };
 // w: p = you, b = your Linh Thú, m = the foe, u = unknown (old save)
-type Act = { r: number; w: 'p' | 'b' | 'm' | 'u'; u?: number; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; to?: string; d: number; c: number; x: number; am?: number; s: number; h?: number; hm?: number };
+type Act = { r: number; w: 'p' | 'b' | 'm' | 'u'; sp?: string; mu?: number; u?: number; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; to?: string; d: number; c: number; x: number; am?: number; s: number; h?: number; hm?: number };
 type Line = { kind: 'open'; o: Open } | { kind: 'act'; a: Act } | { kind: 'text'; text: string };
 
 const SKILL_EL: Record<string, string> = {};

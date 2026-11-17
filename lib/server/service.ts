@@ -60,6 +60,7 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (st.set.hideRank === undefined) st.set.hideRank = false;
   if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
   if (!st.inv.books) st.inv.books = {};
+  if (st.feed.length > B.feedSize) st.feed.length = B.feedSize;   // an older save kept more journey entries
   if (st.set.tame.strong === undefined) st.set.tame.strong = false;
   if (st.set.retreatPct < B.minRetreatPct) st.set.retreatPct = B.minRetreatPct;   // below 30% of health the character never goes out to fight
   if (st.set.resumePct <= st.set.retreatPct) st.set.resumePct = Math.min(100, st.set.retreatPct + 1);

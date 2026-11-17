@@ -116,6 +116,7 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
 }
 
 // ---------- Settings (Requirement 3, 9, 21, 23, 31.5)
+const RET_PCTS = [30, 50, 70, 90], RES_PCTS = [50, 70, 90, 100];
 const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
 export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
   const s = st.set;
@@ -134,8 +135,12 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <div className="musicBox"><MusicPanel onCredits={() => { onClose(); onCredits?.(); }} /></div>
           <h3>Nghỉ ngơi</h3>
           <div className="row">
-            <label className="field">Nghỉ khi sinh lực dưới (%, từ {B.minRetreatPct})<input type="number" min={B.minRetreatPct} max={99} value={ret} onChange={(e) => setRet(e.target.value)} /></label>
-            <label className="field">Quay lại khi hồi tới (%, tối đa 100)<input type="number" min={B.minRetreatPct + 1} max={100} value={res} onChange={(e) => setRes(e.target.value)} /></label>
+            <div className="field">Nghỉ khi sinh lực dưới (%, từ {B.minRetreatPct})
+              <div className="row">{RET_PCTS.filter((v) => v >= B.minRetreatPct).map((v) => <button key={v} type="button" className={'btn' + (Number(ret) === v ? ' on active' : '')} aria-pressed={Number(ret) === v} style={Number(ret) === v ? { outline: '2px solid currentColor' } : undefined} onClick={() => { setRet(String(v)); if (Number(res) <= v) setRes(String(RES_PCTS.find((x) => x > v) ?? 100)); }}>{v}</button>)}</div>
+            </div>
+            <div className="field">Quay lại khi hồi tới (%)
+              <div className="row">{RES_PCTS.map((v) => <button key={v} type="button" className={'btn' + (Number(res) === v ? ' on active' : '')} aria-pressed={Number(res) === v} style={Number(res) === v ? { outline: '2px solid currentColor' } : undefined} onClick={() => { setRes(String(v)); if (Number(ret) >= v) setRet(String([...RET_PCTS].reverse().find((x) => x < v) ?? B.minRetreatPct)); }}>{v}</button>)}</div>
+            </div>
             <button className="btn" onClick={() => patch({ retreatPct: Number(ret), resumePct: Number(res) })}>Lưu ngưỡng</button>
           </div>
           <div className="row">
@@ -290,9 +295,7 @@ export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report;
           <div><b>{rep.wins}/{rep.losses}/{rep.draws}</b><small>thắng/bại/hòa</small></div>
           <div><b>Lv{rep.fromLevel}→{rep.toLevel}</b><small>tu vi</small></div>
           <div><b>{fmt(rep.cp)}</b><small>Tu Vi nhận</small></div>
-          <div><b>{fmt(rep.stones)}</b><small>linh thạch</small></div>
           <div><b>{rep.tamed}/{rep.tameTry}</b><small>thu phục</small></div>
-          <div><b>{rep.bt.ok}/{rep.bt.fail}</b><small>đột phá ✓/✗</small></div>
           <div><b>{rep.newSpecies.length}</b><small>loài mới</small></div>
         </div>
         <div className="chips">

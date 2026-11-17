@@ -1,7 +1,7 @@
 'use client';
 import { ModalClose, XSeal } from './ds/ModalClose';
 import { Toast } from './ds/Dialog';
-import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
 import * as A from '@/lib/arts';
@@ -42,7 +42,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // A fight log is up to 56 cards. It is built only when the player opens it, and a row is drawn again only when its entry changes (the whole feed is replaced by a new copy at every poll).
 function FightLog({ log, foe, summary }: { log: string[]; foe: string; summary: string }) {
   const [open, setOpen] = useState(false);
-  return <details className="flog" onToggle={(ev) => setOpen((ev.currentTarget as HTMLDetailsElement).open)}><summary><Icon name="atk" size={13} /> {summary} · xem diễn biến</summary>{open && <BattleLog log={log} foe={foe} />}</details>;
+  return <details className="flog" onToggle={(ev) => setOpen((ev.currentTarget as HTMLDetailsElement).open)}><summary><span className="flogGo"><Icon name="atk" size={15} /> Xem diễn biến</span><small>{summary}</small></summary>{open && <BattleLog log={log} foe={foe} />}</details>;
 }
 const FeedRow = memo(FeedRowInner, (a, b) => a.e.id === b.e.id && a.e.text === b.e.text && !!a.e.log === !!b.e.log);
 function FeedRowInner({ e }: { e: FeedEntry }) {
@@ -62,8 +62,9 @@ function FeedRowInner({ e }: { e: FeedEntry }) {
             {e.chips?.map((c, i) => <span key={i} className="chip gold">{c}</span>)}
           </div>
           <SizeMeter b={b} />
-          {e.log && e.log.length > 0 && <FightLog log={e.log} foe={b.name} summary={battleSummary(e.log, b.name)} />}
         </div>
+        {/* outside the text column: the button and the chronicle use the whole width of the row, under the picture and the text */}
+        {e.log && e.log.length > 0 && <FightLog log={e.log} foe={b.name} summary={battleSummary(e.log, b.name)} />}
       </div>
     );
   }
@@ -280,6 +281,10 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [ready, setReady] = useState(false);
   const [net, setNet] = useState(true);
   const [stage, setStage] = useState<FeedEntry | null>(null);   // the fight being replayed above the journey
+  // The server settles every tick at once, the replay of a fight is slower. So a state that brings a new fight is kept aside (`held`) while the fight is replayed:
+  // the screen keeps showing the state from before it (health, Linh Thạch, Tu Vi, the journey), and the new state is applied when the last queued fight is over.
+  const stageNow = useRef<FeedEntry | null>(null), fightQ = useRef<FeedEntry[]>([]), held = useRef<GS | null>(null), watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenFeed = useRef<number | null>(null), cuedFeed = useRef<number | null>(null), seenSig = useRef<string | null>(null);
   const [storm, setStorm] = useState(false);
   const [credits, setCredits] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);   // the third column (Kho báu) is a drawer on laptop and phone screens
@@ -299,11 +304,32 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const say = useCallback((t: string, ok = true) => { setNote({ t, ok }); setTimeout(() => setNote((n) => (n && n.t === t ? null : n)), 6000); }, []);
 
   // A new state from the server replaces ours. Pictures and the biography the player just made stay until the server has them.
-  const apply = useCallback((v: GS) => {
+  const commit = useCallback((v: GS) => {
     const cur = stRef.current;
     if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; }
     stRef.current = v; re();
   }, [re]);
+  // The next fight of the queue goes on stage; when there is none, the state that was kept aside is shown at last.
+  const nextFight = useCallback(() => {
+    if (watchdog.current) { clearTimeout(watchdog.current); watchdog.current = null; }
+    const f = fightQ.current.shift() || null;
+    stageNow.current = f; setStage(f);
+    if (f) { watchdog.current = setTimeout(() => { if (stageNow.current === f) nextFight(); }, 40000); return; }   // a replay that never reports back cannot freeze the screen
+    const h = held.current; held.current = null; if (h) commit(h);
+  }, [commit]);
+  const apply = useCallback((v: GS) => {
+    const top = v.feed[0]?.id ?? 0, seen = seenFeed.current;
+    if (seen === null) { seenFeed.current = top; commit(v); return; }
+    // fights that are new (older saves have plain-text logs and are skipped), replayed one after the other and only to someone who is looking
+    const fights = top > seen && !document.hidden ? v.feed.filter((e) => e.id > seen && (e.kind === 'monster' || e.kind === 'npc') && e.log?.[0]?.startsWith('~')).reverse() : [];
+    if (top > seen) seenFeed.current = top;
+    if (fights.length) {
+      fightQ.current.push(...fights); if (fightQ.current.length > 3) fightQ.current.splice(0, fightQ.current.length - 3);   // never a long backlog
+      held.current = v; if (!stageNow.current) nextFight(); return;
+    }
+    if (stageNow.current || held.current) { held.current = v; return; }   // a fight is on stage: nothing newer is shown before it ends
+    commit(v);
+  }, [commit, nextFight]);
   // A poll that started before the last click finished may carry the state from before it: it is dropped, so a click never seems to undo itself.
   const actAt = useRef(0);
   const [busy, setBusy] = useState(0);   // requests the player started and that have not been answered yet (shows a thin bar, see .busyBar)
@@ -406,28 +432,37 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
   }, [sideOpen]);
   // sound and effects for what just happened: new journey entries, a changed outfit (the first pass only records where we are)
-  const seenFeed = useRef<number | null>(null), seenSig = useRef<string | null>(null);
+  // New rows come in at the top. The rows below slide down with transform only (the browser's compositor, no layout per frame) instead of the list reflowing while a row opens.
+  const feedRef = useRef<HTMLDivElement>(null), feedTop = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = feedRef.current, f = stRef.current?.feed;
+    if (!el || !f) return;
+    const top = f[0]?.id ?? 0, prev = feedTop.current; feedTop.current = top;
+    if (prev === null || top <= prev) return;
+    const rows = Array.from(el.children) as HTMLElement[], added = Math.min(f.filter((e) => e.id > prev).length, rows.length - 1);
+    if (added < 1) return;
+    const gap = parseFloat(getComputedStyle(el).rowGap) || 0;
+    const d = rows.slice(0, added).reduce((a, r) => a + r.offsetHeight + gap, 0);
+    rows.slice(added, added + 8).forEach((r) => r.animate([{ transform: `translateY(${-d}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' }));   // only the rows in view
+  });
   useEffect(() => {
     const cur = stRef.current; if (!cur || intro) return;
     const top = cur.feed[0]?.id ?? 0;
-    if (seenFeed.current === null) seenFeed.current = top;
-    else if (top > seenFeed.current) {
-      const fresh = cur.feed.filter((e) => e.id > seenFeed.current!).slice(0, 4).reverse(); seenFeed.current = top;
+    if (cuedFeed.current === null) cuedFeed.current = top;
+    else if (top > cuedFeed.current) {
+      const fresh = cur.feed.filter((e) => e.id > cuedFeed.current!).slice(0, 4).reverse(); cuedFeed.current = top;
       for (const e of fresh) {
         if (e.kind === 'level') cue.levelUp();
         else if (e.kind === 'break') { if (e.text.startsWith('Đột phá thành công')) cue.breakOk(); else if (e.text.startsWith('Đột phá thất bại')) cue.breakFail(); }
         else if ((e.kind === 'item' || e.kind === 'equip') && e.item) cue.drop(e.item.tier);
         else if (e.kind === 'monster' && e.beast) { if (e.beast.mut) cue.mutant(); else if (e.chips?.some((c) => /thu phục/i.test(c))) cue.tame(); }
       }
-      // replay only the newest fight, and only to someone who is looking (older saves have plain-text logs and are skipped)
-      const fight = fresh.slice().reverse().find((x) => (x.kind === 'monster' || x.kind === 'npc') && x.log?.[0]?.startsWith('~'));
-      if (fight && !document.hidden) setStage(fight);
     }
     const sig = equipSig(cur);
     if (seenSig.current === null) seenSig.current = sig; else if (sig !== seenSig.current) { seenSig.current = sig; cue.equip(); }
   });
 
-  const start = async (g?: 'f' | 'm') => { const r = await act('restart', { gender: g }); if (r.ok) { seenFeed.current = null; seenSig.current = null; setIntro(false); } else say(r.msg, false); };
+  const start = async (g?: 'f' | 'm') => { const r = await act('restart', { gender: g }); if (r.ok) { fightQ.current = []; stageNow.current = null; held.current = null; setStage(null); seenFeed.current = stRef.current?.feed[0]?.id ?? 0; cuedFeed.current = null; seenSig.current = null; setIntro(false); } else say(r.msg, false); };
   const signOut = async () => { await authPost({ action: 'logout' }); onSignOut(); };
 
   if (!ready) return <><Atmosphere scene="night" /><div className="loading"><div className="loadBox"><Lockup width={300} /><span>Đang nhập định</span></div></div></>;
@@ -505,8 +540,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
               <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('settings'); }}><Icon name="gear" size={15} /> Cài đặt</button>
             </div>
             <div className="pop-sect">Hiệu ứng</div>
-            <Seg label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'off' as const, label: 'Tắt' }, { v: 'low' as const, label: 'Nhẹ' }, { v: 'mid' as const, label: 'Vừa' }, { v: 'high' as const, label: 'Nhiều' }]} />
-            <p className="pop-note muted">Hạ mức khi máy yếu hoặc dễ chóng mặt. Nếu hệ thống đang yêu cầu giảm chuyển động, game tự tắt hiệu ứng.</p>
+            <Seg label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'low' as const, label: 'Nhẹ' }, { v: 'mid' as const, label: 'Vừa' }, { v: 'high' as const, label: 'Nhiều' }]} />
+            <p className="pop-note muted">Hạ xuống Nhẹ khi máy yếu. Nếu hệ thống đang yêu cầu giảm chuyển động, game tự dùng mức Nhẹ.</p>
             {ai && <><div className="pop-sect">Nguồn ảnh AI</div><div className="pop-ai" title={ai.locked ? `Nhà cung cấp từ chối (403): ${ai.locked}` : ai.edit ? `Vẽ mới: ${ai.t2i} · Sửa ảnh: ${ai.edit} · Mặc đồ (theo biểu tượng): ${ai.outfit} · Biểu tượng pháp khí: ${ai.item}` : ''}>{aiLine(ai)}</div></>}
             <div className="pop-sect">Tài khoản</div>
             <p className="pop-note muted">{email}</p>
@@ -561,8 +596,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             </div>
           </div>
           <div className="phead"><h3>Hành trình</h3><small>Mỗi lần gặp đều được máy chủ sinh ngẫu nhiên: loài, kích thước, tính cách, Dị Biến</small></div>
-          {stage && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={() => setStage(null)} />}
-          <div className="feed" aria-live="polite">{st.feed.map((e) => <FeedRow key={e.id} e={e} />)}</div>
+          {stage && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={nextFight} />}
+          <div className="feed" ref={feedRef} aria-live="polite">{st.feed.map((e) => <FeedRow key={e.id} e={e} />)}</div>
         </section>
 
         <section className="panel sidePanel" id="sidePanel" aria-label="Kho báu">

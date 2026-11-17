@@ -9,8 +9,8 @@ import { DialogHost } from '@/components/ds/Dialog';
 export const metadata = { title: 'Tiên Kiếm', description: 'Game tu tiên treo máy — bản thử nghiệm trực quan' };
 export const viewport: Viewport = { themeColor: '#060d14', colorScheme: 'dark' };
 
-// Sets the effects level before the first paint (saved choice, or off when the system asks for reduced motion), so nothing flashes.
-const FX_INIT = "try{var s=localStorage.getItem('tutien-fx'),m=matchMedia('(prefers-reduced-motion: reduce)').matches;document.documentElement.dataset.fx=s||(m?'off':'mid')}catch(e){}";
+// Sets the effects level before the first paint (saved choice, or low when the system asks for reduced motion), so nothing flashes.
+const FX_INIT = "try{var s=localStorage.getItem('tutien-fx'),m=matchMedia('(prefers-reduced-motion: reduce)').matches;document.documentElement.dataset.fx=(s&&s!=='off'?s:(s||m)?'low':'mid')}catch(e){}";
 const FONTS = ['spectral-normal-500-latin', 'spectral-normal-500-vietnamese', 'cormorant-garamond-normal-500_700-latin', 'cormorant-garamond-normal-500_700-vietnamese'];
 
 export default function RootLayout({ children }: { children: ReactNode }) {

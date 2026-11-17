@@ -30,8 +30,8 @@ export const BALANCE = {
   highlightMinTier: 3,
   highlightLimit: 10,
   reportHistory: 20,
-  feedSize: 50,
-  feedLogKeep: 12,   // only the newest journey entries keep their fight log (older ones keep the summary): the logs were most of the save
+  feedSize: 10,       // the journey list shows only the latest 10 events
+  feedLogKeep: 10,   // only the newest journey entries keep their fight log (older ones keep the summary): the logs were most of the save
   // zones (Requirement 6)
   phenomenonSlotSec: 10800,
   phenomenonP: 0.35,
@@ -118,6 +118,9 @@ export const BALANCE = {
   startingTaming: 10,
   startingHpPills: 5,
   victoryRewardPerLevel: 1,
+  // Tu Vi of a won fight (beast or Tu Sĩ): this many ticks' worth of the base rate, plus victoryCultPerLevel ticks per Level of the foe, +victoryCultGap per Level the foe is above the player
+  // (and the same less below, within ±victoryCultGapMax), times the reward multiplier of the foe (elite 2, Tu Sĩ 1.5)
+  victoryCultTicks: 2, victoryCultPerLevel: 0.25, victoryCultGap: 0.1, victoryCultGapMax: 0.3,
   dissolveValueByTier: [1, 3, 10, 40, 200, 1000],
   releaseBase: 2,
   releaseSizeFactors: [0.8, 0.9, 1, 1.2, 1.5],
@@ -270,6 +273,7 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   need(b.sellBackRatio >= 0 && b.sellBackRatio < 1, 'Sell_Back_Ratio phải trong [0,1)');
   need(b.dissolveValueByTier.length === 6 && posInts(b.dissolveValueByTier) && nonDecreasing(b.dissolveValueByTier), 'Dissolve_Value_By_Tier không hợp lệ');
   need(isInt(b.victoryRewardPerLevel) && b.victoryRewardPerLevel >= 1, 'Victory_Reward_Per_Level không hợp lệ');
+  need(b.victoryCultTicks >= 0 && b.victoryCultPerLevel >= 0 && b.victoryCultGap >= 0 && inRange(b.victoryCultGapMax, 0, 0.9), 'Victory_Cult_* không hợp lệ');
   need(b.pillRestore.length === 3 && strictlyIncreasing(b.pillRestore) && b.pillRestore.every((x) => x > 0 && x <= 1), 'Pill_HP_Restore_By_Grade không hợp lệ');
   need(b.releaseBase > 0 && b.releaseSizeFactors.length === 5 && b.releaseSizeFactors.every((x) => x > 0) && nonDecreasing(b.releaseSizeFactors) && b.releaseMutationFactor >= 1, 'Release_* không hợp lệ');
   need(isInt(b.stoneMax) && b.stoneMax >= 1 && b.stoneMax < Number.MAX_SAFE_INTEGER, 'Spirit_Stone_Max không hợp lệ');

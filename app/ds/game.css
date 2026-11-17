@@ -52,9 +52,12 @@
 @layer game {
   .feed { display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 210px); overflow: auto; padding: 2px 6px 2px 2px; }
   .feedRow { position: relative; display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--glass-soft); border: 1px solid var(--line); animation: feed-in 735ms var(--ease-out) backwards; transition: border-color var(--dur-base), background var(--dur-base); }
-  .feed > .feedRow:first-child { animation: feed-in 735ms var(--ease-out) backwards, feed-glow 2.1s ease-out backwards; }
+  .feed > .feedRow:first-child { animation: feed-in 480ms var(--ease-out) backwards; }
+  .feedRow::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold-300) 45%, transparent), 0 0 18px -4px color-mix(in srgb, var(--gold-400) 40%, transparent); }
+  .feed > .feedRow:first-child::after { animation: feed-glow 2.1s ease-out backwards; }
   .feedRow:hover { border-color: var(--line-gold); background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02)); }
   .feedRow::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--rail, var(--line-strong)); box-shadow: 0 0 12px var(--rail, transparent); }
+  .feedRow.monster { flex-wrap: wrap; }
   .feedRow.monster.win { --rail: var(--jade-400); }
   .feedRow.monster.lose { --rail: var(--cinnabar-400); }
   .feedRow.monster.draw { --rail: var(--mist-400); }
@@ -70,9 +73,9 @@
   .out.lose { background: color-mix(in srgb, var(--cinnabar-400) 18%, transparent); color: var(--cinnabar-300); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cinnabar-400) 40%, transparent); }
   .out.draw { background: rgb(255 255 255 / 0.1); color: var(--text-2); }
   /* the fight on a small stage above the journey: two fighters, a technique flying across, a number rising from the one who was hit */
-  .stage { position: relative; display: flex; justify-content: space-between; align-items: flex-end; height: 204px; margin-bottom: var(--sp-3); padding: 0 var(--sp-5) 10px; overflow: hidden; border-radius: var(--r-md); border: 1px solid var(--line-gold); cursor: pointer; background: #07121a; animation: stage-in 420ms var(--ease-out) both; }
-  @keyframes stage-in { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 204px; } }
-  .stSky { position: absolute; inset: 0; background-size: cover; background-position: center; background: radial-gradient(70% 90% at 50% 100%, rgb(98 207 174 / 0.16), transparent 70%), linear-gradient(180deg, rgb(12 28 38), rgb(5 12 18)); }
+  .stage { position: relative; display: flex; justify-content: space-between; align-items: flex-end; aspect-ratio: 21 / 9; min-height: 204px; margin-bottom: var(--sp-3); padding: 0 var(--sp-5) 10px; overflow: hidden; border-radius: var(--r-md); border: 1px solid var(--line-gold); cursor: pointer; background: #07121a; animation: stage-in 420ms var(--ease-out) both; }
+  @keyframes stage-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  .stSky { position: absolute; inset: 0; background: radial-gradient(70% 90% at 50% 100%, rgb(98 207 174 / 0.16), transparent 70%), linear-gradient(180deg, rgb(12 28 38), rgb(5 12 18)); background-size: cover; background-position: center 72%; background-repeat: no-repeat; }   /* after the shorthand, which would reset them; the lower part is kept in view because the fighters stand there */
   .stGround { position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.6)); border-top: 1px solid rgb(238 208 138 / 0.18); }
   .stSide { position: relative; z-index: 1; display: grid; justify-items: center; gap: 4px; width: 38%; }
   .stSide small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: var(--fs-xs); letter-spacing: 0.05em; color: var(--gold-200, #f4dba0); text-shadow: 0 1px 4px #000; }
@@ -94,9 +97,25 @@
   .stSeal { display: grid; place-items: center; color: var(--el, var(--gold-300)); }
   .stSkill { position: absolute; z-index: 3; top: 34px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: var(--r-pill); font-family: var(--font-display); font-size: var(--fs-sm); letter-spacing: 0.04em; color: var(--el); background: rgb(4 10 16 / 0.8); border: 1px solid color-mix(in srgb, var(--el) 60%, transparent); box-shadow: 0 0 16px -4px var(--el); animation: st-skill 520ms var(--ease-out) both; white-space: nowrap; max-width: 92%; }
   /* the arena: its name and the elements it strengthens (green) and weakens (red), top-left, above everything else */
-  .stArena { position: absolute; z-index: 3; top: 8px; left: 10px; display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 20px); padding: 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-2xs); color: var(--gold-200); background: rgb(3 8 13 / 0.6); border: 1px solid var(--line-gold); }
+  .stArena { cursor: pointer; font-family: inherit; position: absolute; z-index: 3; top: 8px; left: 10px; display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 20px); padding: 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-2xs); color: var(--gold-200); background: rgb(3 8 13 / 0.6); border: 1px solid var(--line-gold); }
   .stArena b { font-family: var(--font-display); letter-spacing: 0.04em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .stArena span { display: inline-flex; gap: 2px; padding-left: 6px; border-left: 1px solid var(--line); }
+  .stArena:hover, .stArena:focus-visible { border-color: var(--gold-300); background: rgb(3 8 13 / 0.8); }
+  /* arena window: the whole picture is the window, the explanation sits on a dark fade at the bottom */
+  .modal.arenaModal { z-index: var(--z-zoom); -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(2 6 10 / 0.72); }   /* the picture is the point: nothing blurs it, and the page behind is only dimmed */
+  .modalBody.arenaBody { width: min(860px, 100%); aspect-ratio: 1376 / 768; max-height: 92dvh; padding: 0; display: flex; align-items: flex-end; background-size: cover; background-position: center; background-color: #0a1319; text-align: left; }
+  .arenaInfo { width: 100%; padding: 36px var(--sp-5) var(--sp-3); background: linear-gradient(180deg, transparent, rgb(3 8 13 / 0.55) 55%, rgb(3 8 13 / 0.7)); text-shadow: 0 1px 4px #000, 0 0 10px rgb(0 0 0 / 0.7); }
+  .arenaInfo h2 { margin: 0; }
+  .arenaNote { margin: 2px 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+  .arenaRows { list-style: none; margin: 0 0 var(--sp-2); padding: 0; display: grid; gap: 6px; }
+  .arenaRows li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); }
+  .arenaRows li b { white-space: nowrap; }
+  .arenaRows .up b { color: var(--jade-300); }
+  .arenaRows .down b { color: var(--cinnabar-300); }
+  .arenaRows .els { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .elTag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: var(--r-pill); color: var(--el); border: 1px solid color-mix(in srgb, var(--el) 55%, transparent); background: rgb(3 8 13 / 0.55); }
+  .arenaRows small, .arenaBoth { color: var(--text-3); font-size: var(--fs-xs); }
+  @media (max-width: 560px) { .modalBody.arenaBody { aspect-ratio: auto; min-height: 60dvh; } .arenaInfo { padding-top: 40vh; } }
   .stArena .up::before { content: '▲'; color: var(--jade-300); margin-right: 3px; }
   .stArena .down::before { content: '▼'; color: var(--cinnabar-300); margin-right: 3px; }
   .stSkill > span { overflow: hidden; text-overflow: ellipsis; }
@@ -117,12 +136,20 @@
   @keyframes st-verdict { from { opacity: 0; filter: blur(14px); letter-spacing: 0.95em; transform: scale(1.14); } to { opacity: 1; filter: blur(0); letter-spacing: 0.4em; transform: none; } }
   .stVerdict.win { color: var(--gold-200, #f4dba0); text-shadow: 0 0 22px var(--gold-400); }
   .stVerdict.lose { color: var(--cinnabar-300); }
-  @media (max-width: 640px) { .stage { height: 184px; padding: 0 var(--sp-3) 8px; } .stFig { width: 72px; height: 72px; } .stProj { bottom: 62px; } }
-  .flog > summary { cursor: pointer; display: flex; align-items: center; gap: 6px; list-style: none; color: var(--text-2); }
+  @media (max-width: 640px) { .stage { aspect-ratio: 16 / 9; min-height: 184px; padding: 0 var(--sp-3) 8px; } .stFig { width: 72px; height: 72px; } .stProj { bottom: 62px; } }
+  /* the button that opens the chronicle of a fight: a gold-edged bar across the whole row, with the short result on the right and an arrow */
+  .flog { flex: 0 0 100%; width: 100%; min-width: 0; }
+  .flog > summary { cursor: pointer; display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; padding: 6px 12px; list-style: none; border-radius: var(--r-md); color: var(--gold-200, #f4dba0); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 18%, transparent), color-mix(in srgb, var(--gold-400) 5%, transparent)); border: 1px solid var(--line-gold-strong); box-shadow: 0 0 16px -8px var(--gold-400); transition: border-color var(--dur-base), background var(--dur-base), box-shadow var(--dur-base); -webkit-tap-highlight-color: transparent; }
   .flog > summary::-webkit-details-marker { display: none; }
+  .flog > summary::after { content: ''; flex: none; width: 8px; height: 8px; margin-left: 2px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform var(--dur-base) var(--ease-out); }
+  .flog[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+  .flog > summary:hover, .flog > summary:focus-visible { border-color: var(--gold-300); box-shadow: 0 0 20px -6px var(--gold-400); }
+  .flog > summary:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+  .flogGo { display: inline-flex; align-items: center; gap: 6px; flex: none; font-family: var(--font-display); font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+  .flog > summary small { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
   .flog[open] > summary { margin-bottom: var(--sp-2); }
   /* the fight as a chronicle: ink on dark paper, gold hairlines, a round seal for every technique */
-  .battle { display: grid; gap: 6px; max-height: 420px; overflow-y: auto; overflow-x: hidden; padding: var(--sp-3); border-radius: var(--r-md); color: var(--text-2); background: linear-gradient(180deg, rgb(10 22 30 / 0.78), rgb(4 10 16 / 0.86)); border: 1px solid var(--line-gold); box-shadow: inset 0 0 30px rgb(0 0 0 / 0.5); }
+  .battle { contain: layout paint; will-change: transform; display: grid; gap: 6px; max-height: 420px; overflow-y: auto; overflow-x: hidden; padding: var(--sp-3); border-radius: var(--r-md); color: var(--text-2); background: linear-gradient(180deg, rgb(10 22 30 / 0.78), rgb(4 10 16 / 0.86)); border: 1px solid var(--line-gold); box-shadow: inset 0 0 30px rgb(0 0 0 / 0.5); }
   .bvs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: radial-gradient(120% 140% at 50% 0%, color-mix(in srgb, var(--gold-400) 10%, transparent), transparent 70%); border-bottom: 1px solid var(--line-gold); }
   .bside { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
   .bside > div { display: grid; gap: 3px; min-width: 0; flex: 1; }
@@ -132,6 +159,8 @@
   .barena { font-size: var(--fs-xs); color: var(--text-3); text-align: center; }
   .barena b { color: var(--gold-200); font-weight: 600; }
   .barena .up { color: var(--jade-300); } .barena .down { color: var(--cinnabar-300); }
+  /* the cards below the visible part of the chronicle are not laid out or painted until they scroll into view */
+  .battle > div:not([class]) { content-visibility: auto; contain-intrinsic-size: auto 76px; }
   .bvsMark { font-family: var(--font-display); font-style: italic; letter-spacing: 0.2em; color: var(--gold-400); opacity: 0.8; }
   .bseal { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--el, var(--jade-300)); background: radial-gradient(circle at 35% 28%, rgb(255 255 255 / 0.14), rgb(0 0 0 / 0.5)); border: 1px solid color-mix(in srgb, var(--el, var(--jade-400)) 60%, transparent); box-shadow: 0 0 0 3px rgb(0 0 0 / 0.35), 0 0 14px -3px var(--el, transparent); }
   .bseal.you { --el: var(--jade-300); }
@@ -330,12 +359,12 @@
   .lore .secret { font-size: var(--fs-sm); color: var(--text-3); }
   .lore .chap { margin-top: var(--sp-3); padding-left: var(--sp-3); border-left: 2px solid var(--line-gold); }
   .lore .chap h3 { margin: 0; }
-  .sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: var(--sp-3) 0; }
+  .sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: var(--sp-3) 0; }
   .sum div { padding: 5px 4px; text-align: center; border-radius: var(--r-md); background: var(--glass-soft); border: 1px solid var(--line); animation: enter-up var(--dur-slow) var(--ease-out) both; }
   .sum div:nth-child(2) { animation-delay: 40ms; } .sum div:nth-child(3) { animation-delay: 80ms; } .sum div:nth-child(4) { animation-delay: 120ms; }
   .sum div:nth-child(n + 5) { animation-delay: 170ms; }
   .sum b { display: block; font-family: var(--font-display); font-size: var(--fs-md); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--gold-200); font-variant-numeric: lining-nums tabular-nums; }
-  .sum small { display: block; font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sum small { display: block; font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.2; }
   .hlRow { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); padding: var(--sp-2); border-radius: var(--r-md); background: var(--glass-soft); border: 1px solid var(--line); }
   .modal.zoom { z-index: var(--z-zoom); }
   .zoomBody { width: min(580px, 100%); text-align: center; border-color: color-mix(in srgb, var(--rc, var(--gold-400)) 60%, transparent); box-shadow: var(--sh-3), 0 0 80px -16px color-mix(in srgb, var(--rc, var(--gold-400)) 55%, transparent); }
@@ -353,7 +382,7 @@
   .ico { display: inline-block; flex: none; vertical-align: -0.2em; }
   .genimg { animation: enter-fade 0.9s var(--ease-out) both; }
   @media (max-width: 640px) {
-    .sum { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .sum { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .grid.eq, .grid.pen, .grid.dex { grid-template-columns: 1fr; }
     .introPick { gap: var(--sp-3); }
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -368,9 +397,27 @@
 @layer game {
   /* paper-doll equipment slots in the Trang bị tab (the portrait is for looking only) */
   .eqTitle { margin: 0; text-align: center; font-family: var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-300); }
-  .eqDoll { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto auto auto; grid-template-areas: 'tal . . head' 'wpn acc robe back' 'ring . . foot'; gap: var(--sp-4) var(--sp-2); padding: var(--sp-3) var(--sp-2); }
+  .eqDoll { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto auto; grid-template-areas: 'tal head acc' 'wpn robe back' 'fate foot ring'; gap: var(--sp-4) var(--sp-2); padding: var(--sp-3) var(--sp-2); }
+  /* the doll sits on a lacquered jade panel with a gold double frame and a faint spirit-array ring behind the slots */
+  .eqDoll { position: relative; isolation: isolate; padding: var(--sp-4) var(--sp-3); border-radius: 16px 4px 16px 4px; border: 1px solid var(--line-gold);
+    background: radial-gradient(ellipse at 50% 50%, rgb(45 111 97 / 0.30), transparent 68%), linear-gradient(180deg, rgb(15 38 44 / 0.9), rgb(5 12 18 / 0.95));
+    box-shadow: inset 0 0 36px #000, inset 0 0 0 3px rgb(0 0 0 / 0.4), inset 0 0 0 4px color-mix(in srgb, var(--gold-400) 28%, transparent), 0 4px 18px rgb(0 0 0 / 0.35); }
+  .eqDoll::before { content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: min(62%, 230px); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--gold-400) 34%, transparent);
+    background:
+      radial-gradient(circle, transparent 0 34%, color-mix(in srgb, var(--gold-400) 30%, transparent) 34.5% 35.5%, transparent 36% 62%, color-mix(in srgb, var(--gold-400) 18%, transparent) 62.5% 63.5%, transparent 64%),
+      repeating-conic-gradient(from 22.5deg, color-mix(in srgb, var(--gold-400) 16%, transparent) 0 1deg, transparent 1deg 45deg),
+      radial-gradient(circle, rgb(120 220 190 / 0.12), transparent 70%);
+    box-shadow: 0 0 24px rgb(120 220 190 / 0.12), inset 0 0 18px rgb(0 0 0 / 0.5); }
+  .eqDoll::after { content: ''; position: absolute; z-index: -1; inset: 8px; border-radius: 12px 2px 12px 2px; border: 1px solid color-mix(in srgb, var(--gold-400) 16%, transparent); pointer-events: none; }
   .eqDoll .dollCell { display: flex; align-items: center; justify-content: center; }
-  .eqDoll .slotTile { width: 100%; max-width: 76px; background: rgb(5 12 18 / 0.5); border-color: var(--line); }
+  .eqDoll .slotTile { width: 100%; max-width: 84px; padding: 5px 0 4px; border-radius: 10px 3px 10px 3px; border-color: color-mix(in srgb, var(--gold-400) 38%, transparent);
+    background: linear-gradient(180deg, rgb(26 62 66 / 0.75), rgb(6 16 22 / 0.92)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), inset 0 0 12px rgb(0 0 0 / 0.55), 0 3px 8px rgb(0 0 0 / 0.4); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .eqDoll .slotTile:hover { border-color: var(--gold-300); box-shadow: inset 0 0 12px rgb(0 0 0 / 0.55), 0 0 14px color-mix(in srgb, var(--gold-400) 40%, transparent); }
+  .eqDoll .slotTile.filled { border-color: color-mix(in srgb, var(--rc, var(--gold-400)) 70%, transparent); }
+  .eqDoll .slotTile .sname { text-shadow: 0 1px 2px #000; }
+  .eqDoll .slotTile.fate { opacity: 0.35; cursor: default; filter: grayscale(0.6); }
+  .eqDoll .slotTile.fate:hover { transform: none; border-color: color-mix(in srgb, var(--gold-400) 38%, transparent); box-shadow: inset 0 0 12px rgb(0 0 0 / 0.55), 0 3px 8px rgb(0 0 0 / 0.4); }
   .eqDoll .slotTile .mold { width: 56px; height: 56px; }
   .eqDoll .slotTile.tall .mold { width: 56px; height: 100px; }
   .eqDoll .slotTile.tall.filled { padding-block: 22px; }

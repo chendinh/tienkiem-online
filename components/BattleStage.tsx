@@ -1,26 +1,29 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import * as C from '@/lib/content';
 import type { FeedEntry } from '@/lib/game';
 import { fxOf, fxColor } from '@/lib/skillfx';
 import { Icon } from './ds/Icon';
+import { ModalClose } from './ds/ModalClose';
 import { ElIcon } from './Icons';
 import { Img, useZoom } from './ui';
 import { useFx } from './fx/FxProvider';
 import { playSkill, warmFx } from './fx/SkillFx';
 import { parseLog, FX_LABEL } from './Battle';
+import { SP } from '@/lib/game';
 
 // A short staged replay of the fight that was just written to the journey: both fighters face each other, whoever acts gathers and lunges,
 // the technique plays its own effect (lib/skillfx.ts, drawn by components/fx/SkillFx.ts), the target flinches and the number rises from whoever was hit.
 // It only reads the log (the result was decided by the server), costs nothing at fx=off, and cannot be skipped.
-const SLOW = 1.2;   // the whole replay plays this much slower (20%): less to draw per second, easier to follow
+const SLOW = 1.32;   // the whole replay plays this much slower (32%): less to draw per second, easier to follow
 const MAX_MS = 16000 * SLOW;   // the longest a replay plays (a new fight replaces it at once)
 // Every action gets about the same time slot; a critical hit and the blow that ends the fight get longer, so the rhythm is not flat.
 const slotOf = (n: number) => Math.max(360 * SLOW, Math.min(680 * SLOW, MAX_MS / Math.max(1, n)));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Props = { e: FeedEntry; hero?: string; heroEl: string; onDone: () => void };
-type Act = { w: 'p' | 'b' | 'm'; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; d: number; c: number; x: number; h?: number; hm?: number };
+type Act = { w: 'p' | 'b' | 'm'; sp?: string; mu?: number; f?: string; a?: number; ts?: 'p' | 'm'; n: string; k?: string; e?: string; d: number; c: number; x: number; h?: number; hm?: number };
 
 // A Tu Sĩ has no portrait of its own: it borrows one of the two pre-drawn cultivators, chosen from its name so the same person always looks the same.
 const npcArt = (name: string) => C.introArt([...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 2 ? 'f' : 'm');
@@ -37,6 +40,12 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   const acts = useMemo(() => parsed.flatMap((l) => (l.kind === 'act' && l.a.w !== 'u' ? [l.a as Act] : [])), [parsed]);
   const verdict = (parsed.find((l) => l.kind === 'text') as { kind: 'text'; text: string } | undefined)?.text;
   const [i, setI] = useState(-1);
+  const [arenaOpen, setArenaOpen] = useState(false);
+  useEffect(() => {
+    if (!arenaOpen) return;
+    const h = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setArenaOpen(false); };
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+  }, [arenaOpen]);
   const [hp, setHp] = useState({ you: open?.o.ph ?? 1, foe: open?.o.fh ?? 1 });
   const youRef = useRef<HTMLDivElement>(null), foeRef = useRef<HTMLDivElement>(null), stageRef = useRef<HTMLDivElement>(null), layerRef = useRef<HTMLDivElement>(null), done = useRef(false);
   // per action, read while rendering: whether the technique plays its own effect (else the plain icon flies) and the length of the slot
@@ -129,6 +138,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
     };
 
     // the technique pictures are tinted once, then the replay starts (a picture that is not ready in time falls back to the plain icon)
+    acts.forEach((a) => { if (a.w === 'b' && a.sp) { const im = new Image(); im.src = C.monsterArt(a.sp, !!a.mu, true); } });   // the portraits are ready when the swap happens
     const need = acts.filter((a) => a.f !== 'skip').map((a) => warmFx(fxOf(a.k, a.f, a.e), colorOf(a)));
     Promise.race([Promise.all(need), sleep(2500)]).then(() => { if (!dead) timers.push(setTimeout(() => play(0), 250)); });
     return () => { dead = true; timers.forEach(clearTimeout); };
@@ -137,6 +147,8 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   if (!open || acts.length === 0 || fx.level === 'off') return null;
   const cur = i >= 0 && i < acts.length ? acts[i] : null, foeActs = cur?.w === 'm';
   const col = cur ? colorOf(cur) : 'var(--gold-300)';
+  // while a Linh Thú strikes, your side shows that creature instead of the hero (fights written before this was recorded keep the hero)
+  const pal = cur && cur.w === 'b' && cur.sp && i < acts.length ? cur : null, palEl = pal ? SP(pal.sp!).el[0] : null;
   const foeEl = open.o.fe[0], won = verdict === 'Thắng', lost = verdict === 'Bại';
   const over = i >= acts.length;   // the fight is finished: the verdict is on screen
   const arena = C.ARENA(open.o.ar);
@@ -144,16 +156,17 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
 
   return (
     <div className="stage" ref={stageRef} role="img" aria-label={`Giao chiến với ${open.o.f}: ${verdict || ''}`}>
-      <div className="stSky" style={arena ? { backgroundImage: `linear-gradient(180deg, rgb(4 10 16 / 0.25), rgb(4 10 16 / 0.7)), url(${C.arenaArt(arena.id)})` } : undefined} /><div className="stGround" />
-      {arena && <div className="stArena" title={`${arena.note} Tăng: ${arena.boost.join(', ')}. Giảm: ${arena.weaken.join(', ')}.`}><b>{arena.name}</b><span className="up">{arena.boost.map((el) => <ElIcon key={el} el={el} size={12} />)}</span><span className="down">{arena.weaken.map((el) => <ElIcon key={el} el={el} size={12} />)}</span></div>}
+      <div className="stSky" style={arena ? { backgroundImage: `linear-gradient(180deg, rgb(4 10 16 / 0.02), rgb(4 10 16 / 0.5)), url(${C.arenaArt(arena.id)})` } : undefined} /><div className="stGround" />
+      {arena && <button type="button" className="stArena" aria-haspopup="dialog" aria-label={`Chiến trường ${arena.name}: xem chi tiết`} onClick={() => setArenaOpen(true)}><b>{arena.name}</b><span className="up">{arena.boost.map((el) => <ElIcon key={el} el={el} size={12} />)}</span><span className="down">{arena.weaken.map((el) => <ElIcon key={el} el={el} size={12} />)}</span></button>}
+      {arena && arenaOpen && createPortal(<ArenaPopup arena={arena} close={() => setArenaOpen(false)} />, document.body)}
       {cur && <div key={`k${i}`} className={`stSkill ${foeActs ? 'foe' : ''}`} style={{ '--el': col } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={14} /> : <Icon name="atk" size={14} />}<span>{cur.w === 'b' ? `${cur.n} · ` : ''}«{cur.k || 'Đòn đánh'}»</span></div>}
 
       <div className="stSide you">
         <div className="stBar you"><i className="lag" style={{ width: `${youPct}%` }} /><i className="cur" style={{ width: `${youPct}%` }} /></div>
-        <div ref={youRef} onClick={hero ? () => zoom({ kind: 'avatar', src: hero, name: 'Ngươi' }) : undefined} className={`stFig ${hp.you <= 0 ? 'down' : ''} ${over && won ? 'win' : ''}`} style={{ '--el': C.EL[heroEl]?.color } as CSSProperties}>
-          {hero ? <Img src={`${hero}?s=face`} fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
+        <div ref={youRef} onClick={hero && !pal ? () => zoom({ kind: 'avatar', src: hero, name: 'Ngươi' }) : undefined} className={`stFig ${pal ? 'pal' : ''} ${hp.you <= 0 ? 'down' : ''} ${over && won ? 'win' : ''}`} style={{ '--el': C.EL[palEl || heroEl]?.color } as CSSProperties}>
+          {pal ? <Img src={C.monsterArt(pal.sp!, !!pal.mu, true)} fb={<ElIcon el={palEl!} size={40} />} /> : hero ? <Img src={`${hero}?s=face`} fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
         </div>
-        <small>Ngươi</small>
+        <small>{pal ? pal.n : 'Ngươi'}</small>
       </div>
 
       <div className="stSide foe">
@@ -170,6 +183,34 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       {/* a technique whose pictures are not ready keeps the plain flying icon */}
       {cur && !cur.f && !beat.current.own && <span key={`p${i}`} className={`stProj ${foeActs ? 'l' : 'r'}`} style={{ '--el': col, animationDuration: `${beat.current.slot * 0.5}ms` } as CSSProperties}>{cur.e ? <ElIcon el={cur.e} size={22} /> : <Icon name="atk" size={22} />}</span>}
       {over && <div className={`stVerdict ${won ? 'win' : lost ? 'lose' : ''}`}>{won ? 'Đại thắng' : lost ? 'Thua trận' : 'Hòa'}</div>}
+    </div>
+  );
+}
+
+// The arena window: its whole picture, with a short line for what it does to each element. It applies to both sides of the fight.
+function ArenaPopup({ arena, close }: { arena: NonNullable<ReturnType<typeof C.ARENA>>; close: () => void }) {
+  const up = Math.round((C.ARENA_BOOST - 1) * 100), down = Math.round((1 - C.ARENA_WEAKEN) * 100);
+  const row = (cls: 'up' | 'down', els: string[], pct: number, text: string) => els.length > 0 && (
+    <li className={cls}>
+      <b>{cls === 'up' ? '▲' : '▼'} {cls === 'up' ? 'Tăng' : 'Giảm'} {pct}%</b>
+      <span className="els">{els.map((el) => <span key={el} className="elTag" style={{ '--el': C.EL[el]?.color } as CSSProperties}><ElIcon el={el} size={14} /> {el}</span>)}</span>
+      <small>{text}</small>
+    </li>
+  );
+  return (
+    <div className="modal zoom arenaModal" onClick={close} role="dialog" aria-modal="true" aria-label={arena.name}>
+      <ModalClose onClose={close} />
+      <div className="modalBody arenaBody" onClick={(ev) => ev.stopPropagation()} style={{ backgroundImage: `url(${C.arenaArt(arena.id)})` }}>
+        <div className="arenaInfo">
+          <h2>{arena.name}</h2>
+          <p className="arenaNote">{arena.note}</p>
+          <ul className="arenaRows">
+            {row('up', arena.boost, up, 'Chiêu hệ này mạnh hơn.')}
+            {row('down', arena.weaken, down, 'Chiêu hệ này yếu đi.')}
+          </ul>
+          <small className="arenaBoth">Áp dụng cho cả hai bên, kể cả linh thú.</small>
+        </div>
+      </div>
     </div>
   );
 }

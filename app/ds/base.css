@@ -33,6 +33,8 @@
 
   /* selection, focus, scrollbars */
   ::selection { background: color-mix(in srgb, var(--jade-400) 38%, transparent); color: #fff; }
+  html { -webkit-tap-highlight-color: transparent; }
+  :focus:not(:focus-visible) { outline: none; }   /* a click or a tap leaves no ring; the keyboard still gets one below */
   :focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
   * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gold-500) 50%, transparent) transparent; }
   ::-webkit-scrollbar { width: 9px; height: 9px; }

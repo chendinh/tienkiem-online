@@ -125,14 +125,15 @@ function SlotMold({ st, eqx, slot, tall }: { st: GS; eqx: Eqx; slot: string; tal
 
 // The eight slots laid out as a paper doll (grid areas in game.css: .eqDoll). Drag a bag item into its slot; the portrait is for looking only.
 const DOLL: { slot: string; area: string; tall?: boolean }[] = [
-  { slot: 'Talisman', area: 'tal' }, { slot: 'Headwear', area: 'head' },
-  { slot: 'Weapon', area: 'wpn', tall: true }, { slot: 'Accessory', area: 'acc' }, { slot: 'Robe', area: 'robe', tall: true }, { slot: 'Back', area: 'back', tall: true },
-  { slot: 'Ring', area: 'ring' }, { slot: 'Footwear', area: 'foot' },
+  { slot: 'Talisman', area: 'tal' }, { slot: 'Headwear', area: 'head' }, { slot: 'Accessory', area: 'acc' },
+  { slot: 'Weapon', area: 'wpn', tall: true }, { slot: 'Robe', area: 'robe', tall: true }, { slot: 'Back', area: 'back', tall: true },
+  { slot: 'Footwear', area: 'foot' }, { slot: 'Ring', area: 'ring' },
 ];
 function EquipDoll({ st, eqx }: { st: GS; eqx: Eqx }) {
   return (
     <div className="eqDoll">
       {DOLL.map((d) => <div key={d.slot} className="dollCell" style={{ gridArea: d.area }}><SlotMold st={st} eqx={eqx} slot={d.slot} tall={d.tall} /></div>)}
+      <div className="dollCell" style={{ gridArea: 'fate' }} aria-hidden="true"><div className="slotTile fate"><div className="mold" /><span className="sname">Cơ duyên</span></div></div>
     </div>
   );
 }

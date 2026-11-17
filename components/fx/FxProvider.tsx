@@ -35,7 +35,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let v: FxLevel = 'mid';
-    try { const s = localStorage.getItem(STORE) as FxLevel | null; if (s && s in K) v = s; else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) v = 'off'; else { const n = navigator as Navigator & { deviceMemory?: number }; if ((n.hardwareConcurrency || 8) <= 4 || (n.deviceMemory || 8) <= 4) v = 'low'; } } catch {}
+    try { const s = localStorage.getItem(STORE) as FxLevel | null; if (s && s in K) v = s === 'off' ? 'low' : s; else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) v = 'low'; else { const n = navigator as Navigator & { deviceMemory?: number }; if ((n.hardwareConcurrency || 8) <= 4 || (n.deviceMemory || 8) <= 4) v = 'low'; } } catch {}
     lv.current = v; setLevelState(v); document.documentElement.dataset.fx = v;
   }, []);
   const setLevel = useCallback((l: FxLevel) => {
@@ -167,32 +167,6 @@ export function FxProvider({ children }: { children: ReactNode }) {
       vignette(color) { if (!K[lv.current]) return; dom('fx-vignette', 1500, (el) => { if (color) el.style.setProperty('--vc', color); }); },
     };
   }, [level, setLevel, wake]);
-
-  // click ripple on every .btn: one listener for the whole app
-  useEffect(() => {
-    const onDown = (e: PointerEvent) => {
-      if (!K[lv.current]) return;
-      const b = (e.target as HTMLElement | null)?.closest?.('.btn') as HTMLElement | null; if (!b) return;
-      const r = b.getBoundingClientRect(); b.style.setProperty('--rx', `${e.clientX - r.left}px`); b.style.setProperty('--ry', `${e.clientY - r.top}px`);
-      b.classList.remove('rip'); void b.offsetWidth; b.classList.add('rip'); setTimeout(() => b.classList.remove('rip'), 700);
-    };
-    document.addEventListener('pointerdown', onDown, { passive: true });
-    return () => document.removeEventListener('pointerdown', onDown);
-  }, []);
-
-  // qi trail behind the mouse (fx=high only)
-  useEffect(() => {
-    let last = 0;
-    const onMove = (e: PointerEvent) => {
-      if (lv.current !== 'high' || e.pointerType !== 'mouse') return;
-      const t = performance.now(); if (t - last < 38) return; last = t;
-      const W = world.current; const col = Math.random() < 0.5 ? '#8ee6c8' : '#eed08a';
-      W.parts.push({ x: e.clientX, y: e.clientY, vx: (Math.random() - 0.5) * 24, vy: -10 - Math.random() * 22, g: -6, drag: 0.8, life: 0.7, max: 0.7, size: 7 + Math.random() * 8, sp: sprite(col), kind: 'qi', sway: 6, ph: Math.random() * 6 });
-      wake();
-    };
-    window.addEventListener('pointermove', onMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onMove);
-  }, [wake]);
 
   return (
     <FxCtx.Provider value={fx}>

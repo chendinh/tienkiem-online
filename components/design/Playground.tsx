@@ -50,7 +50,7 @@ export function Motion() {
         <div key={n} className="stag">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="glass reveal" style={{ ['--i' as string]: i }}><Icon name={['atk', 'def', 'spd', 'crit', 'luck', 'cult'][i]} size={22} /></div>)}</div></div>
       <div className="glass ds-card"><h4>Chuyển động nền (thở, trôi, xoay)</h4>
         <div className="amb"><div className="amb-orb" /><div className="amb-ring" /><div className="amb-float"><Icon name="lotus" size={30} /></div></div>
-        <p className="ds-note">Mọi vòng lặp nền dùng đường cong sin và tạm dừng ở mức hiệu ứng Nhẹ, tắt hẳn ở mức Tắt hoặc khi hệ thống yêu cầu giảm chuyển động.</p></div>
+        <p className="ds-note">Mọi vòng lặp nền dùng đường cong sin và tạm dừng ở mức hiệu ứng Nhẹ.</p></div>
     </div>
   );
 }
@@ -64,8 +64,8 @@ export function Effects() {
   return (
     <div className="ds-stack">
       <div className="glass ds-card"><h4>Mức hiệu ứng</h4>
-        <Seg<FxLevel> label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'off', label: 'Tắt' }, { v: 'low', label: 'Nhẹ' }, { v: 'mid', label: 'Vừa' }, { v: 'high', label: 'Nhiều' }]} />
-        <p className="ds-note">Tắt: không chuyển động. Nhẹ: chỉ phản hồi khi bấm. Vừa: thêm hạt linh khí, sương, nghiêng chân dung. Nhiều: thêm vệt linh khí theo chuột và mật độ hạt cao. Lưu theo trình duyệt.</p></div>
+        <Seg<FxLevel> label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'low', label: 'Nhẹ' }, { v: 'mid', label: 'Vừa' }, { v: 'high', label: 'Nhiều' }]} />
+        <p className="ds-note">Nhẹ: chỉ phản hồi khi bấm. Vừa: thêm nghiêng chân dung. Hạt và sóng chỉ xuất hiện trong trận đánh; ở đây là để thử. Lưu theo trình duyệt.</p></div>
       <div className="glass ds-card"><h4>Hạt và sóng</h4>
         <div className="ds-row wrap">{BURSTS.map(([k, t]) => <button key={k} className="btn" onClick={(e) => fx.burst({ ...at(e), kind: k, count: 40 })}>{t}</button>)}
           <button className="btn" onClick={(e) => fx.ring({ ...at(e), size: 160 })}>Sóng vòng</button>

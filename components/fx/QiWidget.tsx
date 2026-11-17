@@ -13,7 +13,7 @@ export function QiWidget({ aura = '#62cfae' }: { aura?: string }) {
   useEffect(() => {
     const c = cv.current; if (!c || level === 'off') return;
     const g = c.getContext('2d'); if (!g) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = 1;
     c.width = W * dpr; c.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const n = level === 'low' ? 6 : level === 'mid' ? 11 : 16, fps = level === 'low' ? 10 : level === 'mid' ? 24 : 30;
     const motes: Mote[] = Array.from({ length: n }, (_, i) => ({ x: (i * 0.618) % 1, y: (i * 0.414 + 0.2) % 1, vy: 0.05 + ((i * 7) % 11) / 11 * 0.08, ph: i * 1.7, tw: 0.8 + (i % 4) * 0.5, r: 1.4 + (i % 3) * 0.6, col: i % 3 }));

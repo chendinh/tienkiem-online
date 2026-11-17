@@ -814,7 +814,7 @@ function fightCore(st: GameState, S: ReturnType<typeof pstats>, m: Foe, party: B
           const tu = live(you.side.fx.atkUp, r), team = tu && tu.team ? 1 + tu.amt : 1;
           const bh = hit(x.b.stats[2] * team, m.stats[3] * (1 - (live(foe.side.fx.defDown, r)?.amt || 0)), sk.def.coef * sk.off * B.beastCoefScale, bm * bw, 5, 150);
           mhp -= bh.d;
-          push(rec({ r, w: 'b', n: x.b.name, k: sk.def.name, e: sk.def.el || x.el[0], to: m.name, d: bh.d, c: 0, x: +bm.toFixed(2), ...(bw !== 1 ? { am: bw } : {}), s: 0, h: Math.max(0, mhp), hm: m.stats[0] }));
+          push(rec({ r, w: 'b', n: x.b.name, sp: x.b.sp, ...(x.b.mut ? { mu: 1 } : {}), k: sk.def.name, e: sk.def.el || x.el[0], to: m.name, d: bh.d, c: 0, x: +bm.toFixed(2), ...(bw !== 1 ? { am: bw } : {}), s: 0, h: Math.max(0, mhp), hm: m.stats[0] }));
         }
       } else {
         if (foe.side.skip > 0) { foe.side.skip--; push(rec({ r, w: 'm', n: m.name, k: 'Choáng váng', e: '', to: m.name, d: 0, c: 0, x: 1, s: 0, f: 'skip', ts: 'm', h: Math.max(0, mhp), hm: m.stats[0] })); continue; }
@@ -934,6 +934,10 @@ const rollDrops = (st: GameState, zone: C.Zone, srcLevel: number, n: number, luc
 function victory(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, level: number, rep: Report | undefined, chips: string[], mult = 1, book?: { el?: string; cls?: string; boost: number }) {
   st.kills++; if (rep) rep.wins++;
   const v = earn(st, Math.round(B.victoryRewardPerLevel * level * mult), 'victory', rep); chips.push(`+${v} Linh Thạch`);
+  // what the fight taught: a few ticks of Tu Vi, more from a higher foe (a high Level asks far more Tu Vi to climb, so the reward grows with it)
+  const pl = levelOf(st.player), gap = Math.max(-B.victoryCultGapMax, Math.min(B.victoryCultGapMax, (level - pl) * B.victoryCultGap));
+  const cp = Math.round(cultRate(pl) * (B.victoryCultTicks + B.victoryCultPerLevel * level) * (1 + gap) * mult);
+  if (cp > 0) { st.player.cp += cp; if (rep) rep.cp += cp; chips.push(`+${cp.toLocaleString('vi-VN')} Tu Vi`); advance(st, rep); }
   rollDrops(st, zone, level, B.dropRollCount + (mult > 1 ? 1 : 0), (ph && ph.luck) || 0, rep, '', chips);
   if (book) { rollBook(st, book, level, rep, chips); rollMethod(st, level, rep, chips); }
 }
