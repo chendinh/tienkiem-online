@@ -101,8 +101,9 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
                   <div className="dqNewsRow"><b>{pack.title}</b><small>Chương mới của Nhật Ký Thiên Hạ.</small><button type="button" className="btn sm" onClick={() => { onClose(); onLore(); }}>Đọc nhật ký</button></div>
                   {beast && <div className="dqNewsRow">{beastPic}<span><b>Yêu thú mới: {beast.name}</b><small>Xuất hiện ở {zones.join(', ')}. Nhiều gấp {D.TODAY_BOOST} trong ngày đầu.</small></span></div>}
                   {pack.weapon && (
-                    <div className="dqNewsRow"><span className="dqPic sm"><GenImg spec={{ kind: 'item', slot: 'Weapon', base: pack.weapon.base, tier: Math.min(1, ...pack.weapon.tiers), e: '' }} pri={3} fb={<Icon name="atk" size={26} />} /></span>
-                      <span><b>Pháp khí mới: {pack.weapon.base}</b><small>{A.ART(pack.weapon.cls)?.name || pack.weapon.cls}. Có thể rơi từ nay về sau.</small></span></div>
+                    <div className="dqNewsRow"><span className="dqPic sm"><GenImg spec={{ kind: 'item', slot: 'Weapon', base: pack.weapon.base, tier: Math.min(...pack.weapon.tiers), e: '' }} pri={3} fb={<Icon name="atk" size={26} />} /></span>
+                      <span><b>Pháp khí mới: {pack.weapon.base}</b><small>{A.ART(pack.weapon.cls)?.name || pack.weapon.cls}. Có thể rơi từ nay về sau.</small>
+                        <span className="chips">{[...pack.weapon.tiers].sort((a, b) => a - b).map((t) => <span key={t} className="chip" style={{ color: C.RCOLOR[t], borderColor: C.RCOLOR[t] + '77' }}>{C.RARITY[t]}</span>)}</span></span></div>
                   )}
                 </div>
               ) : <div className="empty">Chưa có tin hôm nay.</div>}
