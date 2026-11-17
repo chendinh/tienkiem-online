@@ -22,7 +22,7 @@ const ago = (t: number) => { const m = Math.max(0, Math.round((Date.now() - t) /
 const STATS: [string, string, string][] = [['maxHp', 'Sinh Lực', 'hp'], ['atk', 'Công Kích', 'atk'], ['def', 'Phòng Ngự', 'def'], ['spd', 'Thân Pháp', 'spd'], ['crit', 'Bạo Kích %', 'crit'], ['critdmg', 'Bạo Thương %', 'crit'], ['luck', 'May Mắn', 'luck'], ['cult', 'Tu Luyện %', 'cult']];
 const elColor = (r: Row) => C.EL[r.el[0]]?.color || 'var(--gold-300)';
 // The tag of honour for finishing the daily quest, with how many times it was done.
-const QuestTag = ({ n, big }: { n?: number; big?: boolean }) => (n && n > 0 ? <span className={`questTag${big ? ' big' : ''}`} title={`Đã hoàn thành nhiệm vụ ngày ${n} lần`}><Icon name="scroll" size={big ? 15 : 12} /> Nhiệm vụ ngày ×{n}</span> : null);
+const QuestTag = ({ n, big }: { n?: number; big?: boolean }) => (n && n > 0 ? <span className={`questTag${big ? ' big' : ''}`} title={`Đã hoàn thành nhiệm vụ ngày ${n} lần`}><Icon name="scroll" size={big ? 15 : 12} /><span className="qtl">Nhiệm vụ ngày </span>×{n}</span> : null);
 const MEDAL = ['', 'Thiên Bảng', 'Địa Bảng', 'Nhân Bảng'];
 
 // Bảng Phong Thần: a stele of the strongest cultivators. The first three stand on a podium, the rest follow in a list,

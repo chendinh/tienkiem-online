@@ -17,7 +17,7 @@
 
   /* two panes */
   .rkBody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 430px); }
-  .rkBoard, .rkDetail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .rkBoard, .rkDetail { min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }   /* never sideways: whatever is too wide is cut or wrapped inside its own cell */
   .rkBoard { position: relative; display: flex; flex-direction: column; padding: 0 var(--sp-4); }
   .rkDetail { padding: var(--sp-4) var(--sp-5) var(--sp-5); border-left: 1px solid var(--line-gold); background: linear-gradient(180deg, rgb(0 0 0 / 0.22), rgb(0 0 0 / 0.1)); }
   .rkBack { display: none; margin-bottom: var(--sp-3); }
@@ -25,7 +25,7 @@
   .rkHintBox p { max-width: 240px; margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
 
   /* podium: second, first, third */
-  .rkPodium { display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: end; gap: var(--sp-3); padding: var(--sp-5) var(--sp-2) 0; }
+  .rkPodium { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr); align-items: end; gap: var(--sp-3); padding: var(--sp-5) var(--sp-2) 0; }
   .pod { --m: #c4d0d4; --h: 62px; position: relative; display: grid; justify-items: center; gap: 2px; padding: 0; min-width: 0; border: 0; background: none; color: inherit; text-align: center; cursor: pointer; }
   .pod.empty { pointer-events: none; }
   .pod.r1 { --m: #f2d68c; --h: 92px; }
@@ -59,9 +59,10 @@
   .rkWho b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rkWho small, .rkRealm small { color: var(--text-3); font-size: var(--fs-xs); }
   .rkWho small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .questTag { display: inline-flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; color: var(--gold-200, var(--gold-300)); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 22%, transparent), color-mix(in srgb, var(--gold-400) 8%, transparent)); border: 1px solid color-mix(in srgb, var(--gold-400) 50%, transparent); }
+  .questTag { display: inline-flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; color: var(--gold-200, var(--gold-300)); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 22%, transparent), color-mix(in srgb, var(--gold-400) 8%, transparent)); border: 1px solid color-mix(in srgb, var(--gold-400) 50%, transparent); }
   .questTag.big { padding: 3px 11px; font-size: var(--fs-sm, 0.9rem); }
-  .podium .questTag, .pod .questTag { margin-top: 2px; }
+  .pod .questTag { margin-top: 2px; }
+  .rkRow, .rkRow > * { min-width: 0; }
   .rkRealm { display: grid; justify-items: end; font-size: var(--fs-sm); white-space: nowrap; }
   .rkMetric { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--gold-200); font-variant-numeric: tabular-nums; }
   .rkBar { position: absolute; left: 0; bottom: 0; height: 2px; width: var(--pct, 0%); background: linear-gradient(90deg, transparent, var(--el)); opacity: 0.7; }
@@ -124,6 +125,7 @@
     .podName { font-size: var(--fs-md); }
     .pod.r1 .podName { font-size: var(--fs-lg); }
     .podRealm { display: none; }
+    .rkRow .questTag .qtl, .pod .questTag .qtl { display: none; }   /* a phone shows only the scroll and the count */
     .rkHead { flex-direction: column; align-items: center; text-align: center; }
     .rkHead .chips { justify-content: center; }
   }

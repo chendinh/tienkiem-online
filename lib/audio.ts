@@ -24,8 +24,7 @@ class Engine {
   private noise: AudioBuffer | null = null;
   private subs = new Set<() => void>();
   private unlocked = false;
-  // iOS Safari ignores HTMLMediaElement.volume (always 1), so there the music is routed through a Web Audio gain node instead.
-  private volFixed = false;
+  // iOS Safari ignores HTMLMediaElement.volume (always 1), so the music is routed through a Web Audio gain node instead (see unlock).
   private gains = new Map<HTMLAudioElement, GainNode>();
   private loading = false;
   private fading = false;
@@ -34,7 +33,6 @@ class Engine {
   constructor() {
     try { Object.assign(this.prefs, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch {}
     this.els = [new Audio(), new Audio()];
-    try { const t = new Audio(); t.volume = 0.5; this.volFixed = t.volume !== 0.5; } catch {}
     this.els.forEach((a, i) => {
       a.preload = 'auto'; a.volume = 0;
       a.addEventListener('timeupdate', () => { if (i === this.cur && a.duration && a.duration - a.currentTime < XFADE / 1000 + 0.4 && !this.fading && this.tracks.length > 1) this.next(); });
@@ -74,8 +72,10 @@ class Engine {
     try {
       const AC = window.AudioContext || (window as any).webkitAudioContext; this.ctx = new AC(); this.out = this.ctx.createGain(); this.out.gain.value = 0.55; this.out.connect(this.ctx.destination);
       const n = this.ctx.sampleRate * 2, b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.noise = b;
-      if (this.volFixed) this.els.forEach((a) => {
-        try { const g = this.ctx!.createGain(); g.gain.value = a.volume; this.ctx!.createMediaElementSource(a).connect(g); g.connect(this.ctx!.destination); this.gains.set(a, g); } catch {}
+      // The music always goes through a Web Audio gain node, whatever the browser claims: iOS Safari ignores HTMLMediaElement.volume, and testing for that
+      // (set 0.5, read it back) is not reliable there, so the volume used to stay at 100% on an iPhone. If the node cannot be made, a.volume is the fallback.
+      this.els.forEach((a) => {
+        try { const g = this.ctx!.createGain(); g.gain.value = a.volume; this.ctx!.createMediaElementSource(a).connect(g); g.connect(this.ctx!.destination); a.volume = 1; this.gains.set(a, g); } catch {}
       });
     } catch {}
     this.ctx?.resume?.();

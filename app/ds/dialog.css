@@ -12,3 +12,9 @@
   .dlgAct { display: flex; justify-content: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
   .btn.dlgDanger { color: #2a0d08; background: linear-gradient(180deg, #ffc2b4 0%, #ff9c8a 50%, #d9654f 100%); border-color: #ff9c8a; }
 }
+
+/* The popup chips wrap instead of running past the edge (for example the long "đã dùng Khế Ước..." line of the welcome-back report).
+   This must live in the game layer: ds-controls comes after ds-surfaces, so its `.chip { white-space: nowrap }` beat the same rule written in surfaces.css. */
+@layer game {
+  .modalBody .chip { white-space: normal; max-width: 100%; border-radius: var(--r-md); }
+}
