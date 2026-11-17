@@ -16,7 +16,7 @@ const DAY = 86400_000;
 const r2 = (x: number) => Math.round(x * 100) / 100;
 const r4 = (x: number) => Math.round(x * 10000) / 10000;
 const daysBack = (now: number, n: number) => Array.from({ length: n }, (_, i) => dayKey(now - (n - 1 - i) * DAY));
-const maskEmail = (e: string) => { const [u, d] = e.split('@'); return d ? `${u.slice(0, 2)}${'*'.repeat(Math.max(2, Math.min(6, u.length - 2)))}@${d}` : '(khách)'; };
+const fullEmail = (e: string) => (e.includes('@') ? e : '(khách)');   // the report is for the owner only, so the whole address is shown
 
 export interface Money { spent: number; cap: number; remaining: number; pct: number }
 export interface Report {
@@ -215,7 +215,7 @@ export async function buildReport(now = Date.now()): Promise<Report> {
     byDay: d14.map((day) => { const accs = [...(presDay.get(day)?.accs || [])].filter((x) => realIds.has(x)); return { day, hours: r2(pres.filter((r) => r.day === day && realIds.has(r.acc)).reduce((s, r) => s + r.mins, 0) / 60), players: accs.length }; }),
     tz: '', hours: [], heat: [], peak: [], daysCounted: 0,
     buckets: BUCKETS.map(([label], i) => ({ label, n: bucketN[i] })),
-    top: perAcc.sort((x, y) => y.mins - x.mins).slice(0, 10).map((p) => { const n = names.get(p.acc); return { name: n?.name || '(chưa có nhân vật)', email: n ? maskEmail(n.email) : '', kind: n?.guest ? 'khách' : 'đã đăng ký', hours: r2(p.mins / 60), days: p.days }; }),
+    top: perAcc.sort((x, y) => y.mins - x.mins).slice(0, 10).map((p) => { const n = names.get(p.acc); return { name: n?.name || '(chưa có nhân vật)', email: n ? fullEmail(n.email) : '', kind: n?.guest ? 'khách' : 'đã đăng ký', hours: r2(p.mins / 60), days: p.days }; }),
   };
 
   // ---- which hours of the day (Việt Nam time, UTC+7) players are there. Bit m of a day (UTC) is the minute m; a player counts in an hour when at least one minute of it is marked.
