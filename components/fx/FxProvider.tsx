@@ -167,7 +167,12 @@ export function FxProvider({ children }: { children: ReactNode }) {
         dom('fx-float', 1800, (el) => { el.style.left = `${x}px`; el.style.top = `${y}px`; if (o.color) el.style.setProperty('--c', o.color); el.textContent = text; if (o.sub) { const s = document.createElement('small'); s.textContent = o.sub; el.appendChild(s); } });
       },
       shake() { if (K[lv.current] < 1) return; const h = document.documentElement; h.classList.remove('fx-shake'); void h.offsetWidth; h.classList.add('fx-shake'); setTimeout(() => h.classList.remove('fx-shake'), 520); },
-      vignette(color) { if (!K[lv.current]) return; dom('fx-vignette', 1500, (el) => { if (color) el.style.setProperty('--vc', color); }); },
+      // at most one red edge at a time and not too often: at high speed auto-breakthrough fails back to back, and stacked edges used to tint the whole screen red
+      vignette(color) {
+        if (!K[lv.current] || document.hidden || !gate('vignette', 4000)) return;
+        document.querySelectorAll('.fx-vignette').forEach((n) => n.remove());
+        dom('fx-vignette', 1500, (el) => { if (color) el.style.setProperty('--vc', color); });
+      },
     };
   }, [level, setLevel, wake]);
 
