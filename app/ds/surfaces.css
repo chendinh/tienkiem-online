@@ -56,7 +56,7 @@
   /* modal shell (backdrop + body), animation lives in motion.css */
   .modal {
     position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--sp-4);
-    background: radial-gradient(70% 60% at 50% 40%, rgb(8 22 28 / 0.55), rgb(2 6 10 / 0.86)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    background: radial-gradient(70% 60% at 50% 40%, rgb(8 22 28 / 0.62), rgb(2 6 10 / 0.88));   /* no backdrop-filter: on iPhone Safari a full-screen blur layer stays painted (a dark veil) after the window closes */
   }
   /* the modal body scrolls, so its frame is painted as backgrounds (they stay put while the text moves) */
   .modalBody {
