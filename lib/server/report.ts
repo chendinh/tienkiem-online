@@ -46,7 +46,9 @@ export interface Report {
     buckets: { label: string; n: number }[];
     top: { name: string; email: string; kind: string; hours: number; days: number }[];
   };
-  items: { names: string[]; colors: string[]; dropped: number[]; droppedBots: number[]; held: number[]; since: string; accountsCounted: number };
+  items: { names: string[]; colors: string[]; dropped: number[]; droppedBots: number[]; held: number[]; since: string; accountsCounted: number;
+    byDay: { day: string; n: number[] }[]; trackedSince: string | null;     // real players only: items found per UTC day by rarity, counted from the day this was added
+    content: { day: string; beasts: number; weapons: number; pictures: number }[] };   // what the game itself gained per day: new creatures, new weapons, new pictures drawn
   beasts: {
     total: number; bots: number; avgPerPlayer: number; maxPerPlayer: number; mutants: number; tamedEver: number; mutTamedEver: number;
     speciesInGame: number; speciesTamed: number; sizes: { name: string; n: number }[]; species: { id: string; name: string; n: number }[];
@@ -138,12 +140,14 @@ export async function buildReport(now = Date.now()): Promise<Report> {
   }
   const todayAccs = presDay.get(today)?.accs || new Set<string>();
 
+  const picDay = new Map((await query<{ d: string; n: number }>(`SELECT left(COALESCE(meta->>'date', created::text), 10) AS d, count(*)::int AS n FROM images GROUP BY 1`)).rows.map((r) => [r.d, r.n] as [string, number]));
   // ---- one pass over every account
   const P = { real: 0, registered: 0, guests: 0, bots: 0, active24h: 0, active7d: 0, withCharacter: 0 };
   const newBy = new Map<string, number>(d14.map((d) => [d, 0]));
   const levels = Array(B.playableLevelCap).fill(0), realms = Array(C.REALMS.length).fill(0), zones = new Map<string, number>();
   const auto = { autoTame: 0, autoFight: 0, autoBreak: 0, retreat: 0 };
   const dropped = Array(6).fill(0), droppedBots = Array(6).fill(0), held = Array(6).fill(0);
+  const d30 = daysBack(now, 30), dropBy = new Map<string, number[]>(d30.map((d) => [d, Array(6).fill(0)])); let dropFirst: string | null = null;
   let counted = 0;
   const bt = { total: 0, bots: 0, maxPer: 0, mut: 0, tamedEver: 0, mutEver: 0, sizes: Array(5).fill(0), sp: new Map<string, number>(), tamedSp: new Set<string>() };
   const q = { activeToday: 0, done: 0, inProgress: 0, everDone: 0, byDay: new Map<string, number>(d14.map((d) => [d, 0])) };
@@ -166,6 +170,7 @@ export async function buildReport(now = Date.now()): Promise<Report> {
     else {
       counted++;
       if (tot) tot.forEach((n, i) => { dropped[i] += n || 0; });
+      for (const [d, arr] of Object.entries(st.tot?.byDay || {})) { const row = dropBy.get(d); if (row) arr.forEach((n, i) => { row[i] += n || 0; }); if (!dropFirst || d < dropFirst) dropFirst = d; }
       for (const it of [...(st.bag || []), ...(st.stash || []), ...Object.values(st.eq || {}).filter((x): x is G.Item => !!x)]) held[it.tier] = (held[it.tier] || 0) + 1;
     }
     // beasts
@@ -268,7 +273,9 @@ export async function buildReport(now = Date.now()): Promise<Report> {
       zones: [...zones.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n), auto,
     },
     online,
-    items: { names: C.RARITY, colors: C.RCOLOR, dropped, droppedBots, held, since: 'lúc bản báo cáo này chạy', accountsCounted: counted },
+    items: { names: C.RARITY, colors: C.RCOLOR, dropped, droppedBots, held, since: 'lúc bản báo cáo này chạy', accountsCounted: counted,
+      byDay: d30.map((day) => ({ day, n: dropBy.get(day)! })), trackedSince: dropFirst,
+      content: d30.map((day) => { const pk = D.dailyPacks().find((x) => x.day === day); return { day, beasts: pk?.beast ? 1 : 0, weapons: pk?.weapon ? 1 : 0, pictures: picDay.get(day) || 0 }; }) },
     beasts: {
       total: bt.total, bots: bt.bots, avgPerPlayer: P.withCharacter ? r2(bt.total / P.withCharacter) : 0, maxPerPlayer: bt.maxPer, mutants: bt.mut, tamedEver: bt.tamedEver, mutTamedEver: bt.mutEver,
       speciesInGame, speciesTamed: bt.tamedSp.size,

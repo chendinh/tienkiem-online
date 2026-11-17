@@ -990,3 +990,12 @@ test('the instant actions give the same result on the browser view (no seeds, no
   assert.ok(full.beasts.some((x) => x.id === 901), 'the Dị Biến was never sold');
   assert.equal(decideIsPure({ choice: 'skip' }), true); assert.equal(decideIsPure({ choice: 'tame' }), false); assert.equal(decideIsPure({ choice: 'fight' }), false);
 });
+
+test('items found are also counted per UTC day, and the days add up to the total', () => {
+  const st = fresh(17); st.set.mode = 'adventure'; st.clock = Date.parse('2027-01-15T18:00:00Z');
+  for (let i = 0; i < 120; i++) { G.settle(st, 300); if (st.decision) st.decision = null as any; }   // about two days of play, decisions skipped
+  const t = st.tot!, days = t.byDay || {};
+  assert.ok(t.items.reduce((a, b) => a + b, 0) > 0, 'some items dropped');
+  for (let i = 0; i < 6; i++) assert.equal(Object.values(days).reduce((a, r) => a + r[i], 0), t.items[i], `rarity ${i}`);
+  assert.ok(Object.keys(days).length >= 2, 'more than one day');
+});

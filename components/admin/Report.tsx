@@ -259,6 +259,18 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
           </div>
         </Card>
 
+        <Card id="itemsDay" title="Vật phẩm người chơi nhặt được mỗi ngày" sub={it.trackedSince ? `người chơi thật, theo ngày UTC · đếm từ ${dm(it.trackedSince)}, các ngày trước đó chưa có số liệu` : 'chưa có số liệu: sẽ có sau khi người chơi nhặt món đầu tiên'}>
+          <Columns h={150} color="var(--gold-400)" every={3} data={it.byDay.map((d) => { const n = d.n.reduce((a, b) => a + b, 0); return { label: dm(d.day), v: n, est: !it.trackedSince || d.day < it.trackedSince, tip: `${dm(d.day)}: ${num(n)} món (${it.names.map((nm, i) => `${nm} ${num(d.n[i])}`).join(', ')})` }; })} fmt={(n) => num(n)} />
+          <p className="rp-sub">Cột là số món rơi trong ngày (mọi độ hiếm); rê vào cột để xem chi tiết từng độ hiếm. Cột gạch chéo là ngày chưa được đếm.</p>
+          <Table head={['Ngày', ...it.names, 'Tổng']} rows={it.byDay.slice(-7).reverse().map((d) => [dm(d.day), ...d.n.map((n) => num(n)), num(d.n.reduce((a, b) => a + b, 0))])} />
+        </Card>
+
+        <Card id="contentDay" title="Nội dung mới game ra mỗi ngày" sub="linh thú mới, vũ khí mới và số ảnh AI đã vẽ trong ngày (UTC)">
+          <h4>Ảnh mới được vẽ mỗi ngày</h4>
+          <Columns h={130} color="var(--jade-400)" every={3} data={it.content.map((d) => ({ label: dm(d.day), v: d.pictures, tip: `${dm(d.day)}: ${num(d.pictures)} ảnh mới` }))} fmt={(n) => num(n)} />
+          <Table head={['Ngày', 'Linh thú mới', 'Vũ khí mới', 'Ảnh mới']} rows={it.content.slice(-7).reverse().map((d) => [dm(d.day), num(d.beasts), num(d.weapons), num(d.pictures)])} />
+        </Card>
+
         <Card id="beasts" title="Linh thú" sub={`${num(b.speciesTamed)} / ${num(b.speciesInGame)} loài đã có người thu phục`}>
           <div className="rp-kpis">
             <Kpi label="Đang có" value={num(b.total)} tone="gold" sub="trong Linh Thú Viên người thật" />

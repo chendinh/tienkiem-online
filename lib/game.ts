@@ -52,7 +52,7 @@ export interface GameState {
   relicQ?: D.RelicOp[];   // what the server must do with the shared relic pool for this save: claim a relic that was found, give back one that was dissolved (never sent to the browser)
   relicDay?: { day: string; n: number };
   quest?: DayQuest;   // today's quest: tame the day's new creature   // how many shared items this save found today
-  tot?: { items: number[] };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
+  tot?: { items: number[]; byDay?: Record<string, number[]> };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
   questDays?: string[];   // the days (UTC) the daily quest was finished, the latest 30
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
 }
@@ -312,6 +312,9 @@ function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissol
 function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
   const L = levelOf(st.player), cur = st.eq[it.slot];
   const tot = st.tot || (st.tot = { items: [0, 0, 0, 0, 0, 0] }); tot.items[it.tier]++;
+  // the same count per UTC day (the last 30 days), for the daily chart on the report page; the game itself never reads it
+  const bd = tot.byDay || (tot.byDay = {}), dk = D.dayKey(st.clock); (bd[dk] || (bd[dk] = [0, 0, 0, 0, 0, 0]))[it.tier]++;
+  const old = Object.keys(bd); if (old.length > 30) old.sort().slice(0, old.length - 30).forEach((k) => delete bd[k]);
   if (rep) {
     rep.items[it.tier]++;
     const pr = it.tier === 5 ? 100 : it.tier === 4 ? 80 : it.tier === 3 ? 60 : 0;
