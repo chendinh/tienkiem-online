@@ -52,6 +52,8 @@ export interface GameState {
   relicQ?: D.RelicOp[];   // what the server must do with the shared relic pool for this save: claim a relic that was found, give back one that was dissolved (never sent to the browser)
   relicDay?: { day: string; n: number };
   quest?: DayQuest;   // today's quest: tame the day's new creature   // how many shared items this save found today
+  tot?: { items: number[] };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
+  questDays?: string[];   // the days (UTC) the daily quest was finished, the latest 30
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -308,6 +310,7 @@ function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissol
 // A new Item_Instance is given to the player: auto-equip first, then the shelving rules.
 function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
   const L = levelOf(st.player), cur = st.eq[it.slot];
+  const tot = st.tot || (st.tot = { items: [0, 0, 0, 0, 0, 0] }); tot.items[it.tier]++;
   if (rep) {
     rep.items[it.tier]++;
     const pr = it.tier === 5 ? 100 : it.tier === 4 ? 80 : it.tier === 3 ? 60 : 0;
@@ -535,7 +538,7 @@ export function setSettings(st: GameState, patch: any): Res {
   if (patch.tame !== undefined) {
     const t = patch.tame;
     if (!t || typeof t !== 'object') return fail('E_BAD_SETTING');
-    if ('species' in t) { if (!Array.isArray(t.species) || t.species.some((s: any) => !C.SPECIES.some((x) => x.id === s))) return fail('E_BAD_SETTING'); next_.tame.species = [...new Set<string>(t.species)]; }
+    if ('species' in t) { if (!Array.isArray(t.species) || t.species.some((s: any) => !D.allSpecies().some((x) => x.id === s))) return fail('E_BAD_SETTING'); next_.tame.species = [...new Set<string>(t.species)]; }
     if ('newOnly' in t) { if (!isBool(t.newOnly)) return fail('E_BAD_SETTING'); next_.tame.newOnly = t.newOnly; }
     if ('strong' in t) { if (!isBool(t.strong)) return fail('E_BAD_SETTING'); next_.tame.strong = t.strong; }
     if ('alwaysMut' in t) { if (!isBool(t.alwaysMut)) return fail('E_BAD_SETTING'); next_.tame.alwaysMut = t.alwaysMut; }
@@ -564,13 +567,17 @@ function advance(st: GameState, rep?: Report) {
 }
 export function atBottleneck(st: Pick<GameState, 'player'>) { const p = st.player, L = levelOf(p); return p.sub === 3 && L < B.playableLevelCap && p.cp >= cultThreshold(L); }
 export const targetIsTribulation = (st: GameState) => B.tribulationRealms.includes(st.player.realm + 2);
+// Purity is paid for: 0 at purity 0.5 (the lowest), 1 at purity 1.0. A purer Linh Căn keeps its demon longer and meets a harder Thiên Kiếp.
+export const purityLoad = (purity: number) => Math.min(1, Math.max(0, (purity - 0.5) / 0.5));
+export const heartDemonTicks = (purity: number) => Math.round(B.heartDemonDuration * (1 + B.purityDemonExtra * purityLoad(purity)));
+export const tribulationPurityMult = (purity: number) => 1 + B.purityTribExtra * purityLoad(purity);
 export const tribulationWaves = (st: GameState) => (targetIsTribulation(st) ? B.tribulationWaves[st.player.realm + 2] : 0);
 const tribEnemyStats = (st: GameState) => { const tl = (st.player.realm + 1) * 4 + 1; return [0, 1, 2, 3, 4].map((i) => Math.max(1, Math.round(baseStat(tl, i) * B.tribulationWaveStrength))); };
 
 export function previewBreakthrough(st: GameState): Res {
   const L = levelOf(st.player);
   if (L >= B.playableLevelCap) return fail('E_AT_CAP');
-  return ok('', { target: st.player.realm + 1, pNoPill: breakthroughP(st, false), pPill: breakthroughP(st, true), tribulation: targetIsTribulation(st), waves: tribulationWaves(st), enemy: tribEnemyStats(st), pills: st.inv.bt[st.player.realm], trib: st.inv.trib });
+  return ok('', { target: st.player.realm + 1, pNoPill: breakthroughP(st, false), pPill: breakthroughP(st, true), tribulation: targetIsTribulation(st), tribMult: tribulationPurityMult(st.player.purity), waves: tribulationWaves(st), enemy: tribEnemyStats(st), pills: st.inv.bt[st.player.realm], trib: st.inv.trib });
 }
 
 // One Breakthrough_Attempt. `src` is who asked (the player or Auto_Breakthrough). Draws one value from the `cult` stream, then Tribulation waves from `combat`.
@@ -589,8 +596,8 @@ export function attemptBreakthrough(st: GameState, opt: { pill?: boolean; trib?:
   audit.roll = success;
   if (success && targetIsTribulation(st)) {
     const waves = tribulationWaves(st), S = pstats(st), stats = tribEnemyStats(st);
-    let reduce = 1;
-    if (opt.trib) { st.inv.trib--; reduce = 1 - B.tribulationReduction; audit.trib = 1; if (rep) rep.used.trib++; }
+    let reduce = tribulationPurityMult(p.purity);
+    if (opt.trib) { st.inv.trib--; reduce *= 1 - B.tribulationReduction; audit.trib = 1; if (rep) rep.used.trib++; }
     audit.waves = waves;
     for (let w = 1; w <= waves && success; w++) {
       const foe = { name: 'Thiên Lôi', stats, el: ['Lôi'] };
@@ -608,9 +615,10 @@ export function attemptBreakthrough(st: GameState, opt: { pill?: boolean; trib?:
     if (rep) { rep.bt.ok++; rep.levels++; rep.highlights.push({ prio: 70, kind: 'break', text: `Đột phá lên ${C.REALMS[p.realm]}. ${text}` }); }
   } else {
     const lost = Math.floor(p.cp * B.breakFailureLoss);
-    p.cp -= lost; p.heartDemon = B.heartDemonDuration; audit.lostCp = lost;
+    const dTicks = heartDemonTicks(p.purity);
+    p.cp -= lost; p.heartDemon = dTicks; audit.lostCp = lost;
     text = text || 'Đột phá thất bại, tâm ma quấy nhiễu.';
-    feed(st, { kind: 'break', text: `Đột phá thất bại. ${text} (mất ${lost} Tu Vi, Tâm Ma ${Math.round(B.heartDemonDuration * B.tickSec / 60)} phút)` });
+    feed(st, { kind: 'break', text: `Đột phá thất bại. ${text} (mất ${lost} Tu Vi, Tâm Ma ${Math.round(dTicks * B.tickSec / 60)} phút)` });
     if (rep) { rep.bt.fail++; rep.bt.lostCp += lost; rep.highlights.push({ prio: 50, kind: 'break', text: `Đột phá thất bại. ${text}` }); }
   }
   st.auditQ.push(audit);
@@ -874,6 +882,7 @@ function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) 
   q.n++;
   if (q.done || q.n < q.need) return;
   q.done = true;
+  st.questDays = [...(st.questDays || []).filter((d) => d !== day), day].slice(-30);
   q.reward = Math.round(cultThreshold(levelOf(st.player)) * B.questCultPct);
   st.player.cp += q.reward; if (rep) rep.cp += q.reward;
   chips.push(`Nhiệm vụ ngày xong: +${q.reward} Tu Vi`);
@@ -1218,7 +1227,7 @@ export function oddsOf(st: GameState, nowMs: number) {
     size: sizeClassProbs(),
     taming: { base: B.tameBase, grades: B.tameGradeMult, min: B.tameMin, max: B.tameMax },
     breakthrough: canBreak ? { noPill: breakthroughP(st, false), pill: breakthroughP(st, true) } : null,
-    heartDemon: { factor: B.heartDemonFactor, ticks: B.heartDemonDuration }, epiphany: { p: B.epiphanyP, mult: B.epiphanyMult },
+    heartDemon: { factor: B.heartDemonFactor, ticks: heartDemonTicks(st.player.purity) }, epiphany: { p: B.epiphanyP, mult: B.epiphanyMult },
     demoRates: R.boost !== 1,
   };
 }

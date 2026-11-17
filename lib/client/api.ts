@@ -3,7 +3,8 @@
 import type { ServerOut } from './types';
 import { errText } from '../strings';
 
-export type AuthOut = { ok: boolean; code?: string; user?: { email: string } | null };
+export type AuthUser = { email: string; guest: boolean; passkeys?: number };
+export type AuthOut = { ok: boolean; code?: string; user?: AuthUser | null };
 let onNet: (up: boolean) => void = () => {};
 export const watchNet = (f: (up: boolean) => void) => { onNet = f; };
 
@@ -24,8 +25,8 @@ async function retrying<T>(f: () => Promise<T>, tries = 6): Promise<T> {
   throw last;
 }
 
-export const authMe = async (): Promise<{ email: string } | null> => { const { j } = await retrying(() => send('/api/auth')); return j.user || null; };
-export async function authPost(body: any): Promise<AuthOut> {
+export const authMe = async (): Promise<{ user: AuthUser | null; google: boolean }> => { const { j } = await retrying(() => send('/api/auth')); return { user: j.user || null, google: !!(j.providers && j.providers.google) }; };
+export async function authPost(body: any): Promise<AuthOut & { options?: any; cid?: string }> {
   try { const { j } = await send('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return j; }
   catch { return { ok: false, code: 'E_SERVER' }; }
 }

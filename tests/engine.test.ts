@@ -823,3 +823,52 @@ test('bots: the picture is due every two days, only when what is worn changed, a
   assert.equal(Bt.pictureDue(Bt.newBot(2, T0), T0 + 9 * 86400_000), false, 'a bot without a picture never draws one');
   assert.deepEqual([1, 2, 10].map(Bt.pictureStagger), [0, 3 * 3600_000, 27 * 3600_000]);
 });
+
+test('fal balance: read from credits.current_balance, never invented when it is missing, and a key without billing rights is explained', async () => {
+  const F = await import('../lib/server/falbalance');
+  assert.deepEqual(F.parseBalance({ credits: { current_balance: 12.5, currency: 'usd' } }), { balance: 12.5, currency: 'USD' });
+  assert.deepEqual(F.parseBalance({ credits: { current_balance: '7.25' } }), { balance: 7.25, currency: 'USD' });
+  assert.deepEqual(F.parseBalance({ credits: { current_balance: 0 } }), { balance: 0, currency: 'USD' }, 'a zero balance is a real answer');
+  for (const bad of [null, {}, { credits: {} }, { credits: { current_balance: null } }, { credits: { current_balance: '' } }, { credits: { current_balance: 'abc' } }, { credits: { current_balance: NaN } }]) assert.equal(F.parseBalance(bad), null);
+  const was = { b: process.env.FAL_BILLING_KEY, k: process.env.FAL_KEY };
+  const res = (status: number, body: any) => (async (_u: any, _o: any) => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  try {
+    delete process.env.FAL_BILLING_KEY; delete process.env.FAL_KEY;
+    assert.equal((await F.falBalance(1, res(200, {}))).configured, false);
+    process.env.FAL_BILLING_KEY = 'k';
+    let url = '', auth = '';
+    const spy = (async (u: any, o: any) => { url = String(u); auth = o.headers.Authorization; return new Response(JSON.stringify({ credits: { current_balance: 3.5, currency: 'USD' } })); }) as unknown as typeof fetch;
+    const ok = await F.falBalance(1, spy);
+    assert.equal(ok.balance, 3.5); assert.equal(url, 'https://api.fal.ai/v1/account/billing?expand=credits'); assert.equal(auth, 'Key k');
+    const no = await F.falBalance(1, res(403, { error: { type: 'authorization_error' } }));
+    assert.equal(no.balance, null); assert.match(no.error!, /billing:usage:read/);
+    assert.equal((await F.falBalance(1, res(200, { credits: {} }))).balance, null, 'HTTP 200 without a balance is not zero');
+    assert.match((await F.falBalance(1, res(500, {}))).error!, /500/);
+  } finally { was.b === undefined ? delete process.env.FAL_BILLING_KEY : (process.env.FAL_BILLING_KEY = was.b); was.k === undefined ? delete process.env.FAL_KEY : (process.env.FAL_KEY = was.k); }
+});
+
+test('fal usage: the day-by-day charge is read from time_series, pages are followed, and a key without billing rights is explained', async () => {
+  const F = await import('../lib/server/falbalance');
+  const bucket = (day: string, rows: any[]) => ({ bucket: `${day}T00:00:00+00:00`, results: rows.map(([endpoint_id, cost_total, quantity]) => ({ endpoint_id, unit: 'image', quantity, unit_price: 0.1, cost_total, cost: cost_total, currency: 'USD' })) });
+  const p = F.parseUsage([{ time_series: [bucket('2026-11-15', [['a/x', 0.25, 5], ['a/y', 0.07, 1]])] }, { time_series: [bucket('2026-11-15', [['a/x', 0.1, 2]]), bucket('2026-11-16', [['a/y', 0.14, 2]])] }])!;
+  assert.ok(Math.abs(p.days.get('2026-11-15')! - 0.42) < 1e-9); assert.ok(Math.abs(p.days.get('2026-11-16')! - 0.14) < 1e-9);
+  assert.ok(Math.abs(p.byModel.get('a/x')!.usd - 0.35) < 1e-9 && p.byModel.get('a/x')!.qty === 7);
+  assert.equal(F.parseUsage([{}]), null); assert.equal(F.parseUsage([{ time_series: 'x' }]), null);
+  const was = { b: process.env.FAL_BILLING_KEY, k: process.env.FAL_KEY }; process.env.FAL_BILLING_KEY = 'k';
+  try {
+    const now = Date.parse('2026-11-16T12:00:00Z'), urls: string[] = [];
+    const paged = (async (u: any, o: any) => {
+      urls.push(String(u)); assert.equal(o.headers.Authorization, 'Key k');
+      const cur = new URL(String(u)).searchParams.get('cursor');
+      return new Response(JSON.stringify(cur ? { time_series: [bucket('2026-11-16', [['a/y', 0.14, 2]])], next_cursor: null, has_more: false } : { time_series: [bucket('2026-11-15', [['a/x', 0.5, 5]])], next_cursor: 'Mg==', has_more: true }));
+    }) as unknown as typeof fetch;
+    const u = (await F.falUsage(now, 3, paged))!;
+    assert.equal(u.ok, true); assert.equal(urls.length, 2); assert.match(urls[0], /\/v1\/models\/usage\?/); assert.match(urls[0], /start=2026-11-14/); assert.match(urls[0], /end=2026-11-17/); assert.match(urls[1], /cursor=Mg%3D%3D/);
+    assert.deepEqual(u.days.map((d) => d.day), ['2026-11-14', '2026-11-15', '2026-11-16']); assert.deepEqual(u.days.map((d) => d.usd), [0, 0.5, 0.14]); assert.equal(u.total, 0.64);
+    const no = (await F.falUsage(now, 3, (async () => new Response('{}', { status: 403 })) as unknown as typeof fetch))!;
+    assert.equal(no.ok, false); assert.match(no.error!, /billing:usage:read/);
+    assert.match((await F.falUsage(now, 3, (async () => new Response('{}')) as unknown as typeof fetch))!.error!, /không trả về/);
+    delete process.env.FAL_BILLING_KEY; delete process.env.FAL_KEY;
+    assert.equal(await F.falUsage(now, 3, paged), null, 'no key, nothing asked');
+  } finally { was.b === undefined ? delete process.env.FAL_BILLING_KEY : (process.env.FAL_BILLING_KEY = was.b); was.k === undefined ? delete process.env.FAL_KEY : (process.env.FAL_KEY = was.k); }
+});

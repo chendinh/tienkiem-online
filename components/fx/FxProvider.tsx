@@ -65,6 +65,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
 
   const loop = useCallback((now: number) => {
     const W = world.current, c = cv.current; if (!c) return;
+    if (document.querySelector('.modal, .pop-body, .main.sideOpen') && (W.parts.length || W.rings.length)) { W.parts.length = 0; W.rings.length = 0; }   // a window opened: drop what is still flying
     const g = c.getContext('2d')!; const dt = Math.max(0, Math.min(0.05, (now - W.last) / 1000 || 0.016)); W.last = now;
     g.setTransform(W.dpr, 0, 0, W.dpr, 0, 0);
     // only the area drawn on the previous frame is cleared (effects cover a small part of the screen), not the whole canvas
@@ -117,6 +118,8 @@ export function FxProvider({ children }: { children: ReactNode }) {
     const center = (o?: At) => ({ x: o?.x ?? W.w / 2, y: o?.y ?? W.h * 0.42 });
     // a busy game (fast speed) must not bury the screen: each effect kind has a minimum gap, longer when the game runs faster
     const seen: Record<string, number> = {};
+    // the fight goes on behind an open window (settings, bag...), but its particles and rings must not be drawn over that window
+    const covered = () => !!document.querySelector('.modal, .pop-body, .main.sideOpen');
     const gate = (key: string, ms: number) => { const sp = Number(document.documentElement.dataset.speed || 1); const t = performance.now(); if (t - (seen[key] || 0) < ms * (sp >= 20 ? 3.2 : sp >= 5 ? 1.8 : 1)) return false; seen[key] = t; return true; };
     const dom = (cls: string, ms: number, set?: (el: HTMLElement) => void) => {
       const el = document.createElement('div'); el.className = cls; set?.(el); document.body.appendChild(el); setTimeout(() => el.remove(), ms); return el;
@@ -124,7 +127,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
     return {
       level, setLevel,
       burst(o = {}) {
-        const k = K[lv.current]; if (!k || W.parts.length > 320 || !gate('burst', 700)) return;
+        const k = K[lv.current]; if (!k || W.parts.length > 320 || covered() || !gate('burst', 700)) return;
         const { x, y } = center(o); const kind = o.kind || 'qi'; const n = Math.round((o.count ?? { qi: 22, gold: 46, petals: 18, ember: 26, spark: 30 }[kind]) * k);
         const pal: Record<BurstKind, string[]> = { qi: ['#8ee6c8', '#62cfae', '#eed08a'], gold: ['#f6e2a8', '#e5c07b', '#ffffff', '#ffd36e'], petals: ['#8ee6c8', '#ffd6e8', '#b8f2de'], ember: ['#ff8566', '#ffb454', '#e85d3d'], spark: ['#fff6d8', '#f6e2a8'] };
         for (let i = 0; i < n; i++) {
@@ -136,7 +139,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
         wake();
       },
       ring(o = {}) {
-        const k = K[lv.current]; if (!k || !gate('ring', 600)) return; const { x, y } = center(o);
+        const k = K[lv.current]; if (!k || covered() || !gate('ring', 600)) return; const { x, y } = center(o);
         W.rings.push({ x, y, r0: 8, r1: o.size ?? 120, life: 0.85, max: 0.85, color: o.color || '#f6e2a8', lw: 3 });
         if (k > 1.2) W.rings.push({ x, y, r0: 4, r1: (o.size ?? 120) * 0.62, life: 0.6, max: 0.6, color: '#ffffff', lw: 1.6 });
         wake();

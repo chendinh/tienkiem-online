@@ -8,7 +8,7 @@ import type { GS } from '@/lib/client/types';
 import * as D from '@/lib/daily';
 import { allSpecies } from '@/lib/daily';
 import type { Report, Beast } from '@/lib/game';
-import { releaseValue, upkeepDue, SP } from '@/lib/game';
+import { releaseValue, upkeepDue, SP, heartDemonTicks, tribulationPurityMult } from '@/lib/game';
 import { Icon } from './ds/Icon';
 import { MultiSelect } from './ds/MultiSelect';
 import { MusicPanel } from './audio/MusicOrb';
@@ -120,13 +120,22 @@ const RET_PCTS = [30, 50, 70, 90], RES_PCTS = [50, 70, 90, 100];
 const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
 export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
   const s = st.set;
-  const [ret, setRet] = useState(String(s.retreatPct)), [res, setRes] = useState(String(s.resumePct));
+  // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
+  const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoFight: s.autoFight, hideRank: s.hideRank, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
+    tame: { strong: s.tame.strong, grade: s.tame.grade, alwaysMut: s.tame.alwaysMut, newOnly: s.tame.newOnly, species: [...s.tame.species], sizes: [...s.tame.sizes] } });
+  const [d, setD] = useState(fromSet);
+  const norm = (x: ReturnType<typeof fromSet>) => JSON.stringify({ ...x, tame: { ...x.tame, species: [...x.tame.species].sort(), sizes: [...x.tame.sizes].sort() } });
+  const dirty = norm(d) !== norm(fromSet());
+  const up = (p: Partial<ReturnType<typeof fromSet>>) => setD((x) => ({ ...x, ...p }));
+  const upTame = (p: Partial<ReturnType<typeof fromSet>['tame']>) => setD((x) => ({ ...x, tame: { ...x.tame, ...p } }));
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
-  const patch = async (p: any) => { const r = await act('settings', { patch: p }); setMsg({ t: r.msg, ok: r.ok }); return r.ok; };
+  const [saving, setSaving] = useState(false);
+  const save = async () => { setSaving(true); const r = await act('settings', { patch: d }); setSaving(false); setMsg({ t: r.msg, ok: r.ok }); };
+  const close = async () => { if (dirty && !(await askConfirm({ title: 'Chưa lưu thay đổi', body: 'Ngươi đã đổi cài đặt nhưng chưa bấm “Lưu thay đổi”. Đóng và bỏ các thay đổi này?', ok: 'Bỏ thay đổi', danger: true }))) return; onClose(); };
   const toggleIn = (arr: number[], v: number) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   return (
-    <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Cài đặt">
-      <ModalClose onClose={onClose} />
+    <div className="modal" onClick={close} role="dialog" aria-modal="true" aria-label="Cài đặt">
+      <ModalClose onClose={close} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>Cài đặt</h2>
         <Toast msg={msg} />
@@ -136,61 +145,64 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <h3>Nghỉ ngơi</h3>
           <div className="row">
             <div className="field">Nghỉ khi sinh lực dưới (%, từ {B.minRetreatPct})
-              <div className="row">{RET_PCTS.filter((v) => v >= B.minRetreatPct).map((v) => <button key={v} type="button" className={'btn' + (Number(ret) === v ? ' on active' : '')} aria-pressed={Number(ret) === v} style={Number(ret) === v ? { outline: '2px solid currentColor' } : undefined} onClick={() => { setRet(String(v)); if (Number(res) <= v) setRes(String(RES_PCTS.find((x) => x > v) ?? 100)); }}>{v}</button>)}</div>
+              <div className="row">{RET_PCTS.filter((v) => v >= B.minRetreatPct).map((v) => <button key={v} type="button" className={'btn' + (d.retreatPct === v ? ' on active' : '')} aria-pressed={d.retreatPct === v} style={d.retreatPct === v ? { outline: '2px solid currentColor' } : undefined} onClick={() => { up({ retreatPct: v, ...(d.resumePct <= v ? { resumePct: RES_PCTS.find((x) => x > v) ?? 100 } : {}) }); }}>{v}</button>)}</div>
             </div>
             <div className="field">Quay lại khi hồi tới (%)
-              <div className="row">{RES_PCTS.map((v) => <button key={v} type="button" className={'btn' + (Number(res) === v ? ' on active' : '')} aria-pressed={Number(res) === v} style={Number(res) === v ? { outline: '2px solid currentColor' } : undefined} onClick={() => { setRes(String(v)); if (Number(ret) >= v) setRet(String([...RET_PCTS].reverse().find((x) => x < v) ?? B.minRetreatPct)); }}>{v}</button>)}</div>
+              <div className="row">{RES_PCTS.map((v) => <button key={v} type="button" className={'btn' + (d.resumePct === v ? ' on active' : '')} aria-pressed={d.resumePct === v} style={d.resumePct === v ? { outline: '2px solid currentColor' } : undefined} onClick={() => { up({ resumePct: v, ...(d.retreatPct >= v ? { retreatPct: [...RET_PCTS].reverse().find((x) => x < v) ?? B.minRetreatPct } : {}) }); }}>{v}</button>)}</div>
             </div>
-            <button className="btn" onClick={() => patch({ retreatPct: Number(ret), resumePct: Number(res) })}>Lưu ngưỡng</button>
           </div>
           <div className="row">
-            <label className="tg"><input type="checkbox" checked={s.autoPill} onChange={(e) => patch({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan ngay sau mỗi trận, chọn loại vừa đủ cho đến khi đầy sinh lực</label>
+            <label className="tg"><input type="checkbox" checked={d.autoPill} onChange={(e) => up({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan ngay sau mỗi trận, chọn loại vừa đủ cho đến khi đầy sinh lực</label>
           </div>
           <h3>Tự động</h3>
           <div className="row">
-            <label className="tg"><input type="checkbox" checked={s.autoEquip} onChange={(e) => patch({ autoEquip: e.target.checked })} /> Tự mặc đồ mạnh hơn (tắt: đồ nhặt được nằm trong túi để ngươi chọn)</label>
-            <label className="tg"><input type="checkbox" checked={s.autoBreak} onChange={(e) => patch({ autoBreak: e.target.checked })} /> Tự đột phá khi đủ an toàn</label>
-            <label className="tg"><input type="checkbox" checked={s.autoLearn} onChange={(e) => patch({ autoLearn: e.target.checked })} /> Tự học Bí Công khi nhặt được (tắt: Bí Công nằm trong tab Thần Thông để ngươi tự học)</label>
-            <label className="tg"><input type="checkbox" checked={s.autoFight} onChange={(e) => patch({ autoFight: e.target.checked })} /> Tự giao chiến với Tu Sĩ</label>
+            <label className="tg"><input type="checkbox" checked={d.autoEquip} onChange={(e) => up({ autoEquip: e.target.checked })} /> Tự mặc đồ mạnh hơn (tắt: đồ nhặt được nằm trong túi để ngươi chọn)</label>
+            <label className="tg"><input type="checkbox" checked={d.autoBreak} onChange={(e) => up({ autoBreak: e.target.checked })} /> Tự đột phá khi đủ an toàn</label>
+            <label className="tg"><input type="checkbox" checked={d.autoLearn} onChange={(e) => up({ autoLearn: e.target.checked })} /> Tự học Bí Công khi nhặt được (tắt: Bí Công nằm trong tab Thần Thông để ngươi tự học)</label>
+            <label className="tg"><input type="checkbox" checked={d.autoFight} onChange={(e) => up({ autoFight: e.target.checked })} /> Tự giao chiến với Tu Sĩ</label>
           </div>
           <div className="hint">Tắt tự động thì hành trình dừng lại chờ ngươi chọn: thu phục Linh Thú đáng chú ý, giao chiến hay tránh Tu Sĩ, đột phá khi tới Bình Cảnh. Khi ngươi vắng mặt, hành trình dừng ở câu hỏi đó cho tới khi ngươi quay lại.</div>
           <label className="field">Tự phân giải pháp khí chưa mặc có hạng không cao hơn
-            <select value={s.dissolveMax} onChange={(e) => patch({ dissolveMax: Number(e.target.value) })}>
+            <select value={d.dissolveMax} onChange={(e) => up({ dissolveMax: Number(e.target.value) })}>
               <option value={-1}>Tắt (không tự phân giải)</option>
               {TIERS.map((t) => <option key={t.v} value={t.v}>{t.n}</option>)}
             </select>
           </label>
           <div className="hint">Mặc định tắt: đồ nhặt được vào túi để ngươi tự quyết định. Khi bật, chỉ phân giải món không khóa khi ô trang bị tương ứng đang có đồ khác.</div>
           <h3>Riêng tư</h3>
-          <label className="tg"><input type="checkbox" checked={s.hideRank} onChange={(e) => patch({ hideRank: e.target.checked })} /> Ẩn khỏi Bảng Phong Thần (người khác không thấy tên, trang bị và Linh Thú của ngươi)</label>
+          <label className="tg"><input type="checkbox" checked={d.hideRank} onChange={(e) => up({ hideRank: e.target.checked })} /> Ẩn khỏi Bảng Phong Thần (người khác không thấy tên, trang bị và Linh Thú của ngươi)</label>
           <h3>Tự thu phục</h3>
-          <label className="tg"><input type="checkbox" checked={s.autoTame} onChange={(e) => patch({ autoTame: e.target.checked })} /> Bật tự thu phục sau khi thắng</label>
-          {!s.autoTame && <div className="hint tameOffNote">Đang tắt tự thu phục: sau mỗi trận thắng, game dừng lại hỏi ngươi với quái đáng chú ý (Dị Biến, Tinh Anh, loài mới, rất nhỏ hoặc rất lớn). Các bộ lọc dưới đây chỉ có tác dụng khi bật tự thu phục.</div>}
-          <fieldset className={`tameFilters ${s.autoTame ? '' : 'off'}`} disabled={!s.autoTame} aria-label="Bộ lọc tự thu phục">
-          <label className="tg"><input type="checkbox" checked={s.tame.strong} onChange={(e) => patch({ tame: { strong: e.target.checked } })} /> Chỉ bắt quái mạnh: mạnh hơn con yếu nhất trong đội xuất chiến, hoặc khi đội chưa đủ {st.caps.party} con (thay cho bộ lọc loài và kích cỡ)</label>
+          <label className="tg"><input type="checkbox" checked={d.autoTame} onChange={(e) => up({ autoTame: e.target.checked })} /> Bật tự thu phục sau khi thắng</label>
+          {!d.autoTame && <div className="hint tameOffNote">Đang tắt tự thu phục: sau mỗi trận thắng, game dừng lại hỏi ngươi với quái đáng chú ý (Dị Biến, Tinh Anh, loài mới, rất nhỏ hoặc rất lớn). Các bộ lọc dưới đây chỉ có tác dụng khi bật tự thu phục.</div>}
+          <fieldset className={`tameFilters ${d.autoTame ? '' : 'off'}`} disabled={!d.autoTame} aria-label="Bộ lọc tự thu phục">
+          <label className="tg"><input type="checkbox" checked={d.tame.strong} onChange={(e) => upTame({ strong: e.target.checked })} /> Chỉ bắt quái mạnh: mạnh hơn con yếu nhất trong đội xuất chiến, hoặc khi đội chưa đủ {st.caps.party} con (thay cho bộ lọc loài và kích cỡ)</label>
           <label className="field">Hạng Khế Ước Phù sẽ dùng
-            <select value={s.tame.grade} onChange={(e) => patch({ tame: { grade: Number(e.target.value) } })}>
+            <select value={d.tame.grade} onChange={(e) => upTame({ grade: Number(e.target.value) })}>
               {C.GRADES.map((g, i) => <option key={g} value={i}>{g} (đang có {st.inv.taming[i]})</option>)}
             </select>
           </label>
           <div className="row">
-            <label className="tg"><input type="checkbox" checked={s.tame.alwaysMut} onChange={(e) => patch({ tame: { alwaysMut: e.target.checked } })} /> Luôn thử với Dị Biến (luôn dùng phù cao nhất đang có)</label>
-            <label className="tg"><input type="checkbox" checked={s.tame.newOnly} onChange={(e) => patch({ tame: { newOnly: e.target.checked } })} /> Chỉ loài chưa từng thu phục</label>
+            <label className="tg"><input type="checkbox" checked={d.tame.alwaysMut} onChange={(e) => upTame({ alwaysMut: e.target.checked })} /> Luôn thử với Dị Biến (luôn dùng phù cao nhất đang có)</label>
+            <label className="tg"><input type="checkbox" checked={d.tame.newOnly} onChange={(e) => upTame({ newOnly: e.target.checked })} /> Chỉ loài chưa từng thu phục</label>
           </div>
           <div className="field">
             <span className="fieldLbl">Chỉ thu phục các loài này</span>
-            <MultiSelect label="Loài yêu thú muốn thu phục" allText="Tất cả các loài (không lọc)" placeholder="Tìm loài theo tên hoặc hệ…" value={s.tame.species}
+            <MultiSelect label="Loài yêu thú muốn thu phục" allText="Tất cả các loài (không lọc)" placeholder="Tìm loài theo tên hoặc hệ…" value={d.tame.species}
               options={allSpecies().slice().sort((a, b) => a.name.localeCompare(b.name, 'vi')).map((sp) => ({ value: sp.id, label: sp.name, hint: sp.el.join('/') }))}
-              onChange={(v) => patch({ tame: { species: v } })} />
+              onChange={(v) => upTame({ species: v })} />
             <small className="hint">Không chọn loài nào nghĩa là thu phục mọi loài. Chọn vài loài thì chỉ thu phục đúng những loài đó.</small>
           </div>
           <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend>Kích thước được phép</legend>
-            <div className="chipPick">{C.SIZE_CLASS.map((n, i) => <label key={n}><input type="checkbox" checked={s.tame.sizes.includes(i)} onChange={() => patch({ tame: { sizes: toggleIn(s.tame.sizes, i) } })} />{n}</label>)}</div>
+            <div className="chipPick">{C.SIZE_CLASS.map((n, i) => <label key={n}><input type="checkbox" checked={d.tame.sizes.includes(i)} onChange={() => upTame({ sizes: toggleIn(d.tame.sizes, i) })} />{n}</label>)}</div>
           </fieldset>
           </fieldset>
         </div>
-        <button className="btn big" onClick={onClose}>Đóng</button>
+        <div className="setBar">
+          <small className={dirty ? 'dirty' : ''}>{dirty ? 'Có thay đổi chưa lưu' : msg && !msg.ok ? msg.t : msg ? 'Đã lưu cài đặt.' : 'Chưa có thay đổi'}</small>
+          <button type="button" className="btn ghost" onClick={close}>Đóng</button>
+          <button type="button" className="btn hot" disabled={!dirty || saving} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</button>
+        </div>
       </div>
     </div>
   );
@@ -416,9 +428,14 @@ export function PurityModal({ st, onClose }: { st: GS; onClose: () => void }) {
         <li>Tốc độ tu luyện: Tu Vi nhận mỗi Tick nhân ×{p.purity}.</li>
         <li>Đột phá: cộng thêm +{pct(B.breakPurityBonus * p.purity)} xác suất (tối đa +{pct(B.breakPurityBonus)} khi độ thuần là 1,0).</li>
       </ul>
+      <h3>Cái giá phải trả</h3>
+      <ul className="itLines big">
+        <li>Tâm Ma sau đột phá thất bại kéo dài {Math.round(heartDemonTicks(p.purity) * B.tickSec / 60)} phút (độ thuần 0,5 chỉ {Math.round(B.heartDemonDuration * B.tickSec / 60)} phút, độ thuần 1,0 lên {Math.round(heartDemonTicks(1) * B.tickSec / 60)} phút).</li>
+        <li>Thiên Kiếp mạnh thêm +{Math.round((tribulationPurityMult(p.purity) - 1) * 100)}% sát thương (tối đa +{Math.round(B.purityTribExtra * 100)}% khi độ thuần là 1,0). Độ Kiếp Phù vẫn giảm {Math.round(B.tribulationReduction * 100)}% phần này.</li>
+      </ul>
       <h3>Đặt cạnh số Linh Căn</h3>
       <div className="hint">Ngươi có {n} Linh Căn nên tốc độ tu luyện còn được nhân ×{cnt} (ít Linh Căn thì tu nhanh hơn, nhiều Linh Căn thì giỏi nhiều hệ hơn). Gộp cả hai: Tu Vi gốc ×{(cnt * p.purity).toFixed(2)}.</div>
-      <div className="hint">Độ thuần thấp nhất (0,5) tu chậm bằng một nửa độ thuần 1,0, và đột phá kém hơn 5%.</div>
+      <div className="hint">Độ thuần thấp nhất (0,5) tu chậm bằng một nửa độ thuần 1,0 và đột phá kém hơn 5%, nhưng Tâm Ma ngắn hơn và Thiên Kiếp nhẹ hơn.</div>
     </Window>
   );
 }
@@ -460,7 +477,7 @@ export function BreakModal({ st, onBreak, onClose, onLater }: { st: GS; onBreak:
       <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>Đột phá lên {C.REALMS[target]}</h2>
-        <p>Ngươi đã tới Bình Cảnh. Xác suất thành công: <b>{pct(prob)}</b>{waves ? `, sau đó vượt ${waves} đợt Thiên Kiếp bằng chính sức chiến đấu của ngươi` : ''}. Thất bại mất {loss}% Tu Vi và bị Tâm Ma {Math.round(720 * 5 / 60)} phút.</p>
+        <p>Ngươi đã tới Bình Cảnh. Xác suất thành công: <b>{pct(prob)}</b>{waves ? `, sau đó vượt ${waves} đợt Thiên Kiếp bằng chính sức chiến đấu của ngươi` : ''}. Thất bại mất {loss}% Tu Vi và bị Tâm Ma {Math.round(heartDemonTicks(p.purity) * B.tickSec / 60)} phút.{waves > 0 && tribulationPurityMult(p.purity) > 1.005 ? ` Độ thuần ${p.purity} làm Thiên Kiếp mạnh thêm ${Math.round((tribulationPurityMult(p.purity) - 1) * 100)}%.` : ''}</p>
         <div className="setGrid">
           <label className="tg"><input type="checkbox" checked={pill} disabled={have <= 0} onChange={(e) => setPill(e.target.checked)} /> Dùng Phá Cảnh Đan (có {have}): +{Math.round(((o?.pill ?? 0) - (o?.noPill ?? 0)) * 100)}% xác suất</label>
           {waves > 0 && <label className="tg"><input type="checkbox" checked={trib} disabled={st.inv.trib <= 0} onChange={(e) => setTrib(e.target.checked)} /> Dùng Độ Kiếp Phù (có {st.inv.trib}): giảm 30% sát thương Thiên Kiếp</label>}

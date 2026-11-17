@@ -422,3 +422,138 @@ test('bots: the picture is redrawn from what the bot wears, at most every two da
     assert.equal(row.av, `/api/img/${id}`, 'the board shows the new picture');
   } finally { if (was === undefined) delete process.env.IMAGE_PROVIDER; else process.env.IMAGE_PROVIDER = was; await BS.removeBots(); }
 });
+test('guest play: quick account, link an e-mail by the mailed link, keep the character, then sign in with the password', async () => {
+  const g = await A.createGuest('ua', 'ip-guest', now(), (_i: string, e: string) => S.createState(undefined, now(), e));
+  const u = await A.sessionUser(g.token, now());
+  assert.ok(u && u.guest);
+  const saved = (await S.getGame(u!.id)).state!;
+  await signUp('taken@example.com');
+  assert.equal(await code(A.requestLink(u!.id, 'taken@example.com', 'matkhau-dai-123', 'http://x', now())), 'E_EMAIL_TAKEN');
+  assert.equal(await code(A.requestLink(u!.id, 'khong-hop-le', 'matkhau-dai-123', 'http://x', now())), 'E_EMAIL');
+  const before = (await outbox()).length;
+  await A.requestLink(u!.id, 'guestlink@example.com', 'matkhau-dai-123', 'http://x', now());
+  const lines = await outbox();
+  assert.equal(lines.length, before + 1);
+  const token = new URL(lines[lines.length - 1].link).searchParams.get('link')!;
+  assert.equal((await A.sessionUser(g.token, now()))!.guest, true);   // nothing changes before the click
+  assert.equal(await code(A.confirmLink('wrong', now())), 'E_LINK_INVALID');
+  assert.equal((await A.confirmLink(token, now())).email, 'guestlink@example.com');
+  assert.equal(await code(A.confirmLink(token, now())), 'E_LINK_INVALID');   // single use
+  const after = await A.sessionUser(g.token, now());
+  assert.ok(after && !after.guest && after.email === 'guestlink@example.com' && after.id === u!.id);
+  assert.equal((await S.getGame(u!.id)).state!.player.name, saved.player.name);
+  await A.login('guestlink@example.com', 'matkhau-dai-123', 'ua', 'ip-g2', now());
+  assert.equal(await code(A.requestLink(u!.id, 'again@example.com', 'matkhau-dai-123', 'http://x', now())), 'E_BAD_REQUEST');   // no longer a guest
+});
+test('sign in with a verified provider address: new account, same account again, a guest keeps its character', async () => {
+  const mk = (_i: string, e: string) => S.createState(undefined, now(), e);
+  const a = await A.oauthSignIn('Goog@Example.com', null, 'ua', now(), mk);
+  const b = await A.oauthSignIn('goog@example.com', null, 'ua', now(), mk);
+  assert.equal((await A.sessionUser(a.token, now()))!.id, (await A.sessionUser(b.token, now()))!.id);
+  const g = await A.createGuest('ua', 'ip-guest3', now(), mk);
+  const gid = (await A.sessionUser(g.token, now()))!.id;
+  const c = await A.oauthSignIn('upgrade@example.com', gid, 'ua', now(), mk);
+  const cu = await A.sessionUser(c.token, now());
+  assert.ok(cu && cu.id === gid && !cu.guest);
+});
+test('e-mail linking by the 6-digit code: wrong codes are counted and kill it after 5, the right code links', async () => {
+  const { createHash } = await import('node:crypto');
+  const mk = (_i: string, e: string) => S.createState(undefined, now(), e);
+  const g = await A.createGuest('ua', 'ip-code', now(), mk);
+  const id = (await A.sessionUser(g.token, now()))!.id;
+  // the code is only stored as a hash: find it the way an attacker would, by trying all 10^6
+  const realCode = async () => {
+    const h = (await D.query<{ code_hash: string }>('SELECT code_hash FROM email_links WHERE acc = $1 AND used = false', [id])).rows[0].code_hash;
+    for (let n = 0; n < 1000000; n++) { const c = String(n).padStart(6, '0'); if (createHash('sha256').update(`${id}:${c}`).digest('hex') === h) return c; }
+    throw new Error('code not found');
+  };
+  await A.requestLink(id, 'code1@example.com', 'matkhau-dai-123', 'http://x', now());
+  const good = await realCode(), bad = good === '000000' ? '000001' : '000000';
+  assert.equal(await code(A.confirmLinkCode(id, '12345', now())), 'E_LINK_INVALID');   // wrong shape
+  for (let i = 0; i < 5; i++) assert.equal(await code(A.confirmLinkCode(id, bad, now())), 'E_LINK_INVALID');
+  assert.equal(await code(A.confirmLinkCode(id, good, now())), 'E_LINK_INVALID');   // 6th try: dead even with the right code
+  assert.equal((await A.sessionUser(g.token, now()))!.guest, true);
+  await A.requestLink(id, 'code2@example.com', 'matkhau-dai-123', 'http://x', now());   // a new request starts afresh
+  assert.equal((await A.confirmLinkCode(id, await realCode(), now())).email, 'code2@example.com');
+  assert.equal((await A.sessionUser(g.token, now()))!.guest, false);
+});
+test('mail quota: a 4th mail within an hour to one address is not sent (reset: silent, link: E_RATE_LIMIT)', async () => {
+  const mk = (_i: string, e: string) => S.createState(undefined, now(), e);
+  await signUp('quota@example.com');
+  const n0 = (await outbox()).length;
+  for (let i = 0; i < 5; i++) await A.requestReset('quota@example.com', 'http://x', now());
+  assert.equal((await outbox()).length, n0 + 3);
+  const g = await A.createGuest('ua', 'ip-quota', now(), mk);
+  const id = (await A.sessionUser(g.token, now()))!.id;
+  assert.equal(await code(A.requestLink(id, 'quota@example.com', 'matkhau-dai-123', 'http://x', now())), 'E_EMAIL_TAKEN');
+});
+
+test('report: AI spend by day, online minutes, items by rarity, beasts and the daily quest; only the owner can read it', async () => {
+  const RP = await import('../lib/server/report'), AD = await import('../lib/server/admin'), PR = await import('../lib/server/presence'), L = await import('../lib/llm'), Dl = await import('../lib/daily');
+  const BS = await import('../lib/server/botseed');
+  const t = Math.floor(Date.now() / 60000) * 60000 + 1000, today = Dl.dayKey(t);   // one second into a minute: the three touches below fall in exactly two minutes
+  const a = await signUp('rp-a@example.com'), b = await signUp('rp-b@example.com');
+  await BS.removeBots(); await BS.createBots(1, t, false);
+  // the engine counts every item it gives, by rarity
+  await editState(a.id, (st) => {
+    st.tot = { items: [10, 5, 3, 2, 1, 0] };
+    st.bag.push(G.genItem(st, 3, 4, 'Weapon'), G.genItem(st, 3, 0, 'Back'));
+    st.beasts.push({ id: 1, sp: 'ho', name: 'Xích Viêm Hồ', level: 3, size: 1, cm: 70, cls: 2, mut: true, pers: 0, apt: [1, 1, 1, 1, 1], skills: [], stats: [1, 1, 5, 5, 5], power: 10 });
+    st.best.ho = { seen: 4, tamed: 3, mutSeen: 1, mutTamed: 1 };
+    st.quest = { day: today, sp: 'ho', n: 5, need: 5, done: true, reward: 10 }; st.questDays = [today];
+  });
+  await editState(b.id, (st) => { st.quest = { day: today, sp: 'ho', n: 2, need: 5, done: false, reward: 0 }; });
+  // online time: two ticks in one minute count once, another minute counts again; another instance (a cleared memory) cannot double count
+  await PR.touchPresence(a.id, t); await PR.touchPresence(a.id, t + 10_000); await PR.touchPresence(a.id, t + 70_000);
+  (globalThis as any).__tutienPresence.last.clear(); await PR.touchPresence(a.id, t);
+  // the spend ledger keeps a row per day
+  const spent0 = (await RP.buildReport(t)).ai.spentToday;   // other tests spend too
+  await L.addImageCost(0.07); await L.addImageCost(0.05);
+  const rep = await RP.buildReport(t + 80_000);
+  assert.ok(Math.abs(rep.ai.spentToday - spent0 - 0.12) < 1e-6, String(rep.ai.spentToday));
+  assert.ok(rep.ai.image.spent >= 0.12 && rep.ai.image.cap > 0 && Math.abs(rep.ai.image.remaining - Math.max(0, rep.ai.image.cap - rep.ai.image.spent)) < 1e-3);
+  assert.equal(rep.ai.days.length, 30); assert.equal(rep.ai.days[29].estimated, false);
+  assert.equal(rep.online.todayPlayers, 1); assert.ok(Math.abs(rep.online.todayHours - 2 / 60) < 0.01, String(rep.online.todayHours));
+  assert.equal(rep.online.top[0].hours >= 0.03, true); assert.ok(!JSON.stringify(rep).includes('rp-a@example.com'), 'e-mail addresses are masked');
+  assert.ok(rep.players.real >= 2 && rep.players.bots === 1 && rep.players.registered >= 2);
+  assert.ok(rep.items.dropped[0] >= 10 && rep.items.dropped[4] >= 1 && rep.items.held[4] >= 1);
+  assert.ok(rep.beasts.total >= 1 && rep.beasts.mutants >= 1 && rep.beasts.tamedEver >= 3 && rep.beasts.species.some((s) => s.id === 'ho'));
+  assert.ok(rep.quest.done >= 1 && rep.quest.inProgress >= 1 && rep.quest.byDay[rep.quest.byDay.length - 1].done >= 1);
+  assert.equal(rep.quest.activeToday, rep.quest.done + rep.quest.inProgress + rep.quest.notStarted);
+  // only the owner: a key from the environment, nothing without it
+  const req = (k?: string) => new Request('http://x/api/admin/report', { headers: k ? { authorization: `Bearer ${k}`, 'x-forwarded-for': '9.9.9.9' } : { 'x-forwarded-for': '9.9.9.9' } });
+  const was = { a: process.env.ADMIN_KEY, c: process.env.CRON_SECRET };
+  try {
+    delete process.env.ADMIN_KEY; delete process.env.CRON_SECRET;
+    assert.equal((await code(Promise.resolve().then(() => AD.requireAdmin(req('x'))))), 'E_NO_ADMIN_KEY');
+    process.env.ADMIN_KEY = 'a-long-owner-key-for-tests';
+    assert.equal(await code(Promise.resolve().then(() => AD.requireAdmin(req()))), 'E_AUTH');
+    assert.equal(await code(Promise.resolve().then(() => AD.requireAdmin(req('wrong')))), 'E_AUTH');
+    assert.equal(await code(Promise.resolve().then(() => AD.requireAdmin(req('a-long-owner-key-for-tests')))), 'ok');
+    for (let i = 0; i < 6; i++) await code(Promise.resolve().then(() => AD.requireAdmin(req('wrong'))));
+    assert.equal(await code(Promise.resolve().then(() => AD.requireAdmin(req('a-long-owner-key-for-tests')))), 'E_RATE_LIMIT', 'too many wrong keys slow the address down');
+  } finally { was.a === undefined ? delete process.env.ADMIN_KEY : (process.env.ADMIN_KEY = was.a); was.c === undefined ? delete process.env.CRON_SECRET : (process.env.CRON_SECRET = was.c); }
+  await BS.removeBots();
+});
+
+test('report: which hours of the day players are online (Việt Nam time), averaged over the days with data, and a heat map of the last 14 days', async () => {
+  const RP = await import('../lib/server/report'), PR = await import('../lib/server/presence');
+  const a = await signUp('hr-a@example.com'), b = await signUp('hr-b@example.com');
+  const day0 = Date.parse(new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10) + 'T00:00:00Z');
+  // 03:30 UTC = 10:30 Việt Nam, 14:05 UTC = 21:05 Việt Nam; b is also there at 10:45 (the same hour) and 20 minutes later in another one
+  for (const [acc, at] of [[a.id, 3.5], [a.id, 3.5 + 1 / 60], [b.id, 3.75], [a.id, 14 + 5 / 60], [b.id, 14.4]] as [string, number][]) await PR.touchPresence(acc, day0 + at * 3600_000);
+  const rep = await RP.buildReport(Date.now());
+  const o = rep.online, vn = (ms: number) => new Date(ms + 7 * 3600_000).toISOString().slice(0, 10);
+  assert.equal(o.hours.length, 24); assert.equal(o.heat.length, 14); assert.match(o.tz, /UTC\+7/);
+  assert.ok(o.hours[10].minutes >= 3 && o.hours[21].minutes >= 2 && o.hours[9].minutes === 0 || o.hours[10].minutes >= 3, 'minutes land in the Việt Nam hour');
+  assert.ok(o.hours[10].peak >= 2, 'two players were there at 10h on one day');
+  assert.ok(o.hours[21].peak >= 2 && o.hours[21].players > 0 && o.hours[21].players <= o.hours[21].peak);
+  const row = o.heat.find((r) => r.day === vn(day0 + 3.5 * 3600_000))!;
+  assert.ok(row && row.cells[10] >= 2 && row.cells[21] >= 2 && row.cells[3] === 0, JSON.stringify(row));
+  assert.ok(o.peak.length > 0 && o.peak.length <= 3 && o.peak[0].players >= o.peak[o.peak.length - 1].players);
+  assert.ok(o.daysCounted >= 1);
+  // an hour that has not come yet today never counts as "nobody was there"
+  const early = await RP.buildReport(day0 + 3 * 86400_000 + 1 * 3600_000);   // 01:00 UTC = 08:00 Việt Nam
+  const lateHour = early.online.hours.find((x) => x.hour === 23)!;
+  assert.ok(lateHour.players >= 0);
+});

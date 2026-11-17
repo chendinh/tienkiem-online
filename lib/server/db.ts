@@ -39,6 +39,16 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS sessions (token_hash text PRIMARY KEY, acc text NOT NULL, created bigint NOT NULL, last_at bigint NOT NULL, ua text NOT NULL DEFAULT '')`,
   `CREATE INDEX IF NOT EXISTS sessions_acc ON sessions (acc)`,
   `CREATE TABLE IF NOT EXISTS resets (token_hash text PRIMARY KEY, acc text NOT NULL, exp bigint NOT NULL, used boolean NOT NULL DEFAULT false)`,
+  // guest = a quick account with a placeholder address, until the player links a real e-mail
+  `ALTER TABLE acct_auth ADD COLUMN IF NOT EXISTS guest boolean NOT NULL DEFAULT false`,
+  // e-mail address waiting for the click on the link in the mail (the new password is already hashed)
+  `CREATE TABLE IF NOT EXISTS email_links (token_hash text PRIMARY KEY, acc text NOT NULL, email text NOT NULL, email_key text NOT NULL, salt text NOT NULL, hash text NOT NULL, exp bigint NOT NULL, used boolean NOT NULL DEFAULT false)`,
+  `ALTER TABLE email_links ADD COLUMN IF NOT EXISTS code_hash text NOT NULL DEFAULT ''`,
+  `ALTER TABLE email_links ADD COLUMN IF NOT EXISTS tries int NOT NULL DEFAULT 0`,
+  // passkeys (WebAuthn): one row per credential; pk_challenges holds the one-time challenge between "options" and "verify"
+  `CREATE TABLE IF NOT EXISTS passkeys (id text PRIMARY KEY, acc text NOT NULL, public_key text NOT NULL, counter bigint NOT NULL DEFAULT 0, transports jsonb NOT NULL DEFAULT '[]', created bigint NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS passkeys_acc ON passkeys (acc)`,
+  `CREATE TABLE IF NOT EXISTS pk_challenges (id text PRIMARY KEY, challenge text NOT NULL, acc text NOT NULL DEFAULT '', exp bigint NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS login_fails (key text PRIMARY KEY, n int NOT NULL, until bigint NOT NULL, at bigint NOT NULL DEFAULT 0)`,
   `CREATE TABLE IF NOT EXISTS rank_entries (acc text PRIMARY KEY, entry jsonb NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS rank_pid ON rank_entries ((entry->>'pid'))`,
@@ -67,6 +77,10 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS market_offers (id bigserial PRIMARY KEY, listing bigint NOT NULL, bidder text NOT NULL, bidder_info jsonb NOT NULL, item jsonb NOT NULL, status text NOT NULL DEFAULT 'open', created bigint NOT NULL, closed bigint)`,
   `CREATE INDEX IF NOT EXISTS market_offers_listing ON market_offers (listing) WHERE status = 'open'`,
   `CREATE INDEX IF NOT EXISTS market_offers_bidder ON market_offers (bidder) WHERE status = 'open'`,
+  // the minutes of the day (UTC) in which a player had the game open: one bit per minute, one row per account per day (about 180 bytes). Setting a bit twice changes nothing,
+  // so several server instances can report the same minute safely. Read by the report page only.
+  `CREATE TABLE IF NOT EXISTS presence (acc text NOT NULL, day text NOT NULL, bits bit(1440) NOT NULL, PRIMARY KEY (acc, day))`,
+  `CREATE INDEX IF NOT EXISTS presence_day ON presence (day)`,
   `CREATE TABLE IF NOT EXISTS market_inbox (id bigserial PRIMARY KEY, acc text NOT NULL, item jsonb NOT NULL, kind text NOT NULL, note jsonb NOT NULL DEFAULT '{}', created bigint NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS market_inbox_acc ON market_inbox (acc)`,
 ];

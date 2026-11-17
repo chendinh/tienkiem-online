@@ -4,6 +4,18 @@
   .authScreen { position: fixed; inset: 0; z-index: var(--z-intro); display: grid; place-items: center; overflow-y: auto; padding: var(--sp-5) var(--sp-4); }
   .authBox { width: min(460px, 100%); display: grid; gap: var(--sp-3); padding: var(--sp-5); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: var(--glass-soft); backdrop-filter: blur(10px); }
   .authBox h2 { margin: 0; }
+  .authQuick { display: grid; gap: var(--sp-2); }
+  .authQuick .hint { text-align: center; margin: 0; }
+  .authGoogle { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; text-decoration: none; background: #fff; color: #1f1f1f; border-color: #dadce0; }
+  .authPasskey { min-height: 44px; }
+  .codeRow { display: grid; gap: var(--sp-2); width: 100%; text-align: left; }
+  .codeRow input { letter-spacing: 0.4em; font-size: var(--fs-lg, 1.2rem); text-align: center; }
+  .authOr { display: flex; align-items: center; gap: var(--sp-3); color: var(--text-3); font-size: var(--fs-xs); margin-top: var(--sp-1); }
+  .authOr::before, .authOr::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  .guestNag { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); margin: var(--sp-2) var(--sp-3) 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: var(--glass-soft); font-size: var(--fs-sm); }
+  .guestNag p { margin: 0; flex: 1 1 260px; color: var(--text-2); }
+  .linkSent { display: grid; gap: var(--sp-2); justify-items: center; text-align: center; }
+  .linkSent h3, .linkSent p { margin: 0; }
   .form { display: grid; gap: var(--sp-3); }
   .field { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--text-2); }
   .field input, .field select, .inp { min-height: 44px; padding: 0.5rem 0.75rem; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: rgb(0 0 0 / 0.3); color: var(--text-1, inherit); }
@@ -156,4 +168,12 @@
   .tameFilters.off { opacity: 0.45; filter: grayscale(0.5); }
   .tameFilters.off * { cursor: not-allowed; }
   .tameOffNote { margin: 0; }
+}
+
+@layer game {
+  /* the Save bar of Cài đặt stays at the bottom of the window while the settings scroll */
+  .setBar { position: sticky; bottom: calc(var(--sp-6) * -1); z-index: 5; display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) calc(var(--sp-6) * -1) calc(var(--sp-6) * -1); padding: var(--sp-3) var(--sp-6); border-top: 1px solid var(--line-gold); background: linear-gradient(180deg, rgb(10 24 32 / 0.96), rgb(6 14 20 / 0.99)); box-shadow: 0 -10px 20px -12px #000; }
+  .setBar small { flex: 1; min-width: 0; color: var(--text-3); font-size: var(--fs-xs); }
+  .setBar small.dirty { color: var(--gold-300); }
+  @media (max-width: 560px) { .setBar { padding-inline: var(--sp-4); margin-inline: calc(var(--sp-4) * -1); } }
 }

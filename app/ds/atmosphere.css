@@ -41,5 +41,5 @@
   /* grain and mist are for mid and high only */
   :root[data-fx='low'] .atmo-grain, :root[data-fx='off'] .atmo-grain, :root[data-fx='low'] .atmo-mist { display: none; }
   :root[data-fx='off'] .atmo-scene { transform: scale(1.05); }
-  .fx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: var(--z-fx); pointer-events: none; }
+  .fx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; }   /* the particles and rings of the fight: above the page, but BELOW the header (30), the Kho báu drawer and menus (45) and every window (60), so nothing is ever painted over them */
 }

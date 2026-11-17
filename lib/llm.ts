@@ -26,6 +26,14 @@ async function addUsage(text: number, image: number) {
          'updated', to_jsonb(now()::text))`,
       [text, image],
     );
+    // the same amounts again under the day (UTC), for the report page: one small row per day, never read by the game
+    await query(
+      `INSERT INTO kv (key, value) VALUES ('usage.' || to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD'), jsonb_build_object('spentUsd', $1::float8, 'imageUsd', $2::float8))
+       ON CONFLICT (key) DO UPDATE SET value = jsonb_build_object(
+         'spentUsd', COALESCE((kv.value->>'spentUsd')::float8, 0) + $1::float8,
+         'imageUsd', COALESCE((kv.value->>'imageUsd')::float8, 0) + $2::float8)`,
+      [text, image],
+    );
   } catch (e: any) { console.warn('[llm] could not write the spend ledger:', String(e?.message || e).slice(0, 120)); }
 }
 const r4 = (x: number) => Math.round(x * 10000) / 10000;

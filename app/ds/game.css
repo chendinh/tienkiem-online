@@ -730,3 +730,49 @@
   .miniStatus .barCap { width: 21px; height: 25px; }
   .miniStatus .barCap.l { margin-right: -7px; } .miniStatus .barCap.r { margin-left: -7px; }
 }
+
+@layer game {
+  /* the fight goes on behind an open window, but its technique effects, projectiles and hit rings must not show through the window's translucent backdrop */
+  body:has(.modal, .pop-body, .main.sideOpen) .stage :is(.stFxLayer, .stProj, .stSkill) { visibility: hidden; }
+}
+
+@layer game {
+  /* ===== header buttons, desktop and tablet (721px and wider): the same round painted medallions as on the phone (public/art/ui/nav, cut from the ico_* pictures
+     and all trimmed to the same size so they sit evenly). The name unrolls to the right in a small tag UNDER the button, so it never covers a neighbour.
+     This block sits last and is specific on purpose: it replaces the older plaque and seal rules above. ===== */
+  @media (min-width: 721px) {
+    .app .top .topNav { --nb: 46px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: none; margin-left: auto; }
+    @media (max-width: 1099px) { .app .top .topNav { --nb: 42px; gap: 8px; } }
+    @media (max-width: 900px) { .app .top .topNav { --nb: 38px; gap: 5px; } }
+    /* every button is exactly the same square: it may not shrink in the flex row, and no margin or padding of the older rules applies */
+    .app .top .topNav .nav.pic { --plaque: none; --ico: none; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 var(--nb); box-sizing: border-box; width: var(--nb); height: var(--nb); min-width: var(--nb); max-width: var(--nb); min-height: var(--nb); margin: 0; padding: 0; gap: 0; align-self: center; border: 0; border-radius: 50%; background: none; box-shadow: none; overflow: visible; cursor: pointer; filter: none; transform: none;
+      transition: transform var(--dur-base) var(--ease-spring), filter var(--dur-base); }
+    .app .top .topNav .nav.pic.rank { --ico: url('/art/ui/nav/rank.png'); }
+    .app .top .topNav .nav.pic.market { --ico: url('/art/ui/nav/market.png'); }
+    .app .top .topNav .nav.pic.alchemy { --ico: url('/art/ui/nav/alchemy.png'); }
+    .app .top .topNav .nav.pic.night { --ico: url('/art/ui/nav/night.png'); }
+    .app .top .topNav .nav.pic.daily { --ico: url('/art/ui/nav/daily.png'); }
+    .app .top .topNav .nav.pic.arts { --ico: url('/art/ui/nav/arts.png'); }
+    .app .top .topNav .nav.pic.pen { --ico: url('/art/ui/nav/pen.png'); }
+    .app .top .topNav .nav.pic.story { --ico: url('/art/ui/nav/story.png'); }
+    .app .top .topNav .nav.pic.odds { --ico: url('/art/ui/nav/odds.png'); }
+    .app .top .topNav .nav.pic.settings { --ico: url('/art/ui/nav/settings.png'); }
+    .app .top .topNav .nav.pic.kho { --ico: url('/art/ui/nav/kho.png'); display: none; }   /* from 1600px the Kho báu column is on the page, so it needs no button */
+    @media (max-width: 1599px) { .app .top .topNav .nav.pic.kho { display: inline-flex; } }
+    .app .top .topNav .nav.pic::before, .app .top .topNav .nav.pic::after, .app .top .topNav .nav.pic .navIco, .app .top .topNav .nav.pic .navArt { display: none; }
+    .app .top .topNav .nav.pic::before { display: block; content: ''; position: absolute; inset: 0; z-index: 1; mask: none; -webkit-mask: none; border-radius: 50%; opacity: 1; animation: none; background: var(--ico) center / 100% 100% no-repeat; filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.55)); transition: filter var(--dur-base); }
+    .app .top .topNav .nav.pic:hover, .app .top .topNav .nav.pic:focus-visible { transform: translateY(-2px) scale(1.06); filter: none; }
+    .app .top .topNav .nav.pic:hover::before, .app .top .topNav .nav.pic:focus-visible::before { opacity: 1; animation: none; filter: brightness(1.15) drop-shadow(0 0 8px color-mix(in srgb, var(--t) 80%, transparent)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.55)); }
+    .app .top .topNav .nav.pic:active { transform: scale(0.95); }
+    .app .top .topNav .nav.pic.on::before { filter: brightness(1.2) drop-shadow(0 0 8px var(--jade-300)); }
+    /* the name: a tag under the button; the text is revealed from left to right */
+    .app .top .topNav .nav.pic .lbl { position: absolute; left: 50%; top: calc(100% + 8px); z-index: 7; display: flex; align-items: center; width: auto; height: 28px; margin: 0; padding: 0 12px; overflow: visible; clip: auto; border-radius: var(--r-pill); white-space: nowrap; pointer-events: none;
+      border: 1px solid var(--t); background: linear-gradient(180deg, color-mix(in srgb, var(--t) 16%, rgb(10 24 32)), rgb(6 14 20)); box-shadow: 0 8px 18px -8px #000, 0 0 12px -4px var(--t);
+      font: 600 var(--fs-xs) / 1 var(--font-text); letter-spacing: 0.04em; color: var(--text-1);
+      opacity: 0; transform: translate(-50%, -4px); clip-path: inset(0 100% 0 0 round 14px); transition: clip-path 0.4s var(--ease-out), transform 0.25s var(--ease-out), opacity 0.1s linear; }
+    .app .top .topNav .nav.pic:hover .lbl, .app .top .topNav .nav.pic:focus-visible .lbl { opacity: 1; transform: translate(-50%, 0); clip-path: inset(0 0 0 0 round 14px); }
+    /* the last buttons sit at the screen edge: their tag is anchored to the right edge of the button instead of its middle */
+    .app .top .topNav .nav.pic:nth-last-child(-n + 2) .lbl { left: auto; right: 0; transform: translate(0, -4px); }
+    .app .top .topNav .nav.pic:nth-last-child(-n + 2):hover .lbl, .app .top .topNav .nav.pic:nth-last-child(-n + 2):focus-visible .lbl { transform: translate(0, 0); }
+  }
+}

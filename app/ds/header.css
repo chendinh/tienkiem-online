@@ -127,3 +127,18 @@
   .qiWidget { flex: none; width: 104px; height: 40px; margin-left: var(--sp-2); pointer-events: none; opacity: 0.95; -webkit-mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
   @media (max-width: 900px) { .qiWidget { display: none; } }
 }
+
+@layer game {
+  /* the phone menu: entries are grouped by what they are for, each one a big tile (icon over label) */
+  .menuGroup { margin-bottom: var(--sp-3); width: 100%; }
+  .menuTitle { margin-bottom: 6px; font-size: var(--fs-2xs); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+  .menuGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .menuGrid.one { grid-template-columns: 1fr; }
+  .menuTile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 62px; padding: 8px 4px; border-radius: var(--r-md); border: 1px solid var(--line); background: rgb(255 255 255 / 0.04); color: var(--text-1); font: 600 var(--fs-xs) / 1.2 var(--font-text); text-align: center; cursor: pointer; }
+  .menuTile svg { color: var(--gold-300); }
+  .menuTile:active { transform: scale(0.97); }
+  .menuTile.hot { flex-direction: row; justify-content: flex-start; gap: 10px; min-height: 48px; padding-inline: 12px; text-align: left; border-color: var(--gold-300); background: linear-gradient(135deg, color-mix(in srgb, var(--gold-400) 22%, transparent), rgb(255 255 255 / 0.03)); }
+  @media (max-width: 720px) { .pop-body { max-height: calc(100dvh - var(--topH) - 20px); overflow-y: auto; overscroll-behavior: contain; } .popNav { display: block; } }
+  @media (max-width: 380px) { .menuGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+}
+

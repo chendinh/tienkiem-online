@@ -147,6 +147,9 @@ export const BALANCE = {
   breakFailureLoss: 0.15,
   heartDemonDuration: 720,
   heartDemonFactor: 0.5,
+  // a purer Linh Căn pays for its speed: 0 extra at purity 0.5, the full extra at purity 1.0 (see purityLoad in game.ts)
+  purityDemonExtra: 0.5,   // Tâm Ma lasts up to +50% longer
+  purityTribExtra: 0.25,   // Thiên Kiếp hits up to +25% harder
   autoBreakMinHp: 0.8,
   autoBreakMinProb: 0.5,
   // player settings defaults (Requirement 1.8)
@@ -261,6 +264,7 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   for (const r of b.tribulationRealms) need(isInt(b.tribulationWaves[r]) && b.tribulationWaves[r] >= 1, `Tribulation_Wave_Count thiếu hoặc không hợp lệ ở Realm ${r}`);
   need(b.tribulationWaveStrength > 0 && b.tribulationReduction >= 0 && b.tribulationReduction < 1, 'Tribulation_Wave_Strength/Talisman_Reduction không hợp lệ');
   need(isInt(b.heartDemonDuration) && b.heartDemonDuration >= 1 && b.heartDemonFactor > 0 && b.heartDemonFactor <= 1, 'Heart_Demon không hợp lệ');
+  need(b.purityDemonExtra >= 0 && b.purityTribExtra >= 0, 'Purity_Demon/Tribulation_Extra không được âm');
   need(b.breakFailureLoss >= 0 && b.breakFailureLoss < 1, 'Breakthrough_Failure_Loss phải trong [0,1)');
   need(inRange(b.autoBreakMinHp, 0, 1) && inRange(b.autoBreakMinProb, 0, 1), 'Auto_Breakthrough_Min_HP/Probability không hợp lệ');
   // Requirement 24

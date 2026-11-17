@@ -1,16 +1,17 @@
 'use client';
 import { ModalClose, XSeal } from './ds/ModalClose';
-import { Toast } from './ds/Dialog';
+import { Toast, toast, askConfirm } from './ds/Dialog';
+import { addPasskey, passkeySupported, PASSKEY_UNSUPPORTED } from '@/lib/client/passkey';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
 import * as A from '@/lib/arts';
 import { type FeedEntry, pstats, levelOf, threshold, outfitTier, auraElement, atBottleneck, SP } from '@/lib/game';
 import type { GS } from '@/lib/client/types';
-import { authMe, authPost, gameGet, gameAct, watchNet } from '@/lib/client/api';
+import { authMe, authPost, gameGet, gameAct, watchNet, type AuthUser } from '@/lib/client/api';
 import { errText } from '@/lib/strings';
 import { BALANCE } from '@/lib/balance';
-import { AuthScreen } from './Auth';
+import { AuthScreen, LinkEmailModal } from './Auth';
 import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
 import { DailyModal } from './Daily';
@@ -251,28 +252,43 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
   );
 }
 
-// Header line: provider, model, spend against the cap, lock note, queue.
-function aiLine(ai: any): string {
-  if (!ai.enabled) return 'AI tắt';
-  const parts = [ai.provider];
-  if (ai.t2i) parts.push(String(ai.t2i).split('/').slice(-2).join('/'));
-  if (ai.budget) parts.push(`$${ai.budget.spentUsd.toFixed(2)}/$${ai.budget.capUsd}`);
-  if (ai.locked) parts.push('tạm khóa 15 phút');
-  else if (ai.budget && ai.budget.spentUsd >= ai.budget.capUsd) parts.push('hết ngân sách ảnh');
-  if (ai.queued || ai.running) parts.push(`đang vẽ ${ai.running}/chờ ${ai.queued}`);
-  return parts.join(' · ');
-}
-
 // Gate: sign in first. Everything after it is driven by the Game_Server.
 export default function Game() {
-  const [user, setUser] = useState<{ email: string } | null | undefined>(undefined);
-  useEffect(() => { authMe().then(setUser).catch(() => setUser(null)); }, []);
+  const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
+  const [google, setGoogle] = useState(false);
+  const [linkNote, setLinkNote] = useState<{ t: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    (async () => {
+      // ?link=... is the click on the e-mail confirmation: finish it first, then read who is signed in
+      const q = new URLSearchParams(window.location.search), tk = q.get('link');
+      if (tk) {
+        const r = await authPost({ action: 'link-confirm', token: tk });
+        setLinkNote({ ok: !!r.ok, t: r.ok ? 'Đã liên kết email. Từ nay ngươi đăng nhập được từ mọi thiết bị.' : errText(r.code || 'E_SERVER') });
+        window.history.replaceState(null, '', '/');
+      }
+      const me = await authMe();
+      setGoogle(me.google); setUser(me.user);
+    })().catch(() => setUser(null));
+  }, []);
   if (user === undefined) return <><Atmosphere scene="night" /><div className="loading"><div className="loadBox"><Lockup width={300} /><span>Đang nhập định</span></div></div></>;
-  if (!user) return <><Atmosphere scene="night" /><AuthScreen onDone={(email) => setUser({ email })} /></>;
-  return <GameInner email={user.email} onSignOut={() => setUser(null)} />;
+  if (!user) return <><Atmosphere scene="night" /><AuthScreen google={google} initialNote={linkNote} onDone={(u) => { setUser(u); authMe().then((m) => setUser(m.user)).catch(() => {}); }} /></>;
+  return <GameInner user={user} linkNote={linkNote} onSignOut={() => setUser(null)} />;
 }
-
-function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void }) {
+function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkNote: { t: string; ok: boolean } | null; onSignOut: () => void }) {
+  const [user, setUser] = useState(user0);
+  const email = user.email, guest = user.guest;
+  const [pkBusy, setPkBusy] = useState(false);
+  const addPk = async () => {
+    if (!passkeySupported()) { toast(PASSKEY_UNSUPPORTED, false); return; }
+    setPkBusy(true);
+    const c = await addPasskey();
+    setPkBusy(false);
+    if (!c) { setUser((u) => ({ ...u, passkeys: (u.passkeys || 0) + 1 })); toast('Đã thêm passkey. Lần sau ngươi đăng nhập chỉ cần vân tay hoặc khuôn mặt.', true); }
+    else if (c !== 'cancel') toast(errText(c), false);
+  };
+  const removePk = async () => { if (await askConfirm({ title: 'Gỡ passkey?', body: 'Mọi passkey của tài khoản này sẽ bị gỡ. Ngươi vẫn đăng nhập được bằng cách khác nếu đã có email.', ok: 'Gỡ', danger: true })) { await authPost({ action: 'pk-remove' }); setUser((u) => ({ ...u, passkeys: 0 })); } };
+  const [linkOpen, setLinkOpen] = useState(false), [nagGone, setNagGone] = useState(false);
+  useEffect(() => { if (linkNote) toast(linkNote.t, linkNote.ok); }, [linkNote]);
   const stRef = useRef<GS | null>(null);
   const stormRef = useRef(false);
   const dirty = useRef(false), saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null), saveVer = useRef(0);
@@ -287,6 +303,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const seenFeed = useRef<number | null>(null), cuedFeed = useRef<number | null>(null), seenSig = useRef<string | null>(null);
   const [storm, setStorm] = useState(false);
   const [credits, setCredits] = useState(false);
+  const [acked, setAcked] = useState<string[]>([]);   // reports closed by the player and waiting for the server to confirm
   const [sideOpen, setSideOpen] = useState(false);   // the third column (Kho báu) is a drawer on laptop and phone screens
   const [intro, setIntro] = useState(false);
   const [ai, setAi] = useState<any>(null);
@@ -338,7 +355,17 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     let out: Awaited<ReturnType<typeof gameAct>>;
     try { out = await gameAct({ type, ...payload }); } finally { setBusy((n) => n - 1); }
     if (out.code === 'E_AUTH') { onSignOut(); return { ok: false, msg: errText('E_AUTH'), code: 'E_AUTH' }; }
-    if (out.state) { actAt.current = performance.now(); apply(out.state); }
+    if (out.state) {
+      actAt.current = performance.now();
+      // While a fight is replayed, apply() keeps every newer state aside. That is right for the poll, but the player's own click (clean the bag, wear, buy...)
+      // must show at once: otherwise the bag still shows items that are already gone and the next click on one of them fails with "not found".
+      if (stageNow.current || held.current) {
+        const top = out.state.feed[0]?.id ?? 0;
+        if (seenFeed.current !== null && top > seenFeed.current) seenFeed.current = top;
+        held.current = null;   // the answer is the newest state, an older one kept aside must not replace it later
+        commit(out.state);
+      } else apply(out.state);
+    }
     return { ok: out.ok, msg: out.ok ? out.msg || '' : out.msg || errText(out.code || 'E_SERVER'), data: out.data, code: out.code };
   }, [apply, onSignOut]);
 
@@ -426,6 +453,12 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
       .finally(() => { chBusy.current = false; });
   });
   const cue = useCue(); const fx = useFx();
+  // the Kho báu drawer always opens at its top: it is a scrolling panel that kept the position it had when it was closed
+  useEffect(() => {
+    if (!sideOpen) return;
+    const el = document.getElementById('sidePanel'); if (el) el.scrollTop = 0;
+    const eq = el?.querySelector('.eqPanel') as HTMLElement | null; if (eq) eq.scrollTop = 0;
+  }, [sideOpen]);
   useEffect(() => {
     if (!sideOpen) return;
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setSideOpen(false); };
@@ -475,7 +508,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const target = p.realm + 1, waves = L < BALANCE.playableLevelCap ? C.WAVES[target] || 0 : 0;
   const speciesAll = D.allSpecies();
   const seenSpecies = speciesAll.filter((s) => (st.best[s.id]?.seen || 0) > 0).length;
-  const rep = st.pending[0];
+  const rep = st.pending.find((r) => !acked.includes(r.id));   // a report the player just closed is hidden at once, not after the server answers
   const zone = st.zones.find((z) => z.id === st.zone);
   // the tribulation plays out first (charge, one lightning strike per wave); the server decides the verdict meanwhile
   const doBreak = async (o: { pill: boolean; trib: boolean }) => {
@@ -489,7 +522,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     if (!r.ok) say(r.msg, false);
   };
   const state = st.decision ? 'Chờ quyết định' : st.recovery ? 'Điều Tức' : (p.injury || 0) > 0 ? 'Thương Thế' : p.heartDemon > 0 ? 'Tâm Ma' : st.set.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện';
-  const ack = async (id: string) => { await act('ack', { id }); };
+  const ack = async (id: string) => { setAcked((a) => (a.includes(id) ? a : [...a, id])); const r = await act('ack', { id }); if (!r.ok) setAcked((a) => a.filter((x) => x !== id)); };
 
   return (
     <GenCtx.Provider value={!!(ai && ai.enabled)}>
@@ -504,52 +537,66 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         <div className="brand"><h1 className="wm"><Lockup width={112} className="lkWide" /><Logo size={38} className="lkMark" /></h1></div>
         <QiWidget aura={C.EL[aura].color} />
         <div className="topMid">
-          <span className="top-chip" title="Cảnh giới hiện tại"><Icon name="lotus" size={15} /><span>{C.REALMS[p.realm]} · {C.SUBS[p.sub]}</span></span>
           <Seg label="Chế độ" value={st.set.mode} onChange={async (v) => { const r = await act('mode', { mode: v }); if (!r.ok) say(r.msg, false); }} options={[
             { v: 'adventure' as const, label: <><Icon name="wind" size={15} /><span className="lbl">Lịch Luyện</span></>, title: 'Lịch Luyện: ra ngoài săn Linh Thú, nhặt pháp khí' },
             { v: 'retreat' as const, label: <><Icon name="lotus" size={15} /><span className="lbl">Bế Quan</span></>, title: 'Bế Quan: ngồi thiền tích lũy Tu Vi' },
           ]} />
         </div>
         <nav className="topNav" aria-label="Chức năng">
-          <button type="button" className="nav pic rank quick" data-tone="gold" title="Bảng Phong Thần" aria-label="Bảng Phong Thần" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
-          <button type="button" className="nav pic alt market" data-tone="gold" title="Phường Thị: mua Khế Ước Phù, Đan Dược, bán nguyên liệu" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
-          <button type="button" className="nav pic alt alchemy" data-tone="gold" title="Luyện Đan: ghép linh thảo thành Hồi Khí Đan, miễn phí" aria-label="Luyện Đan" onClick={() => openWin('alchemy')}><span className="navIco"><Icon name="lotus" size={18} /></span><span className="lbl">Luyện Đan</span></button>
-          <button type="button" className="nav pic alt night" data-tone="violet" title="Chợ Đêm: đổi pháp khí với tu sĩ khác" aria-label="Chợ Đêm" onClick={() => { cue.open(); setModal('night'); }}><span className="navIco"><Icon name="moon" size={18} /></span><span className="lbl">Chợ Đêm</span></button>
-          <button type="button" className="nav pic alt daily quick" data-tone="gold" title="Nhiệm vụ và sự kiện hằng ngày" aria-label="Nhiệm vụ và sự kiện" onClick={() => { cue.open(); setModal('daily'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_quest')})` }} aria-hidden="true" /><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Nhiệm vụ</span></button>
-          <button type="button" className="nav pic alt arts" data-tone="violet" title="Thần Thông: môn pháp, chiêu thức, Bí Công, Công Pháp" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
-          <button type="button" className="nav pic alt pen" data-tone="jade" title="Linh Thú ngươi đã thu phục" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
-          <button type="button" className="nav pic alt story" data-tone="jade" title="Thiên Thư" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
-          <button type="button" className="nav pic alt odds" data-tone="azure" title="Xác suất" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
-          <button type="button" className="nav pic alt settings" data-tone="violet" title="Cài đặt" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
-          <button type="button" className={`nav pic kho quick ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" title="Kho báu: trang bị, thần thông, linh thú" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_bag')})` }} aria-hidden="true" /><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
+          <button type="button" aria-label="Phong Thần" className="nav pic rank quick" data-tone="gold" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
+          <button type="button" aria-label="Phường Thị" className="nav pic alt market" data-tone="gold" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
+          <button type="button" aria-label="Luyện Đan" className="nav pic alt alchemy" data-tone="gold" onClick={() => openWin('alchemy')}><span className="navIco"><Icon name="lotus" size={18} /></span><span className="lbl">Luyện Đan</span></button>
+          <button type="button" aria-label="Chợ Đêm" className="nav pic alt night" data-tone="violet" onClick={() => { cue.open(); setModal('night'); }}><span className="navIco"><Icon name="moon" size={18} /></span><span className="lbl">Chợ Đêm</span></button>
+          <button type="button" aria-label="Nhiệm vụ" className="nav pic alt daily quick" data-tone="gold" onClick={() => { cue.open(); setModal('daily'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_quest')})` }} aria-hidden="true" /><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Nhiệm vụ</span></button>
+          <button type="button" aria-label="Thần Thông" className="nav pic alt arts" data-tone="violet" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
+          <button type="button" aria-label="Linh Thú" className="nav pic alt pen" data-tone="jade" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
+          <button type="button" aria-label="Thiên Thư" className="nav pic alt story" data-tone="jade" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
+          <button type="button" aria-label="Xác suất" className="nav pic alt odds" data-tone="azure" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
+          <button type="button" aria-label="Cài đặt" className="nav pic alt settings" data-tone="violet" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
+          <button type="button" aria-label="Kho báu" className={`nav pic kho quick ${sideOpen ? 'on' : ''}`} data-tone="cinnabar" aria-expanded={sideOpen} onClick={() => { cue.open(); setSideOpen((o) => !o); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_bag')})` }} aria-hidden="true" /><span className="navIco"><Icon name="chest" size={18} /></span><span className="lbl">Kho báu</span></button>
         </nav>
         <div className="orbs">
           <span className="musicSlot"><MusicOrb onCredits={() => setCredits(true)} /></span>
-          <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>
-            <div className="pop-head"><b>Tùy chọn</b></div>
+          <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>{(close) => {
+            // every entry closes the menu first, then opens its window
+            const go = (fn: () => void) => () => { close(); cue.open(); setSideOpen(false); fn(); };
+            const tile = (icon: 'stone' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear', label: string, fn: () => void, hot?: boolean) => (
+              <button type="button" className={`menuTile ${hot ? 'hot' : ''}`} onClick={go(fn)}><Icon name={icon} size={22} /><span>{label}</span></button>
+            );
+            return (<>
+            <div className="pop-head"><b>Menu</b></div>
+            <div className="pop-sect">Tài khoản</div>
+            {guest
+              ? <><p className="pop-note muted">Tài khoản khách: tiến trình chỉ nằm trong trình duyệt này. Liên kết email để chơi trên mọi thiết bị và đổi được mật khẩu.</p>
+                <div className="pop-grid" style={{ marginBottom: 10 }}><button className="btn sm hot" onClick={go(() => setLinkOpen(true))}>Liên kết email</button><button className="btn sm" onClick={signOut}>Đăng xuất</button></div></>
+              : <><p className="pop-note muted">{email}</p><div className="pop-grid" style={{ marginBottom: 10 }}><button className="btn sm" onClick={signOut}>Đăng xuất</button></div></>}
+            {<div className="pop-grid" style={{ marginBottom: 10 }}>{user.passkeys ? <button className="btn sm ghost" onClick={removePk}>Gỡ passkey ({user.passkeys})</button> : <button className="btn sm" disabled={pkBusy} onClick={addPk}>Thêm passkey (vân tay / khuôn mặt)</button>}</div>}
             <div className="popNav">
-              <button type="button" className="btn sm" onClick={() => openWin('market')}><Icon name="stone" size={15} /> Phường Thị</button>
-              <button type="button" className="btn sm" onClick={() => openWin('alchemy')}><Icon name="lotus" size={15} /> Luyện Đan</button>
-              <button type="button" className="btn sm" onClick={() => openWin('arts')}><Icon name="bolt" size={15} /> Thần Thông</button>
-              <button type="button" className="btn sm" onClick={() => openWin('pen')}><Icon name="paw" size={15} /> Linh Thú</button>
-              <button type="button" className="btn sm" onClick={() => { cue.open(); setSideOpen(false); setModal('daily'); }}><Icon name="scroll" size={15} /> Nhiệm vụ</button>
-              <button type="button" className="btn sm" onClick={() => { cue.open(); setSideOpen(false); setModal('night'); }}><Icon name="moon" size={15} /> Chợ Đêm</button>
-              <button type="button" className="btn sm" onClick={() => openWin('dex')}><Icon name="book" size={15} /> Sưu Tập</button>
-              <button type="button" className="btn sm" onClick={() => { cue.open(); setCodex('story'); }}><Icon name="scroll" size={15} /> Thiên Thư</button>
-              <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('odds'); }}><Icon name="luck" size={15} /> Xác suất</button>
-              <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('settings'); }}><Icon name="gear" size={15} /> Cài đặt</button>
+              <div className="menuGroup"><div className="menuTitle">Tu luyện</div>
+                <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
+              <div className="menuGroup"><div className="menuTitle">Mua bán và nhiệm vụ</div>
+                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}</div></div>
+              <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
+                <div className="menuGrid">{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
+              <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
+                <div className="menuGrid one">{tile('gear', 'Cài đặt: âm nhạc, nghỉ ngơi, tự động, thu phục', () => setModal('settings'), true)}</div></div>
             </div>
-            <div className="pop-sect">Hiệu ứng</div>
+            <div className="pop-sect">Hiệu ứng hình ảnh</div>
             <Seg label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'low' as const, label: 'Nhẹ' }, { v: 'mid' as const, label: 'Vừa' }, { v: 'high' as const, label: 'Nhiều' }]} />
             <p className="pop-note muted">Hạ xuống Nhẹ khi máy yếu. Nếu hệ thống đang yêu cầu giảm chuyển động, game tự dùng mức Nhẹ.</p>
-            {ai && <><div className="pop-sect">Nguồn ảnh AI</div><div className="pop-ai" title={ai.locked ? `Nhà cung cấp từ chối (403): ${ai.locked}` : ai.edit ? `Vẽ mới: ${ai.t2i} · Sửa ảnh: ${ai.edit} · Mặc đồ (theo biểu tượng): ${ai.outfit} · Biểu tượng pháp khí: ${ai.item}` : ''}>{aiLine(ai)}</div></>}
-            <div className="pop-sect">Tài khoản</div>
-            <p className="pop-note muted">{email}</p>
-            <div className="pop-grid"><button className="btn sm" onClick={signOut}>Đăng xuất</button></div>
-          </Popover>
+            </>);
+          }}</Popover>
         </div>
       </header>
 
+      {guest && !nagGone && (
+        <div className="guestNag" role="status">
+          <img src="/brand/emblem.webp" width={36} height={36} alt="" draggable={false} />
+          <p><b>Ngươi đang chơi bằng tài khoản khách.</b> Xoá dữ liệu trình duyệt là mất đạo đồ. Liên kết email để giữ tiến trình và đổi mật khẩu khi cần.</p>
+          <button className="btn sm hot" onClick={() => setLinkOpen(true)}>Liên kết email</button>
+          <button className="btn sm ghost" onClick={() => setNagGone(true)} aria-label="Để sau">Để sau</button>
+        </div>
+      )}
       <div className="mobView"><Seg<'journey' | 'hero'> label="Màn hình" value={view} onChange={setView} options={[{ v: 'journey' as const, label: <><Icon name="wind" size={15} /><span>Hành trình</span></>, title: 'Các lần gặp gỡ và trận đánh' }, { v: 'hero' as const, label: <><Icon name="lotus" size={15} /><span>Nhân vật</span></>, title: 'Chỉ số, đột phá, khu vực' }]} /></div>
       <main className={`main ${sideOpen ? 'sideOpen' : ''}`} data-view={view}>
         <section className="panel heroPanel">
@@ -722,7 +769,8 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             </div>
         {dexSel && <div className="legend"><b>{SP(dexSel).name}</b><p>{(lore as any).beasts[dexSel] || D.legendOf(dexSel)}</p></div>}
       </Window>}
-      {modal === 'dao' && <DaoModal dao={p.dao} email={email} onClose={() => setModal(null)} />}
+      {linkOpen && <LinkEmailModal onClose={() => setLinkOpen(false)} onLinked={(em) => { setUser({ ...user, email: em, guest: false }); setLinkOpen(false); toast('Đã liên kết email.', true); }} />}
+      {modal === 'dao' && <DaoModal dao={p.dao} email={guest ? 'khách (chưa liên kết email)' : email} onClose={() => setModal(null)} />}
       {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
