@@ -75,13 +75,39 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     if (it && it.tier >= 3 && !(await askConfirm({ title: 'Phân giải pháp bảo', body: `Phân giải ${it.name} (hạng ${C.RARITY[it.tier]})? Không thể hoàn tác.`, ok: 'Phân giải', danger: true }))) return;
     finish(await act('dissolve', { id }));
   }, [stRef, finish, act]);
+  // "Dọn túi" is applied on the screen at once (same rule as lib/game.ts dissolveMany) and confirmed by the server in the background.
+  // If the server refuses or cannot be reached, the bag is put back and the player is told, so the screen never stays wrong.
+  const [cleanBusy, setCleanBusy] = useState(false);
+  const cleanLock = useRef(false);
   const dissolveMany = useCallback(async (maxTier: number) => {
-    if (!(await askConfirm({ title: 'Dọn túi', body: `Phân giải mọi món không khóa, không đang mặc, hạng ${C.RARITY[maxTier]} trở xuống (trong túi và kho tạm)? Không thể hoàn tác.`, ok: 'Dọn túi', danger: true }))) return;
-    finish(await act('dissolveMany', { maxTier }));
-  }, [finish, act]);
+    const st = stRef.current; if (!st || cleanLock.current) return;
+    const gone = new Set<number>(); let stones = 0;
+    for (const it of [...st.bag, ...st.stash]) {
+      if (it.locked || it.tier > maxTier) continue;
+      const cur = st.eq[it.slot];
+      if (!cur || it.power > cur.power) continue;   // an upgrade is always kept
+      gone.add(it.id); stones += dissolveValue(it);
+    }
+    if (gone.size === 0) { say('Không có món nào phù hợp để phân giải.', false); return; }
+    cleanLock.current = true; setCleanBusy(true);
+    const next = { ...st, bag: st.bag.filter((x) => !gone.has(x.id)), stash: st.stash.filter((x) => !gone.has(x.id)), stones: Math.min(st.caps.stoneMax, st.stones + stones) };
+    stRef.current = next;
+    setSel(null); setHeld(null); setDragging(false);
+    say(`Đã phân giải ${gone.size} món, nhận khoảng ${stones} Linh Thạch.`, true);
+    re();
+    try {
+      const r = await act('dissolveMany', { maxTier });
+      // The answer already replaced the state with the server's own. Only the message may differ (exact amount, or a refusal).
+      if (r.ok) say(r.msg, true);
+      else { if (stRef.current === next) stRef.current = st; say(r.msg || 'Chưa dọn được túi. Hãy thử lại.', false); }
+    } catch {
+      if (stRef.current === next) stRef.current = st;
+      say('Máy chủ chưa phản hồi nên túi được trả về như cũ. Hãy thử lại sau.', false);
+    } finally { cleanLock.current = false; setCleanBusy(false); re(); }
+  }, [stRef, act, re, say]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
-  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, dissolve, dissolveMany, sel, open, close };
+  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, dissolve, dissolveMany, cleanBusy, sel, open, close };
 }
 
 const keyAct = (fn: () => void) => (e: RKey) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -244,7 +270,11 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
           </div>
           <div className="cleanAct">
             <button type="button" className="btn ghost sm" onClick={() => setCleaning(false)}>Đóng</button>
-            <button type="button" className="btn hot sm" disabled={plan.n === 0} onClick={async () => { if (await askConfirm({ title: 'Dọn túi', body: `Phân giải ${plan.n} món tới hạng ${C.RARITY[clean]}, nhận khoảng ${fmt(plan.stones)} Linh Thạch? Không hoàn lại được.`, ok: 'Phân giải', danger: true })) eqx.dissolveMany(clean); }}>Phân giải {plan.n} món</button>
+            <button type="button" className="btn hot sm" disabled={plan.n === 0 || eqx.cleanBusy} onClick={async () => {
+              // common and uncommon: clean at once (the summary above is the preview). Only rare pieces ask first, like a single dissolve does.
+              if (clean >= 3 && !(await askConfirm({ title: 'Dọn túi', body: `Phân giải ${plan.n} món tới hạng ${C.RARITY[clean]}, nhận khoảng ${fmt(plan.stones)} Linh Thạch? Không hoàn lại được.`, ok: 'Phân giải', danger: true }))) return;
+              setCleaning(false); eqx.dissolveMany(clean);
+            }}>Phân giải {plan.n} món</button>
           </div>
         </div>
       )}

@@ -349,11 +349,15 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   }, [commit, nextFight]);
   // A poll that started before the last click finished may carry the state from before it: it is dropped, so a click never seems to undo itself.
   const actAt = useRef(0);
+  const inflight = useRef(0);        // player requests on their way: a poll that answers meanwhile may carry the state from before the click, so it is dropped
   const [busy, setBusy] = useState(0);   // requests the player started and that have not been answered yet (shows a thin bar, see .busyBar)
   const act: Act = useCallback(async (type, payload = {}): Promise<ActRes> => {
-    setBusy((n) => n + 1);
+    setBusy((n) => n + 1); inflight.current++;
     let out: Awaited<ReturnType<typeof gameAct>>;
-    try { out = await gameAct({ type, ...payload }); } finally { setBusy((n) => n - 1); }
+    // A request that never gets through answers with a refusal instead of throwing, so every caller can show it (before, the click just did nothing).
+    try { out = await gameAct({ type, ...payload }); }
+    catch { return { ok: false, msg: errText('E_SERVER'), code: 'E_SERVER' }; }
+    finally { setBusy((n) => n - 1); inflight.current--; }
     if (out.code === 'E_AUTH') { onSignOut(); return { ok: false, msg: errText('E_AUTH'), code: 'E_AUTH' }; }
     if (out.state) {
       actAt.current = performance.now();
@@ -396,7 +400,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         const t0 = performance.now();
         const out = await gameGet();
         if (out.code === 'E_AUTH') onSignOut();
-        else if (out.state) { if (t0 >= actAt.current) apply(out.state); }
+        else if (out.state) { if (t0 >= actAt.current && inflight.current === 0) apply(out.state); }
         else if (out.ok) setIntro(true);
       } catch {} finally { polling.current = null; }
     })();
