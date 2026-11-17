@@ -5,7 +5,7 @@
    ========================================================================== */
 @layer ds-atmosphere {
   .atmo { position: fixed; inset: 0; z-index: var(--z-atmo); overflow: hidden; pointer-events: none; background: var(--ink-950); --px: 0; --py: 0; contain: strict; }
-  .atmo-scene { position: absolute; inset: -4%; background-size: cover; background-position: center 28%; opacity: 0; transform: translate3d(calc(var(--px) * -14px), calc(var(--py) * -8px), 0) scale(1.05); transition: opacity var(--dur-ambient) var(--ease-io), transform 0.9s var(--ease-out); will-change: transform, opacity; }
+  .atmo-scene { position: absolute; inset: -4%; background-size: cover; background-position: center 28%; opacity: 0; transform: scale(1.05); transition: opacity var(--dur-ambient) var(--ease-io); will-change: opacity; }
   .atmo-scene.on { opacity: 1; }
   /* the darkening is a plain black layer instead of filter: brightness(), so the moving picture is not re-filtered every frame */
   .atmo-scene.night { background-image: url('/art/scene/night.webp'); }
@@ -28,8 +28,10 @@
   /* zone scenes: the area picture is the backdrop, darker in seclusion (night) than while wandering (dawn) */
   .atmo-scene.zone::after { background: rgb(0 0 0 / 0.5); }
   .atmo-scene.zone.night::after { background: rgb(0 0 0 / 0.66); }
-  .atmo-tint { position: absolute; inset: 0; background: radial-gradient(70% 55% at 50% 32%, color-mix(in srgb, var(--aura) 20%, transparent), transparent 72%); animation: aura-breathe 9s var(--ease-drift) infinite alternate; animation-play-state: var(--amb); transition: background var(--dur-ambient); }
-  .atmo-mist { position: absolute; left: -25%; right: -25%; height: 55%; bottom: -8%; will-change: transform; animation-play-state: var(--amb); }
+  .atmo-tint { position: absolute; inset: 0; background: radial-gradient(70% 55% at 50% 32%, color-mix(in srgb, var(--aura) 20%, transparent), transparent 72%); transition: background var(--dur-ambient); }
+  /* the drifting mist and the canvas of motes are gone from the full screen: they live in the header ornament (.qiWidget) */
+  .atmo-mist, .atmo-motes { display: none; }
+  .atmo-mist.unused { position: absolute; left: -25%; right: -25%; height: 55%; bottom: -8%; will-change: transform; animation-play-state: var(--amb); }
   .atmo-mist.a { background: radial-gradient(48% 62% at 28% 72%, rgb(196 232 228 / 0.2), transparent 72%), radial-gradient(40% 55% at 70% 58%, rgb(150 205 205 / 0.15), transparent 72%); animation: mist-a 70s var(--ease-drift) infinite alternate; }
   .atmo-mist.b { height: 42%; bottom: -4%; background: radial-gradient(44% 58% at 62% 76%, rgb(210 238 232 / 0.17), transparent 72%), radial-gradient(36% 50% at 18% 62%, rgb(130 190 196 / 0.13), transparent 72%); animation: mist-b 95s var(--ease-drift) infinite alternate; }
   .atmo-vignette { position: absolute; inset: 0; background: radial-gradient(125% 95% at 50% 38%, transparent 38%, rgb(2 6 10 / 0.78) 100%), linear-gradient(180deg, rgb(3 8 13 / 0.6), rgb(3 8 13 / 0.2) 28%, rgb(3 8 13 / 0.35) 60%, rgb(3 8 13 / 0.78)); }

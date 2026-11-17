@@ -14,7 +14,8 @@ import { MultiSelect } from './ds/MultiSelect';
 import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
 import { askConfirm, Toast } from './ds/Dialog';
-import { BeastArt, ElChip, Img, ItemCard, SizeMeter, fmt, useZoom } from './ui';
+import { BeastArt, ElChip, Img, ItemCard, PanZoom, SizeMeter, fmt, useZoom } from './ui';
+import { ElIcon } from './Icons';
 
 export type ActRes = { ok: boolean; msg: string; data?: any; code?: string };
 export type Act = (type: string, payload?: any) => Promise<ActRes>;
@@ -159,6 +160,8 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <label className="tg"><input type="checkbox" checked={s.hideRank} onChange={(e) => patch({ hideRank: e.target.checked })} /> Ẩn khỏi Bảng Phong Thần (người khác không thấy tên, trang bị và Linh Thú của ngươi)</label>
           <h3>Tự thu phục</h3>
           <label className="tg"><input type="checkbox" checked={s.autoTame} onChange={(e) => patch({ autoTame: e.target.checked })} /> Bật tự thu phục sau khi thắng</label>
+          {!s.autoTame && <div className="hint tameOffNote">Đang tắt tự thu phục: sau mỗi trận thắng, game dừng lại hỏi ngươi với quái đáng chú ý (Dị Biến, Tinh Anh, loài mới, rất nhỏ hoặc rất lớn). Các bộ lọc dưới đây chỉ có tác dụng khi bật tự thu phục.</div>}
+          <fieldset className={`tameFilters ${s.autoTame ? '' : 'off'}`} disabled={!s.autoTame} aria-label="Bộ lọc tự thu phục">
           <label className="tg"><input type="checkbox" checked={s.tame.strong} onChange={(e) => patch({ tame: { strong: e.target.checked } })} /> Chỉ bắt quái mạnh: mạnh hơn con yếu nhất trong đội xuất chiến, hoặc khi đội chưa đủ {st.caps.party} con (thay cho bộ lọc loài và kích cỡ)</label>
           <label className="field">Hạng Khế Ước Phù sẽ dùng
             <select value={s.tame.grade} onChange={(e) => patch({ tame: { grade: Number(e.target.value) } })}>
@@ -179,6 +182,7 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend>Kích thước được phép</legend>
             <div className="chipPick">{C.SIZE_CLASS.map((n, i) => <label key={n}><input type="checkbox" checked={s.tame.sizes.includes(i)} onChange={() => patch({ tame: { sizes: toggleIn(s.tame.sizes, i) } })} />{n}</label>)}</div>
+          </fieldset>
           </fieldset>
         </div>
         <button className="btn big" onClick={onClose}>Đóng</button>
@@ -398,6 +402,23 @@ export function DaoModal({ dao, email, onClose }: { dao: string; email: string; 
     </Window>
   );
 }
+// Độ thuần: how pure the Linh Căn is. Fixed at birth; it multiplies Tu Vi gain and adds to the breakthrough chance.
+export function PurityModal({ st, onClose }: { st: GS; onClose: () => void }) {
+  const p = st.player, n = p.linh.length, cnt = B.linhSpeedByCount[n - 1] ?? 1;
+  return (
+    <Window title={`Độ thuần ${p.purity}`} icon="lotus" sub="Độ tinh khiết của Linh Căn, định sẵn từ lúc sinh ra" onClose={onClose}>
+      <p className="tag">Linh Căn càng thuần thì linh khí hấp thụ càng ít tạp chất. Độ thuần nằm trong khoảng 0,5 đến 1,0 và không đổi suốt đời tu sĩ.</p>
+      <h3>Tác dụng với ngươi</h3>
+      <ul className="itLines big">
+        <li>Tốc độ tu luyện: Tu Vi nhận mỗi Tick nhân ×{p.purity}.</li>
+        <li>Đột phá: cộng thêm +{pct(B.breakPurityBonus * p.purity)} xác suất (tối đa +{pct(B.breakPurityBonus)} khi độ thuần là 1,0).</li>
+      </ul>
+      <h3>Đặt cạnh số Linh Căn</h3>
+      <div className="hint">Ngươi có {n} Linh Căn nên tốc độ tu luyện còn được nhân ×{cnt} (ít Linh Căn thì tu nhanh hơn, nhiều Linh Căn thì giỏi nhiều hệ hơn). Gộp cả hai: Tu Vi gốc ×{(cnt * p.purity).toFixed(2)}.</div>
+      <div className="hint">Độ thuần thấp nhất (0,5) tu chậm bằng một nửa độ thuần 1,0, và đột phá kém hơn 5%.</div>
+    </Window>
+  );
+}
 // Chức vụ: only a name for now (it gives nothing). It comes and goes when fate puts someone on the road.
 export function TitleModal({ title, hist, onClose }: { title?: string; hist?: string[]; onClose: () => void }) {
   const cur = C.titleOf(title), past = (hist || []).map((id) => C.titleOf(id)).filter(Boolean).reverse();
@@ -562,7 +583,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
         <div className="modal zoom" onClick={() => setSel(null)} role="dialog" aria-modal="true" aria-label={cur.name}>
           <ModalClose onClose={() => setSel(null)} />
           <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()}>
-            <div className="zoomPic"><BeastArt b={cur} box={260} onOpen={() => {}} /></div>
+            <div className="zoomPic"><PanZoom><Img src={C.monsterArt(cur.sp, cur.mut)} className="fill" fb={<ElIcon el={SP(cur.sp).el[0]} size={80} />} /></PanZoom></div>
             <div className="zoomInfo">
               <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>} {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
               <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={SP(cur.sp).el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}</div>

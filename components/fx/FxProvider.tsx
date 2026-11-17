@@ -31,7 +31,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
   const [level, setLevelState] = useState<FxLevel>('mid');
   const lv = useRef<FxLevel>('mid');
   const cv = useRef<HTMLCanvasElement>(null);
-  const world = useRef({ parts: [] as Part[], rings: [] as Ring[], bolts: [] as Bolt[], raf: 0, last: 0, w: 0, h: 0, dpr: 1, sprites: new Map<string, HTMLCanvasElement>() });
+  const world = useRef({ parts: [] as Part[], rings: [] as Ring[], bolts: [] as Bolt[], raf: 0, last: 0, w: 0, h: 0, dpr: 1, dirty: null as [number, number, number, number] | null, sprites: new Map<string, HTMLCanvasElement>() });
 
   useEffect(() => {
     let v: FxLevel = 'mid';
@@ -47,7 +47,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const c = cv.current; if (!c) return;
     const W = world.current;
-    const fit = () => { W.dpr = Math.min(window.devicePixelRatio || 1, 1.5); W.w = window.innerWidth; W.h = window.innerHeight; c.width = Math.round(W.w * W.dpr); c.height = Math.round(W.h * W.dpr); };
+    const fit = () => { W.dpr = 1; W.dirty = null; /* soft glows do not need retina pixels */ W.w = window.innerWidth; W.h = window.innerHeight; c.width = Math.round(W.w * W.dpr); c.height = Math.round(W.h * W.dpr); };
     fit(); window.addEventListener('resize', fit);
     return () => { window.removeEventListener('resize', fit); cancelAnimationFrame(W.raf); W.raf = 0; };
   }, []);
@@ -66,7 +66,13 @@ export function FxProvider({ children }: { children: ReactNode }) {
   const loop = useCallback((now: number) => {
     const W = world.current, c = cv.current; if (!c) return;
     const g = c.getContext('2d')!; const dt = Math.max(0, Math.min(0.05, (now - W.last) / 1000 || 0.016)); W.last = now;
-    g.setTransform(W.dpr, 0, 0, W.dpr, 0, 0); g.clearRect(0, 0, W.w, W.h); g.globalCompositeOperation = 'lighter';
+    g.setTransform(W.dpr, 0, 0, W.dpr, 0, 0);
+    // only the area drawn on the previous frame is cleared (effects cover a small part of the screen), not the whole canvas
+    const D = W.dirty;
+    if (D) g.clearRect(D[0], D[1], D[2] - D[0], D[3] - D[1]); else g.clearRect(0, 0, W.w, W.h);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const ext = (x: number, y: number, r: number) => { if (x - r < x0) x0 = x - r; if (y - r < y0) y0 = y - r; if (x + r > x1) x1 = x + r; if (y + r > y1) y1 = y + r; };
+    g.globalCompositeOperation = 'lighter';
     for (let i = W.parts.length - 1; i >= 0; i--) {
       const p = W.parts[i]; p.life -= dt;
       if (p.life <= 0) { W.parts.splice(i, 1); continue; }
@@ -74,19 +80,21 @@ export function FxProvider({ children }: { children: ReactNode }) {
       p.x += (p.vx + Math.sin(p.ph + p.life * 4) * p.sway) * dt; p.y += p.vy * dt;
       const t = p.life / p.max, a = Math.min(1, t * 2.2) * Math.min(1, (1 - t) * 8 + 0.15);
       g.globalAlpha = Math.max(0, a);
-      if (p.kind === 'spark') {
-        g.strokeStyle = '#fff6d8'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.045, p.y - p.vy * 0.045); g.stroke();
-        g.drawImage(p.sp, p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      ext(p.x, p.y, p.size + (p.kind === 'spark' ? 12 : 2));
+      if (p.kind === 'spark') {   // a short streak is enough; the glow sprite is skipped
+        g.strokeStyle = '#fff6d8'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.045, p.y - p.vy * 0.045); g.stroke();
       } else g.drawImage(p.sp, p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     }
     for (let i = W.rings.length - 1; i >= 0; i--) {
       const r = W.rings[i]; r.life -= dt; if (r.life <= 0) { W.rings.splice(i, 1); continue; }
-      const t = 1 - r.life / r.max, e = 1 - Math.pow(1 - t, 3);
+      const t = 1 - r.life / r.max, e = 1 - Math.pow(1 - t, 3), rad = Math.max(0.5, r.r0 + (r.r1 - r.r0) * e);
       g.globalAlpha = (1 - t) * 0.9; g.strokeStyle = r.color; g.lineWidth = r.lw * (1 - t * 0.7);
-      g.beginPath(); g.arc(r.x, r.y, Math.max(0.5, r.r0 + (r.r1 - r.r0) * e), 0, Math.PI * 2); g.stroke();
+      ext(r.x, r.y, rad + r.lw + 2);
+      g.beginPath(); g.arc(r.x, r.y, rad, 0, Math.PI * 2); g.stroke();
     }
     for (let i = W.bolts.length - 1; i >= 0; i--) {
       const b = W.bolts[i]; b.life -= dt; if (b.life <= 0) { W.bolts.splice(i, 1); continue; }
+      for (const [bx, by] of b.pts) ext(bx, by, 16); b.branches.forEach((br) => br.forEach(([bx, by]) => ext(bx, by, 16)));
       const t = b.life / b.max, flick = t > 0.6 ? 1 : 0.35 + 0.65 * Math.random();
       const draw = (pts: [number, number][], k: number) => {
         for (const [w, a, col] of [[12 * k, 0.1, b.color], [5 * k, 0.32, b.color], [1.8 * k, 1, '#ffffff']] as [number, number, string][]) {
@@ -97,11 +105,12 @@ export function FxProvider({ children }: { children: ReactNode }) {
       draw(b.pts, 1); b.branches.forEach((br) => draw(br, 0.55));
     }
     g.globalAlpha = 1;
+    W.dirty = x1 > x0 ? [Math.max(0, Math.floor(x0)), Math.max(0, Math.floor(y0)), Math.min(W.w, Math.ceil(x1)), Math.min(W.h, Math.ceil(y1))] : null;
     if (W.parts.length || W.rings.length || W.bolts.length) W.raf = requestAnimationFrame(loop);
-    else { W.raf = 0; g.clearRect(0, 0, W.w, W.h); }
+    else { W.raf = 0; g.clearRect(0, 0, W.w, W.h); W.dirty = null; }
   }, []);
   const wake = useCallback(() => { const W = world.current; if (!W.raf) { W.last = performance.now(); W.raf = requestAnimationFrame(loop); } }, [loop]);
-  useEffect(() => { document.addEventListener('visibilitychange', () => { if (document.hidden) { const W = world.current; cancelAnimationFrame(W.raf); W.raf = 0; W.parts.length = 0; W.rings.length = 0; W.bolts.length = 0; } }); }, []);
+  useEffect(() => { document.addEventListener('visibilitychange', () => { if (document.hidden) { const W = world.current; cancelAnimationFrame(W.raf); W.raf = 0; W.parts.length = 0; W.rings.length = 0; W.bolts.length = 0; W.dirty = null; } }); }, []);
 
   const fx = useMemo<Fx>(() => {
     const W = world.current;
@@ -129,7 +138,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
       ring(o = {}) {
         const k = K[lv.current]; if (!k || !gate('ring', 600)) return; const { x, y } = center(o);
         W.rings.push({ x, y, r0: 8, r1: o.size ?? 120, life: 0.85, max: 0.85, color: o.color || '#f6e2a8', lw: 3 });
-        if (k > 1) W.rings.push({ x, y, r0: 4, r1: (o.size ?? 120) * 0.62, life: 0.6, max: 0.6, color: '#ffffff', lw: 1.6 });
+        if (k > 1.2) W.rings.push({ x, y, r0: 4, r1: (o.size ?? 120) * 0.62, life: 0.6, max: 0.6, color: '#ffffff', lw: 1.6 });
         wake();
       },
       lightning(o = {}) {

@@ -82,6 +82,7 @@ export function PanZoom({ children }: { children: ReactNode }) {
 
 function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
   let pic: ReactNode, body: ReactNode, rc = '#e5c07b';
+  let tall = 0;   // width / height of a portrait picture: the frame takes this shape so the whole figure shows, not a square crop
   if (z.kind === 'item') {
     const it = z.it; rc = C.RCOLOR[it.tier];
     pic = <GenImg spec={itemSpec(it)} pri={1} fb={<ElIcon el={it.el} size={80} />} />;
@@ -112,6 +113,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
       </>
     );
   } else if (z.kind === 'avatar') {
+    tall = 768 / (1152 * (1 - (z.crop || 0)));
     pic = <Img src={z.src} className="fill" style={z.crop ? { height: `${100 / (1 - z.crop)}%`, objectPosition: 'top' } : undefined} fb={<Icon name="lotus" size={80} />} />;
     body = (<><h2>{z.name}</h2>{z.sub && <p className="zoomText">{z.sub}</p>}</>);
   } else if (z.kind === 'prop') {
@@ -131,8 +133,8 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
   return (
     <div className="modal zoom" onClick={close} role="dialog" aria-modal="true">
       <ModalClose onClose={close} />
-      <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()} style={{ '--rc': rc } as CSSProperties}>
-        <div className="zoomPic"><PanZoom>{pic}</PanZoom></div>
+      <div className={`modalBody zoomBody ${tall ? 'avatarZoom' : ''}`} onClick={(e) => e.stopPropagation()} style={{ '--rc': rc, ...(tall ? { '--ar': tall } : {}) } as CSSProperties}>
+        <div className={`zoomPic ${tall ? 'tall' : ''}`}><PanZoom>{pic}</PanZoom></div>
         <div className="zoomInfo">{body}</div>
         <button className="btn big" onClick={close}>Đóng</button>
       </div>
@@ -226,14 +228,31 @@ export function SizeMeter({ b }: { b: Beast }) {
 }
 
 // A bar keeps a pale "trail" that catches up slowly when the value drops, so a loss is felt. hp turns urgent under a quarter, cp glows when full.
+// A fine gold end piece for the bars: a hairline arc that follows the rounded end of the bar, with a small cloud curl pointing outward and a tiny diamond at each tip.
+// The right one is the same drawing mirrored by the stylesheet.
+function BarCap({ side }: { side: 'l' | 'r' }) {
+  return (
+    <svg className={`barCap ${side}`} viewBox="9 0 25 30" width="25" height="30" aria-hidden="true" focusable="false">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M30.5 2.4C23.5 2.4 19 7.8 19 15s4.5 12.6 11.5 12.6" strokeWidth="0.9" />
+        <path d="M19 15H13.4C10.9 15 9.9 12.7 11.3 11.3 12.5 10.2 14.3 11.1 14 12.7" strokeWidth="0.85" />
+      </g>
+      <path d="M31.6 1.5l1.4.9-1.4.9-1.4-.9zM31.6 26.7l1.4.9-1.4.9-1.4-.9z" fill="currentColor" />
+    </svg>
+  );
+}
 export function Bar({ pct, label, cls = '' }: { pct: number; label: string; cls?: string }) {
   const p = Math.max(0, Math.min(100, pct));
   const low = p < 25 && cls.includes('hp'), full = p >= 99.5 && cls.includes('cp');
   return (
-    <div className={`bar ${cls} ${low ? 'low' : ''} ${full ? 'full' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p)} aria-label={label}>
-      <i className="trail" style={{ width: `${p}%` }} />
-      <i className="fill" style={{ width: `${p}%` }} />
-      <span>{label}</span>
+    <div className="barWrap">
+      <BarCap side="l" />
+      <div className={`bar ${cls} ${low ? 'low' : ''} ${full ? 'full' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p)} aria-label={label}>
+        <i className="trail" style={{ width: `${p}%` }} />
+        <i className="fill" style={{ width: `${p}%` }} />
+        <span>{label}</span>
+      </div>
+      <BarCap side="r" />
     </div>
   );
 }

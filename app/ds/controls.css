@@ -145,3 +145,12 @@
   .mselLbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mselOpt small { margin-left: auto; color: var(--text-3); font-size: var(--fs-2xs); white-space: nowrap; }
 }
+
+@layer ds-controls {
+  /* the health and Tu Vi bars: a thin gold hairline around the bar and a small scroll-edge ornament at each rounded end */
+  .barWrap { display: flex; align-items: center; margin: var(--sp-2) 0; }
+  .barWrap > .bar { flex: 1; min-width: 0; margin: 0; border-color: color-mix(in srgb, var(--gold-300) 42%, transparent); box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.65), 0 0 0 1px rgb(0 0 0 / 0.35); }
+  .barCap { flex: none; width: 25px; height: 30px; color: color-mix(in srgb, var(--gold-300) 92%, #fff); filter: drop-shadow(0 0 2px rgb(226 184 90 / 0.3)); }
+  .barCap.l { margin-right: -8px; }
+  .barCap.r { margin-left: -8px; transform: scaleX(-1); }
+}

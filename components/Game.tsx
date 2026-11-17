@@ -14,7 +14,7 @@ import { AuthScreen } from './Auth';
 import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
 import { DailyModal } from './Daily';
-import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
+import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import lore from '@/content/lore.json';
@@ -29,6 +29,7 @@ import { Icon } from './ds/Icon';
 import { Seg, Tabs } from './ds/Seg';
 import { Popover } from './ds/Popover';
 import { Atmosphere } from './fx/Atmosphere';
+import { QiWidget } from './fx/QiWidget';
 import { useFx } from './fx/FxProvider';
 import { useCue } from './fx/Cue';
 import { useTilt } from './fx/useTilt';
@@ -286,7 +287,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [ai, setAi] = useState<any>(null);
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
-  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title' | 'alchemy'>(null);
+  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title' | 'purity' | 'alchemy'>(null);
   const openWin = (w: 'market' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
@@ -466,6 +467,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
 
       <header className="top">
         <div className="brand"><h1 className="wm"><Lockup width={112} className="lkWide" /><Logo size={38} className="lkMark" /></h1></div>
+        <QiWidget aura={C.EL[aura].color} />
         <div className="topMid">
           <span className="top-chip" title="Cảnh giới hiện tại"><Icon name="lotus" size={15} /><span>{C.REALMS[p.realm]} · {C.SUBS[p.sub]}</span></span>
           <Seg label="Chế độ" value={st.set.mode} onChange={async (v) => { const r = await act('mode', { mode: v }); if (!r.ok) say(r.msg, false); }} options={[
@@ -523,7 +525,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
             <button type="button" className={`titleChip ${p.title ? '' : 'none'}`} onClick={() => setModal('title')} title="Xem chức vụ">{C.titleOf(p.title)?.name || 'Chưa có chức vụ'}</button>
           </div>
           <div className="realm">{C.REALMS[p.realm]} · {C.SUBS[p.sub]} <small>(Lv{L})</small> <span className="state">{state}</span></div>
-          <div className="chips">{p.linh.map((e) => <ElChip key={e} el={e} />)}<span className="chip">Độ thuần {p.purity}</span><span className="chip">{C.PERS[p.pers].n}</span></div>
+          <div className="chips">{p.linh.map((e) => <ElChip key={e} el={e} />)}<button type="button" className="chip act" title="Độ thuần là gì?" onClick={() => { cue.open(); setModal('purity'); }}>Độ thuần {p.purity}</button><span className="chip">{C.PERS[p.pers].n}</span></div>
           <Bar pct={(p.hp / S.maxHp) * 100} label={`Sinh lực ${fmt(p.hp)} / ${fmt(S.maxHp)}`} cls="hp" />
           <Bar pct={L >= BALANCE.playableLevelCap ? 100 : (p.cp / th) * 100} label={bott ? 'Bình Cảnh — sẵn sàng đột phá' : `Tu Vi ${fmt(p.cp)} / ${fmt(th)}`} cls="cp" />
           <div className="stats">
@@ -686,6 +688,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
         {dexSel && <div className="legend"><b>{SP(dexSel).name}</b><p>{(lore as any).beasts[dexSel] || D.legendOf(dexSel)}</p></div>}
       </Window>}
       {modal === 'dao' && <DaoModal dao={p.dao} email={email} onClose={() => setModal(null)} />}
+      {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} />}

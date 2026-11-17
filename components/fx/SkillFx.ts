@@ -63,13 +63,14 @@ export function playSkill(o: PlayOpts): Played | null {
   const u = Math.max(0.6, Math.min(1, layer.clientWidth / 560));   // a narrow stage (phone) draws everything smaller
   const t = (ms: number) => Math.round(ms * k);
   const dx = to.x - from.x, dy = to.y - from.y, dist = Math.hypot(dx, dy), dir = dx < 0 ? -1 : 1;
-  const baseW = (fx.size ?? TEXTURES[fx.tex].size) * u;
+  const big = crit ? 2 : 1;   // a critical hit draws its technique twice as large
+  const baseW = (fx.size ?? TEXTURES[fx.tex].size) * u * big;
   const impacts: number[] = [];
   let total = 0;
 
   const spawn = (tex: Tex, w: number, cx: number, cy: number, frames: Keyframe[], delay: number, duration: number, easing = 'linear', style: Partial<CSSStyleDeclaration> = {}) => {
     const h = (w * tex.h) / tex.w, el = document.createElement('div');
-    Object.assign(el.style, { position: 'absolute', left: `${cx - w / 2}px`, top: `${cy - h / 2}px`, width: `${w}px`, height: `${h}px`, backgroundImage: `url(${tex.url})`, backgroundSize: '100% 100%', mixBlendMode: 'screen', pointerEvents: 'none', opacity: '0', willChange: 'transform, opacity', ...style });
+    Object.assign(el.style, { position: 'absolute', left: `${cx - w / 2}px`, top: `${cy - h / 2}px`, width: `${w}px`, height: `${h}px`, backgroundImage: `url(${tex.url})`, backgroundSize: '100% 100%', pointerEvents: 'none', opacity: '0', willChange: 'transform, opacity', ...style });
     layer.appendChild(el);
     const a = el.animate(frames, { delay, duration, easing, fill: 'both' });
     a.onfinish = () => el.remove(); a.oncancel = () => el.remove();
@@ -79,13 +80,13 @@ export function playSkill(o: PlayOpts): Played | null {
   const flash = (at: number, px: number, py: number) => {
     impacts.push(at);
     if (!hitTex || !hitId) return;
-    const w = TEXTURES[hitId].size * u * (crit ? 1.3 : 1) * (low ? 0.8 : 1), r = rnd(-0.35, 0.35);
+    const w = TEXTURES[hitId].size * u * (crit ? 2 : 1) * (low ? 0.8 : 1), r = rnd(-0.35, 0.35);
     spawn(hitTex, w, px, py, [{ opacity: 0, transform: `rotate(${r}rad) scale(0.4)` }, { opacity: 1, transform: `rotate(${r}rad) scale(1)`, offset: 0.25 }, { opacity: 0, transform: `rotate(${r + 0.2}rad) scale(1.25)` }], at, t(crit ? 420 : 320), 'ease-out');
   };
 
   // the technique gathers on the caster
   const cast = castTex && !low ? t(170) : t(90);
-  if (castTex && !low) spawn(castTex, TEXTURES[fx.cast!].size * u * 0.9, from.x, from.y, [{ opacity: 0, transform: 'scale(0.3)' }, { opacity: 0.95, transform: 'scale(1.05)', offset: 0.6 }, { opacity: 0, transform: 'scale(1.35)' }], 0, cast + t(60), 'ease-out');
+  if (castTex && !low) spawn(castTex, TEXTURES[fx.cast!].size * u * 0.9 * big, from.x, from.y, [{ opacity: 0, transform: 'scale(0.3)' }, { opacity: 0.95, transform: 'scale(1.05)', offset: 0.6 }, { opacity: 0, transform: 'scale(1.35)' }], 0, cast + t(60), 'ease-out');
 
   const m = fx.m;
   if (m === 'bolt' || m === 'arc' || m === 'sweep') {
@@ -108,8 +109,11 @@ export function playSkill(o: PlayOpts): Played | null {
     }
   } else if (m === 'beam') {
     const w = (dist + 30 * u) / 0.7, ang = Math.atan2(dy, dx);   // the beam fills the middle 70% of its picture
-    spawn(main, w, from.x + Math.cos(ang) * (dist / 2), from.y + Math.sin(ang) * (dist / 2), [
-      { opacity: 0, transform: `rotate(${ang}rad) scale(0.15, 0.5)` }, { opacity: 1, transform: `rotate(${ang}rad) scale(1, 1)`, offset: 0.3 }, { opacity: 1, transform: `rotate(${ang}rad) scale(1, 1.15)`, offset: 0.7 }, { opacity: 0, transform: `rotate(${ang}rad) scale(1, 0.4)` },
+    // the picture grows about its middle, so it is shifted along the beam to keep its near end on the caster
+    const mid = { x: from.x + Math.cos(ang) * (dist / 2), y: from.y + Math.sin(ang) * (dist / 2) };
+    const bf = (sx: number, sy: number, offset?: number): Keyframe => { const sh = -0.35 * w * (1 - sx) - 15 * u * (1 - sx); return { opacity: sx < 0.2 ? 0 : 1, transform: `translate(${Math.cos(ang) * sh}px, ${Math.sin(ang) * sh}px) rotate(${ang}rad) scale(${sx}, ${sy * big})`, ...(offset === undefined ? {} : { offset }) }; };
+    spawn(main, w, mid.x, mid.y, [
+      bf(0.15, 0.5), bf(1, 1, 0.3), bf(1, 1.15, 0.7), { ...bf(1, 0.4), opacity: 0 },
     ], cast, t(380), 'ease-out');
     flash(cast + t(110), to.x, to.y);
   } else if (m === 'slash') {

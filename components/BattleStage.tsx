@@ -13,9 +13,10 @@ import { parseLog, FX_LABEL } from './Battle';
 // A short staged replay of the fight that was just written to the journey: both fighters face each other, whoever acts gathers and lunges,
 // the technique plays its own effect (lib/skillfx.ts, drawn by components/fx/SkillFx.ts), the target flinches and the number rises from whoever was hit.
 // It only reads the log (the result was decided by the server), costs nothing at fx=off, and cannot be skipped.
-const MAX_MS = 16000;   // the longest a replay plays (a new fight replaces it at once)
+const SLOW = 1.2;   // the whole replay plays this much slower (20%): less to draw per second, easier to follow
+const MAX_MS = 16000 * SLOW;   // the longest a replay plays (a new fight replaces it at once)
 // Every action gets about the same time slot; a critical hit and the blow that ends the fight get longer, so the rhythm is not flat.
-const slotOf = (n: number) => Math.max(360, Math.min(680, MAX_MS / Math.max(1, n)));
+const slotOf = (n: number) => Math.max(360 * SLOW, Math.min(680 * SLOW, MAX_MS / Math.max(1, n)));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Props = { e: FeedEntry; hero?: string; heroEl: string; onDone: () => void };
@@ -52,7 +53,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
     const base = slotOf(acts.length);
     const raw = acts.map((a) => base * (a.c ? 1.25 : a.h !== undefined && a.h <= 0 ? 1.4 : a.f ? 0.9 : 1));
     const squeeze = Math.min(1, MAX_MS / raw.reduce((s, x) => s + x, 0));
-    const slots = raw.map((x) => Math.max(300, x * squeeze));
+    const slots = raw.map((x) => Math.max(300 * SLOW, x * squeeze));
 
     // the fighter that acts gathers (steps back), then strikes: a melee technique rushes at the target, anything else only leans forward
     const act = (el: HTMLElement | null, dir: 1 | -1, windup: number, reach: number, total: number) => el?.animate([
@@ -68,10 +69,10 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       { transform: `translateX(${dir * (crit ? 20 : 11)}px) rotate(${dir * (crit ? 5 : 2)}deg)`, filter: 'brightness(1.5)', offset: 0.4 },
       { transform: `translateX(${-dir * 3}px)`, filter: 'brightness(1.1)', offset: 0.72 },
       { transform: 'translateX(0)', filter: 'brightness(1)' },
-    ], { duration: crit ? 520 : 380, easing: 'ease-out' });
+    ], { duration: (crit ? 520 : 380) * SLOW, easing: 'ease-out' });
     const shake = (amp: number) => stageRef.current?.animate([
       { transform: 'translate(0,0)' }, { transform: `translate(${-amp}px, ${amp * 0.5}px)` }, { transform: `translate(${amp}px, ${-amp * 0.4}px)` }, { transform: `translate(${-amp * 0.6}px, ${amp * 0.2}px)` }, { transform: 'translate(0,0)' },
-    ], { duration: 280, easing: 'linear' });
+    ], { duration: 280 * SLOW, easing: 'linear' });
     const point = (el: HTMLElement | null, layer: DOMRect) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2 - layer.left, y: r.top + r.height * 0.5 - layer.top } : { x: layer.width / 2, y: layer.height / 2 }; };
 
     // The number of a blow lives on its own: it rises in an arc, drifts to alternating sides (so two in a row never overlap) and removes itself.
@@ -89,16 +90,16 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
         { opacity: 1, transform: `translate(calc(-50% + ${dx * 0.25}px), -14px) scale(${1.2 * big})`, offset: 0.14 },
         { opacity: 1, transform: `translate(calc(-50% + ${dx * 0.7}px), -38px) scale(${big})`, offset: 0.55 },
         { opacity: 0, transform: `translate(calc(-50% + ${dx}px), -22px) scale(${0.95 * big})` },
-      ], { duration: a.c ? 1500 : 1150, easing: 'ease-out' });
+      ], { duration: (a.c ? 1500 : 1150) * SLOW, easing: 'ease-out' });
       run.onfinish = () => el.remove();
     };
 
     const play = (k: number) => {
       if (dead) return;
-      if (k >= acts.length) { setI(acts.length); timers.push(setTimeout(end, 900)); return; }
+      if (k >= acts.length) { setI(acts.length); timers.push(setTimeout(end, 900 * SLOW)); return; }
       const a = acts[k], foeActs = a.w === 'm', toFoe = recipientIsFoe(a), dirC: 1 | -1 = foeActs ? -1 : 1, dirT: 1 | -1 = toFoe ? 1 : -1;
       const caster = foeActs ? foeRef.current : youRef.current, target = toFoe ? foeRef.current : youRef.current, layer = layerRef.current;
-      const rec = fxOf(a.k, a.f, a.e), color = colorOf(a), slot = slots[k], kk = Math.max(0.6, Math.min(1, slot / 640));
+      const rec = fxOf(a.k, a.f, a.e), color = colorOf(a), slot = slots[k], kk = Math.max(0.6, Math.min(1, slot / (640 * SLOW))) * SLOW;
       const lost = a.f === 'skip';   // a lost turn: nothing is cast
       const lr = layer?.getBoundingClientRect(), from = lr ? point(caster, lr) : null, to = lr ? point(target, lr) : null;
       const played = layer && from && to && !lost ? playSkill({ layer, fx: rec, color, from, to, k: kk, level: low ? 'low' : fx.level === 'high' ? 'high' : 'mid', crit: !!a.c }) : null;
@@ -108,7 +109,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       setI(k);
 
       const reach = from && to && (rec.m === 'slash' || rec.m === 'burst') ? Math.min(64, Math.abs(to.x - from.x) * 0.45) : 14;
-      if (!lost) act(caster, dirC, windup, caster === target ? 6 : reach, windup + 300);
+      if (!lost) act(caster, dirC, windup, caster === target ? 6 : reach, windup + 300 * SLOW);
 
       impacts.forEach((ti, n) => timers.push(setTimeout(() => {
         if (dead) return;
@@ -119,8 +120,8 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
         // the health bar that moves is the one the log line describes (`ts`); older logs always meant the one that was hit
         const barIsFoe = a.ts ? a.ts === 'm' : toFoe;
         setHp((h) => (barIsFoe ? { ...h, foe: a.h ?? h.foe } : { ...h, you: a.h ?? h.you }));
-        if (r && a.h !== undefined && a.h <= 0 && !a.f) { fx.ring({ x: r.left + r.width / 2, y: r.top + r.height / 2, color: '#cfd6e4', size: 90 }); fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.5, kind: 'qi', color: '#cfd6e4', count: 22 }); }
-        if (r) fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.45, kind: a.c ? 'gold' : 'spark', color: a.f ? color : a.e && C.EL[a.e] ? C.EL[a.e].color : undefined, count: a.c ? 18 : a.f ? 5 : 7 });
+        if (r && a.h !== undefined && a.h <= 0 && !a.f) { fx.ring({ x: r.left + r.width / 2, y: r.top + r.height / 2, color: '#cfd6e4', size: 90 }); fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.5, kind: 'qi', color: '#cfd6e4', count: 10 }); }
+        if (r) fx.burst({ x: r.left + r.width / 2, y: r.top + r.height * 0.45, kind: a.c ? 'gold' : 'spark', color: a.f ? color : a.e && C.EL[a.e] ? C.EL[a.e].color : undefined, count: a.c ? 9 : a.f ? 3 : 4 });
       }, ti)));
       // the next action waits until the last blow has landed and had a moment to be seen
       const last = impacts[impacts.length - 1];

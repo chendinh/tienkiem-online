@@ -150,3 +150,10 @@
   .setGrid .tg { align-items: flex-start; }
   .setGrid .field input[type="number"] { max-width: 100%; }
 }
+@layer game {
+  /* the filters of automatic taming: they only act while it is on, so they look switched off when it is not */
+  .tameFilters { display: grid; gap: var(--sp-3); min-width: 0; margin: 0; padding: 0; border: 0; transition: opacity var(--dur-base); }
+  .tameFilters.off { opacity: 0.45; filter: grayscale(0.5); }
+  .tameFilters.off * { cursor: not-allowed; }
+  .tameOffNote { margin: 0; }
+}

@@ -121,3 +121,9 @@
     .top .nav.pic.quick::before, .top .nav.pic.quick::after { display: none; }
   }
 }
+
+@layer game {
+  /* the drifting qi and waves: a small ornament in the corner of the header (components/fx/QiWidget) */
+  .qiWidget { flex: none; width: 104px; height: 40px; margin-left: var(--sp-2); pointer-events: none; opacity: 0.95; -webkit-mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+  @media (max-width: 900px) { .qiWidget { display: none; } }
+}

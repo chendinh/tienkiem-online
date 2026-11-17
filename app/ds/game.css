@@ -29,7 +29,7 @@
   .hero::before { content: ''; position: absolute; inset: 0; z-index: 8; pointer-events: none; mix-blend-mode: overlay; background: radial-gradient(circle at var(--mx, 50%) var(--my, 28%), rgb(255 255 255 / 0.22), transparent 46%); }
   .heroImg { width: 100%; height: 100%; display: block; object-fit: cover; object-position: top; animation: breathe 7s var(--ease-drift) infinite; animation-play-state: var(--amb); }
   .halo { position: absolute; inset: -20%; z-index: 2; pointer-events: none; mix-blend-mode: screen; background: radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--aura) 48%, transparent), transparent 60%); animation: pulse 4.5s var(--ease-drift) infinite; animation-play-state: var(--amb); }
-  .tier5 .halo { background: conic-gradient(from 0deg, #ff6ea8, #ffd36e, #6fd0b0, #5ab4ff, #b78bff, #ff6ea8); opacity: 0.3; animation: spin 12s linear infinite; animation-play-state: var(--amb); }
+  .tier5 .halo { background: conic-gradient(from 0deg, #ff6ea8, #ffd36e, #6fd0b0, #5ab4ff, #b78bff, #ff6ea8); opacity: 0.3; animation: spin 12s linear infinite; animation-play-state: var(--amb-heavy); }
   .sparkle b { position: absolute; bottom: 8%; z-index: 3; width: 5px; height: 5px; border-radius: 50%; background: #fff; opacity: 0; box-shadow: 0 0 10px 3px var(--rc); animation: rise2 5.2s ease-in infinite; animation-play-state: var(--amb); }
   .heroPh { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); padding: var(--sp-4); text-align: center; color: var(--text-3); font-size: var(--fs-sm); background: radial-gradient(circle at 50% 40%, #234654, #0a1319); }
   .heroPh .logo { animation: float-bob 5s var(--ease-drift) infinite; animation-play-state: var(--amb); }
@@ -211,7 +211,7 @@
     content: ''; position: absolute; inset: -1px; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none;
     background: conic-gradient(from var(--angle), transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-    animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb);
+    animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb-heavy);
   }
 
   .pity { margin: var(--sp-3) 0; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); line-height: 1.55; color: var(--text-3); border-left: 2px solid var(--line-gold); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 6%, transparent), transparent); }
@@ -267,7 +267,7 @@
   .slotTile.no.over { opacity: 0.9; border-color: rgb(255 120 100 / 0.7); }
   .slotTile.sel { border-color: var(--jade-300); background: color-mix(in srgb, var(--jade-400) 13%, rgb(5 12 18 / 0.5)); }
   .slotTile.filled .itIcon { box-shadow: 0 0 16px -4px var(--rc, transparent); }
-  .slotTile:is(.t3, .t4, .t5) .itIcon::after { content: ''; position: absolute; inset: 0; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--angle), transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb); }
+  .slotTile:is(.t3, .t4, .t5) .itIcon::after { content: ''; position: absolute; inset: 0; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--angle), transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb-heavy); }
   .lockB { position: absolute; top: 0; right: 0; z-index: 4; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; font-style: normal; color: var(--gold-200); background: rgb(0 0 0 / 0.7); border: 1px solid var(--line-gold); }
 }
 @layer game {
@@ -553,9 +553,10 @@
 @layer game {
   /* đạo hiệu and chức vụ under the name: both open a window */
   .idLines { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--sp-2); margin: 2px 0 var(--sp-1); }
-  .idLines .dao, .idLines .titleChip { margin: 0; padding: 2px 12px; border-radius: 12px 3px 12px 3px; border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.28); cursor: pointer; font: inherit; transition: border-color var(--dur-fast), box-shadow var(--dur-base), transform var(--dur-fast) var(--ease-out); }
-  .idLines .dao { font-family: var(--font-display); font-style: italic; font-size: var(--fs-md); color: var(--gold-300); }
-  .idLines .titleChip { font-size: var(--fs-xs); letter-spacing: 0.04em; color: var(--jade-200, #b9e8d6); border-color: color-mix(in srgb, var(--jade-300) 40%, transparent); }
+  /* one shape for both tags (same height, font and size); only the colour tells them apart */
+  .idLines .dao, .idLines .titleChip { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 32px; margin: 2px 0 0; padding: 0 14px; border-radius: 12px 3px 12px 3px; border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.28); cursor: pointer; font-family: var(--font-display); font-style: normal; font-size: var(--fs-sm); font-weight: 600; line-height: 1; letter-spacing: 0.04em; transition: border-color var(--dur-fast), box-shadow var(--dur-base), transform var(--dur-fast) var(--ease-out); }
+  .idLines .dao { color: var(--gold-300); }
+  .idLines .titleChip { color: var(--jade-200, #b9e8d6); border-color: color-mix(in srgb, var(--jade-300) 40%, transparent); }
   .idLines .none { opacity: 0.55; font-style: normal; }
   .idLines button:hover { transform: translateY(-1px); border-color: var(--gold-300); box-shadow: 0 6px 14px -10px var(--gold-300); }
   .idLines button:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
@@ -656,4 +657,29 @@
   .cs.lock { color: var(--text-3); font-size: var(--fs-xs); }
   .cleanAct { display: flex; justify-content: flex-end; gap: var(--sp-2); }
   .field .fieldLbl { display: block; margin-bottom: 4px; color: var(--text-2); font-size: var(--fs-sm); }
+}
+
+@layer game {
+  /* portrait of a character in a popup: the frame has the shape of the picture (2:3) so the whole figure shows, and it is as big as the window allows */
+  .zoomPic.tall { aspect-ratio: var(--ar, 0.667); width: min(100%, calc((100dvh - 150px) * var(--ar, 0.667))); }
+  .zoomPic.tall .fill { object-fit: cover; }
+  @media (min-width: 761px) {
+    .zoomBody.avatarZoom { width: min(1000px, 100%); grid-template-columns: minmax(300px, 500px) minmax(0, 1fr); }
+    .zoomBody.avatarZoom > .zoomPic.tall { width: min(100%, calc((100dvh - 150px) * var(--ar, 0.667))); }
+  }
+  @media (max-width: 760px), (max-height: 600px) {
+    .zoomBody.avatarZoom .zoomPic.tall { width: min(100%, calc((100dvh - 250px) * var(--ar, 0.667)), 420px); }
+  }
+}
+
+@layer game {
+  /* a chip that opens an explanation */
+  .chip.act { font-family: inherit; cursor: pointer; transition: border-color var(--dur-fast), transform var(--dur-fast) var(--ease-out); }
+  .chip.act:hover { border-color: var(--gold-300); transform: translateY(-1px); }
+  .chip.act:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 2px; }
+}
+@layer game {
+  .miniStatus .barWrap { margin: 2px 0; }
+  .miniStatus .barCap { width: 21px; height: 25px; }
+  .miniStatus .barCap.l { margin-right: -7px; } .miniStatus .barCap.r { margin-left: -7px; }
 }

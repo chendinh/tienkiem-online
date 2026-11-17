@@ -6,6 +6,9 @@
 @layer ds-motion {
   :root { --amb: running; }
   :root[data-fx='low'] { --amb: paused; }
+  /* animations that repaint a large area every frame (rotating gradient borders, the rainbow halo) run only at the highest level */
+  :root { --amb-heavy: paused; }
+  :root[data-fx='high'] { --amb-heavy: running; }
 
   /* ---- entering */
   @keyframes enter-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -54,7 +57,7 @@
     content: ''; position: absolute; inset: -1px; z-index: 3; padding: 1.6px; border-radius: inherit; pointer-events: none;
     background: conic-gradient(from var(--angle), transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-    animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb);
+    animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb-heavy);
   }
   .rare-sheen { position: relative; overflow: hidden; }
   .rare-sheen::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.28) 50%, transparent 60%) -150% 0 / 250% 100% no-repeat; animation: shine-x 4.8s var(--ease-io) infinite; animation-play-state: var(--amb); }
