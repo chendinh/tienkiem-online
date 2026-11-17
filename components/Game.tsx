@@ -707,7 +707,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
       {modal === 'night' && <NightMarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'rank' && <RankingModal onClose={() => setModal(null)} />}
       {modal === 'odds' && <OddsModal st={st} onClose={() => setModal(null)} />}
-      {rep && p.prologueSeen && <ReportModal rep={rep} title="Chào mừng trở lại" onClose={() => ack(rep.id)} />}
+      {rep && p.prologueSeen && <ReportModal rep={rep} title="Chào mừng trở lại" st={st} onDaily={() => setModal('daily')} onClose={() => ack(rep.id)} />}
       {credits && <Credits onClose={() => setCredits(false)} />}
     </div>
     </ZoomProvider>

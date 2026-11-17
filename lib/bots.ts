@@ -6,6 +6,7 @@
 import * as G from './game';
 import * as C from './content';
 import { BALANCE as B } from './balance';
+import { equipSig } from './avatarSpec';
 
 export const BOT_DOMAIN = 'bot.tienkiem.local';
 export type TameStyle = 'strong' | 'collect' | 'all';
@@ -45,8 +46,19 @@ export function newBot(n: number, now: number, avatar?: { url: string; crop: num
   if (!ps) throw new Error(`no bot number ${n}`);
   const st = G.newGame(botSeed(n), ps.gender, now, botEmail(n));
   applySettings(st, ps);
-  if (avatar) st.player.avatar = { base: avatar.url, url: avatar.url, crop: avatar.crop };
+  if (avatar) st.player.avatar = { base: avatar.url, url: avatar.url, crop: avatar.crop, at: now + pictureStagger(n) };
   return st;
+}
+
+// The picture of a bot is redrawn from what it wears, like a player's, but at most once every two days. The ten bots are spread over about a day
+// (bot 1 first, bot 10 last) so they do not all draw at the same time. Nothing is drawn while the worn items look the same as in the picture.
+export const PICTURE_EVERY_MS = 2 * 86400_000;
+export const PICTURE_RETRY_MS = 3600_000;          // when the picture could not be drawn (budget, limit, failure) it asks again after an hour
+export const pictureStagger = (n: number) => (n - 1) * 3 * 3600_000;
+export function pictureDue(st: G.GameState, now: number): boolean {
+  const av = st.player.avatar;
+  if (!av || !av.base || av.at === undefined) return false;
+  return now - av.at >= PICTURE_EVERY_MS && equipSig(st) !== av.sig;
 }
 
 const CHUNK = 60;                       // ticks between two "visits" of the bot (5 minutes of game time)

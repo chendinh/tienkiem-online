@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
 import type { GS } from '@/lib/client/types';
+import * as D from '@/lib/daily';
 import type { Report, Beast } from '@/lib/game';
 import { releaseValue, upkeepDue, SP } from '@/lib/game';
 import { Icon } from './ds/Icon';
@@ -227,13 +228,46 @@ export function OddsModal({ st, onClose }: { st: GS; onClose: () => void }) {
 }
 
 // ---------- Offline_Report (Requirement 4, 31.7)
-export function ReportModal({ rep, title, onClose }: { rep: Report; title: string; onClose: () => void }) {
+// The strip above the welcome-back summary: the picture of today's new creature, and tags that are always there (quest, drop event, the phenomenon of the zone the player is in).
+// Each tag opens Nhiệm Vụ & Tin Tức.
+function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
+  const zoom = useZoom();
+  const day = D.dayKey(st.now), pack = D.packOn(day), q = st.quest && st.quest.day === day ? st.quest : null;
+  const ev = st.events.find((e) => e.active) || st.events[0], zone = st.zones.find((z) => z.id === st.zone);
+  const tags: { key: string; cls: string; icon: string; text: string }[] = [];
+  if (pack) {
+    const n = q ? Math.min(q.n, q.need) : 0, need = q ? q.need : B.questTame;
+    tags.push({ key: 'q', cls: q?.done ? 'done' : 'quest', icon: q?.done ? 'check' : 'scroll', text: q?.done ? `Nhiệm vụ ngày xong · +${fmt(q.reward)} Tu Vi` : `Nhiệm vụ: thu phục ${pack.beast.name} ${n}/${need}` });
+  } else tags.push({ key: 'q', cls: 'done', icon: 'scroll', text: 'Nhiệm vụ: hôm nay chưa có' });
+  if (ev) {
+    const mins = Math.max(0, Math.round(((ev.active ? ev.endsAt : ev.startsAt) - st.now) / 60000));
+    tags.push({ key: 'e', cls: ev.active ? 'event on' : 'event', icon: 'luck', text: `${ev.active ? 'Đang diễn ra' : `Sau ${mins} phút`}: rơi Thiên/Tiên +${Math.round(ev.bonus * 100)}% tại ${ev.name}${ev.active ? ` (còn ${mins} phút)` : ''}` });
+  } else tags.push({ key: 'e', cls: 'done', icon: 'luck', text: 'Sự kiện rơi Thiên/Tiên: chưa có trong 3 giờ tới' });
+  tags.push(zone?.phen
+    ? { key: 'p', cls: 'phen', icon: 'lotus', text: `${zone.name}: ${zone.phen.name}${zone.phen.effects.length ? ` · ${zone.phen.effects.join(' · ')}` : ''}` }
+    : { key: 'p', cls: 'done', icon: 'lotus', text: `${zone?.name || 'Vùng này'}: linh khí bình thường` });
+  const beast = pack?.beast;
+  return (
+    <div className="repNew">
+      {beast && (
+        <button type="button" className="repBeast" title={`Yêu thú mới hôm nay: ${beast.name}. Bấm để xem ảnh lớn`} onClick={() => beast.art && zoom({ kind: 'prop', src: beast.art, name: beast.name, text: beast.legend })}>
+          {beast.art ? <Img src={beast.art} className="fill" fb={<ElChip el={beast.el[0]} />} /> : <ElChip el={beast.el[0]} />}
+          <small>Mới hôm nay</small>
+        </button>
+      )}
+      <div className="repTags" role="group" aria-label="Nhiệm vụ và sự kiện hôm nay">{tags.map((t) => <button key={t.key} type="button" className={`repTag ${t.cls}`} onClick={onOpen}><Icon name={t.icon} size={14} /><span>{t.text}</span></button>)}</div>
+    </div>
+  );
+}
+export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report; title: string; onClose: () => void; st?: GS; onDaily?: () => void }) {
   const [log, setLog] = useState<{ lines: string[]; foe?: string } | null>(null);
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2><p>Ngươi vắng mặt {fmtDur(rep.elapsedSec)}{rep.elapsedSec >= 12 * 3600 ? ' (chỉ tính tối đa 12 giờ)' : ''}. Lúc rời đi: {rep.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện'} tại {C.ZONE(rep.zone).name}{rep.recoveryTicks ? `, điều tức ${fmtDur(rep.recoveryTicks * 5)}` : ''}.</p>
+        <h2>{title}</h2>
+        {st && onDaily && <ReportTags st={st} onOpen={() => { onClose(); onDaily(); }} />}
+        <p>Ngươi vắng mặt {fmtDur(rep.elapsedSec)}{rep.elapsedSec >= 12 * 3600 ? ' (chỉ tính tối đa 12 giờ)' : ''}. Lúc rời đi: {rep.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện'} tại {C.ZONE(rep.zone).name}{rep.recoveryTicks ? `, điều tức ${fmtDur(rep.recoveryTicks * 5)}` : ''}.</p>
         <div className="sum">
           <div><b>{fmt(rep.encounters)}</b><small>chạm trán</small></div>
           <div><b>{rep.wins}/{rep.losses}/{rep.draws}</b><small>thắng/bại/hòa</small></div>

@@ -812,3 +812,14 @@ test('bots: they buy, dissolve, brew and sell like a player would', async () => 
   assert.ok(st.beasts.length <= 30, 'sold surplus beasts');
   assert.ok(st.stones > 0);
 });
+test('bots: the picture is due every two days, only when what is worn changed, and the ten bots are spread out', async () => {
+  const Bt = await import('../lib/bots'), { equipSig } = await import('../lib/avatarSpec');
+  const st = Bt.newBot(1, T0, { url: '/api/img/abcdef0123456789abcd', crop: 0 });
+  assert.equal(st.player.avatar!.at, T0);
+  assert.equal(Bt.pictureDue(st, T0 + 2 * 86400_000 - 1), false, 'not before two days');
+  assert.equal(Bt.pictureDue(st, T0 + 2 * 86400_000), true, 'worn items differ from the plain picture');
+  st.player.avatar!.sig = equipSig(st);
+  assert.equal(Bt.pictureDue(st, T0 + 9 * 86400_000), false, 'same items, nothing to redraw');
+  assert.equal(Bt.pictureDue(Bt.newBot(2, T0), T0 + 9 * 86400_000), false, 'a bot without a picture never draws one');
+  assert.deepEqual([1, 2, 10].map(Bt.pictureStagger), [0, 3 * 3600_000, 27 * 3600_000]);
+});

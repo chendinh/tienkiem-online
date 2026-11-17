@@ -19,7 +19,7 @@ try { (process as any).loadEnvFile('.env.local'); } catch {}
     for (const c of r.created) console.log(`  + bot ${c.n}: ${c.name} [${c.dao}] ${c.avatar ? '' : '(no picture)'}`);
     if (r.existing.length) console.log(`  already there: ${r.existing.length}`);
   }
-  if (has('--step')) console.log('  ', JSON.stringify(await runBots()));
+  if (has('--step')) console.log('  ', JSON.stringify(await runBots(Date.now(), 240_000)));
   if (has('--remove')) console.log(`  removed ${await removeBots()}`);
   const list = await botAccounts();
   console.log(`${list.length} bots in the database; ${localAvatars().length} local pictures to borrow`);

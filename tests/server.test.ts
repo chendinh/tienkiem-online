@@ -390,3 +390,35 @@ test('bots: made once, never log in, appear on the board with a page, play when 
   assert.equal((await BR.botAccounts()).length, 0);
   assert.equal(await St.loadAccount(list[0].id), null);
 });
+
+test('bots: the picture is redrawn from what the bot wears, at most every two days, and an existing picture costs nothing', async () => {
+  const BS = await import('../lib/server/botseed'), BR = await import('../lib/server/bots'), Bt = await import('../lib/bots');
+  const { buildPlan, STYLE_VERSION } = await import('../lib/imageprompt'), { outfitSpec, equipSig } = await import('../lib/avatarSpec'), crypto = await import('node:crypto'), I = await import('../lib/server/images');
+  const was = process.env.IMAGE_PROVIDER; process.env.IMAGE_PROVIDER = 'pollinations';
+  try {
+    await BS.removeBots();
+    await BS.createBots(1, now(), false);
+    const [bot] = await BR.botAccounts();
+    const base = 'abcdef0123456789abce';
+    await I.putImage({ id: base, kind: 'avatar', folder: 'avatar', ext: 'jpg', data: Buffer.from([0xff, 0xd8, 1]), meta: { crop: 0 } });
+    const t0 = now();
+    await editState(bot.id, (st) => { st.player.avatar = { base: `/api/img/${base}`, url: `/api/img/${base}`, crop: 0, at: t0 }; });
+    assert.equal(await BR.refreshPicture(bot.id, t0 + 86400_000), 'none', 'a day is not enough');
+    // the picture that the redraw would ask for already exists (stored under the id the generator uses)
+    const st = (await St.loadAccount(bot.id))!.state, plan = buildPlan(outfitSpec(st));
+    const id = crypto.createHash('sha1').update(`${STYLE_VERSION}|pollinations||${plan.prompt}||${''}|${plan.width}x${plan.height}|${plan.seed}`).digest('hex').slice(0, 20);
+    await I.putImage({ id, kind: 'outfit', folder: 'outfit', ext: 'jpg', data: Buffer.from([0xff, 0xd8, 2]), meta: { crop: 0.05 } });
+    const t1 = t0 + 2 * 86400_000;
+    assert.equal(await BR.refreshPicture(bot.id, t1), 'updated');
+    const after = (await St.loadAccount(bot.id))!.state.player.avatar;
+    assert.equal(after.url, `/api/img/${id}`); assert.equal(after.base, `/api/img/${base}`, 'the base picture stays: it is the face');
+    assert.equal(after.at, t1); assert.equal(after.sig, equipSig(st)); assert.equal(after.crop, 0.05);
+    assert.equal(await BR.refreshPicture(bot.id, t1 + 3 * 86400_000), 'none', 'the same items need no new picture');
+    // a bot made before this rule gets its first date, spread by its number
+    await editState(bot.id, (s) => { delete s.player.avatar.at; });
+    assert.equal(await BR.refreshPicture(bot.id, t1), 'none');
+    assert.equal((await St.loadAccount(bot.id))!.state.player.avatar.at, t1 + Bt.pictureStagger(1));
+    const row = (await D.query<{ entry: any }>(`SELECT entry FROM rank_entries WHERE acc = $1`, [bot.id])).rows[0].entry;
+    assert.equal(row.av, `/api/img/${id}`, 'the board shows the new picture');
+  } finally { if (was === undefined) delete process.env.IMAGE_PROVIDER; else process.env.IMAGE_PROVIDER = was; await BS.removeBots(); }
+});
