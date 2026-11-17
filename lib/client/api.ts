@@ -11,8 +11,12 @@ export const watchNet = (f: (up: boolean) => void) => { onNet = f; };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const rid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `r${Date.now()}${Math.random().toString(36).slice(2)}`);
 
-async function send(url: string, init?: RequestInit): Promise<any> {
-  const r = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...init });
+async function send(url: string, init?: RequestInit, timeoutMs = 0): Promise<any> {
+  const ctl = timeoutMs > 0 ? new AbortController() : null;
+  const t = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;   // a request that hangs fails (and is retried) instead of waiting for ever
+  let r: Response;
+  try { r = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...init, ...(ctl ? { signal: ctl.signal } : {}) }); }
+  finally { if (t) clearTimeout(t); }
   const j = await r.json().catch(() => ({ ok: false, code: 'E_SERVER' }));
   return { status: r.status, j };
 }
@@ -37,7 +41,7 @@ export async function gameGet(): Promise<ServerOut> {
 }
 export async function gameAct(body: any): Promise<ServerOut> {
   const withId = { rid: rid(), ...body };
-  const { status, j } = await retrying(() => send('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withId) }));
+  const { status, j } = await retrying(() => send('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withId) }, 8000), 3);   // 3 tries of 8 s at most: the player hears back within ~30 s, not minutes
   if (status === 401) return { ok: false, code: 'E_AUTH', state: null };
   return j;
 }
