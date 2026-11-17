@@ -28,7 +28,7 @@ export const BALANCE = {
   adventureCultFactor: 1,
   playableLevelCap: 20,
   highlightMinTier: 3,
-  highlightLimit: 10,
+  highlightLimit: 14,
   reportHistory: 20,
   feedSize: 20,       // the journey list shows only the latest 20 rows (a fight now writes up to three: the fight, what it dropped, the taming result)
   feedLogKeep: 10,   // only the newest journey entries keep their fight log (older ones keep the summary): the logs were most of the save

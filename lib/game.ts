@@ -18,7 +18,7 @@ export interface Item { id: number; base: string; slot: string; name: string; ti
 export interface Beast { id: number; sp: string; name: string; level: number; size: number; cm: number; cls: number; mut: boolean; pers: number; apt: number[]; skills: string[]; stats: number[]; power: number; elite?: boolean }
 export interface BestEntry { seen: number; tamed: number; maxCm: number; minCm: number; mutSeen: number; mutTamed: number }
 export interface FeedEntry { id: number; tick: number; kind: string; text: string; beast?: Beast; item?: Item; outcome?: string; chips?: string[]; log?: string[] }
-export interface Highlight { prio: number; kind: string; text: string; item?: Item; beast?: Beast; log?: string[] }
+export interface Highlight { prio: number; kind: string; text: string; item?: Item; beast?: Beast; log?: string[]; book?: { name: string; method?: boolean } }
 export interface Report {
   id: string; at: number; seen: boolean; ticks: number; elapsedSec: number; mode: string; zone: string; recoveryTicks: number;
   enc: { monster: number; npc: number; resource: number; event: number };
@@ -317,7 +317,7 @@ function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
   const old = Object.keys(bd); if (old.length > 30) old.sort().slice(0, old.length - 30).forEach((k) => delete bd[k]);
   if (rep) {
     rep.items[it.tier]++;
-    const pr = it.tier === 5 ? 100 : it.tier === 4 ? 80 : it.tier === 3 ? 60 : 0;
+    const pr = it.tier === 5 ? 100 : it.tier === 4 ? 80 : it.tier === 3 ? 60 : it.tier === 2 ? 45 : it.tier === 1 ? 30 : 0;   // every item above Phàm can show in the welcome-back window
     if (pr) rep.highlights.push({ prio: pr, kind: 'item', text: `Nhặt được pháp khí hạng ${C.RARITY[it.tier]}`, item: it });
   }
   if (st.set.autoEquip && it.level <= L && (!cur || (!cur.locked && cur.power < it.power))) {
@@ -664,7 +664,7 @@ function rollBook(st: GameState, src: { el?: string; cls?: string; boost: number
   else { st.inv.books[t.name] = (st.inv.books[t.name] || 0) + 1; line += ', cất vào túi'; }
   chips.push(`Bí Công: ${t.name}`);
   feed(st, { kind: 'book', text: line, chips: [] });
-  if (rep) rep.highlights.push({ prio: 55 + t.tier * 10, kind: 'book', text: line });
+  if (rep) rep.highlights.push({ prio: 55 + t.tier * 10, kind: 'book', text: line, book: { name: t.name } });
 }
 // The player reads a Bí Công from the bag.
 export function learnBook(st: GameState, name: string): Res {
@@ -702,7 +702,7 @@ function rollMethod(st: GameState, level: number, rep: Report | undefined, chips
   else { st.inv.books[x.name] = (st.inv.books[x.name] || 0) + 1; line += ', cất vào túi'; }
   chips.push(`Công Pháp: ${x.name}`);
   feed(st, { kind: 'book', text: line, chips: [] });
-  if (rep) rep.highlights.push({ prio: 60 + x.tier * 10, kind: 'book', text: line });
+  if (rep) rep.highlights.push({ prio: 60 + x.tier * 10, kind: 'book', text: line, book: { name: x.name, method: true } });
 }
 export function setMethod(st: GameState, name: any): Res {
   if (typeof name !== 'string' || !st.arts.methods.includes(name)) return fail('E_BAD_SKILL');

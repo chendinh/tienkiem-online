@@ -296,48 +296,35 @@ function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
 }
 export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report; title: string; onClose: () => void; st?: GS; onDaily?: () => void }) {
   const [log, setLog] = useState<{ lines: string[]; foe?: string } | null>(null);
+  // only what has a picture or matters: items, secret books, beasts, a breakthrough, the daily quest. Plain text lines (a level, a small event) are left out.
+  const shown = rep.highlights.filter((h) => h.item || h.book || h.beast || h.kind === 'break' || h.kind === 'quest');
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <ModalClose onClose={onClose} />
       <div className="modalBody" onClick={(e) => e.stopPropagation()}>
         <h2>{title}</h2>
         {st && onDaily && <ReportTags st={st} onOpen={() => { onClose(); onDaily(); }} />}
-        <p>Ngươi vắng mặt {fmtDur(rep.elapsedSec)}{rep.elapsedSec >= 12 * 3600 ? ' (chỉ tính tối đa 12 giờ)' : ''}. Lúc rời đi: {rep.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện'} tại {C.ZONE(rep.zone).name}{rep.recoveryTicks ? `, điều tức ${fmtDur(rep.recoveryTicks * 5)}` : ''}.</p>
+        <p className="repAway">Vắng mặt {fmtDur(rep.elapsedSec)}{rep.elapsedSec >= 12 * 3600 ? ' (tối đa 12 giờ)' : ''}</p>
         <div className="sum">
-          <div><b>{fmt(rep.encounters)}</b><small>chạm trán</small></div>
           <div><b>{rep.wins}/{rep.losses}/{rep.draws}</b><small>thắng/bại/hòa</small></div>
           <div><b>Lv{rep.fromLevel}→{rep.toLevel}</b><small>tu vi</small></div>
           <div><b>{fmt(rep.cp)}</b><small>Tu Vi nhận</small></div>
           <div><b>{rep.tamed}/{rep.tameTry}</b><small>thu phục</small></div>
-          <div><b>{rep.newSpecies.length}</b><small>loài mới</small></div>
         </div>
-        <div className="chips">
-          {rep.items.map((n, i) => <span key={i} className="chip" style={{ color: C.RCOLOR[i], borderColor: C.RCOLOR[i] + '77' }}>{C.RARITY[i]} ×{n}</span>)}
-          <span className="chip">phân giải {rep.dissolved}{rep.dissolvedFull ? ` (${rep.dissolvedFull} vì kho đầy)` : ''}</span><span className="chip">tự mặc {rep.equipped}</span><span className="chip">vào kho tạm {rep.stashed}</span>
-        </div>
-        <div className="chips">
-          <span className="chip">Yêu Thú {rep.enc.monster}</span><span className="chip">Tu Sĩ {rep.enc.npc}</span><span className="chip">Tài Nguyên {rep.enc.resource}</span><span className="chip">Kỳ Ngộ {rep.enc.event}</span>
-          {rep.epiphanies > 0 && <span className="chip">Đốn Ngộ {rep.epiphanies}</span>}
-          {Object.entries(rep.stonesBy).map(([k, v]) => <span key={k} className="chip gold">{({ victory: 'chiến thắng', drop: 'rơi đồ', event: 'kỳ ngộ', dissolve: 'phân giải' } as Record<string, string>)[k] || k} +{fmt(v)}</span>)}
-          {rep.lostStones > 0 && <span className="chip">bỏ do đầy kho: {fmt(rep.lostStones)}</span>}
-          {Object.entries(rep.mats).map(([k, v]) => <span key={k} className="chip">{C.MAT(k).name} +{v}</span>)}
-          {rep.skipPen > 0 && <span className="chip">bỏ thu phục vì đầy: {rep.skipPen}</span>}
-          {rep.skipTalisman > 0 && <span className="chip">bỏ thu phục vì hết Phù: {rep.skipTalisman}</span>}
-          <span className="chip">đã dùng Khế Ước {rep.used.taming} · Đan {rep.used.hp} · Độ Kiếp Phù {rep.used.trib} · Phá Cảnh Đan {rep.used.bt}</span>
-          {rep.blockedTicks > 0 && <span className="chip">hành trình dừng {fmtDur(rep.blockedTicks * 5)} chờ ngươi quyết định</span>}
-          {rep.robbed > 0 && <span className="chip">bị cướp {fmt(rep.robbed)} Linh Thạch</span>}
-          {rep.upkeep > 0 && <span className="chip">phí nuôi Linh Thú {fmt(rep.upkeep)}</span>}
-          {rep.bt.lostCp > 0 && <span className="chip">mất {fmt(rep.bt.lostCp)} Tu Vi do đột phá thất bại</span>}
-          {Object.entries(rep.phen).map(([k, v]) => <span key={k} className="chip">{k}: {v} lượt</span>)}
-        </div>
+        {rep.items.some((n) => n > 0) && <div className="chips">
+          {rep.items.map((n, i) => n > 0 && <span key={i} className="chip" style={{ color: C.RCOLOR[i], borderColor: C.RCOLOR[i] + '77' }}>{C.RARITY[i]} ×{n}</span>)}
+        </div>}
         {rep.beforeTier !== rep.afterTier && <div className="hint">Trang phục đã đổi khi ngươi vắng mặt ({C.RARITY[rep.beforeTier]} ➜ {C.RARITY[rep.afterTier]}). Bấm “Vẽ lại theo trang bị” để cập nhật ảnh nhân vật.</div>}
         <h3>Điểm nhấn</h3>
         <div className="hl">
-          {rep.highlights.length === 0 && <div className="empty">Chuyến này yên bình.</div>}
-          {rep.highlights.map((h, i) => (
+          {shown.length === 0 && <div className="empty">Chuyến này yên bình.</div>}
+          {shown.map((h, i) => (
             <div key={i} className="hlRow">
               {h.beast && <BeastArt b={h.beast as Beast} box={88} />}
-              <div>{h.text}{h.beast && <SizeMeter b={h.beast as Beast} />}{h.item && <ItemCard it={h.item} />}
+              {h.book && <span className="hlBook" title={h.book.name}><Img src={h.book.method ? C.bookArt('method') : C.techArt(h.book.name)} className="fill" fb={<span>✦</span>} /></span>}
+              <div>
+                {h.item ? <ItemCard it={h.item} /> : h.book ? <b className="hlName">{h.book.method ? 'Công Pháp' : 'Bí Công'} «{h.book.name}»</b> : h.text}
+                {h.beast && <SizeMeter b={h.beast as Beast} />}
                 {h.log && h.log.length > 0 && <div><button className="link" onClick={() => setLog({ lines: h.log!, foe: (h.beast as Beast | undefined)?.name })}>Xem diễn biến trận đánh</button></div>}
               </div>
             </div>
