@@ -60,7 +60,8 @@
   .tg input[type='checkbox']:focus-visible { outline-offset: 3px; }
 
   /* range (volume) */
-  input[type='range'] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; --pct: 50%; }
+  input[type='range'] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; --pct: 50%; touch-action: none; }
+  @media (pointer: coarse) { input[type='range'] { height: 32px; } }
   input[type='range']::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--jade-400) var(--pct), rgb(255 255 255 / 0.14) var(--pct)); }
   input[type='range']::-moz-range-track { height: 4px; border-radius: 4px; background: rgb(255 255 255 / 0.14); }
   input[type='range']::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--jade-400); }

@@ -24,6 +24,9 @@ class Engine {
   private noise: AudioBuffer | null = null;
   private subs = new Set<() => void>();
   private unlocked = false;
+  // iOS Safari ignores HTMLMediaElement.volume (always 1), so there the music is routed through a Web Audio gain node instead.
+  private volFixed = false;
+  private gains = new Map<HTMLAudioElement, GainNode>();
   private loading = false;
   private fading = false;
   snap: AudioState = { ready: false, music: true, playing: false, vol: 0.35, sfx: true, track: null, tracks: [] };
@@ -31,6 +34,7 @@ class Engine {
   constructor() {
     try { Object.assign(this.prefs, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch {}
     this.els = [new Audio(), new Audio()];
+    try { const t = new Audio(); t.volume = 0.5; this.volFixed = t.volume !== 0.5; } catch {}
     this.els.forEach((a, i) => {
       a.preload = 'auto'; a.volume = 0;
       a.addEventListener('timeupdate', () => { if (i === this.cur && a.duration && a.duration - a.currentTime < XFADE / 1000 + 0.4 && !this.fading && this.tracks.length > 1) this.next(); });
@@ -40,6 +44,8 @@ class Engine {
     this.refresh();
     const first = () => { window.removeEventListener('pointerdown', first, true); window.removeEventListener('keydown', first, true); this.unlock(); };
     window.addEventListener('pointerdown', first, true); window.addEventListener('keydown', first, true);
+    const wake = () => { if (this.ctx && this.ctx.state !== 'running' && !document.hidden) this.ctx.resume?.(); };
+    window.addEventListener('touchend', wake, true); window.addEventListener('click', wake, true);
     document.addEventListener('visibilitychange', () => { if (!this.ctx) return; if (document.hidden) this.ctx.suspend?.(); else if (this.snap.sfx || this.snap.music) this.ctx.resume?.(); });
     this.load();
   }
@@ -68,16 +74,22 @@ class Engine {
     try {
       const AC = window.AudioContext || (window as any).webkitAudioContext; this.ctx = new AC(); this.out = this.ctx.createGain(); this.out.gain.value = 0.55; this.out.connect(this.ctx.destination);
       const n = this.ctx.sampleRate * 2, b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.noise = b;
+      if (this.volFixed) this.els.forEach((a) => {
+        try { const g = this.ctx!.createGain(); g.gain.value = a.volume; this.ctx!.createMediaElementSource(a).connect(g); g.connect(this.ctx!.destination); this.gains.set(a, g); } catch {}
+      });
     } catch {}
+    this.ctx?.resume?.();
     if (this.prefs.music) this.play();
   }
 
   // ---- music
+  private getLvl(a: HTMLAudioElement) { const g = this.gains.get(a); return g ? g.gain.value : a.volume; }
+  private setLvl(a: HTMLAudioElement, v: number) { const x = Math.max(0, Math.min(1, v)), g = this.gains.get(a); if (g) g.gain.value = x; else a.volume = x; }
   private ramp(a: HTMLAudioElement, to: number, ms: number, done?: () => void) {
     const old = this.timers.get(a); if (old) cancelAnimationFrame(old);
-    const from = a.volume, t0 = performance.now();
+    const from = this.getLvl(a), t0 = performance.now();
     const step = (now: number) => {
-      const k = Math.min(1, (now - t0) / ms); a.volume = Math.max(0, Math.min(1, from + (to - from) * (k * k * (3 - 2 * k))));
+      const k = Math.min(1, (now - t0) / ms); this.setLvl(a, from + (to - from) * (k * k * (3 - 2 * k)));
       if (k < 1) this.timers.set(a, requestAnimationFrame(step)); else { this.timers.delete(a); done?.(); }
     };
     this.timers.set(a, requestAnimationFrame(step));
@@ -93,7 +105,7 @@ class Engine {
   next(dir = 1) {
     if (!this.tracks.length) return;
     this.fading = true; const old = this.els[this.cur]; this.cur = 1 - this.cur; this.idx = (this.idx + dir + this.tracks.length) % this.tracks.length;
-    const a = this.els[this.cur], t = this.tracks[this.idx]; a.src = t.src; a.currentTime = 0; a.volume = 0;
+    const a = this.els[this.cur], t = this.tracks[this.idx]; a.src = t.src; a.currentTime = 0; this.setLvl(a, 0);
     this.refresh();
     if (this.prefs.music && this.prefs.vol > 0 && this.unlocked) { a.play().then(() => { this.ramp(a, this.level(), XFADE); this.refresh({ playing: true }); }).catch(() => this.refresh({ playing: false })); }
     this.ramp(old, 0, XFADE, () => { old.pause(); this.fading = false; });
@@ -108,11 +120,11 @@ class Engine {
   setVol(v: number) {
     this.prefs.vol = Math.max(0, Math.min(1, v)); this.save();
     if (this.prefs.vol <= 0) {
-      this.els.forEach((a) => { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); this.timers.delete(a); a.volume = 0; a.pause(); });
+      this.els.forEach((a) => { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); this.timers.delete(a); this.setLvl(a, 0); a.pause(); });
       this.fading = false; this.refresh({ playing: false }); return;
     }
     const a = this.els[this.cur];
-    if (this.snap.playing) { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); a.volume = this.level(); }
+    if (this.snap.playing) { const o = this.timers.get(a); if (o) cancelAnimationFrame(o); this.setLvl(a, this.level()); }
     else if (this.prefs.music && this.unlocked) { this.play(600); }
     this.refresh();
   }
