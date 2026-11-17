@@ -14,7 +14,7 @@ import { Img, ItemCard, ItemIcon, fmt, useZoom } from './ui';
 import type { Act } from './Panels';
 
 // Chợ Đêm. The idea, in three steps, repeated on every screen so nobody has to guess:
-//   1. Bày: put one of your things on a stall and say what you would like in return.
+//   1.  Bày: put one of your things on a stall and say what you would like in return.
 //   2. Đề nghị: another player sends one of THEIR things for it. It is held until you answer.
 //   3. Chốt: you accept the offer you like (the two things change hands) or decline.
 interface Who { name: string; dao: string; realm: number; sub: number; level: number; g: 'f' | 'm'; av?: string }
