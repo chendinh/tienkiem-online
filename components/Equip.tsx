@@ -18,7 +18,7 @@ import { SealPick } from './ds/SealPick';
 
 type Op = { type: string; payload: any; local: (s: G.GameState) => G.Res };
 // A copy the optimistic change may edit: the bag, the stash, the worn items and the player are copied, everything else is shared.
-const fork = (st: GS): GS => ({ ...st, bag: st.bag.map((x) => ({ ...x })), stash: st.stash.map((x) => ({ ...x })), eq: Object.fromEntries(Object.entries(st.eq).map(([k, v]) => [k, v ? { ...v } : v])) as GS['eq'], player: { ...st.player } });
+const fork = (st: GS): GS => ({ ...st, bag: st.bag.map((x) => ({ ...x })), stash: st.stash.map((x) => ({ ...x })), eq: Object.fromEntries(Object.entries(st.eq).map(([k, v]) => [k, v ? { ...v } : v])) as GS['eq'], player: { ...st.player }, pend: {} } as GS);   // `pend` (what the engine counts for the report) is not sent to the browser, the rules still write to it
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
 export type Eqx = ReturnType<typeof useEquip>;
@@ -113,8 +113,8 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     const st = stRef.current; if (!st) return;
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id);
     if (it && it.tier >= 3 && !(await askConfirm({ title: 'Phân giải pháp bảo', body: `Phân giải ${it.name} (hạng ${C.RARITY[it.tier]})? Không thể hoàn tác.`, ok: 'Phân giải', danger: true }))) return;
-    finish(await act('dissolve', { id }));
-  }, [stRef, finish, act]);
+    go('dissolve', { id }, (s) => G.dissolveBagItem(s, id));
+  }, [stRef, go]);
   // "Dọn túi" is applied on the screen at once (same rule as lib/game.ts dissolveMany) and confirmed by the server in the background.
   // If the server refuses or cannot be reached, the bag is put back and the player is told, so the screen never stays wrong.
   const [cleanBusy, setCleanBusy] = useState(false);

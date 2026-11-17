@@ -25,6 +25,7 @@ import { EquipPanel, ItemPopup, useEquip, type Eqx } from './Equip';
 import { Logo, Lockup } from './Logo';
 import { ElIcon } from './Icons';
 import { BattleLog, battleSummary } from './Battle';
+import { LoadingNote } from './LoadingNote';
 import { BattleStage } from './BattleStage';
 import { Icon } from './ds/Icon';
 import { Seg, Tabs } from './ds/Seg';
@@ -546,6 +547,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     <ZoomBridge r={zoomRef} />
     <div className={`app ${st.decision ? 'hasDecision' : ''}`}>
       {busy > 0 && <div className="busyBar" role="progressbar" aria-label="Đang gửi lên máy chủ" />}
+      <LoadingNote active={busy > 0} />
       {!net && <div className="netBanner" role="alert">Mất kết nối tới máy chủ. Đang thử lại, các thao tác chưa gửi sẽ được gửi lại.</div>}
       <Atmosphere scene={st.set.mode === 'retreat' ? 'night' : 'dawn'} aura={C.EL[aura].color} zone={st.zone} />
 
