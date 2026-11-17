@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Drag
 import * as C from '@/lib/content';
 import type { Item } from '@/lib/game';
 import { levelOf, dissolveValue } from '@/lib/game';
+import * as G from '@/lib/game';
+import { errText } from '@/lib/strings';
 import type { GS } from '@/lib/client/types';
 import type { Act, ActRes } from './Panels';
 import { ElChip, GenImg, ItemIcon, PanZoom, STAT_VI, fmt } from './ui';
@@ -14,6 +16,9 @@ import { SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
 
+type Op = { type: string; payload: any; local: (s: G.GameState) => G.Res };
+// A copy the optimistic change may edit: the bag, the stash, the worn items and the player are copied, everything else is shared.
+const fork = (st: GS): GS => ({ ...st, bag: st.bag.map((x) => ({ ...x })), stash: st.stash.map((x) => ({ ...x })), eq: Object.fromEntries(Object.entries(st.eq).map(([k, v]) => [k, v ? { ...v } : v])) as GS['eq'], player: { ...st.player } });
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
 export type Eqx = ReturnType<typeof useEquip>;
@@ -55,6 +60,41 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     return r.ok;
   }, [say, re]);
 
+  // Wearing, taking off, moving out of the stash and locking show on the screen at once and say nothing: the picture is the confirmation.
+  // The same rules (lib/game.ts) run here on a copy of the state; the server is told in the background, one request after another.
+  // If the server refuses, its own state replaces ours and only then is the player told. A request that never got through puts the old state back.
+  const queue = useRef<Op[]>([]), running = useRef(false), base = useRef<GS | null>(null), lastOpt = useRef<GS | null>(null);
+  const run = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    while (queue.current.length) {
+      const op = queue.current[0];
+      let r: ActRes;
+      try { r = await act(op.type, op.payload); } catch { r = { ok: false, msg: errText('E_SERVER'), code: 'E_SERVER' }; }
+      queue.current.shift();
+      if (!r.ok) say(r.msg || errText(r.code || 'E_SERVER'), false);
+      if (queue.current.length) {
+        // the answer put the server's state on the screen: the changes still on their way go back on top of it, so nothing seems to undo itself
+        const cur = stRef.current;
+        if (cur) { const f = fork(cur); for (const o of queue.current) o.local(f as unknown as G.GameState); stRef.current = f; lastOpt.current = f; }
+      } else if (!r.ok && stRef.current === lastOpt.current && base.current) stRef.current = base.current;   // no answer came back: the screen returns to what is true
+      re();
+    }
+    running.current = false;
+  }, [act, say, re, stRef]);
+  const go = useCallback((type: string, payload: any, local: Op['local'], keepOpen = false): boolean => {
+    const st = stRef.current; if (!st) return false;
+    const f = fork(st), r = local(f as unknown as G.GameState);
+    if (!r.ok) { say(r.msg, false); return false; }
+    if (!queue.current.length && !running.current) base.current = st;
+    queue.current.push({ type, payload, local });
+    stRef.current = f; lastOpt.current = f;
+    setHeld(null); setDragging(false); if (!keepOpen) setSel(null);
+    re();
+    void run();
+    return true;
+  }, [stRef, say, re, run]);
+
   // `target` is the slot the player dropped on; without it the item goes to the slot it belongs to.
   const equipItem = useCallback(async (id: number, target?: string) => {
     const st = stRef.current; if (!st) return false;
@@ -64,11 +104,11 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
       say(`${it.name} là ${C.SLOT_VI[it.slot]} (${C.SLOT_HINT[it.slot]}), không đặt vào ô ${C.SLOT_VI[target]}. Hãy thả vào ô ${C.SLOT_VI[it.slot]} đang sáng.`, false);
       return false;
     }
-    return finish(await act('equip', { id }));
-  }, [stRef, say, finish, act]);
-  const takeOff = useCallback(async (slot: string) => finish(await act('unequip', { slot })), [finish, act]);
-  const moveToBag = useCallback(async (id: number) => finish(await act('unstash', { id })), [finish, act]);
-  const lock = useCallback(async (id: number) => { const r = await act('lock', { id }); say(r.msg, r.ok); re(); }, [act, say, re]);
+    return go('equip', { id }, (s) => G.equipFromBag(s, id));
+  }, [stRef, say, go]);
+  const takeOff = useCallback(async (slot: string) => go('unequip', { slot }, (s) => G.unequip(s, slot)), [go]);
+  const moveToBag = useCallback(async (id: number) => go('unstash', { id }, (s) => G.unstash(s, id)), [go]);
+  const lock = useCallback(async (id: number) => { go('lock', { id }, (s) => G.toggleLock(s, id), true); }, [go]);
   const dissolve = useCallback(async (id: number) => {
     const st = stRef.current; if (!st) return;
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id);
