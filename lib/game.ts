@@ -454,6 +454,7 @@ export function useHpPill(st: GameState, grade: number): Res {
 export function releaseBeast(st: GameState, id: number): Res {
   const i = st.beasts.findIndex((b) => b.id === id);
   if (i < 0) return fail('E_NOT_FOUND');
+  if (st.beasts[i].mut) return fail('E_MUTANT');   // a Dị Biến is never sold or let go: it is too rare and other features use it
   const b = st.beasts.splice(i, 1)[0];
   const v = earn(st, releaseValue(b), 'release');
   return ok(`Đã thả ${b.name}, nhận ${v} Linh Thạch.`, { stones: v });
@@ -482,7 +483,8 @@ export function releaseMany(st: GameState): Res {
   const keep = new Set(bestParty(st).map((b) => b.id));
   let n = 0, gain = 0;
   st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
-  return n === 0 ? fail('E_NOT_FOUND', 'Không có Linh Thú nào phù hợp để bán.') : ok(`Đã bán ${n} Linh Thú, nhận ${gain} Linh Thạch.`, { n, stones: gain });
+  const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '';
+  return n === 0 ? fail('E_NOT_FOUND', `Không có Linh Thú nào phù hợp để bán.${keepNote}`) : ok(`Đã bán ${n} Linh Thú, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain });
 }
 
 // ---------- answering the question the journey waits for

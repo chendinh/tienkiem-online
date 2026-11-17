@@ -25,6 +25,7 @@ export const ERR = {
   E_NO_BOOK: 'Ngươi không có Bí Công này trong túi.',
   E_SKILL_SLOTS: 'Môn pháp này không còn ô chiêu trống. Hãy bỏ bớt một chiêu trước.',
   E_LOCKED: 'Món này đang khóa. Hãy mở khóa trước.',
+  E_MUTANT: 'Linh Thú Dị Biến rất hiếm nên không thể bán hay thả. Hãy giữ lại cho các tính năng khác.',
   E_WORN: 'Món này đang được mặc. Hãy tháo ra trước.',
   E_ZONE_LOCKED: 'Chưa đủ cấp độ để vào khu vực này.',
   E_BAD_ZONE: 'Khu vực không tồn tại.',

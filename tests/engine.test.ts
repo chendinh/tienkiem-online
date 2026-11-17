@@ -950,3 +950,17 @@ test('finishing the daily quest is counted for good (not only the latest 30 days
   assert.equal(G.questCount(old), 30);
   old.questDone = 41; assert.equal(G.questCount(old), 41);
 });
+
+test('a Dị Biến is never sold or let go: not by hand, not by the quick sale', () => {
+  const st = fresh(980);
+  const mk = (id: number, mut: boolean) => ({ ...beastP(id, 10 + id, mut), name: 'x', sp: 'ho' }) as G.Beast;
+  st.beasts = [mk(1, true), mk(2, false), mk(3, false), mk(4, false), mk(5, true), mk(6, false)];
+  const s0 = st.stones;
+  const r = G.releaseBeast(st, 1);
+  assert.equal(r.ok, false); assert.equal(r.code, 'E_MUTANT'); assert.equal(st.stones, s0); assert.equal(st.beasts.length, 6);
+  const m = G.releaseMany(st);
+  assert.ok(m.ok); assert.ok(st.beasts.some((b) => b.id === 1) && st.beasts.some((b) => b.id === 5), 'both Dị Biến are still there');
+  assert.match(m.msg, /Giữ lại 2 Dị Biến/);
+  st.beasts = [mk(7, true), mk(8, true)];
+  assert.equal(G.releaseMany(st).ok, false); assert.equal(st.beasts.length, 2);
+});

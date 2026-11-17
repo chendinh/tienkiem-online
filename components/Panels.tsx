@@ -14,6 +14,7 @@ import { MultiSelect } from './ds/MultiSelect';
 import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
 import { askConfirm, Toast } from './ds/Dialog';
+import { ERR } from '@/lib/strings';
 import { BeastArt, ElChip, Img, ItemCard, PanZoom, SizeMeter, fmt, useZoom } from './ui';
 import { ElIcon } from './Icons';
 
@@ -577,7 +578,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   const party = new Set(beasts.slice(0, st.caps.party).map((b) => b.id));
   const cur = sel === null ? null : beasts.find((b) => b.id === sel) || null;
   const sellOne = async (b: Beast) => {
-    if (b.mut && !(await askConfirm({ title: 'Bán Linh Thú Dị Biến', body: `${b.name} là Dị Biến, rất hiếm. Vẫn bán?`, ok: 'Bán', danger: true }))) return;
+    if (b.mut) { say(ERR.E_MUTANT, false); return; }
     const r = await act('release', { id: b.id }); say(r.msg, r.ok); if (r.ok) setSel(null);
   };
   const sellMany = async () => {
@@ -612,7 +613,9 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
               <div className="hint">Thần thông: {cur.skills.join(', ')}. Phí nuôi {Math.ceil(cur.level / 4)} Linh Thạch mỗi 10 phút.</div>
             </div>
             <div className="eqAct">
-              <button className="btn hot" onClick={() => sellOne(cur)}>Bán +{fmt(releaseValue(cur))} <Icon name="stone" size={15} /></button>
+              {cur.mut
+                ? <button className="btn" disabled title="Linh Thú Dị Biến rất hiếm, không thể bán hay thả">Dị Biến: giữ lại</button>
+                : <button className="btn hot" onClick={() => sellOne(cur)}>Bán +{fmt(releaseValue(cur))} <Icon name="stone" size={15} /></button>}
               <button className="btn ghost" onClick={() => setSel(null)}>Đóng</button>
             </div>
           </div>
