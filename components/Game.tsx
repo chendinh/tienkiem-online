@@ -1,6 +1,6 @@
 'use client';
 import { ModalClose, XSeal } from './ds/ModalClose';
-import { askConfirm, askPrompt, Toast } from './ds/Dialog';
+import { Toast } from './ds/Dialog';
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
@@ -283,7 +283,6 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   const [credits, setCredits] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);   // the third column (Kho báu) is a drawer on laptop and phone screens
   const [intro, setIntro] = useState(false);
-  const [genOn, setGenOn] = useState(true);
   const [ai, setAi] = useState<any>(null);
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
@@ -352,7 +351,6 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
   }, [apply, onSignOut]);
   useEffect(() => {
     watchNet(setNet);
-    try { if (localStorage.getItem('tutien-genon') === '0') setGenOn(false); } catch {}
     poll().finally(() => setReady(true));
     const id = setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
     const vis = () => { if (!document.hidden) poll(); };
@@ -430,13 +428,6 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
 
   const start = async (g?: 'f' | 'm') => { const r = await act('restart', { gender: g }); if (r.ok) { seenFeed.current = null; seenSig.current = null; setIntro(false); } else say(r.msg, false); };
   const signOut = async () => { await authPost({ action: 'logout' }); onSignOut(); };
-  const deleteAccount = async () => {
-    if (!(await askConfirm({ title: 'Xóa tài khoản', body: 'Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu? Không thể hoàn tác.', ok: 'Tiếp tục', danger: true }))) return;
-    const password = await askPrompt({ title: 'Xác nhận mật khẩu', label: 'Nhập mật khẩu để xóa tài khoản', password: true, ok: 'Xóa tài khoản', danger: true });
-    if (!password) return;
-    const r = await authPost({ action: 'delete', password });
-    if (r.ok) onSignOut(); else say(errText(r.code || 'E_SERVER'), false);
-  };
 
   if (!ready) return <><Atmosphere scene="night" /><div className="loading"><div className="loadBox"><Lockup width={300} /><span>Đang nhập định</span></div></div></>;
   if (intro) return <><Atmosphere scene="night" /><Intro onPick={start} onCredits={() => setCredits(true)} />{credits && <Credits onClose={() => setCredits(false)} />}</>;
@@ -461,12 +452,11 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
     stormRef.current = false; setStorm(false);
     if (!r.ok) say(r.msg, false);
   };
-  const toggleGen = (v: boolean) => { setGenOn(v); try { localStorage.setItem('tutien-genon', v ? '1' : '0'); } catch {} };
   const state = st.decision ? 'Chờ quyết định' : st.recovery ? 'Điều Tức' : (p.injury || 0) > 0 ? 'Thương Thế' : p.heartDemon > 0 ? 'Tâm Ma' : st.set.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện';
   const ack = async (id: string) => { await act('ack', { id }); };
 
   return (
-    <GenCtx.Provider value={genOn && !!(ai && ai.enabled)}>
+    <GenCtx.Provider value={!!(ai && ai.enabled)}>
     <ZoomProvider>
     <ZoomBridge r={zoomRef} />
     <div className={`app ${st.decision ? 'hasDecision' : ''}`}>
@@ -512,16 +502,13 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
               <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('odds'); }}><Icon name="luck" size={15} /> Xác suất</button>
               <button type="button" className="btn sm" onClick={() => { cue.open(); setModal('settings'); }}><Icon name="gear" size={15} /> Cài đặt</button>
             </div>
-            <div className="pop-grid">
-              <label className="tg"><input type="checkbox" checked={genOn} onChange={(e) => toggleGen(e.target.checked)} /> Ảnh AI</label>
-            </div>
             <div className="pop-sect">Hiệu ứng</div>
             <Seg label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'off' as const, label: 'Tắt' }, { v: 'low' as const, label: 'Nhẹ' }, { v: 'mid' as const, label: 'Vừa' }, { v: 'high' as const, label: 'Nhiều' }]} />
             <p className="pop-note muted">Hạ mức khi máy yếu hoặc dễ chóng mặt. Nếu hệ thống đang yêu cầu giảm chuyển động, game tự tắt hiệu ứng.</p>
-            {genOn && ai && <><div className="pop-sect">Nguồn ảnh AI</div><div className="pop-ai" title={ai.locked ? `Nhà cung cấp từ chối (403): ${ai.locked}` : ai.edit ? `Vẽ mới: ${ai.t2i} · Sửa ảnh: ${ai.edit} · Mặc đồ (theo biểu tượng): ${ai.outfit} · Biểu tượng pháp khí: ${ai.item}` : ''}>{aiLine(ai)}</div></>}
+            {ai && <><div className="pop-sect">Nguồn ảnh AI</div><div className="pop-ai" title={ai.locked ? `Nhà cung cấp từ chối (403): ${ai.locked}` : ai.edit ? `Vẽ mới: ${ai.t2i} · Sửa ảnh: ${ai.edit} · Mặc đồ (theo biểu tượng): ${ai.outfit} · Biểu tượng pháp khí: ${ai.item}` : ''}>{aiLine(ai)}</div></>}
             <div className="pop-sect">Tài khoản</div>
             <p className="pop-note muted">{email}</p>
-            <div className="pop-grid"><button className="btn sm" onClick={signOut}>Đăng xuất</button><button className="btn sm" onClick={deleteAccount}>Xóa tài khoản</button></div>
+            <div className="pop-grid"><button className="btn sm" onClick={signOut}>Đăng xuất</button></div>
           </Popover>
         </div>
       </header>
@@ -529,7 +516,7 @@ function GameInner({ email, onSignOut }: { email: string; onSignOut: () => void 
       <div className="mobView"><Seg<'journey' | 'hero'> label="Màn hình" value={view} onChange={setView} options={[{ v: 'journey' as const, label: <><Icon name="wind" size={15} /><span>Hành trình</span></>, title: 'Các lần gặp gỡ và trận đánh' }, { v: 'hero' as const, label: <><Icon name="lotus" size={15} /><span>Nhân vật</span></>, title: 'Chỉ số, đột phá, khu vực' }]} /></div>
       <main className={`main ${sideOpen ? 'sideOpen' : ''}`} data-view={view}>
         <section className="panel heroPanel">
-          <Hero st={st} tier={tier} aura={aura} on={genOn && !!ai && ai.enabled && !ai.locked} offWhy={!ai ? 'Đang chuẩn bị…' : !genOn ? 'Bật “Ảnh AI” để vẽ nhân vật' : !ai.enabled ? 'Chưa có nguồn ảnh AI (thiếu khóa trong .env.local)' : 'Nhà cung cấp ảnh tạm khóa 15 phút (lỗi 403)'} save={save} re={re} onBio={() => setCodex('bio')} />
+          <Hero st={st} tier={tier} aura={aura} on={!!ai && ai.enabled && !ai.locked} offWhy={!ai ? 'Đang chuẩn bị…' : !ai.enabled ? 'Chưa có nguồn ảnh AI (thiếu khóa trong .env.local)' : 'Nhà cung cấp ảnh tạm khóa 15 phút (lỗi 403)'} save={save} re={re} onBio={() => setCodex('bio')} />
           <h2 className="pname">{p.name}</h2>
           <div className="idLines">
             <button type="button" className={`dao ${p.dao ? '' : 'none'}`} onClick={() => setModal('dao')} title="Xem đạo hiệu và đặc quyền">{p.dao || 'Chưa có đạo hiệu'}</button>

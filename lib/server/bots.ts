@@ -34,7 +34,7 @@ export async function stepAccount(id: string, now: number): Promise<number> {
   });
 }
 
-async function patchAvatar(id: string, f: (av: G.Avatar) => void) {
+export async function patchAvatar(id: string, f: (av: G.Avatar) => void) {
   await withLock(`acct:${id}`, async () => {
     const a = await loadAccount(id);
     if (!a || !a.state || !a.state.player.avatar) return;

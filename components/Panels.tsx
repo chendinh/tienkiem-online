@@ -6,9 +6,11 @@ import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
 import type { GS } from '@/lib/client/types';
 import * as D from '@/lib/daily';
+import { allSpecies } from '@/lib/daily';
 import type { Report, Beast } from '@/lib/game';
 import { releaseValue, upkeepDue, SP } from '@/lib/game';
 import { Icon } from './ds/Icon';
+import { MultiSelect } from './ds/MultiSelect';
 import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
 import { askConfirm, Toast } from './ds/Dialog';
@@ -68,8 +70,12 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
   const mats = st.materials.filter((m) => (st.inv.mat[m.id] || 0) > 0);
   return (
     <div>
+      <div className="marketWallet" role="status" aria-label={`Linh Thạch hiện có: ${fmt(st.stones)}`}>
+        <span className="mwLbl"><Icon name="stone" size={22} /> Linh Thạch</span>
+        <b>{fmt(st.stones)}</b>
+      </div>
       <div className="marketBanner" style={{ backgroundImage: `url(${C.MARKET_ART})` }}><b>Phường Thị</b><span>Hàng bán không giới hạn, mua bán công khai</span></div>
-      <div className="hint">Giá bán lại bằng {Math.round((st.shop[0].sell / st.shop[0].price) * 100)}% giá mua. Ngươi có <b>{fmt(st.stones)}</b> Linh Thạch.</div>
+      <div className="hint">Giá bán lại bằng {Math.round((st.shop[0].sell / st.shop[0].price) * 100)}% giá mua.</div>
       <Toast msg={msg} />
       <div className="shopScroll">
         <div className="shopGrid">
@@ -162,6 +168,13 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <div className="row">
             <label className="tg"><input type="checkbox" checked={s.tame.alwaysMut} onChange={(e) => patch({ tame: { alwaysMut: e.target.checked } })} /> Luôn thử với Dị Biến (luôn dùng phù cao nhất đang có)</label>
             <label className="tg"><input type="checkbox" checked={s.tame.newOnly} onChange={(e) => patch({ tame: { newOnly: e.target.checked } })} /> Chỉ loài chưa từng thu phục</label>
+          </div>
+          <div className="field">
+            <span className="fieldLbl">Chỉ thu phục các loài này</span>
+            <MultiSelect label="Loài yêu thú muốn thu phục" allText="Tất cả các loài (không lọc)" placeholder="Tìm loài theo tên hoặc hệ…" value={s.tame.species}
+              options={allSpecies().slice().sort((a, b) => a.name.localeCompare(b.name, 'vi')).map((sp) => ({ value: sp.id, label: sp.name, hint: sp.el.join('/') }))}
+              onChange={(v) => patch({ tame: { species: v } })} />
+            <small className="hint">Không chọn loài nào nghĩa là thu phục mọi loài. Chọn vài loài thì chỉ thu phục đúng những loài đó.</small>
           </div>
           <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend>Kích thước được phép</legend>

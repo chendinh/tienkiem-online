@@ -854,6 +854,7 @@ export function matchesFilter(st: GameState, m: Beast, sp: C.Species): boolean {
   const f = st.set.tame;
   if (m.mut && f.alwaysMut) return true;
   if (f.strong) { const party = bestParty(st); return party.length < B.maxParty || m.power > Math.min(...party.map((b) => b.power)); }
+  if (f.species.length > 0 && !f.species.includes(sp.id)) return false;
   if (!f.sizes.includes(m.cls)) return false;
   if (f.newOnly && (st.best[sp.id]?.tamed || 0) > 0) return false;
   return true;

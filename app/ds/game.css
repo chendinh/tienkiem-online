@@ -643,3 +643,17 @@
   .repBeast { position: relative; flex: none; width: 76px; height: 76px; padding: 0; overflow: hidden; border-radius: var(--r-md); border: 1.5px solid var(--line-gold-strong); background: #0a1319; cursor: zoom-in; box-shadow: 0 0 18px -6px var(--gold-400); }
   .repBeast small { position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 2px; text-align: center; font-size: 0.6rem; color: var(--gold-200); background: linear-gradient(0deg, rgb(0 0 0 / 0.85), transparent); }
 }
+@layer game {
+  /* Dọn túi: a small panel under the bag title, not a drop-down in the header */
+  .bagHead .btn.on { border-color: var(--gold-300); color: var(--gold-200); }
+  .cleanBox { display: grid; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); border: 1px solid var(--line-gold-strong); background: radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--gold-400) 9%, transparent), transparent 70%), rgb(0 0 0 / 0.3); }
+  .cleanHead { display: grid; gap: 2px; }
+  .cleanHead b { font-family: var(--font-display); color: var(--gold-200); letter-spacing: 0.06em; }
+  .cleanHead small { color: var(--text-3); font-size: var(--fs-xs); }
+  .cleanSum { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--text-2); }
+  .cleanSum b { color: var(--gold-200); font-variant-numeric: tabular-nums; }
+  .cs.keep b { color: var(--jade-300); }
+  .cs.lock { color: var(--text-3); font-size: var(--fs-xs); }
+  .cleanAct { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+  .field .fieldLbl { display: block; margin-bottom: 4px; color: var(--text-2); font-size: var(--fs-sm); }
+}

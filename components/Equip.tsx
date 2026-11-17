@@ -12,6 +12,7 @@ import { ElIcon } from './Icons';
 import { itemSpec } from '@/lib/avatarSpec';
 import { SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
+import { SealPick } from './ds/SealPick';
 
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
@@ -192,6 +193,15 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
   const { held, setHeld, hot, dragging } = eqx;
   const [over, setOver] = useState(false);       // a worn item is dragged over the bag
   const [clean, setClean] = useState(1);         // "Dọn túi": rarity up to which everything not locked is dissolved
+  const [cleaning, setCleaning] = useState(false);
+  // what the cleaning would do, the same rule as the server (lib/game.ts dissolveMany): an upgrade (stronger than what is worn there, or an empty slot) is always kept
+  const plan = [...st.bag, ...st.stash].reduce((p, it) => {
+    if (it.locked) { p.locked++; return p; }
+    if (it.tier > clean) return p;
+    const cur = st.eq[it.slot];
+    if (!cur || it.power > cur.power) { p.kept++; return p; }
+    p.n++; p.stones += dissolveValue(it); return p;
+  }, { n: 0, kept: 0, locked: 0, stones: 0 });
   const fromEq = !!held && held.from === 'eq';
   const tile = (it: Item, from: 'bag' | 'stash') => {
     const cur = st.eq[it.slot], d = cur ? it.power - cur.power : null, tooHigh = it.level > L;
@@ -220,11 +230,23 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
       {!eqx.sel && <Toast msg={eqx.msg} />}
       <div className="bagHead">
         <h4>Túi Càn Khôn <small>{st.bag.length}/{st.caps.bag}</small></h4>
-        <div className="cleanRow">
-          <select className="inp" aria-label="Dọn túi tới hạng" value={clean} onChange={(e) => setClean(Number(e.target.value))}>{C.RARITY.slice(0, 4).map((n, i) => <option key={n} value={i}>Phân giải tới hạng {n}</option>)}</select>
-          <button className="btn sm" title="Phân giải ra Linh Thạch mọi món không khóa tới hạng đã chọn. Món có mũi tên xanh (mạnh hơn đồ đang mặc, hoặc ô còn trống) luôn được giữ lại." onClick={() => eqx.dissolveMany(clean)}>Dọn túi</button>
-        </div>
+        <button type="button" className={`btn sm ${cleaning ? 'on' : ''}`} aria-expanded={cleaning} onClick={() => setCleaning((o) => !o)}><Icon name="trash" size={14} /> Dọn túi</button>
       </div>
+      {cleaning && (
+        <div className="cleanBox" role="group" aria-label="Dọn túi">
+          <div className="cleanHead"><b>Dọn túi</b><small>Phân giải ra Linh Thạch mọi món không khóa, tới hạng ngươi chọn.</small></div>
+          <SealPick label="Phân giải tới hạng" upTo value={clean} onChange={setClean} options={C.RARITY.slice(0, 4).map((n, i) => ({ v: i, label: n, color: C.RCOLOR[i], hint: `Phân giải mọi món từ hạng Phàm tới hạng ${n}` }))} />
+          <div className="cleanSum">
+            <span className="cs go"><b>{plan.n}</b> món sẽ phân giải{plan.n > 0 && <> · <Icon name="stone" size={12} /> ≈ {fmt(plan.stones)} Linh Thạch</>}</span>
+            <span className="cs keep" title="Mạnh hơn món đang mặc ở cùng ô, hoặc ô còn trống: luôn được giữ để ngươi tự quyết"><b>{plan.kept}</b> món mũi tên xanh được giữ lại</span>
+            {plan.locked > 0 && <span className="cs lock"><Icon name="lock" size={11} /> {plan.locked} món đã khóa được giữ</span>}
+          </div>
+          <div className="cleanAct">
+            <button type="button" className="btn ghost sm" onClick={() => setCleaning(false)}>Đóng</button>
+            <button type="button" className="btn hot sm" disabled={plan.n === 0} onClick={async () => { if (await askConfirm({ title: 'Dọn túi', body: `Phân giải ${plan.n} món tới hạng ${C.RARITY[clean]}, nhận khoảng ${fmt(plan.stones)} Linh Thạch? Không hoàn lại được.`, ok: 'Phân giải', danger: true })) eqx.dissolveMany(clean); }}>Phân giải {plan.n} món</button>
+          </div>
+        </div>
+      )}
       <div className="bagWrap">
         <div className={`bagGrid ${over ? 'over' : ''} ${fromEq ? 'dropme' : ''}`}
           onDragEnter={(e) => { if (fromEq) { e.preventDefault(); setOver(true); } }}

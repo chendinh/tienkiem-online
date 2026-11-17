@@ -90,3 +90,58 @@
   /* ---- tooltip (components/ds/TooltipHost turns title="" into this) ---------------------------------- */
   .tip { position: fixed; z-index: var(--z-cursor); max-width: min(320px, 86vw); padding: 8px 12px; font-size: var(--fs-xs); line-height: 1.5; color: var(--text-1); pointer-events: none; background: var(--glass-ink); border: 1px solid var(--line-gold-strong); border-radius: var(--r-sm); box-shadow: var(--sh-2), 0 0 24px -8px color-mix(in srgb, var(--gold-400) 50%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: tip-in var(--dur-base) var(--ease-out) both; white-space: pre-line; }
 }
+
+/* ==========================================================================
+   SELECTION CONTROLS: native select, seal picker (one step of a scale), multi select (many of many)
+   ========================================================================== */
+@layer ds-controls {
+  select {
+    appearance: none; -webkit-appearance: none; min-height: 36px; padding: 0.3rem 2rem 0.3rem 0.7rem; max-width: 100%; color: var(--text-1); cursor: pointer;
+    background: var(--glass-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23e2b85a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.7rem center / 12px 8px;
+    border: 1px solid var(--line-gold); border-radius: var(--r-sm); transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+  }
+  select:hover { border-color: var(--line-gold-strong); }
+  select:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 1px; }
+  select option { background: #0b161d; color: var(--text-1); }
+
+  /* ---- seal picker: lacquer seals on a thread; with `upTo` every seal up to the chosen one is lit ---- */
+  .sealPick { position: relative; display: flex; justify-content: space-between; gap: var(--sp-2); padding: 4px var(--sp-3) 0; }
+  .sealLine { position: absolute; left: calc(var(--sp-3) + 22px); right: calc(var(--sp-3) + 22px); top: 26px; height: 2px; border-radius: 1px; background: linear-gradient(90deg, var(--gold-300) var(--p), rgb(255 255 255 / 0.14) var(--p)); }
+  .seal { position: relative; z-index: 1; display: grid; justify-items: center; gap: 4px; min-width: 56px; padding: 0; background: none; border: 0; color: var(--text-3); cursor: pointer; }
+  .sealDisc { display: block; width: 44px; height: 44px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--sc) 55%, #000);
+    background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--sc) 55%, #fff 10%), color-mix(in srgb, var(--sc) 70%, #000) 72%); opacity: 0.45; filter: saturate(0.6);
+    box-shadow: inset 0 0 8px rgb(0 0 0 / 0.55); transition: transform var(--dur-base) var(--ease-spring), opacity var(--dur-base), filter var(--dur-base), box-shadow var(--dur-base); }
+  .seal.in .sealDisc { opacity: 0.85; filter: none; border-color: var(--gold-300); }
+  .seal.on .sealDisc { opacity: 1; filter: none; border-color: var(--gold-200); transform: scale(1.12); box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc) 50%, transparent), 0 0 20px -2px var(--sc), inset 0 0 8px rgb(0 0 0 / 0.4); }
+  .seal:hover .sealDisc { opacity: 1; }
+  .seal:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 3px; border-radius: var(--r-sm); }
+  .sealLbl { font-family: var(--font-display); font-size: var(--fs-xs); letter-spacing: 0.06em; }
+  .seal.on .sealLbl { color: var(--gold-200); }
+  .seal.in .sealLbl { color: var(--text-2); }
+
+  /* ---- multi select ---- */
+  .msel { display: grid; gap: var(--sp-2); min-width: 0; }
+  .mselBar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 40px; padding: 0.35rem 0.8rem; text-align: left; color: var(--text-1); cursor: pointer; background: var(--glass-soft); border: 1px solid var(--line-gold); border-radius: var(--r-sm); }
+  .mselBar:hover { border-color: var(--line-gold-strong); }
+  .mselBar:focus-visible { outline: 2px solid var(--jade-300); outline-offset: 1px; }
+  .mselBar svg { color: var(--gold-300); transform: rotate(180deg); transition: transform var(--dur-base); }
+  .msel.open .mselBar svg { transform: none; }
+  .mselChips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mselChip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 10px; font-size: var(--fs-xs); color: var(--jade-200); cursor: pointer; border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--jade-400) 55%, transparent); background: color-mix(in srgb, var(--jade-400) 16%, rgb(0 0 0 / 0.3)); }
+  .mselChip:hover { border-color: var(--cinnabar-300); color: var(--cinnabar-300); }
+  .mselMore { align-self: center; color: var(--text-3); font-size: var(--fs-xs); }
+  .mselPanel { display: grid; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-gold-strong); background: linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(0 0 0 / 0.3)), var(--glass-ink); }
+  .mselSearch { width: 100%; min-height: 38px; }
+  .mselActs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mselActs .btn:last-child { margin-left: auto; }
+  .mselList { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px; max-height: 260px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 2px; }
+  .mselOpt { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 36px; padding: 4px 8px; border-radius: var(--r-sm); border: 1px solid transparent; cursor: pointer; font-size: var(--fs-sm); }
+  .mselOpt:hover { background: rgb(255 255 255 / 0.05); }
+  .mselOpt.on { border-color: color-mix(in srgb, var(--jade-400) 55%, transparent); background: color-mix(in srgb, var(--jade-400) 14%, transparent); }
+  .mselOpt input { position: absolute; opacity: 0; pointer-events: none; }
+  .mselOpt input:focus-visible + .mselBox { outline: 2px solid var(--jade-300); outline-offset: 2px; }
+  .mselBox { flex: none; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--line-gold-strong); color: #0a1e1c; }
+  .mselOpt.on .mselBox { background: var(--jade-300); border-color: var(--jade-300); }
+  .mselLbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mselOpt small { margin-left: auto; color: var(--text-3); font-size: var(--fs-2xs); white-space: nowrap; }
+}
