@@ -172,7 +172,7 @@ export function Zoo() {
           : <h1>Linh Thú Viên</h1>}
         {editing
           ? <button type="button" className={`zv-btn ${dirty ? 'hot' : ''}`} disabled={!dirty || saving} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu'}</button>
-          : <button type="button" className="zv-btn" onClick={() => setEditing(true)} aria-label="Sửa"><Icon name="brush" size={17} /> Sửa</button>}
+          : <button type="button" className="zv-btn" onClick={() => setEditing(true)} aria-label="Bày trí"><Icon name="brush" size={17} /> Bày trí</button>}
       </header>
       {editing && <nav className="zv-bgs" aria-label="Chọn nền">
         {ZOO_BGS.map((x) => <button key={x.id} type="button" className="zv-chip" aria-pressed={x.id === bg} onClick={() => { setBg(x.id); setSel(null); setDirty(true); }}>{x.name}</button>)}
@@ -212,7 +212,7 @@ export function Zoo() {
             })}
           </div>
           {(moving || ghost) && perches.map((p) => <i key={p.id} className="zv-perch" style={{ left: pc((p.x - p.w / 2) * 100), top: pc(p.y * 100), width: pc(p.w * 100) }} />)}
-          {items.length === 0 && beasts.length > 0 && <p className="zv-hint">{editing ? 'Kéo một Dị Thú từ khay xuống, hoặc chạm vào nó.' : 'Vườn còn trống. Bấm Sửa để đặt Dị Thú vào.'}</p>}
+          {items.length === 0 && beasts.length > 0 && <p className="zv-hint">{editing ? 'Kéo một Dị Thú từ khay xuống, hoặc chạm vào nó.' : 'Vườn còn trống. Bấm Bày trí để đặt Dị Thú vào.'}</p>}
         </div>
       </div>
 
