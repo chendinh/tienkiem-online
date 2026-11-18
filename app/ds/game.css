@@ -758,6 +758,7 @@
     .app .top .topNav .nav.pic.story { --ico: url('/art/ui/nav/story.png'); }
     .app .top .topNav .nav.pic.odds { --ico: url('/art/ui/nav/odds.png'); }
     .app .top .topNav .nav.pic.settings { --ico: url('/art/ui/nav/settings.png'); }
+    .app .top .topNav .nav.pic.zoo { --ico: url('/art/ui/nav/zoo.png'); }
     .app .top .topNav .nav.pic.kho { --ico: url('/art/ui/nav/kho.png'); display: none; }   /* from 1600px the Kho báu column is on the page, so it needs no button */
     @media (max-width: 1599px) { .app .top .topNav .nav.pic.kho { display: inline-flex; } }
     .app .top .topNav .nav.pic::before, .app .top .topNav .nav.pic::after, .app .top .topNav .nav.pic .navIco, .app .top .topNav .nav.pic .navArt { display: none; }
