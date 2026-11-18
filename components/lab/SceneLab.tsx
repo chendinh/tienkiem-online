@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
-import { BASE, MUTATIONS } from '@/lib/anim';
+import { BASE, MUTATIONS, SCENE_IDS } from '@/lib/anim';
 import { SPEED, SPEED_RANGE, grassPath, gradeAt, lookOf, nextMove, pickSpot, scaleAt, shadowAt, speedAt, turn, type Look, type Mote, type Move } from '@/lib/scene';
 import { errText } from '@/lib/strings';
 import { AlphaVideo, newGrade, type Grade } from './AlphaVideo';
@@ -21,8 +21,9 @@ interface Sel { id: string; alpha: string; hold: boolean }
 type Speeds = Record<string, { walk: number; run: number }>;
 
 const ZONE_IDS = ['thanhvan', 'xichviem', 'hannguyet', 'loivan', 'cuuu', 'tinhha'];
-const BGS = [...ZONE_IDS.map((id) => ({ id, name: C.ZONES.find((z) => z.id === id)?.name || id })), { id: 'dawn', name: 'Bình minh' }, { id: 'night', name: 'Đêm' }];
-const bgUrl = (id: string, portrait: boolean) => (id === 'dawn' || id === 'night' ? `/art/scene/${id}.webp` : `/art/zones/${id}${portrait ? '_v' : ''}.jpg`);
+const ZONE_BGS = ZONE_IDS.map((id) => ({ id, name: C.ZONES.find((z) => z.id === id)?.name || id }));
+const isScene = (id: string) => (SCENE_IDS as readonly string[]).includes(id);
+const bgUrl = (id: string, portrait: boolean) => (isScene(id) ? `/art/scene/${id}.webp` : `/art/zones/${id}${portrait ? '_v' : ''}.jpg`);
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const calm = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -37,7 +38,7 @@ export function SceneLab() {
   const [fgs, setFgs] = useState<{ id: string; zone: string }[]>([]);
   const [fgUsd, setFgUsd] = useState(0.06);
   const [names, setNames] = useState<Record<string, string>>({});
-  const [bg, setBg] = useState('thanhvan');
+  const [bg, setBg] = useState('dawn');   // the creature garden's own background: a sea of clouds
   const [own, setOwn] = useState('');          // a background the owner picked from the phone
   const [portrait, setPortrait] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
@@ -96,8 +97,8 @@ export function SceneLab() {
   }
 
   // the foreground layer of this zone, drawn by fal from the zone's own picture
-  const zone = !own && ZONE_IDS.includes(bg) ? bg : '';
-  const fgId = zone && !portrait ? fgs.find((f) => f.zone === zone)?.id : undefined;
+  const zone = !own && (ZONE_IDS.includes(bg) || isScene(bg)) ? bg : '';
+  const fgId = zone && !(portrait && ZONE_IDS.includes(zone)) ? fgs.find((f) => f.zone === zone)?.id : undefined;   // a zone's foreground is drawn for its landscape picture only
   async function makeFg() {
     if (!key || !zone) return;
     setFgBusy(true); setErr('');
@@ -124,7 +125,9 @@ export function SceneLab() {
     return Object.values(out);
   }, [cuts, names]);
   const picked = defs.filter((d) => chosen.includes(d.key));
-  const look = useMemo(() => lookOf(own ? 'own' : bg), [own, bg]);
+  // held upright, the sea of clouds is cropped to its middle (the stage is 3:4), so the creatures may use the whole width of what is left
+  const cover = portrait && !own && isScene(bg);
+  const look = useMemo(() => { const l = lookOf(own ? 'own' : bg); return cover ? { ...l, xr: [0.12, 0.88] as [number, number] } : l; }, [own, bg, cover]);
   const setFlip = (sp: string) => setFlips((f) => { const n = { ...f, [sp]: (f[sp] || 1) * -1 }; save(FLIPS, n); return n; });
   const setSpeed = (k: string, m: 'walk' | 'run', v: number) => setSpeeds((s) => { const n = { ...s, [k]: { ...{ walk: SPEED.walk, run: SPEED.run }, ...s[k], [m]: v } }; save(SPEEDS, n); return n; });
 
@@ -143,7 +146,7 @@ export function SceneLab() {
     );
   }
   const showImg = front !== 'none' && front !== 'grass' && !!fgId;
-  const showGrass = front === 'grass' || (front === 'auto' && !fgId);
+  const showGrass = front === 'grass' || (front === 'auto' && !fgId && look.fgDraw === 'grass');
   const mc = { '--mist': String(look.mist), '--mc': look.mistColor } as CSSProperties;
   return (
     <main className="zl">
@@ -154,19 +157,20 @@ export function SceneLab() {
         <label className="zl-row"><span>Nền</span>
           <select className="zl-in" value={own ? 'own' : bg} onChange={(e) => { if (e.target.value !== 'own') { setOwn(''); setBg(e.target.value); } }}>
             {own && <option value="own">Ảnh của ngươi</option>}
-            {BGS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            <optgroup label="Linh Thú Viên"><option value="dawn">Biển mây · bình minh</option><option value="night">Biển mây · đêm</option></optgroup>
+            <optgroup label="Ảnh các vùng (thử)">{ZONE_BGS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
           </select>
         </label>
         <label className="zl-row"><span>Hoặc ảnh nền của ngươi</span>
           <input className="zl-in" type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setOwn(URL.createObjectURL(f)); }} />
         </label>
-        {!look.ground && <p className="zl-note">Nền này không có mặt đất (đảo trôi, vũ trụ): thú chỉ đứng được ở mép dưới và trông như lơ lửng. Nền hợp nhất: Thanh Vân, Hàn Nguyệt, Lôi Vân.</p>}
+        {!look.ground && <p className="zl-note">Ảnh vùng này không có mặt đất (đảo trôi, vũ trụ): thú chỉ đứng được ở mép dưới và trông như lơ lửng. Nên dùng biển mây.</p>}
         <div className="zl-row"><span>Lớp che phía trước</span>
           <div className="zl-chips">
             {([['auto', 'Tự động'], ['grass', 'Cỏ vẽ sẵn'], ['none', 'Không']] as const).map(([v, n]) => <button key={v} type="button" className="zl-chip zl-sm" aria-pressed={front === v} onClick={() => setFront(v)}>{n}</button>)}
-            {zone && !fgId && !portrait && <button type="button" className="zl-chip zl-sm" disabled={fgBusy} onClick={makeFg}>{fgBusy ? 'Đang vẽ lớp che…' : `Vẽ lớp che bằng fal (~$${fgUsd.toFixed(2)})`}</button>}
+            {zone && !fgId && !(portrait && ZONE_IDS.includes(zone)) && <button type="button" className="zl-chip zl-sm" disabled={fgBusy} onClick={makeFg}>{fgBusy ? 'Đang vẽ lớp che…' : `Vẽ lớp che bằng fal (~$${fgUsd.toFixed(2)})`}</button>}
             {fgId && <span className="zl-note">Đã có lớp che fal cho nền này.</span>}
-            {zone && portrait && <span className="zl-note">Lớp che fal chỉ có cho màn ngang; màn dọc dùng cỏ vẽ sẵn.</span>}
+            {zone && portrait && ZONE_IDS.includes(zone) && <span className="zl-note">Lớp che fal của ảnh vùng chỉ có cho màn ngang.</span>}
           </div>
         </div>
         {typeof DeviceOrientationEvent !== 'undefined' && !tilt && <div className="zl-row"><span>Nghiêng máy</span><button type="button" className="zl-chip zl-sm" onClick={enableTilt}>Bật nghiêng máy để cảnh lệch theo tay</button></div>}
@@ -188,7 +192,7 @@ export function SceneLab() {
         {err && <p className="zl-err">{err}</p>}
       </section>
 
-      <div ref={stage} className="zl-stage" onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); pointerV.current = (((e.clientX - r.left) / Math.max(1, r.width)) - 0.5) * 1.2; }} onPointerLeave={() => { pointerV.current = 0; }}>
+      <div ref={stage} className={`zl-stage ${cover ? 'zl-cover' : ''}`} onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); pointerV.current = (((e.clientX - r.left) / Math.max(1, r.width)) - 0.5) * 1.2; }} onPointerLeave={() => { pointerV.current = 0; }}>
         <div ref={L.bg} className="zl-lay zl-lay-bg"><img className="zl-bg" src={own || bgUrl(bg, portrait)} alt="" /></div>
         <Motes key={`f${bg}${own}`} kind={look.motes} near={false} />
         <div ref={L.mist} className="zl-lay" style={mc}><div className="zl-mist zl-mist-b" /></div>

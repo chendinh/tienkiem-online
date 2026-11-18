@@ -3,7 +3,7 @@ import { idle as imageIdle, idFromUrl, request, falCost, falModels } from '@/lib
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
 import { json, guard, checkWrite, readBody } from '@/lib/server/http';
-import { fgCost } from '@/lib/anim';
+import { SCENE_IDS, fgCost } from '@/lib/anim';
 import { requireAdmin } from '@/lib/server/admin';
 import { ensureDaily } from '@/lib/server/dailystore';
 import { assetsOf, clip, cut, cutsAll, fg, fgsAll, idle, info, variant, type Out } from '@/lib/server/anim';
@@ -36,9 +36,9 @@ export async function POST(req: Request) {
     await ensureDaily();
     let out: Out;
     if (b?.step === 'fg') {
-      // the foreground layer belongs to a zone, not to a species
+      // the foreground layer belongs to a background picture (the game's dawn/night or a zone's), not to a species
       const z = typeof b.zone === 'string' ? b.zone : '';
-      out = C.ZONES.some((x) => x.id === z) ? await fg(z, new URL(req.url).origin) : { status: 'invalid' };
+      out = (C.ZONES.some((x) => x.id === z) || (SCENE_IDS as readonly string[]).includes(z)) ? await fg(z, new URL(req.url).origin) : { status: 'invalid' };
       if (out.started) after(() => idle());
       return json({ status: out.status, id: out.id, why: out.why });
     }

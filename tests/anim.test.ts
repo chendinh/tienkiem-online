@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL, fgCost, fgCutInput, fgPrompt, isZoneId } from '../lib/anim';
+import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL, fgCost, fgCutInput, fgPrompt, isZoneId, bgPath, bgExt } from '../lib/anim';
 
 test('mutation and motion ids are unique, lowercase slugs', () => {
   for (const list of [MUTATIONS, MOTIONS]) {
@@ -75,4 +75,12 @@ test('the foreground layer: kept elements on white, then cut; cheap and bound to
   assert.equal(fgCost(0.04), 0.06);
   assert.ok(isZoneId('thanhvan'));
   for (const bad of ['../x', 'Thanh', 'a', '', undefined, 'thanh-van']) assert.ok(!isZoneId(bad), String(bad));
+});
+
+test('the background pictures: the game\'s sea of clouds and the zones, each with its own path and type', () => {
+  assert.equal(bgPath('dawn'), '/art/scene/dawn.webp');
+  assert.equal(bgExt('night'), 'webp');
+  assert.equal(bgPath('thanhvan'), '/art/zones/thanhvan.jpg');
+  assert.equal(bgExt('thanhvan'), 'jpg');
+  assert.ok(isZoneId('dawn'));
 });

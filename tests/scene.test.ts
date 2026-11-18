@@ -12,6 +12,9 @@ test('every look keeps its ground inside the picture', () => {
     assert.ok(l.far > 0 && l.near >= l.far, z);
   }
   assert.equal(lookOf('cuuu').ground, false);
+  // the garden's own pictures are a cloud floor: ground, no drawn grass, a thick mist, creatures in the middle
+  for (const z of ['dawn', 'night']) { const l = lookOf(z); assert.equal(l.ground, true); assert.equal(l.fgDraw, 'none'); assert.ok(l.mist >= 0.8); assert.ok(l.xr[0] >= 0.25 && l.xr[1] <= 0.8); }
+  assert.equal(lookOf('thanhvan').fgDraw, 'grass');
   assert.equal(lookOf('thanhvan').ground, true);
 });
 

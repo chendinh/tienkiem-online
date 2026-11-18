@@ -69,6 +69,10 @@ export const fgPrompt = () => `Edit this image. Keep ONLY the closest foreground
 export const fgCutInput = (imageUrl: string): Record<string, unknown> => ({ image_url: imageUrl });
 export const FG_CUT_USD = 0.02;   // Bria background removal is about 0.018 USD per picture, rounded up
 export const fgCost = (editUsd: number) => Math.round((editUsd + FG_CUT_USD) * 1000) / 1000;
+// The pictures a scene can stand on: the two of the game's own atmosphere (a sea of clouds, by day and by night) and the pictures of the zones.
+export const SCENE_IDS = ['dawn', 'night'] as const;
+export const bgPath = (id: string) => ((SCENE_IDS as readonly string[]).includes(id) ? `/art/scene/${id}.webp` : `/art/zones/${id}.jpg`);
+export const bgExt = (id: string) => ((SCENE_IDS as readonly string[]).includes(id) ? 'webp' : 'jpg');
 export const isZoneId = (id: unknown): id is string => typeof id === 'string' && /^[a-z]{3,12}$/.test(id);
 
 // USD per second of video, audio off.

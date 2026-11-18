@@ -39,6 +39,9 @@
 /* layers: each is as big as the stage and slides by its own amount (SceneLab). The picture's layer stays in the flow and gives the stage its height. */
 .zl-lay { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
 .zl-lay-bg { position: relative; inset: auto; }
+/* upright phone: the 16:9 sea of clouds fills a 3:4 stage, cropped to its middle (the foreground picture is cropped the same way, so they stay in line) */
+.zl-cover .zl-lay-bg { aspect-ratio: 3 / 4; }
+.zl-cover .zl-bg, .zl-cover .zl-fgimg { height: 100%; object-fit: cover; object-position: 50% 50%; }
 .zl-lay-up { transform-origin: 50% 100%; }   /* near layers grow upward from the bottom edge, so grass stays on the ground */
 .zl-mist { position: absolute; left: 0; width: 200%; background-repeat: repeat-x; background-size: 50% 100%; background-image: radial-gradient(60% 100% at 25% 100%, var(--mc), transparent 70%), radial-gradient(45% 80% at 75% 100%, var(--mc), transparent 70%); }
 .zl-mist-b { bottom: 22%; height: 38%; opacity: calc(var(--mist) * 0.8); animation: zl-drift 90s linear infinite; }
