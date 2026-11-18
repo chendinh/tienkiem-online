@@ -7,6 +7,8 @@ import { DEFAULT_PERCHES, K_RANGE, snapPerch, ASPECT } from './garden';
 // and one species shows many different Dị Biến. The look decides the picture and the clip; both are made once and shared by every player.
 const fnv = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 export const variantOf = (sp: string, beastId: number): string => MUTATIONS[fnv(`${sp}#${beastId}`) % MUTATIONS.length].id;
+// The look of any Dị Biến beast of the game (its species and number decide it, see variantOf); null for an ordinary beast.
+export const lookOf = (b: { sp: string; id: number; mut?: boolean } | null | undefined): string | null => (b && b.mut ? variantOf(b.sp, b.id) : null);
 export const variantName = (id: string) => MUTATIONS.find((m) => m.id === id)?.name || id;
 
 export const ZOO_MAX = 8;   // creatures on one background: each is two videos and a WebGL canvas, so a phone holds only a few

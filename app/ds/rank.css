@@ -48,6 +48,8 @@
   .pod.r1 .podName { font-size: var(--fs-xl); color: var(--gold-200); }
   .podDao { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font-size: var(--fs-xs); font-style: italic; }
   .podRealm { font-size: var(--fs-xs); color: var(--jade-300); }
+  .podRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px; margin-bottom: 6px; }   /* the quest tag and the board's number side by side */
+  .podRow .podMetric { margin-bottom: 0; }
   .podMetric { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 6px; font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--gold-200); }
   .podStand { position: relative; display: grid; place-items: center; align-content: center; width: 100%; height: var(--h); border-radius: var(--r-sm) var(--r-sm) 0 0; border: 1px solid color-mix(in srgb, var(--m) 55%, transparent); border-bottom: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--m) 26%, #0c1923), #0a141c 92%); }
   .podStand i { font-style: normal; font-family: var(--font-display); font-size: 2rem; font-weight: 700; line-height: 1; color: var(--m); text-shadow: 0 0 14px color-mix(in srgb, var(--m) 60%, transparent); }
@@ -69,7 +71,7 @@
   .rkWho small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .questTag { display: inline-flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; color: var(--gold-200, var(--gold-300)); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 22%, transparent), color-mix(in srgb, var(--gold-400) 8%, transparent)); border: 1px solid color-mix(in srgb, var(--gold-400) 50%, transparent); }
   .questTag.big { padding: 3px 11px; font-size: var(--fs-sm, 0.9rem); }
-  .pod .questTag { margin-top: 2px; }
+  .pod .questTag { margin-top: 0; }
   .rkRow, .rkRow > * { min-width: 0; }
   .rkRealm { display: grid; justify-items: end; font-size: var(--fs-sm); white-space: nowrap; }
   .rkMetric { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--gold-200); font-variant-numeric: tabular-nums; }

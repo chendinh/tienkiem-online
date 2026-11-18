@@ -10,6 +10,7 @@ import { ElIcon, SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { Seg } from './ds/Seg';
 import { Logo } from './Logo';
+import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
 import { LotusLoad } from './LoadingNote';
 
 type Board = 'cult' | 'power' | 'quest' | 'mut' | 'tien';
@@ -73,9 +74,8 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
         <span className={`podSeal ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />}</span>
         <b className="podName">{r.name}</b>
         <small className="podDao">{who(r)}{r.me ? ' · ngươi' : ''}</small>
-        {board !== 'quest' && <QuestTag n={r.qd} />}
         <span className="podRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}</span>
-        <span className="podMetric">{metric(r)}</span>
+        <span className="podRow">{board !== 'quest' && <QuestTag n={r.qd} />}<span className="podMetric">{metric(r)}</span></span>
         <span className="podStand"><i>{r.rank}</i><em>{MEDAL[k]}</em></span>
       </button>
     );
@@ -171,6 +171,7 @@ function ProfileView({ pid, onBack, focusMut = false }: { pid: string; onBack: (
             <div key={b.id} className="rkBeast mutc">
               <BeastArt b={b} box={96} />
               <b>✦ {b.elite ? 'Tinh Anh ' : ''}{b.name}</b>
+              {lookOf(b) && <em className="lookTag" style={{ '--hue': LOOK_COLOR[lookOf(b)!] } as CSSProperties}>{variantName(lookOf(b)!)}</em>}
               <small>Lv{b.level} · {C.PERS[b.pers].n} · <Icon name="atk" size={12} /> {b.power}</small>
               <small>{b.cm} cm · {C.SIZE_CLASS[b.cls]}</small>
             </div>

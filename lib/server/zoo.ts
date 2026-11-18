@@ -99,3 +99,31 @@ export async function carryOn(sp: string, look: string): Promise<void> {
     if (!o.started && !o.imgStarted) return;   // another function is making it: it will carry on itself, or the page's next question will
   }
 }
+
+// ---- the picture of a Dị Biến look, in the style of the game's own creature pictures (the misty dusk ground, unlike the flat ground of the clips). Shown in the pen,
+// the creature's page and the rankings in place of the game's one rainbow picture. Ngũ Sắc is that rainbow picture, so it needs none.
+// Looked up (free) for any look; made (once for everybody) only for a look the asking player owns.
+export async function picsFor(keys: { sp: string; look: string }[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const sps = [...new Set(keys.map((k) => k.sp))];
+  if (!sps.length) return out;
+  const r = await query<{ id: string; sp: string; mut: string }>(
+    `SELECT id, meta->'spec'->>'sp' AS sp, meta->'spec'->>'mut' AS mut FROM images
+      WHERE kind = 'animvar' AND meta->'spec'->>'kind' = 'variant' AND meta->'spec'->>'plain' IS NULL AND meta->'spec'->>'sp' = ANY($1::text[]) ORDER BY created`, [sps]);
+  for (const x of r.rows) out.set(`${x.sp}:${x.mut}`, `/api/lab/media/${x.id}`);
+  return out;
+}
+export interface Portrait { status: 'ready' | 'making' | 'failed' | 'limited' | 'disabled' | 'invalid'; url?: string; started?: boolean }
+export async function portrait(sp: string, look: string): Promise<Portrait> {
+  if (!speciesOk(sp) || !A.mutationOf(look)) return { status: 'invalid' };
+  if (look === 'ngusac') return { status: 'ready' };
+  const known = (await picsFor([{ sp, look }])).get(`${sp}:${look}`);
+  if (known) return { status: 'ready', url: known };
+  const base = await request({ kind: 'monster', sp });
+  if (base.status === 'pending') return { status: 'making', started: true };
+  if (base.status !== 'ready' || !base.url) return { status: why(base).status as Portrait['status'] };
+  const v: Out = await variant(sp, look, idFromUrl(base.url));
+  if (v.status === 'pending') return { status: 'making', started: !!v.started };
+  if (v.status !== 'ready' || !v.id) return { status: why(v).status as Portrait['status'] };
+  return { status: 'ready', url: `/api/lab/media/${v.id}` };
+}

@@ -1,6 +1,6 @@
 'use client';
 import { BattleLog } from './Battle';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
@@ -10,6 +10,8 @@ import { allSpecies } from '@/lib/daily';
 import type { Report, Beast } from '@/lib/game';
 import { releaseValue, upkeepDue, SP, heartDemonTicks, tribulationPurityMult } from '@/lib/game';
 import { Icon } from './ds/Icon';
+import { useLookPic } from '@/lib/useLookPic';
+import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
 import { MultiSelect } from './ds/MultiSelect';
 import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
@@ -574,6 +576,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   const beasts = st.beasts.slice().sort((a, b) => b.power - a.power);
   const party = new Set(beasts.slice(0, st.caps.party).map((b) => b.id));
   const cur = sel === null ? null : beasts.find((b) => b.id === sel) || null;
+  const curPic = useLookPic(cur, true), curLook = lookOf(cur);   // the look of a Dị Biến: its own picture and its name tag
   const sellOne = async (b: Beast) => {
     if (b.mut) { say(ERR.E_MUTANT, false); return; }
     const r = await act('release', { id: b.id }); say(r.msg, r.ok); if (r.ok) setSel(null);
@@ -591,7 +594,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
       <div className="penGrid">
         {beasts.map((b) => (
           <button key={b.id} className={`penTile ${b.mut ? 'mutc' : ''}`} onClick={() => setSel(b.id)} aria-label={`${b.name} cấp ${b.level}`}>
-            <BeastArt b={b} box={72} onOpen={() => setSel(b.id)} />
+            <BeastArt b={b} box={72} mine onOpen={() => setSel(b.id)} />
             <span className="pn">{party.has(b.id) ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</span>
             <small>Lv{b.level} · {C.SIZE_CLASS[b.cls]}</small>
           </button>
@@ -601,9 +604,9 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
         <div className="modal zoom" onClick={() => setSel(null)} role="dialog" aria-modal="true" aria-label={cur.name}>
           <ModalClose onClose={() => setSel(null)} />
           <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()}>
-            <div className="zoomPic"><PanZoom><Img src={C.monsterArt(cur.sp, cur.mut)} className="fill" fb={<ElIcon el={SP(cur.sp).el[0]} size={80} />} /></PanZoom></div>
+            <div className="zoomPic"><PanZoom><Img src={curPic || C.monsterArt(cur.sp, cur.mut)} className="fill" fb={<ElIcon el={SP(cur.sp).el[0]} size={80} />} /></PanZoom></div>
             <div className="zoomInfo">
-              <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>} {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
+              <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>}{curLook && <em className="lookTag" style={{ '--hue': LOOK_COLOR[curLook] } as CSSProperties}>{variantName(curLook)}</em>} {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
               <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={SP(cur.sp).el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}</div>
               <SizeMeter b={cur} />
               <ul className="itLines big"><li>Sinh Lực {cur.stats[0]}</li><li>Công Kích {cur.stats[2]}</li><li>Phòng Ngự {cur.stats[3]}</li><li>Thân Pháp {cur.stats[4]}</li></ul>

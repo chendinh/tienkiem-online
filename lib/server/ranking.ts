@@ -87,8 +87,26 @@ const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
   quest: (a, b) => (b.qd || 0) - (a.qd || 0) || b.level - a.level || b.power - a.power || a.t - b.t,
   mut: (a, b) => (b.mu || 0) - (a.mu || 0) || b.power - a.power || b.level - a.level || a.t - b.t,
 };
+// Rows saved before the Dị Thú board existed have no `mu`. Once, the accounts behind them are read and the count is added to each row (nothing else in the row changes).
+// Marked done in kv; a run that is cut short by its time limit is not marked and carries on at the next request.
+let muRun: Promise<void> | null = null;
+function backfillMu(): Promise<void> {
+  return muRun || (muRun = (async () => {
+    if ((await query(`SELECT 1 FROM kv WHERE key = 'rank.mu.v1'`)).rowCount) return;
+    const end = Date.now() + 40000;
+    const rows = (await query<{ acc: string }>(`SELECT acc FROM rank_entries WHERE entry->'mu' IS NULL`)).rows;
+    for (const r of rows) {
+      if (Date.now() > end) throw new Error('time is up, the rest follows at the next request');
+      const a = await loadAccount(r.acc).catch(() => null), n = a && a.state ? mutOf(a.state) : 0;
+      if (n > 0) await query(`UPDATE rank_entries SET entry = entry || jsonb_build_object('mu', $2::int) WHERE acc = $1`, [r.acc, n]);
+    }
+    await query(`INSERT INTO kv (key, value) VALUES ('rank.mu.v1', 'true'::jsonb) ON CONFLICT (key) DO NOTHING`);
+    S.sorted = {}; PS.rows = null;
+  })().catch((e) => { muRun = null; console.warn('[ranking] mu backfill', String(e?.message || e)); }));
+}
 async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
   await secret();
+  if (board === 'mut') await backfillMu();
   const hit = S.sorted[board];
   if (hit && now - hit.at < ttl()) return hit.list;
   const rows = await allRows(now);

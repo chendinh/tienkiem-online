@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSPr
 import { ASPECT, DEFAULT_PERCHES, HEIGHT, K_RANGE, frameOf, newUid, sizeOf, snapPerch, type Box } from '@/lib/garden';
 import { AIR, GLOW, LIGHT, LOOK_COLOR, ZOO_BGS, etaText, sparks, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
 import { useGenImage } from '@/lib/useGenImage';
+import { useLookPic } from '@/lib/useLookPic';
 import { monsterSpec } from '@/lib/avatarSpec';
 import { Icon } from '@/components/ds/Icon';
 import { Creature } from '@/components/lab/Creature';
@@ -51,9 +52,10 @@ function Glow({ bg }: { bg: string }) {
   );
 }
 
-function Pic({ b }: { b: { sp: string; look: string } }) {
-  const g = useGenImage(monsterSpec(b.sp, b.look === 'ngusac'), 3);
-  return g.url ? <img src={`${g.url}?s=sm`} alt="" draggable={false} /> : <i />;
+// the picture of the beast's own look (Ngọc Bích ...); until it is drawn, the game's picture of the species
+function Pic({ b }: { b: { id: number; sp: string; look: string } }) {
+  const own = useLookPic({ sp: b.sp, id: b.id, mut: true }, true), g = useGenImage(monsterSpec(b.sp, b.look === 'ngusac'), 3);
+  return own ? <img src={own} alt="" draggable={false} /> : g.url ? <img src={`${g.url}?s=sm`} alt="" draggable={false} /> : <i />;
 }
 
 export function Zoo() {

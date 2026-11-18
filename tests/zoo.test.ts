@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AIR, GLOW, LIGHT, sparks, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
+import { lookOf, LOOK_COLOR, variantName, AIR, GLOW, LIGHT, sparks, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
 import { MUTATIONS } from '../lib/anim';
 import { DEFAULT_PERCHES } from '../lib/garden';
 
@@ -76,4 +76,13 @@ test('each background has one light source inside its picture', () => {
     assert.ok(l && l.x > 0 && l.x < 100 && l.y > 0 && l.y < 100 && l.r > 20 && l.r <= 100 && l.a > 0 && l.a <= 1);
     assert.match(l.color, /^\d{1,3}, \d{1,3}, \d{1,3}$/);
   }
+});
+
+test('every Dị Biến beast has one of the ten looks, an ordinary beast has none', () => {
+  assert.equal(lookOf({ sp: 'soi', id: 7, mut: false }), null);
+  assert.equal(lookOf(null), null);
+  const seen = new Set<string>();
+  for (let i = 1; i <= 300; i++) { const l = lookOf({ sp: 'soi', id: i, mut: true })!; assert.equal(l, variantOf('soi', i)); seen.add(l); }
+  assert.equal(seen.size, MUTATIONS.length);
+  for (const m of MUTATIONS) { assert.ok(LOOK_COLOR[m.id]); assert.equal(variantName(m.id), m.name); }
 });

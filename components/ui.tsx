@@ -6,6 +6,7 @@ import { SP, type Beast, type Item } from '@/lib/game';
 import { itemSpec } from '@/lib/avatarSpec';
 import { itemMarks } from '@/lib/daily';
 import { useGenImage } from '@/lib/useGenImage';
+import { useLookPic } from '@/lib/useLookPic';
 import { ElIcon } from './Icons';
 import { Icon } from './ds/Icon';
 
@@ -202,8 +203,9 @@ export function ItemCard({ it, compact = false, equipped = false }: { it: Item; 
 
 // Every creature of a species uses the same two pictures (normal and mutated), so it always looks the same.
 // Size is shown by scaling the art inside a fixed box (monotone, bounded), with a mutation aura.
-export function BeastArt({ b, box = 112, onOpen }: { b: Beast; box?: number; onOpen?: () => void }) {
-  const zoom = useZoom(), open = onOpen ? () => onOpen() : () => zoom({ kind: 'beast', b });
+// A Dị Biến beast is drawn in its own look (Ngọc Bích ...) once that picture exists; `mine`: it is the player's own, so a missing picture is ordered (once for everybody).
+export function BeastArt({ b, box = 112, onOpen, mine = false }: { b: Beast; box?: number; onOpen?: () => void; mine?: boolean }) {
+  const zoom = useZoom(), open = onOpen ? () => onOpen() : () => zoom({ kind: 'beast', b }), look = useLookPic(b, mine);
   const sp = SP(b.sp);
   const [full, setFull] = useState(false);   // the small copy is missing: use the original
   const small = box <= 160 && !full;
@@ -211,7 +213,7 @@ export function BeastArt({ b, box = 112, onOpen }: { b: Beast; box?: number; onO
   return (
     <div className="beastBox zoomable" title="Bấm để xem ảnh lớn" onClick={open} style={{ width: box, height: box }}>
       <div className={`beastArt ${b.mut ? 'mut' : ''}`} style={{ width: box * frac, height: box * frac }}>
-        <Img src={C.monsterArt(b.sp, b.mut, small)} className="fill" onBad={small ? () => setFull(true) : undefined} fb={<ElIcon el={sp.el[0]} size={36} />} />
+        <Img src={look || C.monsterArt(b.sp, b.mut, small)} className="fill" onBad={small ? () => setFull(true) : undefined} fb={<ElIcon el={sp.el[0]} size={36} />} />
       </div>
     </div>
   );
