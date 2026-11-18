@@ -23,6 +23,7 @@ const ICONS: Record<string, string> = {
   pen: 'the majestic head of a mythical spirit beast, a qilin with a flowing mane and jade horn, glowing eyes, wreathed in green mist',
   story: 'an ancient open book of heaven with golden glowing characters rising from its pages, tied with a red silk cord, soft light rays',
   odds: 'a bagua eight-trigram wheel with a pair of jade dice and an ancient coin in the centre, glowing azure runes',
+  zoo: 'a round moon gate of a spirit beast garden with a gold-tiled roof, a white nine-tailed fox sitting in front and a crane with a small qilin cub beside it, bamboo and glowing lotus around, soft green mist',
   settings: 'an ornate bronze luopan geomantic compass with fine concentric rings, gear teeth and a glowing jade needle',
 };
 const STYLE = ' Game UI icon: a single perfectly round medallion centered on a pure solid black background (#000000), about 80 percent of the frame, nothing else in the picture. Ornate polished gold rim carved with traditional Chinese xianxia cloud and key patterns, a thin inner gold ring, an enamel inner disc in deep jade green and cinnabar red, rich painterly 3D rendering with soft rim light and a faint glow, high detail, no text, no letters, no watermark.';

@@ -101,6 +101,13 @@
   .top .nav.pic.daily .navIco { display: grid; background: none; box-shadow: none; width: 100%; height: 100%; }
   .top .nav.pic.daily .navIco svg { width: 21px; height: 21px; color: var(--gold-200); }
   .navArt { display: none; }
+  /* Linh Thú Viên: a round AI-drawn medallion at every width, left of Phong Thần (the other buttons show it only on a phone) */
+  .top .nav.pic.zoo { display: inline-flex; width: 52px; height: 52px; padding: 0; justify-content: center; align-items: center; border-radius: 50%; background: none; --plaque: none; box-shadow: none; border: 0; }
+  .top .nav.pic.zoo .navArt { display: block; width: 100%; height: 100%; border-radius: 50%; background-size: 112%; background-position: center; background-color: #05090c; box-shadow: 0 0 14px -4px var(--jade-300), 0 3px 8px rgb(0 0 0 / 0.5); transition: transform var(--dur-base) var(--ease-spring); }
+  .top .nav.pic.zoo .navIco { display: none; }
+  .top .nav.pic.zoo::before, .top .nav.pic.zoo::after { display: none; }
+  .top .nav.pic.zoo:hover .navArt { transform: scale(1.06); }
+  .top .nav.pic.zoo:active .navArt { transform: scale(0.94); }
   .musicBox { padding: var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.2); }
   .musicBox .pop-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-2); }
   .musicBox .np { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
@@ -116,6 +123,8 @@
     .top .nav.pic.quick, .top .nav.pic.alt.daily.quick { display: inline-flex; width: 44px; height: 44px; padding: 0; justify-content: center; align-items: center; border-radius: 50%; background: none; --plaque: none; box-shadow: none; border: 0; }
     .top .nav.pic.quick .navArt { display: block; width: 44px; height: 44px; border-radius: 50%; background-size: 128%; background-position: center; border: 1.5px solid var(--gold-300); box-shadow: 0 0 14px -4px var(--gold-400), inset 0 0 8px rgb(0 0 0 / 0.5); transition: transform var(--dur-base) var(--ease-spring); }
     .top .nav.pic.quick:active .navArt { transform: scale(0.92); }
+    .top .nav.pic.zoo { width: 44px; height: 44px; }
+    .top .nav.pic.zoo .navArt { background-size: 112%; border: 0; }
     .top .nav.pic.quick.on .navArt { box-shadow: 0 0 0 2px var(--jade-300), 0 0 16px -2px var(--jade-300); }
     .top .nav.pic.quick .navIco { display: none; }
     .top .nav.pic.quick::before, .top .nav.pic.quick::after { display: none; }
