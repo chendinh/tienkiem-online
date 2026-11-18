@@ -17,6 +17,8 @@
 .zs-cr { position: absolute; pointer-events: none; }
 .zs-cr .zl-alpha { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .zl-alpha-cv { display: block; width: 100%; height: 100%; }
+/* the two videos AlphaVideo reads its textures from: they must not show (lab.css has this rule too, but this page does not load it; without it they appear at full size as a black square) */
+.zl-hid { position: absolute; left: 0; top: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
 .zs-shadow { position: absolute; transform: translate(-50%, -50%); pointer-events: none; border-radius: 50%; background: radial-gradient(closest-side, rgba(8, 18, 10, 0.5), rgba(8, 18, 10, 0.24) 58%, transparent); }
 .zv-hit { position: absolute; pointer-events: auto; touch-action: none; border-radius: 10px; }
 .zv-hit.on { outline: 2px dashed rgba(255, 224, 120, 0.95); outline-offset: 2px; }
