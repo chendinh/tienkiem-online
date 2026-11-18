@@ -32,11 +32,13 @@ export function Zoo() {
   const [sel, setSel] = useState<string | null>(null);
   const [ghost, setGhost] = useState<{ b: Beast; x: number; y: number } | null>(null);
   const [moving, setMoving] = useState(false);
+  const [editing, setEditing] = useState(false);   // the page opens as a picture to look at; "Sửa" opens the tray and the tools
   const [dirty, setDirty] = useState(false), [saving, setSaving] = useState(false), [savedAt, setSavedAt] = useState(0);
   const [err, setErr] = useState('');
   const [vis, setVis] = useState(true);
   const stage = useRef<HTMLDivElement>(null), drag = useRef<string | null>(null), alive = useRef(true), loops = useRef(new Set<string>());
   const cutsRef = useRef(cuts); cutsRef.current = cuts;
+  const saved = useRef<{ bg: string; lay: Record<string, ZooItem[]> }>({ bg: ZOO_BGS[0].id, lay: {} });
   const bgInfo = ZOO_BGS.find((x) => x.id === bg) || ZOO_BGS[0];
   const perches = DEFAULT_PERCHES[bg] || [];
   const items = lay[bg] || [];
@@ -55,7 +57,7 @@ export function Zoo() {
         if (j.status === 'ready' && j.cut) { setCuts((c) => ({ ...c, [k]: j.cut })); setMaking((m) => { const n = { ...m }; delete n[k]; return n; }); return; }
         if (j.status === 'making') setMaking((m) => ({ ...m, [k]: { status: 'making', stage: j.stage, eta: j.eta } }));
         else { setMaking((m) => ({ ...m, [k]: { status: j.status === 'limited' || j.status === 'disabled' ? j.status : 'failed', why: j.why } })); return; }
-        await sleep(6000);
+        await sleep(4000);
       }
     } finally { loops.current.delete(k); }
   }, []);
@@ -74,7 +76,7 @@ export function Zoo() {
         const c: Record<string, Cut> = {};
         for (const b of list) if (b.cut) c[keyOf(b)] = b.cut;
         setCuts(c); cutsRef.current = c;
-        requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight }));   // the perches are in the lower part of the picture
+        saved.current = { bg: j.zoo.bg, lay: j.zoo.lay || {} };
         // a beast that was put down earlier and has no clip yet carries on being made
         for (const it of (j.zoo.lay?.[j.zoo.bg] || []) as ZooItem[]) { const b = list.find((x) => x.id === it.beast); if (b && !c[keyOf(b)]) void run(b); }
       } catch { setErr('Không gọi được máy chủ.'); setBeasts([]); }
@@ -140,9 +142,11 @@ export function Zoo() {
       const r = await post({ step: 'save', bg, lay });
       if (r.status === 401) { window.location.assign('/'); return; }
       if (!r.ok) throw new Error('save');
-      setDirty(false); setSavedAt(Date.now());
+      saved.current = { bg, lay }; setDirty(false); setSavedAt(Date.now()); setEditing(false); setSel(null);
     } catch { setErr('Chưa lưu được, thử lại.'); } finally { setSaving(false); }
   }
+  const cancel = () => { setBg(saved.current.bg); setLay(saved.current.lay); setDirty(false); setSel(null); setErr(''); setEditing(false); };
+  useEffect(() => { if (editing) requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight })); }, [editing]);   // the perches are in the lower part of the picture
   const leave = (e: ReactMouse) => { if (dirty && !window.confirm('Chưa lưu thay đổi. Rời đi vẫn bỏ chúng?')) e.preventDefault(); };
 
   const selItem = items.find((i) => i.uid === sel);
@@ -151,10 +155,12 @@ export function Zoo() {
 
   if (beasts === null) return <main className="zv"><p className="zv-note">Đang mở Linh Thú Viên…</p></main>;
   return (
-    <main className="zv">
+    <main className={`zv ${editing ? 'edit' : 'view'}`}>
       <header className="zv-top">
-        <a className="zv-btn" href="/" onClick={leave} aria-label="Về game"><Icon name="back" size={20} /></a>
-        {selItem
+        {editing
+          ? <button type="button" className="zv-btn" onClick={cancel}>{dirty ? 'Hủy' : 'Xong'}</button>
+          : <a className="zv-btn" href="/" onClick={leave} aria-label="Về game"><Icon name="back" size={20} /></a>}
+        {editing && selItem
           ? (
             <div className="zv-tools" role="toolbar" aria-label="Chỉnh Dị Thú đang chọn">
               <button type="button" onClick={() => patch(selItem.uid, (i) => ({ ...i, flip: !i.flip }))} aria-label="Quay mặt">⇋<span>Quay</span></button>
@@ -164,11 +170,13 @@ export function Zoo() {
             </div>
           )
           : <h1>Linh Thú Viên</h1>}
-        <button type="button" className={`zv-btn ${dirty ? 'hot' : ''}`} disabled={!dirty || saving} onClick={save}>{saving ? 'Đang lưu…' : dirty ? 'Lưu' : savedAt ? 'Đã lưu ✓' : 'Lưu'}</button>
+        {editing
+          ? <button type="button" className={`zv-btn ${dirty ? 'hot' : ''}`} disabled={!dirty || saving} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu'}</button>
+          : <button type="button" className="zv-btn" onClick={() => setEditing(true)} aria-label="Sửa"><Icon name="brush" size={17} /> Sửa</button>}
       </header>
-      <nav className="zv-bgs" aria-label="Chọn nền">
+      {editing && <nav className="zv-bgs" aria-label="Chọn nền">
         {ZOO_BGS.map((x) => <button key={x.id} type="button" className="zv-chip" aria-pressed={x.id === bg} onClick={() => { setBg(x.id); setSel(null); setDirty(true); }}>{x.name}</button>)}
-      </nav>
+      </nav>}
       {err && <p className="zv-err" role="alert">{err}</p>}
 
       <div className="zv-main">
@@ -184,7 +192,7 @@ export function Zoo() {
                 return (
                   <Fragment key={it.uid}>
                     <Creature c={c} it={it} size={size} box={box} z={z} paused={!vis} onBox={(bx) => setBoxes((o) => ({ ...o, [c.id]: bx }))} onFail={() => setErr('Máy này chưa vẽ được thú tách nền.')} />
-                    {f && box && (
+                    {editing && f && box && (
                       <div className={`zv-hit${sel === it.uid ? ' on' : ''}`} style={{ left: pc(f.left + box.x0 * f.width), top: pc(f.top + box.y0 * f.height), width: pc((box.x1 - box.x0) * f.width), height: pc((box.y1 - box.y0) * f.height), zIndex: z + 2 }}
                         onPointerDown={(e) => grab(it.uid, e)} onPointerMove={carry} onPointerUp={drop} onPointerCancel={drop} />
                     )}
@@ -194,8 +202,8 @@ export function Zoo() {
               // not made yet: the beast sits in meditation on its perch
               const down = m && m.status !== 'making' && m.status !== 'wait';
               return (
-                <div key={it.uid} data-side={it.x > 0.66 ? 'r' : it.x < 0.34 ? 'l' : 'c'} className={`zv-med${sel === it.uid ? ' on' : ''}${down ? ' down' : ''}`} style={{ left: pc(it.x * 100), top: pc(it.y * 100), height: pc(HEIGHT * size * 100 * 0.8), zIndex: z + 2, ['--hue' as string]: LOOK_COLOR[b.look] }}
-                  onPointerDown={(e) => grab(it.uid, e)} onPointerMove={carry} onPointerUp={drop} onPointerCancel={drop}>
+                <div key={it.uid} data-side={it.x > 0.66 ? 'r' : it.x < 0.34 ? 'l' : 'c'} className={`zv-med${editing && sel === it.uid ? ' on' : ''}${down ? ' down' : ''}${editing ? '' : ' still'}`} style={{ left: pc(it.x * 100), top: pc(it.y * 100), height: pc(HEIGHT * size * 100 * 0.8), zIndex: z + 2, ['--hue' as string]: LOOK_COLOR[b.look] }}
+                  onPointerDown={editing ? (e) => grab(it.uid, e) : undefined} onPointerMove={editing ? carry : undefined} onPointerUp={editing ? drop : undefined} onPointerCancel={editing ? drop : undefined}>
                   <span className="zv-medtag">{!m || m.status === 'making' || m.status === 'wait' ? `Nhập định · ${eta(b)}` : m.status === 'limited' ? 'Tạm nghỉ, chạm để thử lại' : m.status === 'disabled' ? 'Chưa mở' : 'Chưa xong, chạm để thử lại'}</span>
                   <Pic b={b} />
                   {down && <button type="button" className="zv-retry" aria-label="Thử lại" onPointerDown={(e) => e.stopPropagation()} onClick={() => run(b)}><Icon name="rise" size={16} /></button>}
@@ -204,11 +212,11 @@ export function Zoo() {
             })}
           </div>
           {(moving || ghost) && perches.map((p) => <i key={p.id} className="zv-perch" style={{ left: pc((p.x - p.w / 2) * 100), top: pc(p.y * 100), width: pc(p.w * 100) }} />)}
-          {items.length === 0 && beasts.length > 0 && <p className="zv-hint">Kéo một Dị Thú từ khay xuống, hoặc chạm vào nó.</p>}
+          {items.length === 0 && beasts.length > 0 && <p className="zv-hint">{editing ? 'Kéo một Dị Thú từ khay xuống, hoặc chạm vào nó.' : 'Vườn còn trống. Bấm Sửa để đặt Dị Thú vào.'}</p>}
         </div>
       </div>
 
-      <section className="zv-dock" aria-label="Khay Dị Thú">
+      {editing && <section className="zv-dock" aria-label="Khay Dị Thú">
         {beasts.length === 0
           ? <p className="zv-note">Bạn chưa có Linh Thú Dị Biến nào. Dị Biến hiếm gặp khi đi Lịch Luyện; thu phục được là đưa vào đây được.</p>
           : <div className="zv-tray">
@@ -224,7 +232,7 @@ export function Zoo() {
                 );
               })}
             </div>}
-      </section>
+      </section>}
       {ghost && <div className="zv-ghost" style={{ left: ghost.x, top: ghost.y }}><Pic b={ghost.b} /></div>}
     </main>
   );

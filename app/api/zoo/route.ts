@@ -1,7 +1,5 @@
 import { after } from 'next/server';
-import { idle as imageIdle } from '@/lib/imagegen';
-import { idle } from '@/lib/server/anim';
-import { beastsOf, cutsFor, loadZoo, saveZoo, summon } from '@/lib/server/zoo';
+import { beastsOf, carryOn, cutsFor, loadZoo, saveZoo, summon } from '@/lib/server/zoo';
 import { ensureDaily } from '@/lib/server/dailystore';
 import { json, guard, checkWrite, readBody, requireUser } from '@/lib/server/http';
 import { ZOO_BGS, ZOO_MAX } from '@/lib/zoo';
@@ -40,8 +38,7 @@ export async function POST(req: Request) {
       const beast = beasts.find((x) => x.id === b.beast);   // only the look of a beast the player really has can be asked for
       if (!beast) return json({ status: 'invalid' });
       const out = await summon(beast.sp, beast.look);
-      if (out.imgStarted) after(() => imageIdle());
-      if (out.started) after(() => idle());
+      if (out.imgStarted || out.started) after(() => carryOn(beast.sp, beast.look));   // keeps the function alive and goes on to the next step by itself
       return json({ ok: true, status: out.status, stage: out.stage, eta: out.eta, cut: out.cut, why: out.why });
     }
     return json({ ok: false, code: 'E_BAD_REQUEST' }, 400);

@@ -2,8 +2,8 @@
 // (once for everybody: the picture and the clip depend only on the species and the look), and the player's own layout.
 import { query } from './db';
 import { mutantsOf } from './service';
-import { clip, cut, variant, type Out } from './anim';
-import { request, idFromUrl } from '../imagegen';
+import { clip, cut, idle, variant, type Out } from './anim';
+import { request, idFromUrl, idle as imageIdle } from '../imagegen';
 import * as C from '../content';
 import * as D from '../daily';
 import * as A from '../anim';
@@ -86,4 +86,16 @@ export async function saveZoo(acc: string, raw: unknown, own: ReadonlySet<number
   const z = parseZoo(raw, own);
   await query(`INSERT INTO kv (key, value) VALUES ($1, $2::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [key(acc), JSON.stringify(z)]);
   return z;
+}
+
+// Run in the background after the answer is sent, by the call that started a step: when the step is done, start the next one at once, in the same function, instead of
+// waiting for the page to ask again (the page asks every few seconds, and may be closed). It stops when something is not ours to wait for or the function's time is up.
+export async function carryOn(sp: string, look: string): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    await imageIdle();
+    await idle();
+    const o = await summon(sp, look);
+    if (o.status !== 'making') return;
+    if (!o.started && !o.imgStarted) return;   // another function is making it: it will carry on itself, or the page's next question will
+  }
 }

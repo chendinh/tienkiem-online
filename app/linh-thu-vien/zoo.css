@@ -47,3 +47,9 @@
 .zv-ghost { position: fixed; z-index: 80; width: 76px; height: 76px; transform: translate(-50%, -100%); pointer-events: none; opacity: 0.92; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5)); }
 .zv-ghost img, .zv-ghost i { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 @media (prefers-reduced-motion: reduce) { .zv-med img, .zv-med i, .zv-perch { animation: none; } }
+
+/* looking: the whole picture on one screen, nothing else; "Sửa" brings the tray and tools back */
+.zv.view { padding-bottom: 0; }
+.zv.view .zv-stage { width: min(100%, 480px, calc((100dvh - 52px) * 0.5625)); border-radius: 0; border-width: 0; }
+.zv-med.still { pointer-events: none; }
+.zv-med.still .zv-retry { pointer-events: auto; }
