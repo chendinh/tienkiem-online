@@ -589,7 +589,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     if (!r.ok) say(r.msg, false);
   };
   const state = st.decision ? 'Chờ quyết định' : st.recovery ? 'Điều Tức' : (p.injury || 0) > 0 ? 'Thương Thế' : p.heartDemon > 0 ? 'Tâm Ma' : st.set.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện';
-  const ack = async (id: string) => { setAcked((a) => (a.includes(id) ? a : [...a, id])); const r = await act('ack', { id }); if (!r.ok) setAcked((a) => a.filter((x) => x !== id)); };
+  const ack = async (id: string) => { setAcked((a) => (a.includes(id) ? a : [...a, id])); await act('ack', { id }); };   // stays hidden even if the server refuses: the button must always close the window
 
   return (
     <GenCtx.Provider value={!!(ai && ai.enabled)}>

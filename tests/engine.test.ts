@@ -114,9 +114,10 @@ test('Zone_Phenomenon depends only on seed, zone and slot and has the configured
 test('Luck only raises the odds of rare tiers and is capped (Requirement 20.12)', () => {
   const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
   for (const luck of [0, 30, 100]) assert.ok(Math.abs(sum(G.tierProbs(luck)) - 1) < 1e-9);
+  const p4 = (l: number) => G.tierProbs(l)[4];
   const rare = (l: number) => { const p = G.tierProbs(l); return p[4] + p[5]; };
   assert.ok(rare(0) < rare(50) && rare(50) < rare(100));
-  assert.ok(Math.abs(rare(0) - 0.005) < 1e-9);
+  assert.ok(Math.abs(p4(0) - 49 / 19951) < 1e-9);
 });
 test('Mutation and item pity reach a guarantee at the hard count (Requirement 10)', () => {
   assert.equal(G.pityP(1 / 4096, 12288, 4096, 12288), 1);
@@ -266,8 +267,6 @@ test('settings validation (Requirement 3.15)', () => {
   assert.ok(G.setSettings(st, { retreatPct: 35, resumePct: 60, dissolveMax: -1, tame: { grade: 2, sizes: [1, 2] } }).ok);
   assert.equal(st.set.retreatPct, 35); assert.deepEqual(st.set.tame.sizes, [1, 2]);
   assert.equal(G.setSettings(st, { autoTame: 'yes' }).code, 'E_BAD_SETTING');
-  assert.equal(st.set.hideRank, false); assert.ok(G.setSettings(st, { hideRank: true }).ok); assert.equal(st.set.hideRank, true);
-  assert.equal(G.setSettings(st, { hideRank: 1 }).code, 'E_BAD_SETTING');
   assert.equal(G.setSettings(st, { tame: { species: ['nope'] } }).code, 'E_BAD_SETTING');
 });
 test('zones: locked until the Level is reached (Requirement 6.5, 6.6)', () => {

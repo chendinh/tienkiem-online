@@ -676,10 +676,11 @@
 @layer game {
   /* tags at the top of the welcome-back window: today's quest, the drop event, the phenomenon of the current zone */
   .repTags { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--sp-2) 0 var(--sp-3); }
-  .repTag { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 12px; text-align: left; font: inherit; font-size: var(--fs-xs); line-height: 1.35; color: var(--text-2); border-radius: var(--r-pill); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.3); cursor: pointer; }
+  .repTag { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 12px; text-align: left; font: inherit; font-size: var(--fs-xs); line-height: 1.35; color: var(--text-2); border-radius: var(--r-sm); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.3); cursor: pointer; }
   .repTag span { min-width: 0; }
   .repTag:hover { border-color: var(--gold-300); }
   .repTag.quest { color: var(--jade-200); border-color: color-mix(in srgb, var(--jade-400) 60%, transparent); }
+  .repTag.ok { color: var(--jade-200); border-color: color-mix(in srgb, var(--jade-400) 70%, transparent); background: color-mix(in srgb, var(--jade-400) 16%, rgb(0 0 0 / 0.3)); }
   .repTag.done { color: var(--text-3); border-color: var(--line); }
   .repTag.event { color: var(--gold-200); background: color-mix(in srgb, var(--gold-400) 12%, rgb(0 0 0 / 0.3)); }
   .repTag.event.on { border-color: var(--gold-300); box-shadow: 0 0 14px -4px var(--gold-300); }

@@ -217,13 +217,6 @@ test('Bảng Phong Thần: boards, hiding, profiles without private data, remova
   assert.ok(tienList.rows.some((r) => r.pid === bPid && r.it.tier === 5 && r.worn));
   assert.ok(tienList.rows.every((r) => r.it.tier === 5));
   assert.ok(!JSON.stringify(tienList).includes('@example.com'));
-  // hiding removes the player from lists and pages
-  const cPid = (await R.board('cult', c.id, now())).me!.pid;
-  await pub(c.id, (st) => { st.set.hideRank = true; });
-  now(); await new Promise((r) => setTimeout(r, 5100));   // the sorted lists are cached for 5 seconds
-  const after = await R.board('cult', c.id, now());
-  assert.ok(!after.rows.some((r) => r.pid === cPid)); assert.equal(after.me, null);
-  assert.equal(await R.profile(cPid, now()), null);
   // deleting an account removes it from the board
   await A.deleteAccount(b.id, 'matkhau-dai-123');
   const gone = await R.board('cult', a.id, now());

@@ -7,7 +7,7 @@ import * as C from '../content';
 import { query, savepoint } from './db';
 import { loadAccount, decodeState } from './store';
 
-export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number; qd?: number; av?: string; tp?: TienOwn[] }
+export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; t: number; qd?: number; av?: string; tp?: TienOwn[] }
 export type Board = 'cult' | 'power' | 'quest';
 // An item of the highest rarity (Tiên, tier 5) that the player owns: worn, in the bag or in the stash. Kept on the player's row so the Tiên Phẩm list needs no account loads.
 export interface TienOwn { it: G.Item; w?: 1 }
@@ -32,7 +32,7 @@ const PS: { prof: Map<string, { at: number; v: any }>; rows: { at: number; p: Pr
 
 export function entryOf(st: G.GameState, pid: string, acc: string, now: number): RankEntry {
   const p = st.player, tp = tienOf(st);
-  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now, qd: G.questCount(st), ...(tp.length ? { tp } : {}), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
+  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, t: now, qd: G.questCount(st), ...(tp.length ? { tp } : {}), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
 }
 
 // The rows of every player. One read of the table serves every board and the Tiên list; callers that arrive meanwhile share it.
@@ -89,7 +89,7 @@ async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
   const hit = S.sorted[board];
   if (hit && now - hit.at < ttl()) return hit.list;
   const rows = await allRows(now);
-  const list = rows.filter((e) => !e.hide && (board !== 'quest' || (e.qd || 0) > 0)).sort(cmp[board]);
+  const list = rows.filter((e) => (board !== 'quest' || (e.qd || 0) > 0)).sort(cmp[board]);
   S.sorted[board] = { at: now, list };
   return list;
 }
@@ -108,7 +108,7 @@ export async function tien(meAcc: string, now: number, top = 100) {
   await secret();
   let hit = S.tien;
   if (!hit || now - hit.at >= ttl()) {
-    const rows = (await allRows(now)).filter((e) => !e.hide && e.tp && e.tp.length);
+    const rows = (await allRows(now)).filter((e) => e.tp && e.tp.length);
     const list = rows.flatMap((e) => e.tp!.map((o) => ({ e, o }))).sort((x, y) => y.o.it.power - x.o.it.power || x.e.t - y.e.t);
     hit = S.tien = { at: now, list };
   }
@@ -130,7 +130,7 @@ export async function profile(pid: string, now: number) {
 async function buildProfile(pid: string, now: number) {
   await secret();
   const e = (await query<{ entry: RankEntry }>(`SELECT entry FROM rank_entries WHERE entry->>'pid' = $1`, [pid])).rows[0]?.entry;
-  if (!e || e.hide) return null;
+  if (!e) return null;
   const a = await loadAccount(e.acc);
   const st: G.GameState | null = a && a.state;
   if (!st) { if (!a) await unpublish(e.acc); return null; }   // the account is gone: drop its line

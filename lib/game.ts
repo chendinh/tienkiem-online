@@ -32,7 +32,7 @@ export interface Report {
 // strong: tame only a creature stronger than the weakest of the Party, or any creature while the Party is not full (it replaces the species and size filters)
 export interface TameFilter { species: string[]; newOnly: boolean; alwaysMut: boolean; sizes: number[]; grade: number; strong: boolean }
 export interface Settings {
-  mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; hideRank: boolean; autoLearn: boolean;
+  mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; autoLearn: boolean;
   retreatPct: number; resumePct: number; dissolveMax: number; tame: TameFilter;
 }
 export interface Stacks { taming: number[]; hp: number[]; bt: number[]; trib: number; mat: Record<string, number>; books: Record<string, number> }
@@ -538,7 +538,7 @@ const isBool = (x: any) => typeof x === 'boolean';
 export function setSettings(st: GameState, patch: any): Res {
   if (!patch || typeof patch !== 'object') return fail('E_BAD_REQUEST');
   const cur = st.set, next_: Settings = { ...cur, tame: { ...cur.tame } };
-  for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'hideRank', 'autoLearn'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
+  for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'autoLearn'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
   for (const k of ['retreatPct', 'resumePct'] as const) if (k in patch) { if (!Number.isInteger(patch[k])) return fail('E_BAD_THRESHOLDS'); next_[k] = patch[k]; }
   if (!(next_.retreatPct >= B.minRetreatPct && next_.retreatPct < next_.resumePct && next_.resumePct <= 100)) return fail('E_BAD_THRESHOLDS');
   if ('dissolveMax' in patch) { if (!Number.isInteger(patch.dissolveMax) || patch.dissolveMax < -1 || patch.dissolveMax > 5) return fail('E_BAD_SETTING'); next_.dissolveMax = patch.dissolveMax; }
@@ -1115,7 +1115,7 @@ export function tick(st: GameState, rep?: Report) {
 // ---------- state
 export function defaultSettings(): Settings {
   const d = B.defaults;
-  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, hideRank: false, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0, strong: false } };
+  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0, strong: false } };
 }
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string): GameState {
   const streams = newStreams(seed);

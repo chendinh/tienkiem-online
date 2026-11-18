@@ -32,6 +32,7 @@
 
 @layer game {
   .repAway { margin: 0 0 var(--sp-2); color: var(--text-2); font-size: var(--fs-sm); }
-  .hlBook { position: relative; flex: none; width: 88px; height: 88px; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line-gold); background: rgb(5 12 18 / 0.5); display: grid; place-items: center; }
+  .hlBook { position: relative; flex: none; width: 46px; height: 46px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--line-gold); background: rgb(5 12 18 / 0.5); display: grid; place-items: center; }
+  .hlNote { display: block; margin-top: 2px; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.4; }
   .hlName { font-family: var(--font-display); color: var(--gold-300); }
 }

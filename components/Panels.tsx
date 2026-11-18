@@ -124,7 +124,7 @@ const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
 export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
   const s = st.set;
   // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
-  const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoFight: s.autoFight, hideRank: s.hideRank, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
+  const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoFight: s.autoFight, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
     tame: { strong: s.tame.strong, grade: s.tame.grade, alwaysMut: s.tame.alwaysMut, newOnly: s.tame.newOnly, species: [...s.tame.species], sizes: [...s.tame.sizes] } });
   const [d, setD] = useState(fromSet);
   const norm = (x: ReturnType<typeof fromSet>) => JSON.stringify({ ...x, tame: { ...x.tame, species: [...x.tame.species].sort(), sizes: [...x.tame.sizes].sort() } });
@@ -172,8 +172,6 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
             </select>
           </label>
           <div className="hint">Mặc định tắt: đồ nhặt được vào túi để ngươi tự quyết định. Khi bật, chỉ phân giải món không khóa khi ô trang bị tương ứng đang có đồ khác.</div>
-          <h3>Riêng tư</h3>
-          <label className="tg"><input type="checkbox" checked={d.hideRank} onChange={(e) => up({ hideRank: e.target.checked })} /> Ẩn khỏi Bảng Phong Thần (người khác không thấy tên, trang bị và Linh Thú của ngươi)</label>
           <h3>Tự thu phục</h3>
           <label className="tg"><input type="checkbox" checked={d.autoTame} onChange={(e) => up({ autoTame: e.target.checked })} /> Bật tự thu phục sau khi thắng</label>
           {!d.autoTame && <div className="hint tameOffNote">Đang tắt tự thu phục: sau mỗi trận thắng, game dừng lại hỏi ngươi với quái đáng chú ý (Dị Biến, Tinh Anh, loài mới, rất nhỏ hoặc rất lớn). Các bộ lọc dưới đây chỉ có tác dụng khi bật tự thu phục.</div>}
@@ -274,7 +272,7 @@ function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
   const tags: { key: string; cls: string; icon: string; text: string }[] = [];
   if (pack) {
     const n = q ? Math.min(q.n, q.need) : 0, need = q ? q.need : B.questTame;
-    tags.push({ key: 'q', cls: q?.done ? 'done' : 'quest', icon: q?.done ? 'check' : 'scroll', text: q?.done ? `Nhiệm vụ ngày xong · +${fmt(q.reward)} Tu Vi` : `Nhiệm vụ: thu phục ${pack.beast.name} ${n}/${need}` });
+    tags.push({ key: 'q', cls: q?.done ? 'ok' : 'quest', icon: q?.done ? 'check' : 'scroll', text: q?.done ? `Nhiệm vụ ngày xong · +${fmt(q.reward)} Tu Vi` : `Nhiệm vụ: thu phục ${pack.beast.name} ${n}/${need}` });
   } else tags.push({ key: 'q', cls: 'done', icon: 'scroll', text: 'Nhiệm vụ: hôm nay chưa có' });
   if (ev) {
     const mins = Math.max(0, Math.round(((ev.active ? ev.endsAt : ev.startsAt) - st.now) / 60000));
@@ -296,6 +294,14 @@ function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
     </div>
   );
 }
+// What became of a book found while away, read from the report line ("..., đã học ngay" / "..., cất vào túi" / "..., đã biết nên đổi lấy N Linh Thạch").
+function bookNote(text: string) {
+  const tail = (/\),\s*(.+)$/.exec(text)?.[1] || '').trim();
+  if (/đổi lấy/.test(tail)) return `Đã biết rồi, tự phân giải: ${tail.replace(/^.*đổi lấy\s*/, '')}`;
+  if (/đã học/.test(tail)) return 'Đã học ngay, không phân giải';
+  if (/cất vào túi/.test(tail)) return 'Cất vào túi, chưa học và không phân giải';
+  return tail;
+}
 export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report; title: string; onClose: () => void; st?: GS; onDaily?: () => void }) {
   const [log, setLog] = useState<{ lines: string[]; foe?: string } | null>(null);
   // only what has a picture or matters: items, secret books, beasts, a breakthrough, the daily quest. Plain text lines (a level, a small event) are left out.
@@ -308,7 +314,9 @@ export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report;
         {st && onDaily && <ReportTags st={st} onOpen={() => { onClose(); onDaily(); }} />}
         <p className="repAway">Vắng mặt {fmtDur(rep.elapsedSec)}{rep.elapsedSec >= 12 * 3600 ? ' (tối đa 12 giờ)' : ''}</p>
         <div className="sum">
-          <div><b>{rep.wins}/{rep.losses}/{rep.draws}</b><small>thắng/bại/hòa</small></div>
+          <div><b>{rep.wins}</b><small>thắng</small></div>
+          <div><b>{rep.losses}</b><small>bại</small></div>
+          <div><b>{rep.draws}</b><small>hòa</small></div>
           <div><b>Lv{rep.fromLevel}→{rep.toLevel}</b><small>tu vi</small></div>
           <div><b>{fmt(rep.cp)}</b><small>Tu Vi nhận</small></div>
           <div><b>{rep.tamed}/{rep.tameTry}</b><small>thu phục</small></div>
@@ -325,7 +333,7 @@ export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report;
               {h.beast && <BeastArt b={h.beast as Beast} box={88} />}
               {h.book && <span className="hlBook" title={h.book.name}><Img src={h.book.method ? C.bookArt('method') : C.techArt(h.book.name)} className="fill" fb={<span>✦</span>} /></span>}
               <div>
-                {h.item ? <ItemCard it={h.item} /> : h.book ? <b className="hlName">{h.book.method ? 'Công Pháp' : 'Bí Công'} «{h.book.name}»</b> : h.text}
+                {h.item ? <ItemCard it={h.item} /> : h.book ? <><b className="hlName">{h.book.method ? 'Công Pháp' : 'Bí Công'} «{h.book.name}»</b><small className="hlNote">{bookNote(h.text)}</small></> : h.text}
                 {h.beast && <SizeMeter b={h.beast as Beast} />}
                 {h.log && h.log.length > 0 && <div><button className="link" onClick={() => setLog({ lines: h.log!, foe: (h.beast as Beast | undefined)?.name })}>Xem diễn biến trận đánh</button></div>}
               </div>

@@ -38,7 +38,7 @@ export const BALANCE = {
   dropEventSlotSec: 900,   // Thiên/Tiên drop event: a window of this length (15 minutes) in ONE zone, announced in the news
   dropEventP: 0.25,        // chance that a window holds an event
   dropEventMonsterMult: 1.5,   // while the Thiên/Tiên drop event runs in the zone the player is in, the weight of meeting a Linh Thú is raised by 50% (Tu Sĩ and events come less often)
-  dropEventBonus: 0.01,    // added to the chance that a drop is Thiên or Tiên while the event runs in the zone the player is in
+  dropEventBonus: 0.005,    // added to the chance that a drop is Thiên or Tiên while the event runs in the zone the player is in
   questTame: 5,            // the daily quest: tame this many of the day's new creature...
   questCultPct: 0.2,       // ...and receive this share of the Tu Vi needed for the current Level
   eventDistinctWindow: 6,
@@ -90,7 +90,7 @@ export const BALANCE = {
   maxPrefix: 3, maxSuffix: 3,
   affixCountByTier: [[0, 0], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] as [number, number][],
   rollFloorByTier: [0, 0, 0.1, 0.25, 0.45, 0.65],
-  rarityWeights: [6000, 2800, 900, 250, 49, 1],
+  rarityWeights: [12000, 5600, 1800, 500, 49, 2],   // Thiên (49) is half as common as before (it was 49 out of 10000); the other tiers keep their share
   luckRarityGain: 0.005,
   luckCap: 100,
   itemLevelSpread: 2,
@@ -171,7 +171,7 @@ export function rates(): Rates {
   const demo = typeof process !== 'undefined' && process.env && process.env.TUTIEN_RATES === 'demo';
   return demo
     ? { mutP: 1 / 60, mutS: 200, mutH: 600, itemS: 60, itemH: 150, boost: 6 }
-    : { mutP: 1 / 4096, mutS: 4096, mutH: 12288, itemS: 400, itemH: 800, boost: 1 };
+    : { mutP: 1 / 4096, mutS: 4096, mutH: 12288, itemS: 800, itemH: 1600, boost: 1 };
 }
 
 // ---- cultivation tables (Appendix B.2): Base_Cultivation_Rate and Cultivation_Threshold by Level
