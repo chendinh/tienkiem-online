@@ -332,7 +332,7 @@ export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report;
             <div key={i} className="hlRow">
               {h.beast && <BeastArt b={h.beast as Beast} box={88} />}
               {h.book && <span className="hlBook" title={h.book.name}><Img src={h.book.method ? C.bookArt('method') : C.techArt(h.book.name)} className="fill" fb={<span>✦</span>} /></span>}
-              <div>
+              <div className="hlMain">
                 {h.item ? <ItemCard it={h.item} /> : h.book ? <><b className="hlName">{h.book.method ? 'Công Pháp' : 'Bí Công'} «{h.book.name}»</b><small className="hlNote">{bookNote(h.text)}</small></> : h.text}
                 {h.beast && <SizeMeter b={h.beast as Beast} />}
                 {h.log && h.log.length > 0 && <div><button className="link" onClick={() => setLog({ lines: h.log!, foe: (h.beast as Beast | undefined)?.name })}>Xem diễn biến trận đánh</button></div>}
