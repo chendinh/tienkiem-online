@@ -1,11 +1,13 @@
 // Bảng Phong Thần: the player ranking. One row per account in rank_entries, refreshed whenever an account is saved.
-// Lists are sorted here from those rows and cached for a few seconds in each server instance; a profile is built from the saved account on demand.
+// Lists are sorted here from those rows and cached for RANK_CACHE_SEC (default 2 minutes) in each server instance; a profile is built from the saved account on demand and cached too.
+// Made-up players (lib/ghosts.ts) are added to the lists in memory: they have no row and no account.
 // Nothing here exposes an email or an account id: players are shown by a public id derived from a server secret.
 import { createHmac } from 'node:crypto';
 import * as G from '../game';
 import * as C from '../content';
 import { query, savepoint } from './db';
 import { loadAccount, decodeState } from './store';
+import { ghost, ghostAcc, ghostCount, botGhost, hasBotGhost } from '../ghosts';
 
 export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number; qd?: number; av?: string; tp?: TienOwn[] }
 export type Board = 'cult' | 'power' | 'quest';
@@ -25,10 +27,46 @@ const tienOf = (st: G.GameState): TienOwn[] => {
 const g = globalThis as any;
 const S: { secret?: Promise<string>; sorted: Record<string, { at: number; list: RankEntry[] }>; last: Map<string, { sig: string; at: number }>; tien?: { at: number; list: { e: RankEntry; o: TienOwn }[] } } = g.__tutienRank || (g.__tutienRank = { sorted: {}, last: new Map() });
 const pidOf = (secret: string, acc: string) => createHmac('sha256', secret).update(acc).digest('hex').slice(0, 12);
+// How long a sorted list or a profile is reused. The boards are looked at far more often than they change (a save is written at most every few minutes).
+const ttl = () => { const n = Number(process.env.RANK_CACHE_SEC ?? 120); return (Number.isFinite(n) && n >= 0 ? n : 120) * 1000; };
+const PROFILE_KEEP = 300;
+const PS: { prof: Map<string, { at: number; v: any }>; rows: { at: number; p: Promise<RankEntry[]> } | null } = g.__tutienRankCache || (g.__tutienRankCache = { prof: new Map(), rows: null });
 
 export function entryOf(st: G.GameState, pid: string, acc: string, now: number): RankEntry {
   const p = st.player, tp = tienOf(st);
   return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now, qd: G.questCount(st), ...(tp.length ? { tp } : {}), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
+}
+
+// The rows of every real player plus the ghosts. One read of the table serves every board and the Tiên list; callers that arrive meanwhile share it.
+function ghostEntry(sec: string, n: number, now: number): RankEntry {
+  const x = ghost(n, now), e = entryOf(x.st, pidOf(sec, ghostAcc(n)), ghostAcc(n), x.t);
+  delete e.tp;   // the Tiên Phẩm list shows only what real players own
+  return { ...e, cp: x.cp, qd: x.qd };
+}
+// An old bot (an account with a saved game that no longer plays) keeps its row (name, picture) but its progress is made up like a ghost's, so it costs nothing to run.
+function botEntry(row: RankEntry, botN: number, now: number): RankEntry {
+  const x = botGhost(botN, now), e = entryOf(x.st, row.pid, row.acc, x.t);
+  delete e.tp;
+  return { ...e, cp: x.cp, qd: x.qd, ...(row.av ? { av: row.av } : {}), hide: row.hide };
+}
+const botNumber = (email: string) => { const m = /^tu-si-(\d+)@/i.exec(email); return m && hasBotGhost(Number(m[1])) ? Number(m[1]) : 0; };
+async function botNumbers(): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const r of (await query<{ id: string; email: string }>(`SELECT id, email FROM acct_auth WHERE email_key LIKE '%@bot.tienkiem.local'`)).rows) { const n = botNumber(r.email); if (n) out.set(r.id, n); }
+  return out;
+}
+async function allRows(now: number): Promise<RankEntry[]> {
+  const sec = await secret(), keep = ttl();
+  if (PS.rows && now - PS.rows.at < keep) return PS.rows.p;
+  const at = now;
+  const p = (async () => {
+    const bots = await botNumbers();
+    const rows = (await query<{ entry: RankEntry }>('SELECT entry FROM rank_entries')).rows.map((r) => r.entry).map((e) => (bots.has(e.acc) ? botEntry(e, bots.get(e.acc)!, now) : e));
+    return [...rows, ...Array.from({ length: ghostCount() }, (_, i) => ghostEntry(sec, i + 1, now))];
+  })();
+  PS.rows = { at, p };
+  p.catch(() => { if (PS.rows && PS.rows.p === p) PS.rows = null; });
+  return p;
 }
 
 const upsert = (e: RankEntry) => query('INSERT INTO rank_entries (acc, entry) VALUES ($1, $2::jsonb) ON CONFLICT (acc) DO UPDATE SET entry = EXCLUDED.entry', [e.acc, JSON.stringify(e)]);
@@ -61,7 +99,7 @@ export async function publish(acc: string, st: G.GameState, now: number) {
 }
 export async function unpublish(acc: string) {
   await query('DELETE FROM rank_entries WHERE acc = $1', [acc]);
-  S.last.delete(acc); S.sorted = {}; S.tien = undefined;
+  S.last.delete(acc); S.sorted = {}; S.tien = undefined; PS.rows = null; PS.prof.clear();
 }
 
 const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
@@ -72,9 +110,9 @@ const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
 async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
   await secret();
   const hit = S.sorted[board];
-  if (hit && now - hit.at < 5000) return hit.list;
-  const rows = (await query<{ entry: RankEntry }>('SELECT entry FROM rank_entries')).rows;
-  const list = rows.map((r) => r.entry).filter((e) => !e.hide && (board !== 'quest' || (e.qd || 0) > 0)).sort(cmp[board]);
+  if (hit && now - hit.at < ttl()) return hit.list;
+  const rows = await allRows(now);
+  const list = rows.filter((e) => !e.hide && (board !== 'quest' || (e.qd || 0) > 0)).sort(cmp[board]);
   S.sorted[board] = { at: now, list };
   return list;
 }
@@ -92,8 +130,8 @@ export interface TienRow { rank: number; pid: string; owner: string; dao: string
 export async function tien(meAcc: string, now: number, top = 100) {
   await secret();
   let hit = S.tien;
-  if (!hit || now - hit.at > 5000) {
-    const rows = (await query<{ entry: RankEntry }>('SELECT entry FROM rank_entries')).rows.map((r) => r.entry).filter((e) => !e.hide && e.tp && e.tp.length);
+  if (!hit || now - hit.at >= ttl()) {
+    const rows = (await allRows(now)).filter((e) => !e.hide && e.tp && e.tp.length);
     const list = rows.flatMap((e) => e.tp!.map((o) => ({ e, o }))).sort((x, y) => y.o.it.power - x.o.it.power || x.e.t - y.e.t);
     hit = S.tien = { at: now, list };
   }
@@ -102,17 +140,36 @@ export async function tien(meAcc: string, now: number, top = 100) {
 }
 
 // A player's open page: stats, worn items and the Linh Thú that go into battle.
+// A page is kept for ttl() per instance: opening a profile used to load and unzip the whole save every time.
 export async function profile(pid: string, now: number) {
   await secret();
-  const e = (await query<{ entry: RankEntry }>(`SELECT entry FROM rank_entries WHERE entry->>'pid' = $1`, [pid])).rows[0]?.entry;
+  const hit = PS.prof.get(pid);
+  if (hit && now - hit.at < ttl()) return hit.v;
+  const v = await buildProfile(pid, now);
+  if (v) { PS.prof.set(pid, { at: now, v }); if (PS.prof.size > PROFILE_KEEP) PS.prof.delete(PS.prof.keys().next().value as string); }
+  else PS.prof.delete(pid);
+  return v;
+}
+async function buildProfile(pid: string, now: number) {
+  const sec = await secret();
+  // a made-up player: its page is built in memory
+  const row = (await allRows(now)).find((x) => x.pid === pid);
+  const gn = row && row.acc.startsWith('ghost:') ? Number(row.acc.slice(6)) : 0;
+  const bn = row && !gn ? (await botNumbers()).get(row.acc) || 0 : 0;   // an old bot: its page is made up too
+  const e = gn ? ghostEntry(sec, gn, now) : bn ? row : (await query<{ entry: RankEntry }>(`SELECT entry FROM rank_entries WHERE entry->>'pid' = $1`, [pid])).rows[0]?.entry;
   if (!e || e.hide) return null;
-  const a = await loadAccount(e.acc);
-  const st: G.GameState | null = a && a.state;
-  if (!st) { if (!a) await unpublish(e.acc); return null; }   // the account is gone: drop its line
+  let st: G.GameState | null;
+  if (gn) st = ghost(gn, now).st;
+  else if (bn) st = botGhost(bn, now).st;
+  else {
+    const a = await loadAccount(e.acc);
+    st = a && a.state;
+    if (!st) { if (!a) await unpublish(e.acc); return null; }   // the account is gone: drop its line
+  }
   const S_ = G.pstats(st), p = st.player;
   const rankOf = async (b: Board) => (await sortedBoard(b, now)).findIndex((x) => x.pid === pid) + 1;
   return {
-    pid, name: p.name, dao: p.dao, title: C.titleOf(p.title)?.name || '', g: p.look.g, avatar: p.avatar && p.avatar.url, realm: p.realm, sub: p.sub, level: G.levelOf(p), linh: p.linh, purity: p.purity, pers: p.pers, origin: p.origin,
+    pid, name: p.name, dao: p.dao, title: C.titleOf(p.title)?.name || '', g: p.look.g, avatar: e.av || (p.avatar && p.avatar.url), realm: p.realm, sub: p.sub, level: G.levelOf(p), linh: p.linh, purity: p.purity, pers: p.pers, origin: p.origin,
     stats: S_, power: G.combatPower(st), equipment: Object.fromEntries(C.SLOTS.map((s) => [s, st.eq[s] || null])), party: G.bestParty(st),
     beasts: st.beasts.length, species: Object.values(st.best).filter((b) => b.seen > 0).length, tamedSpecies: Object.values(st.best).filter((b) => b.tamed > 0).length, kills: st.kills, quests: G.questCount(st),
     rank: { cult: await rankOf('cult'), power: await rankOf('power') }, active: e.t,

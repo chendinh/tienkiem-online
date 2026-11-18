@@ -22,6 +22,8 @@ before(async () => {
     process.env.PG_POOL_MAX = '1';
     stopDb = async () => { await server.stop(); await db.close(); };
   }
+  process.env.GHOSTS = '0';             // no made-up players unless a test asks for them
+  process.env.RANK_CACHE_SEC = '5';     // the tests wait for this cache (the real default is 2 minutes)
   D = await import('../lib/server/db'); St = await import('../lib/server/store');
   A = await import('../lib/server/auth'); S = await import('../lib/server/service'); G = await import('../lib/game'); B = (await import('../lib/balance'));
 });
@@ -364,6 +366,52 @@ test('every account gets the đạo hiệu of its e-mail: on its next read, or a
   assert.equal((await BF.backfillDao(true)).changed.filter((c) => c.id === a.id).length, 0, 'once only');
 });
 
+test('ghosts: made-up players fill the boards from memory only, with a page, never a new picture and never on the Tiên list', async () => {
+  const R = await import('../lib/server/ranking'), Gh = await import('../lib/ghosts'), C = await import('../lib/content');
+  const reset = () => { const g = globalThis as any; if (g.__tutienRank) { g.__tutienRank.sorted = {}; g.__tutienRank.tien = undefined; } if (g.__tutienRankCache) { g.__tutienRankCache.rows = null; g.__tutienRankCache.prof.clear(); } };
+  const rowsBefore = (await D.query('SELECT 1 FROM accounts')).rowCount;
+  process.env.GHOSTS = '12'; reset();
+  try {
+    const viewer = await signUp('ghost-viewer@example.com'), t = now();
+    const b = await R.board('cult', viewer.id, t);
+    assert.ok(b.rows.length >= 12, 'the ghosts are on the board');
+    assert.ok(b.rows.every((r) => !r.me || r.pid.length === 12));
+    const row = b.rows.find((r) => Gh.ghosts(t).some((x) => x.st.player.name === r.name))!;
+    const prof: any = await R.profile(row.pid, t);
+    assert.ok(prof && prof.stats.maxHp > 0 && prof.beasts >= 3);
+    assert.deepEqual(Object.keys(prof.equipment).sort(), [...C.SLOTS].sort());
+    for (const it of Object.values(prof.equipment) as any[]) assert.ok(it && it.tier <= 3, 'with no relic in the pool a ghost wears Địa or lower');
+    assert.ok(!JSON.stringify([b, prof]).includes('ghost.tienkiem.local') && !JSON.stringify([b, prof]).includes('ghost:'), 'nothing of the ghost bookkeeping leaves the server');
+    assert.equal((await R.tien(viewer.id, t)).rows.length, 0, 'ghosts own nothing on the Tiên list');
+    // the same number and clock give the same person; time moves them up slowly and never past the ceiling
+    const a = Gh.ghost(3, t), later = Gh.ghost(3, t + 30 * 86400_000), far = Gh.ghost(3, t + 2000 * 86400_000);
+    assert.equal(a.st.player.name, later.st.player.name);
+    assert.ok(later.level >= a.level && far.level >= later.level && far.level <= 18);
+    // no account, no database row
+    assert.equal((await D.query('SELECT 1 FROM accounts')).rowCount, rowsBefore + 1);   // only the viewer
+    assert.equal((await D.query(`SELECT 1 FROM rank_entries WHERE acc LIKE 'ghost:%'`)).rowCount, 0);
+  } finally { process.env.GHOSTS = '0'; reset(); }
+});
+
+test('old bots: keep their name and picture, their progress is made up, and nothing is read from or written to their saves', async () => {
+  const R = await import('../lib/server/ranking'), BS = await import('../lib/server/botseed'), BR = await import('../lib/server/bots');
+  const reset = () => { const g = globalThis as any; if (g.__tutienRank) { g.__tutienRank.sorted = {}; g.__tutienRank.tien = undefined; } if (g.__tutienRankCache) { g.__tutienRankCache.rows = null; g.__tutienRankCache.prof.clear(); } };
+  await BS.removeBots(); await BS.createBots(3, now(), false); reset();
+  try {
+    const list = await BR.botAccounts(), before = await Promise.all(list.map((b) => St.loadAccount(b.id)));
+    const viewer = await signUp('oldbot-viewer@example.com'), t = now() + 20 * 86400_000;
+    const b = await R.board('cult', viewer.id, t);
+    for (const a of before) assert.ok(b.rows.some((r) => r.name === a!.state.player.name), 'the bot is still on the board under its own name');
+    const row = b.rows.find((r) => r.name === before[0]!.state.player.name)!;
+    const prof: any = await R.profile(row.pid, t);
+    assert.ok(prof && prof.name === row.name && prof.stats.maxHp > 0 && prof.beasts >= 3);
+    const later = await R.board('cult', viewer.id, t + 400 * 86400_000);   // another day count: the cache is older than its time
+    assert.ok(later.rows.length >= b.rows.length);
+    const after = await Promise.all(list.map((x) => St.loadAccount(x.id)));
+    assert.deepEqual(after.map((a) => a!.state.tick), before.map((a) => a!.state.tick), 'the saves are not touched');
+  } finally { await BS.removeBots(); reset(); }
+});
+
 test('bots: made once, never log in, appear on the board with a page, play when stepped, and can be removed', async () => {
   const BS = await import('../lib/server/botseed'), BR = await import('../lib/server/bots'), R = await import('../lib/server/ranking'), Bt = await import('../lib/bots');
   const made = await BS.createBots(3, now(), false);
@@ -390,7 +438,11 @@ test('bots: made once, never log in, appear on the board with a page, play when 
   // the claim in kv: one run per interval
   await D.query(`DELETE FROM kv WHERE key = 'bots.at'`);
   const before = (await St.loadAccount(list[0].id))!.state.tick;
+  assert.equal(BR.botsEnabled(), false, 'bots are off unless BOTS_ENABLED=1');
   await BR.kickBots(Date.now() + 4 * 3600 * 1000);
+  assert.equal((await St.loadAccount(list[0].id))!.state.tick, before, 'a kick does nothing while the bots are off');
+  process.env.BOTS_ENABLED = '1';
+  try { await BR.kickBots(Date.now() + 4 * 3600 * 1000); } finally { delete process.env.BOTS_ENABLED; }
   const mid = (await St.loadAccount(list[0].id))!.state.tick;
   assert.ok(mid > before, 'a kick brings the bots up to date');
   assert.equal(await BS.removeBots(), 3);
@@ -520,7 +572,7 @@ test('report: AI spend by day, online minutes, items by rarity, beasts and the d
   assert.ok(Math.abs(rep.ai.spentToday - spent0 - 0.12) < 1e-6, String(rep.ai.spentToday));
   assert.ok(rep.ai.image.spent >= 0.12 && rep.ai.image.cap > 0 && Math.abs(rep.ai.image.remaining - Math.max(0, rep.ai.image.cap - rep.ai.image.spent)) < 1e-3);
   assert.equal(rep.ai.days.length, 30); assert.equal(rep.ai.days[29].estimated, false);
-  assert.equal(rep.online.todayPlayers, 1); assert.ok(Math.abs(rep.online.todayHours - 2 / 60) < 0.01, String(rep.online.todayHours));
+  assert.equal(rep.online.todayPlayers, 1); assert.ok(rep.online.todayHours >= 3 / 60 - 0.01 && rep.online.todayHours <= 4 / 60 + 0.01, String(rep.online.todayHours));   // each ask counts for 3 minutes (the page asks every 3): two asks one or two minutes apart cover 3 or 4 minutes
   assert.equal(rep.online.top[0].hours >= 0.03, true); assert.ok(!JSON.stringify(rep).includes('rp-a@example.com'), 'e-mail addresses are masked');
   assert.ok(rep.players.real >= 2 && rep.players.bots === 1 && rep.players.registered >= 2);
   assert.ok(rep.items.dropped[0] >= 10 && rep.items.dropped[4] >= 1 && rep.items.held[4] >= 1);

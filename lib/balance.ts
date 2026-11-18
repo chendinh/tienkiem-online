@@ -19,7 +19,7 @@ export const BALANCE = {
   tickSec: 5,
   offlineCapH: 12,
   minOfflineSec: 120,
-  onlinePollSec: 10,
+  onlinePollSec: 180,            // the open page asks for the state this often (was 10 s: with many players the reads and writes used up the database quota)
   recoveryRegen: 0.04,
   adventureRegen: 0.005,
   epiphanyP: 0.02,
@@ -58,7 +58,7 @@ export const BALANCE = {
   daoShare: 1,                   // the share of e-mail addresses that get a đạo hiệu. 1 = everybody (for now, for fun); lower it later and only NEW accounts are affected
   destinyP: 1 / 2400,            // per tick of adventure: the chance that fate puts a person on the road who gives, changes or takes away the character's chức vụ
   startTitleP: 0.35,             // a new character starts with a chức vụ with this chance
-  pollSaveTicks: 12,             // an ordinary poll saves only after this many ticks of game time (see service.getGame)
+  pollSaveTicks: 60,             // an ordinary poll saves only after this many ticks of game time (see service.getGame)
   playerCoefScale: 1.0,
   healScale: 1.0,                // a healing skill restores attack x power x this x the combat pace
   methodAffinityBonus: 0.10,     // Method_Affinity_Bonus: a Công Pháp whose element is in the Linh Căn cultivates faster

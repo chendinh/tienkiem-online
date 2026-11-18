@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { runDaily } from '@/lib/server/dailygen';
 import { dayKey } from '@/lib/daily';
-import { runBots } from '@/lib/server/bots';
+import { runBots, botsEnabled } from '@/lib/server/bots';
 import { json, guard } from '@/lib/server/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     if (got.length !== want.length || !timingSafeEqual(got, want)) return json({ ok: false, code: 'E_AUTH' }, 401);
     const r = await runDaily(dayKey(Date.now()));
     console.log('[daily]', JSON.stringify(r));
-    try { console.log('[bots]', JSON.stringify(await runBots())); } catch (e) { console.error('[bots]', e); }   // the bots move on a day nobody plays too
+    if (botsEnabled()) try { console.log('[bots]', JSON.stringify(await runBots())); } catch (e) { console.error('[bots]', e); }   // the bots move on a day nobody plays too
     return json({ ok: r.story !== 'failed', ...r });
   });
 }

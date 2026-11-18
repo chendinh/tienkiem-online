@@ -74,7 +74,10 @@ export async function runBots(now = Date.now(), idleMs = 50_000): Promise<{ bots
 
 // The cheap check that the routes call on every request. One instance wins the claim and runs the bots; the others return at once.
 const L: { running: boolean; at: number } = ((globalThis as any).__tutienBots ||= { running: false, at: 0 });
+// Bots are OFF unless BOTS_ENABLED=1: each run loads and saves every bot's whole save, which used up the database quota.
+export const botsEnabled = () => process.env.BOTS_ENABLED === '1';
 export async function kickBots(now = Date.now()): Promise<void> {
+  if (!botsEnabled()) return;
   if (L.running || now - L.at < 60_000) return;   // this instance looked recently
   L.at = now; L.running = true;
   try {
