@@ -1,19 +1,21 @@
 import { after } from 'next/server';
-import { idle as imageIdle, idFromUrl, request } from '@/lib/imagegen';
+import { idle as imageIdle, idFromUrl, request, falCost, falModels } from '@/lib/imagegen';
 import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
 import { json, guard, checkWrite, readBody } from '@/lib/server/http';
+import { fgCost } from '@/lib/anim';
 import { requireAdmin } from '@/lib/server/admin';
 import { ensureDaily } from '@/lib/server/dailystore';
-import { assetsOf, clip, cut, cutsAll, idle, info, variant, type Out } from '@/lib/server/anim';
+import { assetsOf, clip, cut, cutsAll, fg, fgsAll, idle, info, variant, type Out } from '@/lib/server/anim';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;   // a clip is made after the answer is sent: the function must stay alive until it is saved
 
 // Owner only (Authorization: Bearer <ADMIN_KEY>, the same key as /admin). This route spends money.
 // GET  ?sp=<species id>   prices, spend, the species list and what is already made for that species
-// GET  ?cuts=1            the same, plus every cut-out creature (for the scene page)
-// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }   answers { status, id } at once; ask again until the status is not 'pending'
+// GET  ?cuts=1            the same, plus every cut-out creature and every foreground layer (for the scene page)
+// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }   answers { status, id } at once; ask again until the status is not 'pending'
+const fgPrice = () => fgCost(falCost(falModels().edit, 1376, 768));
 const speciesOk = (sp: string) => D.allSpecies().some((s) => s.id === sp) && !!C.SPECIES_EN[sp];
 
 export async function GET(req: Request) {
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
     await ensureDaily();
     const q = new URL(req.url).searchParams, sp = q.get('sp') || '';
     const species = D.allSpecies().filter((s) => C.SPECIES_EN[s.id]).map((s) => ({ id: s.id, name: s.name, isNew: !C.SPECIES.some((x) => x.id === s.id) }));
-    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('cuts') === '1' ? { cuts: await cutsAll() } : {}) });
+    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
   });
 }
 
@@ -32,9 +34,16 @@ export async function POST(req: Request) {
     checkWrite(req);
     const b = await readBody(req);
     await ensureDaily();
+    let out: Out;
+    if (b?.step === 'fg') {
+      // the foreground layer belongs to a zone, not to a species
+      const z = typeof b.zone === 'string' ? b.zone : '';
+      out = C.ZONES.some((x) => x.id === z) ? await fg(z, new URL(req.url).origin) : { status: 'invalid' };
+      if (out.started) after(() => idle());
+      return json({ status: out.status, id: out.id, why: out.why });
+    }
     const sp = typeof b?.sp === 'string' ? b.sp : '';
     if (!speciesOk(sp)) return json({ status: 'invalid' });
-    let out: Out;
     if (b.step === 'base' || (b.step === 'variant' && b.mut === 'ngusac')) {
       // The creature's own picture, and its rainbow variant, are the game's: the lab asks for them the way the game does.
       const r = await request(b.step === 'base' ? { kind: 'monster', sp } : { kind: 'monster', sp, mut: true });

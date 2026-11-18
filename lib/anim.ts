@@ -8,6 +8,7 @@ export const ANIM_VERSION = 1;   // bump when the wording below changes: new ids
 export const BASE = 'base';      // the creature's own picture, as opposed to a mutation of it
 export const DEFAULT_MODEL = 'fal-ai/kling-video/v2.6/pro/image-to-video';
 export const DEFAULT_CUT_MODEL = 'veed/video-background-removal/fast';
+export const DEFAULT_FG_CUT_MODEL = 'fal-ai/bria/background/remove';   // picture -> PNG with alpha, for the foreground layer of a scene
 
 export interface Mutation { id: string; name: string; en: string }
 export interface Motion { id: string; name: string; en: string; move?: boolean }   // move: the creature travels in the scene while this plays (walk, run)
@@ -61,6 +62,14 @@ export function cutInput(model: string, videoUrl: string): Record<string, unknow
   if (model === 'veed/video-background-removal/fast') return { video_url: videoUrl, output_codec: 'h264', refine_foreground_edges: true, subject_is_person: false };
   return { video_url: videoUrl };
 }
+
+// The foreground layer of a scene (grass, rocks, roots drawn OVER the creatures' feet): the zone's own picture is edited down to its nearest elements on a
+// plain white ground, then the white is cut away. The page also fades the top of this layer out, so whatever the edit keeps of the middle distance never hides a creature.
+export const fgPrompt = () => `Edit this image. Keep ONLY the closest foreground elements along the bottom edge and the lower corners (the nearest grass, plants, rocks, roots and branches), exactly as they are. Replace everything else (sky, mountains, distant trees, water, buildings, mist) with a flat pure white background. Do not add anything new and do not change the foreground you keep. ${NEG}`;
+export const fgCutInput = (imageUrl: string): Record<string, unknown> => ({ image_url: imageUrl });
+export const FG_CUT_USD = 0.02;   // Bria background removal is about 0.018 USD per picture, rounded up
+export const fgCost = (editUsd: number) => Math.round((editUsd + FG_CUT_USD) * 1000) / 1000;
+export const isZoneId = (id: unknown): id is string => typeof id === 'string' && /^[a-z]{3,12}$/.test(id);
 
 // USD per second of video, audio off.
 const CLIP_PER_SEC: Record<string, number> = {

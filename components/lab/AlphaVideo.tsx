@@ -1,11 +1,15 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+
+// How a creature is graded to its picture (lib/scene.ts gradeAt): `v` is bumped by whoever changes it, so a paused video is drawn again.
+export interface Grade { haze: [number, number, number]; amt: number; bright: number; sat: number; v: number }
+export const newGrade = (): Grade => ({ haze: [200, 200, 210], amt: 0, bright: 1, sat: 1, v: 0 });
 
 // A creature cut out of its background, played from TWO H.264 videos: the picture and its alpha matte (a grey video).
 // Safari (iPhone) shows the alpha of a WebM as black, so both videos are put on one WebGL canvas and the matte becomes the canvas' alpha.
 // Works the same in every browser. Both videos are muted and inline (iOS refuses anything else to start by itself) and are kept in step by the loop below.
 const VS = 'attribute vec2 p; varying vec2 v; void main(){ v = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }';
-const FS = 'precision mediump float; varying vec2 v; uniform sampler2D c; uniform sampler2D a; void main(){ vec3 col = texture2D(c, v).rgb; float al = texture2D(a, v).r; gl_FragColor = vec4(col * al, al); }';
+const FS = 'precision mediump float; varying vec2 v; uniform sampler2D c; uniform sampler2D a; uniform vec3 haze; uniform float amt; uniform float bright; uniform float sat; void main(){ vec3 col = texture2D(c, v).rgb; float al = texture2D(a, v).r; float l = dot(col, vec3(0.299, 0.587, 0.114)); col = mix(vec3(l), col, sat) * bright; col = mix(col, haze, amt); gl_FragColor = vec4(col * al, al); }';
 
 function program(gl: WebGLRenderingContext): WebGLProgram | null {
   const sh = (type: number, src: string) => { const s = gl.createShader(type)!; gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
@@ -25,7 +29,7 @@ function texture(gl: WebGLRenderingContext) {
   return t;
 }
 
-export function AlphaVideo({ rgb, alpha, playing = true, className }: { rgb: string; alpha: string; playing?: boolean; className?: string }) {
+export function AlphaVideo({ rgb, alpha, playing = true, className, grade }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade> }) {
   const cv = useRef<HTMLCanvasElement>(null), vc = useRef<HTMLVideoElement>(null), va = useRef<HTMLVideoElement>(null);
   const dirty = useRef(true);   // a picture must be drawn although the video is paused (after a seek, or when a new source has loaded)
   const [plain, setPlain] = useState(false);
@@ -47,16 +51,21 @@ export function AlphaVideo({ rgb, alpha, playing = true, className }: { rgb: str
     const tc = texture(gl), ta = texture(gl);
     const mark = () => { dirty.current = true; };
     for (const v of [c, a]) { v.addEventListener('seeked', mark); v.addEventListener('loadeddata', mark); }
-    let raf = 0;
+    let raf = 0, seen = -1;
+    const uHaze = gl.getUniformLocation(pr, 'haze'), uAmt = gl.getUniformLocation(pr, 'amt'), uBright = gl.getUniformLocation(pr, 'bright'), uSat = gl.getUniformLocation(pr, 'sat');
     const draw = () => {
       raf = requestAnimationFrame(draw);
       if (c.readyState < 2 || a.readyState < 2 || !c.videoWidth) return;
-      if (c.paused && !dirty.current) return;
+      const g = grade?.current, gv = g ? g.v : 0;
+      if (c.paused && !dirty.current && gv === seen) return;
       if (!c.paused && Math.abs(a.currentTime - c.currentTime) > 0.08) a.currentTime = c.currentTime;
       if (canvas.width !== c.videoWidth || canvas.height !== c.videoHeight) { canvas.width = c.videoWidth; canvas.height = c.videoHeight; gl.viewport(0, 0, canvas.width, canvas.height); }
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tc); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, ta); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a);
       gl.uniform1i(gl.getUniformLocation(pr, 'c'), 0); gl.uniform1i(gl.getUniformLocation(pr, 'a'), 1);
+      if (g) { gl.uniform3f(uHaze, g.haze[0] / 255, g.haze[1] / 255, g.haze[2] / 255); gl.uniform1f(uAmt, g.amt); gl.uniform1f(uBright, g.bright); gl.uniform1f(uSat, g.sat); }
+      else { gl.uniform1f(uAmt, 0); gl.uniform1f(uBright, 1); gl.uniform1f(uSat, 1); }
+      seen = gv;
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       dirty.current = false;

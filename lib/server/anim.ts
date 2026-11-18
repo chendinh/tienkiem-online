@@ -11,7 +11,7 @@ import * as A from '../anim';
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
 export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
 interface Done {
-  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut'; meta: any;
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg'; meta: any;
   more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
 }
 
@@ -187,6 +187,38 @@ export async function cut(sp: string, mutId: string, motionId: string, clipId: s
     };
   });
   return { ...o, alpha: alphaId };
+}
+
+// ---- the foreground layer of a zone's scene: grass, rocks and roots as a PNG with alpha (kind 'animfg')
+const isPng = (b: Buffer) => b.length > 8 && b[0] === 0x89 && b.subarray(1, 4).toString() === 'PNG';
+export async function fg(zone: string, origin: string): Promise<Out> {
+  if (!A.isZoneId(zone)) return { status: 'invalid' };
+  const model = falModels().edit, cutM = process.env.FAL_FG_CUT_MODEL || A.DEFAULT_FG_CUT_MODEL, prompt = A.fgPrompt(), cost = A.fgCost(falCost(model, 1376, 768));
+  const id = sha('fg', zone, model, cutM, prompt);
+  return launch(id, cost, async (pay) => {
+    // the zone's picture is a static file of the site: asked from the site itself (the function's own disk may not hold public/)
+    const r = await fetch(new URL(`/art/zones/${zone}.jpg`, origin), { signal: AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error(`zone picture ${zone}: ${r.status}`);
+    const { fal } = await import('@fal-ai/client');
+    const url = await upload(fal, { data: Buffer.from(await r.arrayBuffer()), ext: 'jpg' });
+    const e: any = await withTimeout(fal.subscribe(model, { input: { prompt, image_url: url, seed: seedOf('fg#' + zone), guidance_scale: 3.5, num_images: 1, output_format: 'png', safety_tolerance: '2' } }), 150000, 'fal ' + model);
+    const ei = e?.data?.images?.[0];
+    if (!ei?.url) throw new Error('fal: no image in result');
+    const edited = await download(ei.url);
+    await pay(falCost(model, 1376, 768));
+    const url2 = await upload(fal, { data: edited, ext: 'png' });
+    const c: any = await withTimeout(fal.subscribe(cutM, { input: A.fgCutInput(url2) }), 120000, 'fal ' + cutM);
+    const ci = c?.data?.image || c?.data?.images?.[0];
+    if (!ci?.url) throw new Error('fal: no image from the background removal');
+    const out = await download(ci.url);
+    await pay(A.FG_CUT_USD);
+    if (!isPng(out)) throw new Error('the foreground is not a PNG (no alpha)');
+    return { buf: out, ext: 'png', kind: 'animfg', meta: { spec: { kind: 'fg', zone }, model, cutModel: cutM, prompt, cost } };
+  });
+}
+export async function fgsAll() {
+  const r = await query<{ id: string; zone: string }>(`SELECT id, meta->'spec'->>'zone' AS zone FROM images WHERE kind = 'animfg' ORDER BY created`);
+  return r.rows.filter((x) => x.zone);
 }
 
 // ---- what the lab page needs

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL } from '../lib/anim';
+import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL, fgCost, fgCutInput, fgPrompt, isZoneId } from '../lib/anim';
 
 test('mutation and motion ids are unique, lowercase slugs', () => {
   for (const list of [MUTATIONS, MOTIONS]) {
@@ -67,4 +67,12 @@ test('Range header: pieces for a phone, 416 for nonsense', () => {
   assert.deepEqual(parseRange('bytes=-3', 10), { start: 7, end: 9 });
   for (const bad of ['bytes=20-30', 'bytes=5-2', 'bytes=-', 'bytes=-0', 'bytes=0-1,3-4', 'items=0-1', 'abc']) assert.equal(parseRange(bad, 10), 'bad', bad);
   assert.equal(parseRange('bytes=0-', 0), 'bad');
+});
+
+test('the foreground layer: kept elements on white, then cut; cheap and bound to a zone id', () => {
+  assert.match(fgPrompt(), /ONLY the closest foreground[\s\S]*flat pure white background/);
+  assert.deepEqual(fgCutInput('u'), { image_url: 'u' });
+  assert.equal(fgCost(0.04), 0.06);
+  assert.ok(isZoneId('thanhvan'));
+  for (const bad of ['../x', 'Thanh', 'a', '', undefined, 'thanh-van']) assert.ok(!isZoneId(bad), String(bad));
 });

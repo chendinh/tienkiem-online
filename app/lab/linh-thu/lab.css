@@ -36,10 +36,39 @@
 /* the scene: a background picture and creatures on it. The stage is a size container, so cqw is a share of the picture's width. */
 .zl-stage { position: relative; overflow: hidden; container-type: inline-size; border: 1px solid var(--line-gold); border-radius: var(--r-lg); background: var(--ink-900); }
 .zl-bg { display: block; width: 100%; height: auto; }
+/* layers: each is as big as the stage and slides by its own amount (SceneLab). The picture's layer stays in the flow and gives the stage its height. */
+.zl-lay { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
+.zl-lay-bg { position: relative; inset: auto; }
+.zl-lay-up { transform-origin: 50% 100%; }   /* near layers grow upward from the bottom edge, so grass stays on the ground */
+.zl-mist { position: absolute; left: 0; width: 200%; background-repeat: repeat-x; background-size: 50% 100%; background-image: radial-gradient(60% 100% at 25% 100%, var(--mc), transparent 70%), radial-gradient(45% 80% at 75% 100%, var(--mc), transparent 70%); }
+.zl-mist-b { bottom: 22%; height: 38%; opacity: calc(var(--mist) * 0.8); animation: zl-drift 90s linear infinite; }
+.zl-mist-f { bottom: 0; height: 24%; opacity: calc(var(--mist) * 0.6); animation: zl-drift 55s linear infinite reverse; }
+@keyframes zl-drift { to { transform: translateX(-50%); } }
+.zl-motes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.zl-motes-n { filter: blur(1.2px); }
+.zl-grass { position: absolute; left: -3%; right: -3%; bottom: 0; height: 22%; }
+.zl-grass svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: var(--g); transform-origin: 50% 100%; }
+.zl-grass-b { opacity: 0.8; animation: zl-sway 7s ease-in-out infinite alternate; }
+.zl-grass-f { animation: zl-sway 5s ease-in-out -2s infinite alternate; }
+@keyframes zl-sway { from { transform: skewX(-1.4deg); } to { transform: skewX(1.4deg); } }
+/* the fal foreground: its upper part fades out so whatever the edit kept of the middle distance never hides a creature */
+.zl-fgimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; -webkit-mask-image: linear-gradient(to top, #000 0, #000 35%, transparent 62%); mask-image: linear-gradient(to top, #000 0, #000 35%, transparent 62%); }
+.zl-puff { position: absolute; width: 4cqw; height: 2cqw; margin: -2cqw 0 0 -2cqw; border-radius: 50%; background: radial-gradient(ellipse at center, var(--pc), transparent 70%); opacity: 0; pointer-events: none; animation: zl-puff 0.7s ease-out forwards; }
+@keyframes zl-puff { 0% { opacity: 0.5; transform: translateY(0) scale(calc(var(--s, 1) * 0.5)); } 100% { opacity: 0; transform: translateY(-1.6cqw) scale(calc(var(--s, 1) * 1.4)); } }
+.zl-xf { position: absolute; inset: 0; }
+.zl-xf-in { animation: zl-in 0.3s both; }
+.zl-xf-out { animation: zl-out 0.3s both; }
+@keyframes zl-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes zl-out { from { opacity: 1; } to { opacity: 0; } }
+.zl-tune { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.zl-tune > span { flex: 1 0 100%; }
+.zl-range { display: flex; gap: var(--sp-2); align-items: center; font-size: 0.85rem; }
+.zl-range input { width: 120px; }
+@media (prefers-reduced-motion: reduce) { .zl-mist, .zl-grass svg { animation: none; } }
 .zl-field { position: absolute; inset: 0; --w: 26cqw; }
 .zl-actor { position: absolute; width: 0; height: 0; }
 /* the feet are at 86% of the picture's height: the creature is placed so that point is on the spot, and grows or shrinks around it */
 .zl-fig { position: absolute; left: 0; top: 0; width: var(--w); height: var(--w); margin: calc(var(--w) * -0.86) 0 0 calc(var(--w) * -0.5); transform-origin: 50% 86%; transform: scale(var(--s, 1)) scaleX(calc(var(--f, 1) * var(--flip, 1))); }
-.zl-shadow { position: absolute; left: 0; top: 0; width: calc(var(--w) * 0.7); height: calc(var(--w) * 0.12); margin: calc(var(--w) * -0.06) 0 0 calc(var(--w) * -0.35); border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.45), transparent 70%); transform: scale(var(--s, 1)); }
+.zl-shadow { position: absolute; left: 0; top: 0; width: calc(var(--w) * 0.7); height: calc(var(--w) * 0.12); margin: calc(var(--w) * -0.06) 0 0 calc(var(--w) * -0.35); border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0, 0, 0, var(--sa, 0.4)), transparent 70%); transform: translateX(calc(var(--w) * var(--sx, 0))) scale(var(--s, 1)); }
 @media (orientation: portrait) { .zl-field { --w: 44cqw; } }
 @media (max-width: 520px) { .zl-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); } }
