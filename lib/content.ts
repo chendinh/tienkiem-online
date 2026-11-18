@@ -14,7 +14,7 @@ export const DIS = BALANCE.dissolveValueByTier;
 export const REALMS = ['Luyện Khí', 'Trúc Cơ', 'Kim Đan', 'Nguyên Anh', 'Hóa Thần', 'Luyện Hư', 'Hợp Thể', 'Đại Thừa', 'Độ Kiếp'];
 export const SUBS = ['Sơ Kỳ', 'Trung Kỳ', 'Hậu Kỳ', 'Đỉnh Phong'];
 // Tribulation waves by target Realm index (0 based), from Balance_Config.
-export const WAVES = [0, 0, 0, 0, 0].map((_, i) => BALANCE.tribulationWaves[i + 1] || 0);
+export const WAVES = [0, 0, 0, 0, 0, 0].map((_, i) => BALANCE.tribulationWaves[i + 1] || 0);
 export const LINH_W = BALANCE.linhCountWeights; // 1..5 roots
 export const V1 = BALANCE.baseStats; // maxHp, maxSpirit, atk, def, spd at Level 1
 
@@ -219,7 +219,7 @@ export const EVENTS: EventTemplate[] = [
 export interface Material { id: string; name: string; price: number }
 export const MATERIALS: Material[] = [
   { id: 'linhthao', name: 'Linh Thảo', price: 1 }, { id: 'truc', name: 'Thanh Trúc Tinh', price: 2 }, { id: 'ngoc', name: 'Hàn Ngọc Tủy', price: 4 },
-  { id: 'hoatinh', name: 'Hỏa Tinh Thạch', price: 6 }, { id: 'loitinh', name: 'Lôi Tinh Sa', price: 10 }, { id: 'uminh', name: 'U Minh Hoa', price: 15 },
+  { id: 'hoatinh', name: 'Hỏa Tinh Thạch', price: 6 }, { id: 'loitinh', name: 'Lôi Tinh Sa', price: 10 }, { id: 'uminh', name: 'U Minh Hoa', price: 15 }, { id: 'tinhsa', name: 'Tinh Hà Sa', price: 25 },
 ];
 export const MAT = (id: string) => MATERIALS.find((m) => m.id === id)!;
 
@@ -270,6 +270,9 @@ export const ZONES: Zone[] = [
   { id: 'cuuu', name: 'Cửu U Hư Không', blurb: 'Vùng đất ranh giới Âm Dương, nguy hiểm nhưng linh khí dồi dào.', lv: [16, 20], minLevel: 16, density: 1.8,
     enc: { monster: 65, npc: 15, resource: 10, event: 10 }, species: { am: 3, duong: 3, loi: 2, bang: 2, ho: 1, kinh: 2, su: 2, diep: 2, phuong: 1, quyma: 3, hacbao: 3, hao: 1, coc: 1, kimo: 2, bachtrach: 2, thuy: 2, thanma: 1, bachho: 1, kimlong: 1, thienloi: 1, chuclong: 1, muc: 2, sa: 2, voi: 2, dangmang: 2, thiencay: 1, loiman: 1, kiemngu: 2 },
     materials: [{ id: 'uminh', w: 3, q: [1, 3] }, { id: 'loitinh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'nguyet', w: 3 }, { id: 'linhkhi', w: 3 }, { id: 'loivan', w: 2 }, { id: 'ngungtre', w: 2 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
+  { id: 'tinhha', name: 'Tinh Hà Hư Cảnh', blurb: 'Dòng sông sao vỡ nát giữa hư không, nơi Luyện Hư Tu Sĩ luyện hóa hư vô thành đạo.', lv: [20, 24], minLevel: 20, density: 2.1,
+    enc: { monster: 66, npc: 15, resource: 9, event: 10 }, species: { am: 2, duong: 2, loi: 2, bang: 2, kinh: 2, su: 2, phuong: 2, quyma: 2, hacbao: 2, kimo: 3, bachtrach: 2, thuy: 2, thanma: 2, bachho: 2, kimlong: 3, thienloi: 2, chuclong: 2, muc: 1, sa: 1, voi: 1, dangmang: 1, thiencay: 2, loiman: 1, kiemngu: 2 },
+    materials: [{ id: 'tinhsa', w: 3, q: [1, 3] }, { id: 'uminh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'tinhvan', w: 3 }, { id: 'linhkhi', w: 3 }, { id: 'nguyet', w: 2 }, { id: 'loivan', w: 2 }, { id: 'ngungtre', w: 1 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
 ];
 export const START_ZONE = 'thanhvan';
 export const ZONE = (id: string) => ZONES.find((z) => z.id === id) || ZONES[0];
@@ -477,7 +480,7 @@ export const bookArt = (cls: string) => `/art/shop/book_${cls}.jpg`;
 // One picture per technique (Bí Kíp) and per Công Pháp scroll, shared by every player: drawn once by scripts/pregen.ts into public/art/books.
 export const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 export const techArt = (name: string) => `/art/books/${slug(name)}.jpg`;
-// ---------- Chiến trường: every fight happens on one of 10 arenas (two per zone, chosen by the tick). An arena strengthens the techniques of some
+// ---------- Chiến trường: every fight happens on one of 12 arenas (two per zone, chosen by the tick). An arena strengthens the techniques of some
 // elements and weakens those of others, for everybody on it (the player, Linh Thú and the foe). Pictures: public/art/arenas (scripts/pregen.ts).
 export interface Arena { id: string; zone: string; name: string; note: string; boost: string[]; weaken: string[] }
 export const ARENA_BOOST = 1.12, ARENA_WEAKEN = 0.88;
@@ -492,6 +495,8 @@ export const ARENAS: Arena[] = [
   { id: 'loivan_nhai', zone: 'loivan', name: 'Vân Nhai', note: 'Vách đá trên biển mây đen.', boost: ['Lôi', 'Dương'], weaken: ['Âm'] },
   { id: 'cuuu_khe', zone: 'cuuu', name: 'U Minh Liệt Khe', note: 'Khe nứt hư không nuốt ánh sáng.', boost: ['Âm'], weaken: ['Dương', 'Kim'] },
   { id: 'cuuu_nhatnguyet', zone: 'cuuu', name: 'Nhật Nguyệt Giao Thực', note: 'Nhật nguyệt giao nhau trên đài vỡ.', boost: ['Dương', 'Âm'], weaken: ['Thổ'] },
+  { id: 'tinhha_cau', zone: 'tinhha', name: 'Thiên Hà Ngọc Kiều', note: 'Cầu ngọc vỡ bắc ngang dòng sông sao.', boost: ['Kim', 'Dương'], weaken: ['Mộc'] },
+  { id: 'tinhha_dai', zone: 'tinhha', name: 'Tinh Thần Tế Đài', note: 'Đài tế cổ giữa biển sao rơi.', boost: ['Lôi', 'Âm'], weaken: ['Thổ'] },
 ];
 export const ARENA = (id: string | undefined) => ARENAS.find((a) => a.id === id) || null;
 export const arenaMult = (a: Arena | null, el?: string) => (!a || !el ? 1 : a.boost.includes(el) ? ARENA_BOOST : a.weaken.includes(el) ? ARENA_WEAKEN : 1);
@@ -509,6 +514,7 @@ export const PROP_EN: Record<string, string> = {
   bt1: 'a luminous breakthrough elixir pill glowing molten gold with swirling qi, in a small jade cup',
   bt2: 'a luminous breakthrough elixir pill glowing violet with crackling energy, in an ornate jade cup',
   bt3: 'a radiant breakthrough elixir pill glowing white-gold with a halo and prismatic light, in an ornate gold-trimmed jade cup',
+  bt4: 'a radiant breakthrough elixir pill of swirling silver starlight and a tiny glowing galaxy inside, haloed by drifting stardust, in an ornate silver-and-gold jade cup',
   trib: 'a protective thunder-ward amulet, a dark jade tablet wrapped in coiling violet lightning, with a silk tassel',
   mat_linhthao: 'a bundle of glowing spirit herbs with jade-green leaves and tiny luminous buds',
   mat_truc: 'a polished crystal shard of green bamboo essence with faint light inside',
@@ -516,6 +522,7 @@ export const PROP_EN: Record<string, string> = {
   mat_hoatinh: 'a fiery red-orange fire-spirit crystal stone with drifting embers',
   mat_loitinh: 'a crystal vial of violet lightning-essence sand with tiny sparks inside',
   mat_uminh: 'a ghostly dark indigo lotus flower glowing violet, with wisps of shadow',
+  mat_tinhsa: 'a small crystal hourglass-shaped vial of glittering silver-blue stardust sand with tiny shining stars drifting inside',
   book_kiem: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark blue leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a sword, glowing faintly',
   book_thuong: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark red leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a spear, glowing faintly',
   book_cung: 'an ancient Chinese martial-arts manual, a thin bound book with a plain smooth dark green leather cover that has no marks, no emblem and no ornament on it, closed with a silk cord from which hangs a small carved jade charm in the shape of a bow, glowing faintly',
@@ -550,6 +557,7 @@ export const PLACE_EN: Record<string, string> = {
   xichviem: 'a volcanic canyon with rivers of glowing lava, black rock arches, red-orange light and drifting embers',
   loivan: 'a high plateau under dark storm clouds, violet lightning striking ancient stone pillars, dramatic wind',
   cuuu: 'a surreal void between yin and yang, floating islands, swirling black and gold mist, a glowing rift of light in the sky',
+  tinhha: 'a shattered celestial river of stars in the void, a broken jade bridge of light arching over a glowing silver-blue galaxy, floating ruined palace pillars, drifting meteors and violet nebula clouds',
   market: 'a bustling ancient fantasy market street at dusk, hanging lanterns, wooden stalls with elixir bottles and jade tablets, warm lamp light, no readable signs',
   chodem: 'a mysterious xianxia night market in an ancient mountain-town alley after midnight, rows of red and amber paper lanterns, cloaked cultivators browsing wooden stalls laid with jade tablets, swords and glowing spirit artifacts, drifting incense smoke, a crescent moon over tiled roofs, deep indigo and warm gold light, no readable signs',
   chodem_quay: 'a single small wooden xianxia night-market stall under a hanging red paper lantern, empty cloth-covered counter with a tiny incense burner and a faint spirit-light glow, narrow stone alley at night, soft blue mist, no people, no readable signs',
@@ -562,6 +570,8 @@ export const PLACE_EN: Record<string, string> = {
   arena_loivan_dai: 'a wide xianxia duel arena, a huge flat carved stone thunder platform on a high plateau, violet lightning striking ancient pillars around it, dark storm clouds, dramatic wind',
   arena_loivan_nhai: 'a wide xianxia duel arena on a flat cliff-top ledge above a sea of dark thunder clouds, golden sunset glow breaking through the clouds, forks of lightning in the distance',
   arena_cuuu_khe: 'a wide xianxia duel arena, a flat black stone floor beside a glowing rift in the void swallowing light, floating broken islands, swirling black and violet mist, faint gold cracks',
+  arena_tinhha_cau: 'a wide xianxia duel arena, a flat broken jade bridge platform of pale stone spanning a glowing river of stars, silver-blue galaxy light, floating ruined pillars, drifting meteors',
+  arena_tinhha_dai: 'a wide xianxia duel arena, a flat ancient circular sacrificial altar of dark stone amid falling stars and violet nebula clouds, faint silver rune lines, wide starry void',
   arena_cuuu_nhatnguyet: 'a wide xianxia duel arena, a cracked flat circular platform in the void under a solar eclipse where sun and moon overlap, black and gold light, floating stone fragments',
 };
 // Different looks for Địa and above (Requirement: rarer items are not drawn twice the same way).
@@ -667,4 +677,4 @@ export const RECIPES: Recipe[] = [
 ];
 
 // A tall (portrait) version of each zone scene for phones: drawn at 9:16, shown instead of the wide one when the screen is taller than it is wide.
-for (const z of ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu']) PLACE_EN[`${z}_v`] = PLACE_EN[z];
+for (const z of ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu', 'tinhha']) PLACE_EN[`${z}_v`] = PLACE_EN[z];

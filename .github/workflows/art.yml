@@ -1,0 +1,50 @@
+# Draws the fixed pictures that are still missing (npm run pregen) when the catalog changes on main,
+# then commits them back to main. Finished files are skipped, so only new pictures cost money.
+# Needs these repository secrets: DATABASE_URL (the picture cache), FAL_KEY (or the key of the image provider in use),
+# optionally IMAGE_PROVIDER, IMAGE_BUDGET_USD, TUTIEN_ONLINE_AI_KEY (Claude reviews the pictures).
+name: Draw missing art
+on:
+  push:
+    branches: [main]
+    paths: ['lib/content.ts', 'lib/arts.ts', 'lib/avatarSpec.ts', 'lib/imageprompt.ts', 'scripts/pregen.ts']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: draw-art
+  cancel-in-progress: false
+jobs:
+  pregen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FAL_KEY: ${{ secrets.FAL_KEY }}
+      IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER }}
+      IMAGE_BUDGET_USD: ${{ secrets.IMAGE_BUDGET_USD }}
+      TUTIEN_ONLINE_AI_KEY: ${{ secrets.TUTIEN_ONLINE_AI_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets
+        id: chk
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::warning::DATABASE_URL secret is not set, skipping the art run"; echo "skip=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.chk.outputs.skip != '1'
+        with: { node-version: 22, cache: npm }
+      - name: Install
+        if: steps.chk.outputs.skip != '1'
+        run: npm ci
+      - name: Draw missing pictures
+        if: steps.chk.outputs.skip != '1'
+        run: npm run pregen
+      - name: Commit new pictures to main
+        if: always() && steps.chk.outputs.skip != '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/art
+          if git diff --cached --quiet; then echo "no new pictures"; exit 0; fi
+          git commit -m "art: draw missing pictures [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react';
 // (a full-screen particle canvas, drifting mist and pointer parallax used to repaint the whole window and made the page lag). The drifting qi and the waves
 // live in the small ornament in the header (QiWidget).
 
-const ZONE_IDS = ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu'] as const;
+const ZONE_IDS = ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu', 'tinhha'] as const;
 
 export function Atmosphere({ scene = 'night', aura = '#62cfae', zone }: { scene?: 'night' | 'dawn'; aura?: string; zone?: string }) {
 

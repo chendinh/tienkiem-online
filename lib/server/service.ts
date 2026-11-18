@@ -61,6 +61,7 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (st.set.hideRank === undefined) st.set.hideRank = false;
   if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
   if (!st.inv.books) st.inv.books = {};
+  while (st.inv.bt.length < B.shop.breakthrough.length) st.inv.bt.push(0);   // one Phá Cảnh Đan slot per realm that can be entered
   if (st.feed.length > B.feedSize) st.feed.length = B.feedSize;   // an older save kept more journey entries
   if (st.set.tame.strong === undefined) st.set.tame.strong = false;
   if (st.set.retreatPct < B.minRetreatPct) st.set.retreatPct = B.minRetreatPct;   // below 30% of health the character never goes out to fight

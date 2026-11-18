@@ -16,12 +16,14 @@
   .atmo-scene.zone.z-xichviem { background-image: url('/art/zones/xichviem.jpg'); }
   .atmo-scene.zone.z-loivan { background-image: url('/art/zones/loivan.jpg'); }
   .atmo-scene.zone.z-cuuu { background-image: url('/art/zones/cuuu.jpg'); }
+  .atmo-scene.zone.z-tinhha { background-image: url('/art/zones/tinhha.jpg'), linear-gradient(160deg, #0b1030 0%, #2a1a5e 55%, #0e2a4a 100%); }
   @media (max-aspect-ratio: 1 / 1) {
     .atmo-scene.zone.z-thanhvan { background-image: url('/art/zones/thanhvan_v.jpg'), url('/art/zones/thanhvan.jpg'); background-position: center; }
     .atmo-scene.zone.z-hannguyet { background-image: url('/art/zones/hannguyet_v.jpg'), url('/art/zones/hannguyet.jpg'); background-position: center; }
     .atmo-scene.zone.z-xichviem { background-image: url('/art/zones/xichviem_v.jpg'), url('/art/zones/xichviem.jpg'); background-position: center; }
     .atmo-scene.zone.z-loivan { background-image: url('/art/zones/loivan_v.jpg'), url('/art/zones/loivan.jpg'); background-position: center; }
     .atmo-scene.zone.z-cuuu { background-image: url('/art/zones/cuuu_v.jpg'), url('/art/zones/cuuu.jpg'); background-position: center; }
+    .atmo-scene.zone.z-tinhha { background-image: url('/art/zones/tinhha_v.jpg'), url('/art/zones/tinhha.jpg'), linear-gradient(160deg, #0b1030 0%, #2a1a5e 55%, #0e2a4a 100%); background-position: center; }
   }
   .atmo-scene::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.38); }
   .atmo-scene.dawn::after { background: rgb(0 0 0 / 0.5); }
