@@ -40,8 +40,7 @@ import { useTilt } from './fx/useTilt';
 import { MusicOrb } from './audio/MusicOrb';
 import { Credits } from './Credits';
 
-const POLL_MS = BALANCE.onlinePollSec * 1000;   // Online_Poll_Interval: the server settles the missed ticks at once, so a slow poll loses nothing
-const FOCUS_POLL_GAP_MS = 30_000;               // coming back to the tab asks again, but not more often than this
+const POLL_MS = Math.min(BALANCE.onlinePollSec * 1000, 5000);   // never slower than Online_Poll_Interval
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // A fight log is up to 56 cards. It is built only when the player opens it, and a row is drawn again only when its entry changes (the whole feed is replaced by a new copy at every poll).
@@ -471,17 +470,15 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   useEffect(() => {
     watchNet(setNet);
     poll().finally(() => setReady(true));
-    let last = Date.now();
-    const go = () => { last = Date.now(); poll(); };
-    const id = setInterval(() => { if (!document.hidden) go(); }, POLL_MS);
-    const vis = () => { if (!document.hidden && Date.now() - last >= FOCUS_POLL_GAP_MS) go(); };
+    const id = setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+    const vis = () => { if (!document.hidden) poll(); };
     document.addEventListener('visibilitychange', vis);
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', vis); };
   }, [poll]);
   useEffect(() => {
     let alive = true;
     const load = () => fetch('/api/image').then((r) => r.json()).then((j) => alive && setAi((prev: any) => (JSON.stringify(prev) === JSON.stringify(j) ? prev : j))).catch(() => {});
-    load(); const id = setInterval(load, 300_000);
+    load(); const id = setInterval(load, 15000);
     return () => { alive = false; clearInterval(id); };
   }, []);
   // Daily creatures and chronicle chapters: reloaded when the server reports a newer pack (or a new picture).

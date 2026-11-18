@@ -8,7 +8,6 @@ import { dayKey } from '../daily';
 const g = globalThis as any;
 const S: { last: Map<string, number> } = g.__tutienPresence || (g.__tutienPresence = { last: new Map() });
 const ZERO = '0'.repeat(1440);
-const PRESENCE_SPAN = 3;   // minutes one ask counts for (the page asks every 3 minutes)
 
 // Call after each state request of a signed-in player. Never throws: a failed write only loses a minute of counting.
 export async function touchPresence(acc: string, now = Date.now()): Promise<void> {
@@ -17,13 +16,10 @@ export async function touchPresence(acc: string, now = Date.now()): Promise<void
     if (S.last.get(acc) === minute) return;
     S.last.set(acc, minute);
     const m = Math.floor((now % 86400000) / 60000);
-    // The page asks every few minutes (Online_Poll_Interval), so one ask stands for the minutes since the previous one: mark this minute and the PRESENCE_SPAN - 1 before it.
-    const from = Math.max(0, m - (PRESENCE_SPAN - 1));
-    const mask = ZERO.slice(0, from) + '1'.repeat(m - from + 1) + ZERO.slice(m + 1);
     await query(
-      `INSERT INTO presence (acc, day, bits) VALUES ($1, $2, $3::bit(1440))
-       ON CONFLICT (acc, day) DO UPDATE SET bits = presence.bits | $3::bit(1440)`,
-      [acc, dayKey(now), mask],
+      `INSERT INTO presence (acc, day, bits) VALUES ($1, $2, set_bit($3::bit(1440), $4::int, 1))
+       ON CONFLICT (acc, day) DO UPDATE SET bits = set_bit(presence.bits, $4::int, 1)`,
+      [acc, dayKey(now), ZERO, m],
     );
     if (S.last.size > 5000) S.last.clear();
   } catch (err: any) { console.warn('[presence]', String(err?.message || err).slice(0, 120)); }
