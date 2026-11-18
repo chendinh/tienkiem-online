@@ -43,7 +43,7 @@ export const ERR = {
   E_NO_TRIB: 'Ngươi không có Độ Kiếp Phù.',
   E_NO_PLAYER: 'Người chơi này không còn trên Bảng Phong Thần.',
   E_NO_DECISION: 'Lựa chọn này không còn nữa.',
-  E_PEN_FULL: 'Linh Thú Viên đã đầy. Hãy bán bớt Linh Thú rồi thử lại.',
+  E_PEN_FULL: 'Chuồng Linh Thú đã đầy. Hãy bán bớt Linh Thú rồi thử lại.',
   E_MARKET_GONE: 'Quầy hoặc đề nghị này không còn nữa (đã đổi, đã rút hoặc đã hết hạn).',
   E_MARKET_OWN: 'Đây là món của ngươi bày. Hãy rút về nếu không muốn đổi nữa.',
   E_MARKET_OFFER_LIMIT: 'Ngươi chỉ được gửi tối đa 5 đề nghị cùng lúc.',

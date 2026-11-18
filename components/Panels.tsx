@@ -554,7 +554,7 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
         {d.grades.map((g) => <button key={g.grade} className="btn hot sm" disabled={g.have <= 0 || d.penFull} title={`Còn ${g.have} Khế Ước ${C.GRADES[g.grade]}`} onClick={() => go('tame', { grade: g.grade })}>{C.GRADES[g.grade]} {pct(g.p)} ({g.have})</button>)}
         <button className="btn sm" onClick={() => go('skip')}>Bỏ qua</button>
       </div>
-      {d.penFull && <div className="hint warn">Linh Thú Viên đã đầy: hãy bán bớt Linh Thú.</div>}
+      {d.penFull && <div className="hint warn">Chuồng Linh Thú đã đầy: hãy bán bớt Linh Thú.</div>}
       <TameTimer id={d.id} ms={d.msLeft} onExpire={() => { act('decide', { id: d.id, choice: 'skip' }); }} />
     </>);
   } else {
@@ -568,7 +568,7 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
   return <div className="decisionBar" role="region" aria-label="Hành trình đang chờ ngươi quyết định" aria-live="polite">{body}{msg && <div className="eqMsg err" role="alert">{msg}</div>}</div>;
 }
 
-// ---------- Linh Thú Viên: compact tiles, one popup per creature
+// ---------- Chuồng Linh Thú (the pen): compact tiles, one popup per creature
 export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, ok?: boolean) => void }) {
   const [sel, setSel] = useState<number | null>(null);
   const beasts = st.beasts.slice().sort((a, b) => b.power - a.power);
@@ -585,7 +585,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   const due = upkeepDue(st);
   return (
     <div>
-      <div className="hint">Linh Thú Viên {st.beasts.length}/{st.caps.pen}. Ba Linh Thú mạnh nhất (★) xuất chiến cùng ngươi. Phí nuôi {fmt(due)} Linh Thạch mỗi 10 phút.</div>
+      <div className="hint">Chuồng Linh Thú {st.beasts.length}/{st.caps.pen}. Ba Linh Thú mạnh nhất (★) xuất chiến cùng ngươi. Phí nuôi {fmt(due)} Linh Thạch mỗi 10 phút.</div>
       <div className="cleanRow"><button className="btn sm" disabled={beasts.length <= st.caps.party} onClick={sellMany}>Bán nhanh các con dư</button></div>
       {beasts.length === 0 && <div className="empty">Chưa có Linh Thú. Thắng yêu thú rồi dùng Khế Ước Phù, hoặc bật “Tự thu phục” trong Cài đặt.</div>}
       <div className="penGrid">
@@ -611,7 +611,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
             </div>
             <div className="eqAct">
               {cur.mut
-                ? <button className="btn" disabled title="Linh Thú Dị Biến rất hiếm, không thể bán hay thả">Dị Biến: giữ lại</button>
+                ? <button className="btn hot" title="Mở Linh Thú Viên với con này đã đứng sẵn trên nền" onClick={() => window.location.assign(`/linh-thu-vien?add=${cur.id}`)}><Icon name="zoo" size={16} /> Đưa vào Linh Thú Viên</button>
                 : <button className="btn hot" onClick={() => sellOne(cur)}>Bán +{fmt(releaseValue(cur))} <Icon name="stone" size={15} /></button>}
               <button className="btn ghost" onClick={() => setSel(null)}>Đóng</button>
             </div>

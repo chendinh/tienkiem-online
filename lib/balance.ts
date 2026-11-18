@@ -107,7 +107,7 @@ export const BALANCE = {
   npcRewardMult: 1.5,
   injuryTicks: 180, injuryFactor: 0.85, injuryCurePillGrade: 2,   // Thương Thế after a Defeat or a bad Kỳ Ngộ: atk, def and spd are lower until it ends or a grade-3 pill cures it
   robPctOnNpcDefeat: 0.04,
-  upkeepEveryTicks: 120, upkeepLevelDiv: 4,   // feeding the Linh Thú Viên: every 10 minutes each Linh Thú costs ceil(Level / 4) Linh Thạch (a sink; nothing dies when the purse is empty)
+  upkeepEveryTicks: 120, upkeepLevelDiv: 4,   // feeding the Linh Thú in the pen: every 10 minutes each Linh Thú costs ceil(Level / 4) Linh Thạch (a sink; nothing dies when the purse is empty)
   breakSnoozeTicks: 360,       // "Để sau" on the Breakthrough question hides it this long
   // bag and economy (Requirement 21, 24)
   bagCapacity: 100,

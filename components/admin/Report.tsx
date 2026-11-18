@@ -273,7 +273,7 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
 
         <Card id="beasts" title="Linh thú" sub={`${num(b.speciesTamed)} / ${num(b.speciesInGame)} loài đã có người thu phục`}>
           <div className="rp-kpis">
-            <Kpi label="Đang có" value={num(b.total)} tone="gold" sub="trong Linh Thú Viên người thật" />
+            <Kpi label="Đang có" value={num(b.total)} tone="gold" sub="trong Chuồng Linh Thú người thật" />
             <Kpi label="Mỗi người" value={dec(b.avgPerPlayer)} sub={`nhiều nhất ${num(b.maxPerPlayer)}`} />
             <Kpi label="Dị Biến" value={num(b.mutants)} tone="jade" />
             <Kpi label="Đã thu phục từ đầu" value={num(b.tamedEver)} sub={`${num(b.mutTamedEver)} Dị Biến`} />

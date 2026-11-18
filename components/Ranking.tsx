@@ -12,12 +12,12 @@ import { Seg } from './ds/Seg';
 import { Logo } from './Logo';
 import { LotusLoad } from './LoadingNote';
 
-type Board = 'cult' | 'power' | 'quest' | 'tien';
-interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd?: number; av?: string }
+type Board = 'cult' | 'power' | 'quest' | 'mut' | 'tien';
+interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd?: number; mu?: number; av?: string }
 interface TienRow { rank: number; pid: string; owner: string; dao: string; me: boolean; worn: boolean; it: Item }
 interface Profile {
   pid: string; name: string; dao: string; title?: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
-  stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number; quests?: number;
+  stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; mutants: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number; quests?: number;
   rank: { cult: number; power: number }; active: number;
 }
 const ago = (t: number) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 2 ? 'đang chơi' : m < 60 ? `${m} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
@@ -59,9 +59,9 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
   const rows = data?.rows || [];
   const top = rows.slice(0, 3), rest = rows.slice(3);
   const maxPow = Math.max(1, ...rows.map((r) => r.power)), maxLv = Math.max(1, ...rows.map((r) => r.level));
-  const maxQd = Math.max(1, ...rows.map((r) => r.qd || 0));
-  const metric = (r: Row) => board === 'power' ? <><Icon name="atk" size={14} /> {fmt(r.power)}</> : board === 'quest' ? <><Icon name="scroll" size={14} /> ×{fmt(r.qd || 0)}</> : <><Icon name="rise" size={14} /> Lv{r.level}</>;
-  const pct = (r: Row) => Math.max(4, Math.round((board === 'power' ? r.power / maxPow : board === 'quest' ? (r.qd || 0) / maxQd : r.level / maxLv) * 100));
+  const maxQd = Math.max(1, ...rows.map((r) => r.qd || 0)), maxMu = Math.max(1, ...rows.map((r) => r.mu || 0));
+  const metric = (r: Row) => board === 'power' ? <><Icon name="atk" size={14} /> {fmt(r.power)}</> : board === 'quest' ? <><Icon name="scroll" size={14} /> ×{fmt(r.qd || 0)}</> : board === 'mut' ? <><Icon name="paw" size={14} /> ×{fmt(r.mu || 0)}</> : <><Icon name="rise" size={14} /> Lv{r.level}</>;
+  const pct = (r: Row) => Math.max(4, Math.round((board === 'power' ? r.power / maxPow : board === 'quest' ? (r.qd || 0) / maxQd : board === 'mut' ? (r.mu || 0) / maxMu : r.level / maxLv) * 100));
   const who = (r: Row) => r.dao || (r.g === 'f' ? 'Nữ tu' : 'Nam tu');
 
   const pod = (r: Row | undefined, i: number) => {
@@ -109,12 +109,13 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
         <header className="rkBanner">
           <div className="rkTitle">
             <span className="rkSeal"><Icon name="crown" size={22} /></span>
-            <div><h2>Bảng Phong Thần</h2><small>{board === 'tien' ? (tienData ? `${tienData.total} món Tiên Phẩm · ${tienData.owners} chủ nhân` : 'Thiên Đạo đang kiểm kê…') : data ? (board === 'quest' ? `${data.total} tu sĩ đã hoàn thành nhiệm vụ ngày` : `${data.total} tu sĩ đã ghi danh`) : 'Thiên Đạo đang xếp hạng…'}</small></div>
+            <div><h2>Bảng Phong Thần</h2><small>{board === 'tien' ? (tienData ? `${tienData.total} món Tiên Phẩm · ${tienData.owners} chủ nhân` : 'Thiên Đạo đang kiểm kê…') : data ? (board === 'quest' ? `${data.total} tu sĩ đã hoàn thành nhiệm vụ ngày` : board === 'mut' ? `${data.total} tu sĩ nuôi Linh Thú Dị Biến` : `${data.total} tu sĩ đã ghi danh`) : 'Thiên Đạo đang xếp hạng…'}</small></div>
           </div>
           <Seg<Board> label="Bảng" value={board} onChange={pickBoard} options={[
             { v: 'cult' as const, label: <><Icon name="lotus" size={15} /><span>Tu Vi</span></>, title: 'Xếp theo cảnh giới' },
             { v: 'power' as const, label: <><Icon name="atk" size={15} /><span>Chiến Lực</span></>, title: 'Xếp theo sức mạnh chiến đấu' },
             { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Chiến Công</span></>, title: 'Xếp theo số lần hoàn thành nhiệm vụ ngày' },
+            { v: 'mut' as const, label: <><Icon name="paw" size={15} /><span>Dị Thú</span></>, title: 'Xếp theo số Linh Thú Dị Biến đang nuôi' },
             { v: 'tien' as const, label: <><Icon name="sparkle" size={15} /><span>Tiên Phẩm</span></>, title: 'Pháp khí hạng Tiên và chủ nhân' },
           ]} />
         </header>
@@ -124,7 +125,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
             {err && <div className="eqMsg err" role="alert">{err}</div>}
             {!(board === 'tien' ? tienData : data) && !err && <LotusLoad label="Thiên Đạo đang xếp hạng…" />}
             {board === 'tien' && tienData && (tRows.length === 0 ? <div className="empty">Chưa có Tiên Phẩm nào xuất thế.</div> : <div className="rkList tpList">{tRows.map(tienRow)}</div>)}
-            {board !== 'tien' && data && rows.length === 0 && <div className="empty">{board === 'quest' ? 'Chưa ai hoàn thành nhiệm vụ ngày.' : 'Chưa có ai trên bảng.'}</div>}
+            {board !== 'tien' && data && rows.length === 0 && <div className="empty">{board === 'quest' ? 'Chưa ai hoàn thành nhiệm vụ ngày.' : board === 'mut' ? 'Chưa ai nuôi Linh Thú Dị Biến.' : 'Chưa có ai trên bảng.'}</div>}
             {board !== 'tien' && data && rows.length > 0 && (
               <>
                 <div className="rkPodium">{[1, 0, 2].map((i) => pod(top[i], i))}</div>
@@ -133,13 +134,13 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
             )}
             {board !== 'tien' && data && (
               <div className="rkMe">
-                {data.me ? <><span className="rkMeLbl">Hạng của ngươi <b>{data.me.rank}</b> / {data.total}</span>{rowEl(data.me)}</> : <span className="rkMeLbl">{board === 'quest' ? 'Ngươi chưa hoàn thành nhiệm vụ ngày nào, hoặc đang ẩn khỏi bảng.' : 'Ngươi đang ẩn khỏi bảng. Bật lại trong Cài đặt.'}</span>}
+                {data.me ? <><span className="rkMeLbl">Hạng của ngươi <b>{data.me.rank}</b> / {data.total}</span>{rowEl(data.me)}</> : <span className="rkMeLbl">{board === 'quest' ? 'Ngươi chưa hoàn thành nhiệm vụ ngày nào, hoặc đang ẩn khỏi bảng.' : board === 'mut' ? 'Ngươi chưa có Linh Thú Dị Biến nào, hoặc đang ẩn khỏi bảng.' : 'Ngươi đang ẩn khỏi bảng. Bật lại trong Cài đặt.'}</span>}
               </div>
             )}
           </section>
 
           <aside className="rkDetail" aria-label="Chi tiết">
-            {pid ? <ProfileView key={pid} pid={pid} onBack={() => setPid(null)} /> : <div className="rkHintBox"><Icon name="scroll" size={34} /><p>Bấm vào một tu sĩ để xem chỉ số, trang bị và Linh Thú xuất chiến.</p></div>}
+            {pid ? <ProfileView key={pid} pid={pid} focusMut={board === 'mut'} onBack={() => setPid(null)} /> : <div className="rkHintBox"><Icon name="scroll" size={34} /><p>Bấm vào một tu sĩ để xem chỉ số, trang bị và Linh Thú xuất chiến.</p></div>}
           </aside>
         </div>
       </div>
@@ -147,7 +148,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
+function ProfileView({ pid, onBack, focusMut = false }: { pid: string; onBack: () => void; focusMut?: boolean }) {
   const zoom = useZoom();
   const [p, setP] = useState<Profile | null>(null);
   const [err, setErr] = useState('');
@@ -159,6 +160,25 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
   const back = <button type="button" className="btn sm ghost rkBack" onClick={onBack}><Icon name="back" size={15} /> Về bảng</button>;
   if (err) return <>{back}<div className="eqMsg err" role="alert">{err}</div></>;
   if (!p) return <>{back}<div className="empty">Đang xem…</div></>;
+  // every Dị Biến beast of this player; on the Dị Thú board it comes first, since that is what was asked for
+  const mut = p.mutants || [];
+  const mutants = (
+    <>
+      <h3>Linh Thú Dị Biến ({mut.length})</h3>
+      {mut.length === 0 ? <div className="empty">Chưa có Linh Thú Dị Biến.</div> : (
+        <div className="rkParty rkMutants">
+          {mut.map((b) => (
+            <div key={b.id} className="rkBeast mutc">
+              <BeastArt b={b} box={96} />
+              <b>✦ {b.elite ? 'Tinh Anh ' : ''}{b.name}</b>
+              <small>Lv{b.level} · {C.PERS[b.pers].n} · <Icon name="atk" size={12} /> {b.power}</small>
+              <small>{b.cm} cm · {C.SIZE_CLASS[b.cls]}</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
   return (
     <div className="rankProfile">
       {back}
@@ -180,6 +200,8 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
         <div><small>Hạng Chiến Lực</small><b>{p.rank.power || '–'}</b></div>
         <div><small>Chiến Lực</small><b><Icon name="atk" size={15} /> {fmt(p.power)}</b></div>
       </div>
+
+      {focusMut && mutants}
 
       <h3>Chỉ số</h3>
       <div className="rkStats">{STATS.map(([k, label, icon]) => <div key={k} className="rkStat"><Icon name={icon} size={16} /><span>{label}</span><b>{fmt(p.stats[k])}</b></div>)}</div>
@@ -211,6 +233,7 @@ function ProfileView({ pid, onBack }: { pid: string; onBack: () => void }) {
           ))}
         </div>
       )}
+      {!focusMut && mut.length > 0 && mutants}
       <div className="hint">Đã thu phục {fmt(p.beasts)} Linh Thú ({p.tamedSpecies} loài), từng gặp {p.species}/{C.SPECIES.length} loài, hạ {fmt(p.kills)} đối thủ. Hoạt động: {ago(p.active)}.</div>
     </div>
   );

@@ -71,6 +71,7 @@ export function Zoo() {
   const [err, setErr] = useState('');
   const [vis, setVis] = useState(true);
   const stage = useRef<HTMLDivElement>(null), drag = useRef<string | null>(null), alive = useRef(true), loops = useRef(new Set<string>());
+  const want = useRef(0);   // a beast asked for in the address (?add=), still to be put on the picture
   const cutsRef = useRef(cuts); cutsRef.current = cuts;
   const saved = useRef<{ bg: string; lay: Record<string, ZooItem[]> }>({ bg: ZOO_BGS[0].id, lay: {} });
   const bgInfo = ZOO_BGS.find((x) => x.id === bg) || ZOO_BGS[0];
@@ -111,6 +112,9 @@ export function Zoo() {
         for (const b of list) if (b.cut) c[keyOf(b)] = b.cut;
         setCuts(c); cutsRef.current = c;
         saved.current = { bg: j.zoo.bg, lay: j.zoo.lay || {} };
+        // "Đưa vào Linh Thú Viên" in the pen opens this page with ?add=<beast id>: that beast is put on the picture as soon as it is shown
+        const w = Number(new URLSearchParams(window.location.search).get('add'));
+        if (Number.isInteger(w) && w > 0) { want.current = w; window.history.replaceState(null, '', window.location.pathname); }
         // a beast that was put down earlier and has no clip yet carries on being made
         for (const it of (j.zoo.lay?.[j.zoo.bg] || []) as ZooItem[]) { const b = list.find((x) => x.id === it.beast); if (b && !c[keyOf(b)]) void run(b); }
       } catch { setErr('Không gọi được máy chủ.'); setBeasts([]); }
@@ -142,6 +146,17 @@ export function Zoo() {
     setSel(uid);
     if (!cutsRef.current[keyOf(b)]) void run(b);
   }
+  // the beast asked for in the address goes onto the perch with the fewest creatures, and the page opens ready to save
+  useEffect(() => {
+    if (!beasts || !want.current) return;
+    const b = beasts.find((x) => x.id === want.current);
+    want.current = 0;
+    if (!b) return;
+    setEditing(true);
+    const p = [...perches].sort((a, c) => items.filter((i) => i.perch === a.id).length - items.filter((i) => i.perch === c.id).length)[0];
+    if (p) add(b, p.x, p.y);
+  }, [beasts]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   // pulled from the tray: dropped on the stage it goes to the nearest perch; a plain tap puts it on the perch with the fewest creatures
   function pull(b: Beast, e: ReactPointer) {
     const x0 = e.clientX, y0 = e.clientY;

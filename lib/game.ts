@@ -880,13 +880,13 @@ export interface TameNote { text: string; won: boolean; beast: Beast }
 const tameName = (m: Beast) => `${m.mut ? 'Dị Biến ' : ''}${m.name} (Lv${m.level})`;
 const tamePct = (st: GameState, m: Beast, sp: C.Species, grade: number) => Math.round(tameProb(st, sp, m, grade) * 100);   // read BEFORE the roll: a quest reward can raise the Level after it
 const tameNote = (m: Beast, grade: number, won: boolean, pct: number): TameNote => {
-  return { won, beast: m, text: won ? `Thu phục thành công ${tameName(m)} bằng Khế Ước Phù hạng ${C.GRADES[grade]} (tỷ lệ ${pct}%). Đã vào Linh Thú Viên.` : `Thu phục thất bại ${tameName(m)}, mất 1 Khế Ước Phù hạng ${C.GRADES[grade]} (tỷ lệ ${pct}%). Linh Thú đã chạy mất.` };
+  return { won, beast: m, text: won ? `Thu phục thành công ${tameName(m)} bằng Khế Ước Phù hạng ${C.GRADES[grade]} (tỷ lệ ${pct}%). Đã vào Chuồng Linh Thú.` : `Thu phục thất bại ${tameName(m)}, mất 1 Khế Ước Phù hạng ${C.GRADES[grade]} (tỷ lệ ${pct}%). Linh Thú đã chạy mất.` };
 };
 const feedTame = (st: GameState, n: TameNote | null) => { if (n) feed(st, { kind: 'tame', text: n.text, beast: n.beast, outcome: n.won ? 'win' : 'lose', chips: [] }); };
 const missed = (m: Beast, why: 'pen' | 'tal', chips: string[], rep?: Report, log?: string[]): TameNote => {
-  if (rep) { if (why === 'pen') rep.skipPen++; else rep.skipTalisman++; if (m.mut) rep.highlights.push({ prio: 85, kind: 'mutation', text: `Bỏ lỡ ${m.name} Dị Biến (${why === 'pen' ? 'Linh Thú Viên đầy' : 'hết Khế Ước Phù'})`, beast: m, log }); }
-  chips.push(why === 'pen' ? 'Linh Thú Viên đầy, bỏ qua' : 'Hết Khế Ước Phù, bỏ qua');
-  return { won: false, beast: m, text: `Không thu phục được ${tameName(m)}: ${why === 'pen' ? 'Linh Thú Viên đã đầy' : 'đã hết Khế Ước Phù'}.` };
+  if (rep) { if (why === 'pen') rep.skipPen++; else rep.skipTalisman++; if (m.mut) rep.highlights.push({ prio: 85, kind: 'mutation', text: `Bỏ lỡ ${m.name} Dị Biến (${why === 'pen' ? 'Chuồng Linh Thú đầy' : 'hết Khế Ước Phù'})`, beast: m, log }); }
+  chips.push(why === 'pen' ? 'Chuồng Linh Thú đầy, bỏ qua' : 'Hết Khế Ước Phù, bỏ qua');
+  return { won: false, beast: m, text: `Không thu phục được ${tameName(m)}: ${why === 'pen' ? 'Chuồng Linh Thú đã đầy' : 'đã hết Khế Ước Phù'}.` };
 };
 // The taming roll itself: spends one Khế Ước Phù of `grade`, draws from the `tame` stream, adds the Linh Thú on success.
 // The daily quest: today's new creature, tamed `questTame` times. Counts every successful taming (by hand or automatic) on the day the creature is new.

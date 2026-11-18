@@ -7,8 +7,8 @@ import * as C from '../content';
 import { query, savepoint } from './db';
 import { loadAccount, decodeState } from './store';
 
-export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; t: number; qd?: number; av?: string; tp?: TienOwn[] }
-export type Board = 'cult' | 'power' | 'quest';
+export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; t: number; qd?: number; av?: string; tp?: TienOwn[]; mu?: number }
+export type Board = 'cult' | 'power' | 'quest' | 'mut';   // mut: how many Dị Biến beasts a player owns
 // An item of the highest rarity (Tiên, tier 5) that the player owns: worn, in the bag or in the stash. Kept on the player's row so the Tiên Phẩm list needs no account loads.
 export interface TienOwn { it: G.Item; w?: 1 }
 const TIEN = C.RARITY.length - 1, TIEN_MAX = 12;
@@ -22,6 +22,8 @@ const tienOf = (st: G.GameState): TienOwn[] => {
   return out.sort((a, b) => (b.w || 0) - (a.w || 0) || b.it.power - a.it.power).slice(0, TIEN_MAX);
 };
 
+const mutOf = (st: G.GameState) => st.beasts.filter((b) => b.mut).length;
+
 const g = globalThis as any;
 const S: { secret?: Promise<string>; sorted: Record<string, { at: number; list: RankEntry[] }>; last: Map<string, { sig: string; at: number }>; tien?: { at: number; list: { e: RankEntry; o: TienOwn }[] } } = g.__tutienRank || (g.__tutienRank = { sorted: {}, last: new Map() });
 const pidOf = (secret: string, acc: string) => createHmac('sha256', secret).update(acc).digest('hex').slice(0, 12);
@@ -32,7 +34,7 @@ const PS: { prof: Map<string, { at: number; v: any }>; rows: { at: number; p: Pr
 
 export function entryOf(st: G.GameState, pid: string, acc: string, now: number): RankEntry {
   const p = st.player, tp = tienOf(st);
-  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, t: now, qd: G.questCount(st), ...(tp.length ? { tp } : {}), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
+  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, t: now, qd: G.questCount(st), ...(tp.length ? { tp } : {}), ...(mutOf(st) ? { mu: mutOf(st) } : {}), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
 }
 
 // The rows of every player. One read of the table serves every board and the Tiên list; callers that arrive meanwhile share it.
@@ -83,21 +85,22 @@ const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
   cult: (a, b) => b.level - a.level || b.cp - a.cp || b.power - a.power || a.t - b.t,
   power: (a, b) => b.power - a.power || b.level - a.level || a.t - b.t,
   quest: (a, b) => (b.qd || 0) - (a.qd || 0) || b.level - a.level || b.power - a.power || a.t - b.t,
+  mut: (a, b) => (b.mu || 0) - (a.mu || 0) || b.power - a.power || b.level - a.level || a.t - b.t,
 };
 async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
   await secret();
   const hit = S.sorted[board];
   if (hit && now - hit.at < ttl()) return hit.list;
   const rows = await allRows(now);
-  const list = rows.filter((e) => (board !== 'quest' || (e.qd || 0) > 0)).sort(cmp[board]);
+  const list = rows.filter((e) => (board === 'quest' ? (e.qd || 0) > 0 : board === 'mut' ? (e.mu || 0) > 0 : true)).sort(cmp[board]);
   S.sorted[board] = { at: now, list };
   return list;
 }
 
-export interface RankRow { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd: number; av?: string }
+export interface RankRow { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd: number; mu: number; av?: string }
 export async function board(b: Board, meAcc: string, now: number, top = 100) {
   const list = await sortedBoard(b, now);
-  const row = (e: RankEntry, i: number): RankRow => ({ rank: i + 1, pid: e.pid, name: e.name, dao: e.dao, g: e.g, realm: e.realm, sub: e.sub, level: e.level, power: e.power, el: e.el, me: e.acc === meAcc, t: e.t, qd: e.qd || 0, av: e.av });
+  const row = (e: RankEntry, i: number): RankRow => ({ rank: i + 1, pid: e.pid, name: e.name, dao: e.dao, g: e.g, realm: e.realm, sub: e.sub, level: e.level, power: e.power, el: e.el, me: e.acc === meAcc, t: e.t, qd: e.qd || 0, mu: e.mu || 0, av: e.av });
   const mine = list.findIndex((e) => e.acc === meAcc);
   return { board: b, total: list.length, rows: list.slice(0, top).map(row), me: mine >= 0 ? row(list[mine], mine) : null };
 }
@@ -127,6 +130,9 @@ export async function profile(pid: string, now: number) {
   else PS.prof.delete(pid);
   return v;
 }
+// Every Dị Biến beast of a player, strongest first (they are rare, so the list is short; the cap only guards the answer's size).
+const MUT_LIST = 60;
+const mutantsOf = (st: G.GameState) => st.beasts.filter((b) => b.mut).sort((a, b) => b.power - a.power || b.level - a.level).slice(0, MUT_LIST);
 async function buildProfile(pid: string, now: number) {
   await secret();
   const e = (await query<{ entry: RankEntry }>(`SELECT entry FROM rank_entries WHERE entry->>'pid' = $1`, [pid])).rows[0]?.entry;
@@ -138,7 +144,7 @@ async function buildProfile(pid: string, now: number) {
   const rankOf = async (b: Board) => (await sortedBoard(b, now)).findIndex((x) => x.pid === pid) + 1;
   return {
     pid, name: p.name, dao: p.dao, title: C.titleOf(p.title)?.name || '', g: p.look.g, avatar: p.avatar && p.avatar.url, realm: p.realm, sub: p.sub, level: G.levelOf(p), linh: p.linh, purity: p.purity, pers: p.pers, origin: p.origin,
-    stats: S_, power: G.combatPower(st), equipment: Object.fromEntries(C.SLOTS.map((s) => [s, st.eq[s] || null])), party: G.bestParty(st),
+    stats: S_, power: G.combatPower(st), equipment: Object.fromEntries(C.SLOTS.map((s) => [s, st.eq[s] || null])), party: G.bestParty(st), mutants: mutantsOf(st),
     beasts: st.beasts.length, species: Object.values(st.best).filter((b) => b.seen > 0).length, tamedSpecies: Object.values(st.best).filter((b) => b.tamed > 0).length, kills: st.kills, quests: G.questCount(st),
     rank: { cult: await rankOf('cult'), power: await rankOf('power') }, active: e.t,
   };
