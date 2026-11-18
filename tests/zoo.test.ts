@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AIR, GLOW, sparks, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
+import { AIR, GLOW, LIGHT, sparks, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
 import { MUTATIONS } from '../lib/anim';
 import { DEFAULT_PERCHES } from '../lib/garden';
 
@@ -68,4 +68,12 @@ test('the fixed lights of each background blink at places inside the picture, th
   }
   assert.ok(sparks('thanhvan').some((k) => k.dx !== 0) && sparks('tinhha').every((k) => k.dx === 0 && k.dy === 0));
   assert.deepEqual(sparks('nowhere'), []);
+});
+
+test('each background has one light source inside its picture', () => {
+  for (const b of ZOO_BGS) {
+    const l = LIGHT[b.id];
+    assert.ok(l && l.x > 0 && l.x < 100 && l.y > 0 && l.y < 100 && l.r > 20 && l.r <= 100 && l.a > 0 && l.a <= 1);
+    assert.match(l.color, /^\d{1,3}, \d{1,3}, \d{1,3}$/);
+  }
 });

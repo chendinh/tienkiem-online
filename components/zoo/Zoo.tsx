@@ -1,7 +1,7 @@
 'use client';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouse, type PointerEvent as ReactPointer } from 'react';
 import { ASPECT, DEFAULT_PERCHES, HEIGHT, K_RANGE, frameOf, newUid, sizeOf, snapPerch, type Box } from '@/lib/garden';
-import { AIR, GLOW, LOOK_COLOR, ZOO_BGS, etaText, sparks, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
+import { AIR, GLOW, LIGHT, LOOK_COLOR, ZOO_BGS, etaText, sparks, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
 import { useGenImage } from '@/lib/useGenImage';
 import { monsterSpec } from '@/lib/avatarSpec';
 import { Icon } from '@/components/ds/Icon';
@@ -24,6 +24,17 @@ function Air({ bg }: { bg: string }) {
   return (
     <div className={`zv-air ${a.kind} ${a.shape}`} aria-hidden style={{ '--c': a.color, '--g': `${a.glow}px` } as CSSProperties}>
       {list.map((k, i) => <i key={`${bg}${i}`} style={{ left: pc(k.x), '--s': `${k.s}px`, '--dx': `${k.dx}px`, '--r': `${k.rot}deg`, animationDuration: `${k.dur}s`, animationDelay: `${k.delay}s` } as CSSProperties} />)}
+    </div>
+  );
+}
+
+// the breathing light of the background's main source (lib/zoo.ts LIGHT)
+function Light({ bg }: { bg: string }) {
+  const l = LIGHT[bg];
+  if (!l) return null;
+  return (
+    <div className="zv-light" aria-hidden style={{ left: pc(l.x), top: pc(l.y), width: pc(l.r * 2), '--c': l.color, '--a': l.a } as CSSProperties}>
+      <u />{l.rays && <s />}
     </div>
   );
 }
@@ -205,6 +216,7 @@ export function Zoo() {
       <div className="zv-main">
         <div ref={stage} className="zv-stage" onPointerDown={() => setSel(null)}>
           <img className="zv-bg" src={bgInfo.src} alt="" draggable={false} />
+          <Light bg={bg} />
           <Air bg={bg} />
           <Glow bg={bg} />
           <div className="zv-items">

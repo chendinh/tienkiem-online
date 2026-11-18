@@ -23,6 +23,14 @@
 @keyframes zv-rise { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 12% { opacity: 0.85; } 85% { opacity: 0.7; } 100% { transform: translate3d(var(--dx), -105%, 0); opacity: 0; } }
 @keyframes zv-fall { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 10% { opacity: 0.85; } 88% { opacity: 0.75; } 100% { transform: translate3d(var(--dx), 105%, 0); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .zv-air { display: none; } }
+/* the main light source: a glow that breathes and a fan of shafts that sways slowly; opacity and transform only */
+.zv-light { position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; }
+.zv-light u, .zv-light s { position: absolute; inset: 0; }
+.zv-light u { background: radial-gradient(closest-side, rgba(var(--c), calc(var(--a) * 0.9)), rgba(var(--c), calc(var(--a) * 0.35)) 45%, transparent); opacity: 0.45; will-change: opacity; animation: zv-sun 7s ease-in-out infinite alternate; }
+.zv-light s { background: conic-gradient(from 0deg at 50% 50%, transparent 0 138deg, rgba(var(--c), 0.34) 146deg, transparent 156deg 166deg, rgba(var(--c), 0.26) 173deg, transparent 183deg 190deg, rgba(var(--c), 0.3) 198deg, transparent 208deg 360deg); -webkit-mask-image: radial-gradient(closest-side, #000 8%, transparent 100%); mask-image: radial-gradient(closest-side, #000 8%, transparent 100%); opacity: 0.5; will-change: opacity, transform; animation: zv-shaft 17s ease-in-out infinite alternate; }
+@keyframes zv-sun { from { opacity: 0.4; } to { opacity: 1; } }
+@keyframes zv-shaft { from { opacity: 0.35; transform: rotate(-5deg); } to { opacity: 1; transform: rotate(5deg); } }
+@media (prefers-reduced-motion: reduce) { .zv-light { display: none; } }
 /* fixed lights: they blink in place (fireflies also wander a little) and soft blobs pulse; opacity and transform only */
 .zv-glow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .zv-glow i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); border-radius: 50%; background: var(--c); box-shadow: 0 0 var(--g) calc(var(--s) / 2) var(--c); opacity: 0; will-change: opacity; animation: zv-blink var(--t) ease-in-out var(--d) infinite; }

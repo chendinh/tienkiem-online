@@ -110,3 +110,11 @@ export function sparks(bg: string): Spark[] {
     return { x: mix(4, 96), y: mix(g.y[0], g.y[1]), s: mix(g.size[0], g.size[1]), dur, delay: -mix(0, dur), dx: mix(-drift, drift), dy: mix(-drift, drift) };
   });
 }
+
+// ---- a third, very soft layer: the light of the picture's main source breathes (a warm glow and, where the picture has them, a fan of light shafts that sways).
+export interface Light { x: number; y: number; r: number; color: string; a: number; rays: boolean }   // centre in % of the picture; r: radius in % of its width; color: 'r,g,b'; a: strength 0..1
+export const LIGHT: Record<string, Light> = {
+  thanhvan: { x: 44, y: 21, r: 62, color: '255, 226, 160', a: 0.5, rays: true },    // the low sun behind the mountains
+  tinhha: { x: 50, y: 30, r: 70, color: '150, 170, 255', a: 0.3, rays: false },     // the glow of the nebula
+  xichviem: { x: 52, y: 12, r: 60, color: '255, 196, 150', a: 0.4, rays: true },    // the light coming down through the smoke
+};
