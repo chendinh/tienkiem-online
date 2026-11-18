@@ -10,6 +10,7 @@ import { ElIcon, SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { Seg } from './ds/Seg';
 import { Logo } from './Logo';
+import { LotusLoad } from './LoadingNote';
 
 type Board = 'cult' | 'power' | 'quest' | 'tien';
 interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd?: number; av?: string }
@@ -24,6 +25,8 @@ const STATS: [string, string, string][] = [['maxHp', 'Sinh Lực', 'hp'], ['atk'
 const elColor = (r: Row) => C.EL[r.el[0]]?.color || 'var(--gold-300)';
 // The tag of honour for finishing the daily quest, with how many times it was done.
 const QuestTag = ({ n, big }: { n?: number; big?: boolean }) => (n && n > 0 ? <span className={`questTag${big ? ' big' : ''}`} title={`Đã hoàn thành nhiệm vụ ngày ${n} lần`}><Icon name="scroll" size={big ? 15 : 12} /><span className="qtl">Nhiệm vụ ngày </span>×{n}</span> : null);
+// The last answer of each board, kept while the window lives: a tab opens at once and is refreshed behind the scenes.
+const CACHE: Partial<Record<Board, any>> = {};
 const MEDAL = ['', 'Thiên Bảng', 'Địa Bảng', 'Nhân Bảng'];
 
 // Bảng Phong Thần: a stele of the strongest cultivators. The first three stand on a podium, the rest follow in a list,
@@ -35,14 +38,17 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
   const [pid, setPid] = useState<string | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
-    let alive = true; setData(null); setTienData(null); setErr('');
+    let alive = true; setErr('');
+    const put = (j: any) => { if (board === 'tien') { setTienData(j); setData(null); } else { setData(j); setTienData(null); } };
+    const hit = CACHE[board];
+    if (hit) put(hit); else { setData(null); setTienData(null); }   // nothing cached: the lotus shows in the list until the server answers
     rankingGet(`board=${board}`).then((j) => {
       if (!alive) return;
-      if (!j.ok) { setErr(errText(j.code)); return; }
-      if (board === 'tien') setTienData(j); else setData(j);
+      if (!j.ok) { if (!hit) setErr(errText(j.code)); return; }
+      CACHE[board] = j; put(j);
       // with room for two panes, open the first page at once
       if (window.matchMedia('(min-width: 900px)').matches) setPid((cur) => cur ?? j.me?.pid ?? j.rows[0]?.pid ?? null);
-    }).catch(() => alive && setErr(errText('E_SERVER')));
+    }).catch(() => alive && !hit && setErr(errText('E_SERVER')));
     return () => { alive = false; };
   }, [board]);
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
@@ -113,7 +119,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
         <div className="rkBody">
           <section className="rkBoard" aria-label="Danh sách">
             {err && <div className="eqMsg err" role="alert">{err}</div>}
-            {!(board === 'tien' ? tienData : data) && !err && <div className="rkSkel" aria-busy="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</div>}
+            {!(board === 'tien' ? tienData : data) && !err && <LotusLoad label="Thiên Đạo đang xếp hạng…" />}
             {board === 'tien' && tienData && (tRows.length === 0 ? <div className="empty">Chưa có Tiên Phẩm nào xuất thế.</div> : <div className="rkList tpList">{tRows.map(tienRow)}</div>)}
             {board !== 'tien' && data && rows.length === 0 && <div className="empty">{board === 'quest' ? 'Chưa ai hoàn thành nhiệm vụ ngày.' : 'Chưa có ai trên bảng.'}</div>}
             {board !== 'tien' && data && rows.length > 0 && (

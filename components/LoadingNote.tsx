@@ -15,6 +15,16 @@ function Lotus() {
   );
 }
 
+// The same lotus, centred in whatever area is waiting for the server (e.g. a tab of the ranking).
+export function LotusLoad({ label = 'Đang tải…' }: { label?: string }) {
+  return (
+    <div className="lotusLoad" role="status" aria-live="polite" aria-busy="true">
+      <span className="loadLotus big"><Img src={C.uiArt('loading')} fb={<Lotus />} /></span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
 // A small notice from the bottom edge while the game is waiting for the server. It appears only if the wait is longer than 200 ms
 // (an action the screen already shows never stays long enough to) and stays a moment after, so it never flashes on and off.
 export function LoadingNote({ active }: { active: boolean }) {

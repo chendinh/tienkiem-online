@@ -79,6 +79,9 @@
   .rkMe { position: sticky; bottom: 0; z-index: 2; display: grid; gap: 6px; margin: auto calc(var(--sp-4) * -1) 0; padding: var(--sp-3) var(--sp-4) var(--sp-3); border-top: 1px solid var(--line-gold); background: linear-gradient(180deg, #0d1e28, #09151d); }
   .rkMeLbl { font-size: var(--fs-sm); color: var(--gold-200); }
   .rkMeLbl b { font-family: var(--font-display); font-size: var(--fs-lg); }
+  .lotusLoad { flex: 1; display: grid; place-content: center; justify-items: center; gap: var(--sp-3); min-height: 240px; color: var(--text-3); font-size: var(--fs-sm); animation: rkFade 0.2s ease-out both; }
+  .loadLotus.big { width: 76px; height: 76px; }
+  @keyframes rkFade { from { opacity: 0; } }
   .rkSkel { display: grid; gap: 6px; padding: var(--sp-5) 0; }
   .rkSkel i { height: 54px; border-radius: var(--r-sm); background: rgb(255 255 255 / 0.05); }
 
