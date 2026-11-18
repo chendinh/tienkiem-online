@@ -13,8 +13,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const { id } = await ctx.params;
   if (!/^[a-f0-9]{20}$/.test(id)) return new Response('not found', { status: 404 });
   try {
-    const head = (await query<{ ext: string; n: number }>('SELECT ext, octet_length(data) AS n FROM images WHERE id = $1', [id])).rows[0];
+    const head = (await query<{ ext: string; n: number; url: string | null }>(`SELECT ext, octet_length(data) AS n, meta->'blob'->>'url' AS url FROM images WHERE id = $1`, [id])).rows[0];
     if (!head || !TYPE[head.ext]) return new Response('not found', { status: 404 });
+    // a clip kept in Blob is served by the CDN: this function only points to it (no bytes leave the database)
+    if (head.url) return new Response(null, { status: 302, headers: { Location: head.url, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' } });
     const size = Number(head.n);
     const range = parseRange(req.headers.get('range'), size);
     if (range === 'bad') return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });

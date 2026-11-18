@@ -29,6 +29,17 @@ Từ xa tới gần: ảnh nền → hạt sáng xa → sương sau → thú →
 - **Nền mặc định của Linh Thú Viên** không theo vùng: biển mây của game (`public/art/scene/dawn.webp` và `night.webp`). Thú đứng trên mây ở giữa tranh, lội trong lớp sương trước nên không vẽ cỏ; lớp che fal (nếu vẽ) sẽ là đá và thông ở hai góc dưới. Cầm dọc điện thoại thì tranh được cắt giữa (tỉ lệ 3:4). Ảnh các vùng chỉ còn là lựa chọn thử.
 - **Nền vùng không hợp**: Cửu U, Tinh Hà không có mặt đất (đảo trôi, vũ trụ), Xích Viêm chỉ có đá nham thạch; cảnh sẽ báo. Nền hợp nhất: Thanh Vân, Hàn Nguyệt, Lôi Vân. Muốn đẹp thật nên sinh riêng cho mỗi vùng một "sân" có mặt đất trống rõ ràng (chưa làm).
 
+## Chỗ đứng cố định (hướng chính) · `/lab/linh-thu/vien`
+Thú không đi lại nữa mà **đứng ở những chỗ cố định** trên một nền (Thanh Vân), động đậy tại chỗ theo đúng chỗ đó. Bốn chỗ trong `lib/spots.ts`: bờ suối (uống nước), dưới cây thông (hái quả), tảng đá rêu (nghỉ ngơi), rừng tre (ngắm đom đóm).
+- Mỗi chỗ là một **ô vuông 512 px** cắt từ ảnh nền. Với mỗi (thú, dị biến, chỗ): (1) `google/nano-banana-2.1/edit` nhận ô nền + ảnh thú và vẽ thú vào đúng chỗ (ánh sáng, cỡ, bóng khớp cảnh), khoảng 0,07 USD; (2) Kling 2.6 làm clip lặp 5 giây theo hành động của chỗ, khoảng 0,35 USD. Kết quả dùng chung cho mọi người chơi.
+- Trang đặt clip lại đúng ô đã cắt, viền mờ dần (mask), nên không cần tách nền: nước gợn, bóng đổ, ánh sáng nằm sẵn trong clip.
+- Không dùng bước kiểm tra của game (`review`) cho ảnh này vì nó chấm "một con thú giữa khung" chứ không phải cả một cảnh.
+- Thêm chỗ đứng hay nền khác: thêm phần tử vào `SPOTS` (ô cắt, `place`, `action`), không cần sửa code khác. Tọa độ hiện tại đoán từ ảnh, nên có thể phải dịch ô cho trúng chỗ.
+
+### Kho Blob (không tốn transfer Neon)
+Video lưu ở **Vercel Blob** khi có `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → Blob → nối vào project): hàng trong `images` chỉ giữ `meta.blob.url`, video phát từ CDN. Không có token thì video nằm trong Postgres như cũ. Lý do: Neon Free chỉ cho 5 GB egress/tháng, và trình duyệt điện thoại xin video theo từng đoạn (Range) nên CDN trước hàm không cache, mỗi đoạn đều đọc từ database. Hobby có 1 GB Blob và 10 GB transfer/tháng; trang xưởng hiện dung lượng đã dùng. `/api/lab/media/<id>` với clip ở Blob chỉ trả 302 sang URL Blob.
+- `@vercel/blob` được thêm vào `package.json` nhưng `package-lock.json` chưa cập nhật (không có mạng): chạy `npm install` rồi commit lock; workflow `art.yml` tạm dùng `npm ci || npm install`.
+
 ## Chi phí một loài mới
 Ví dụ 3 dị biến và 2 chuyển động: 3 ảnh sửa + (3 + 1 ảnh gốc) × 2 = 8 đoạn × 0,35 USD ≈ **2,9 USD**; có tách nền cộng thêm 8 × 0,06 ≈ 0,5 USD (**3,4 USD**). Mỗi chuyển động thêm cho cả bộ cộng thêm khoảng 1,4 USD. 10 dị biến × 3 chuyển động khoảng 12 USD cho một loài, nên trang luôn hiện mức tối đa trước khi bấm Tạo.
 Sổ chi riêng của lab (`kv`, khóa `lab.usd`, trần `LAB_BUDGET_USD`, mặc định 5 USD), tách khỏi `IMAGE_BUDGET_USD` để không làm hết tiền vẽ ảnh cho người chơi.

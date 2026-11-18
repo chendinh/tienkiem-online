@@ -6,15 +6,16 @@ import { json, guard, checkWrite, readBody } from '@/lib/server/http';
 import { SCENE_IDS, fgCost } from '@/lib/anim';
 import { requireAdmin } from '@/lib/server/admin';
 import { ensureDaily } from '@/lib/server/dailystore';
-import { assetsOf, clip, cut, cutsAll, fg, fgsAll, idle, info, variant, type Out } from '@/lib/server/anim';
+import { assetsOf, clip, cut, cutsAll, fg, fgsAll, idle, info, spotClip, spotPic, spotsAll, spotUsd, variant, type Out } from '@/lib/server/anim';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;   // a clip is made after the answer is sent: the function must stay alive until it is saved
 
 // Owner only (Authorization: Bearer <ADMIN_KEY>, the same key as /admin). This route spends money.
 // GET  ?sp=<species id>   prices, spend, the species list and what is already made for that species
+// GET  ?spots=1           the same, plus every creature picture and clip at the spots of the background
 // GET  ?cuts=1            the same, plus every cut-out creature and every foreground layer (for the scene page)
-// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }   answers { status, id } at once; ask again until the status is not 'pending'
+// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }  or  { step: 'spotpic' | 'spotclip', sp, mut, spot, src }   answers { status, id } at once; ask again until the status is not 'pending'
 const fgPrice = () => fgCost(falCost(falModels().edit, 1376, 768));
 const speciesOk = (sp: string) => D.allSpecies().some((s) => s.id === sp) && !!C.SPECIES_EN[sp];
 
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
     await ensureDaily();
     const q = new URL(req.url).searchParams, sp = q.get('sp') || '';
     const species = D.allSpecies().filter((s) => C.SPECIES_EN[s.id]).map((s) => ({ id: s.id, name: s.name, isNew: !C.SPECIES.some((x) => x.id === s.id) }));
-    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
+    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('spots') === '1' ? { spots: await spotsAll(), spotUsd: spotUsd() } : {}), ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
   });
 }
 
@@ -55,6 +56,10 @@ export async function POST(req: Request) {
       out = base.status === 'ready' && base.url ? await variant(sp, String(b.mut), idFromUrl(base.url)) : { status: base.status };
     } else if (b.step === 'clip') {
       out = await clip(sp, String(b.mut), String(b.motion), String(b.src));
+    } else if (b.step === 'spotpic') {
+      out = await spotPic(sp, String(b.mut), String(b.spot), String(b.src), new URL(req.url).origin);
+    } else if (b.step === 'spotclip') {
+      out = await spotClip(sp, String(b.mut), String(b.spot), String(b.src));
     } else if (b.step === 'cut') {
       out = await cut(sp, String(b.mut), String(b.motion), String(b.src));
     } else return json({ status: 'invalid' }, 400);

@@ -7,11 +7,14 @@ import { query } from './db';
 import { getImage, hasImage, putImage, claimJob, releaseJobs } from './images';
 import { falModels, falCost, provider, review } from '../imagegen';
 import * as A from '../anim';
+import * as P from '../spots';
+import * as C from '../content';
+import { blobOn, putBlob, readBlob } from './blob';
 
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
 export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
 interface Done {
-  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg'; meta: any;
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'spotpic' | 'spotclip'; meta: any;
   more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
 }
 
@@ -73,6 +76,22 @@ async function upload(fal: any, p: { data: Buffer; ext: string }): Promise<strin
 const isMp4 = (b: Buffer) => b.length > 12 && b.subarray(4, 8).toString() === 'ftyp';
 const videoExt = (b: Buffer) => (isMp4(b) ? 'mp4' : b.length > 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 ? 'webm' : '');
 
+// A video goes to Blob when it is set up (the row then keeps no bytes, only where the file is); everything else stays in the table.
+const VIDEO = new Set(['mp4', 'webm']);
+async function store(m: { id: string; kind: string; ext: string; buf: Buffer; meta: any }) {
+  if (blobOn() && VIDEO.has(m.ext)) {
+    const b = await putBlob(`tienkiem/lab/${m.id}.${m.ext}`, m.buf, m.ext === 'mp4' ? 'video/mp4' : 'video/webm');
+    await putImage({ id: m.id, kind: m.kind, folder: 'lab', ext: m.ext, data: Buffer.alloc(0), meta: { ...m.meta, blob: b } });
+  } else await putImage({ id: m.id, kind: m.kind, folder: 'lab', ext: m.ext, data: m.buf, meta: m.meta });
+}
+// The bytes of a picture or clip, wherever they are kept.
+async function readImage(id: string): Promise<{ data: Buffer; ext: string } | null> {
+  const p = await getImage(id);
+  if (!p) return null;
+  const u = p.meta?.blob?.url;
+  return { data: u ? await readBlob(u) : p.data, ext: p.ext };
+}
+
 // ---- one job: claim it, answer "pending" at once, finish in the background (the route keeps the function alive with idle())
 async function launch(id: string, cost: number, work: (pay: (usd: number) => Promise<void>) => Promise<Done>): Promise<Out> {
   if (!falReady()) return { status: 'disabled' };
@@ -90,8 +109,8 @@ async function launch(id: string, cost: number, work: (pay: (usd: number) => Pro
   void (async () => {
     try {
       const d = await work(labAdd), date = new Date().toISOString();
-      for (const m of d.more || []) await putImage({ id: m.id, kind: m.kind, folder: 'lab', ext: m.ext, data: m.buf, meta: { ...m.meta, provider: 'fal', date } });
-      await putImage({ id, kind: d.kind, folder: 'lab', ext: d.ext, data: d.buf, meta: { ...d.meta, provider: 'fal', date } });
+      for (const m of d.more || []) await store({ id: m.id, kind: m.kind, ext: m.ext, buf: m.buf, meta: { ...m.meta, provider: 'fal', date } });
+      await store({ id, kind: d.kind, ext: d.ext, buf: d.buf, meta: { ...d.meta, provider: 'fal', date } });
       S.failed.delete(id);
     } catch (e: any) {
       const why = String(e?.message || e).slice(0, 200);
@@ -114,7 +133,7 @@ export async function variant(sp: string, mutId: string, baseId: string): Promis
   const model = falModels().edit, prompt = A.variantPrompt(m), cost = falCost(model, 960, 960);
   const id = sha('variant', sp, m.id, baseId, model, prompt);
   return launch(id, cost, async (pay) => {
-    const base = await getImage(baseId);
+    const base = await readImage(baseId);
     if (!base) throw new Error('the base picture is gone');
     const { fal } = await import('@fal-ai/client');
     const url = await upload(fal, base);
@@ -142,7 +161,7 @@ export async function clip(sp: string, mutId: string, motionId: string, srcId: s
   const model = animModel(), seconds = animSeconds(), prompt = A.clipPrompt(mv), cost = A.clipCost(model, seconds);
   const id = sha('clip', srcId, mv.id, model, seconds, prompt);
   return launch(id, cost, async (pay) => {
-    const src = await getImage(srcId);
+    const src = await readImage(srcId);
     if (!src) throw new Error('the source picture is gone');
     const { fal } = await import('@fal-ai/client');
     const url = await upload(fal, src);
@@ -165,7 +184,7 @@ export async function cut(sp: string, mutId: string, motionId: string, clipId: s
   const model = cutModel(), cost = A.cutCost(model, Number(head.seconds) || animSeconds());
   const id = sha('cut', clipId, model), alphaId = sha('cutalpha', clipId, model);
   const o = await launch(id, cost, async (pay) => {
-    const src = await getImage(clipId);
+    const src = await readImage(clipId);
     if (!src) throw new Error('the clip is gone');
     const { fal } = await import('@fal-ai/client');
     const url = await upload(fal, src);
@@ -221,6 +240,64 @@ export async function fgsAll() {
   return r.rows.filter((x) => x.zone);
 }
 
+// ---- a creature standing at a spot of the background: its picture (the spot's window of the background with the creature drawn into it) and its clip
+const picInput = (model: string, prompt: string, urls: string[], seed: number, res: string) => ({
+  prompt, image_urls: urls, seed, output_format: 'jpeg', aspect_ratio: '1:1', num_images: 1,
+  ...(/nano-banana-(2|pro)/.test(model) ? { resolution: res } : {}), ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}),
+});
+const okMut = (m: string) => m === A.BASE || !!A.mutationOf(m);
+export async function spotPic(sp: string, mutId: string, spotId: string, srcId: string, origin: string): Promise<Out> {
+  const spot = P.spotOf(spotId);
+  if (!spot || !A.isPictureId(srcId) || !okMut(mutId) || !(await hasImage(srcId))) return { status: 'invalid' };
+  const m = falModels(), model = m.outfit, res = m.outfitRes, cost = falCost(model, 1024, 1024, res);
+  const prompt = P.spotPicPrompt(C.SPECIES_EN[sp] || 'a fantasy creature', spot);
+  const id = sha('spotpic', sp, mutId, spot.id, srcId, model, res, prompt);
+  return launch(id, cost, async (pay) => {
+    const creature = await readImage(srcId);
+    if (!creature) throw new Error('the creature picture is gone');
+    // the window of the background: asked from the site itself (its disk may not hold public/), cut to the square of the spot
+    const r = await fetch(new URL(A.bgPath(P.BG.id), origin), { signal: AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error(`background ${P.BG.id}: ${r.status}`);
+    const sharp = (await import('sharp')).default;
+    const win = await sharp(Buffer.from(await r.arrayBuffer())).extract(P.cropBox(spot)).jpeg({ quality: 92 }).toBuffer();
+    const { fal } = await import('@fal-ai/client');
+    const urls = [await upload(fal, { data: win, ext: 'jpg' }), await upload(fal, creature)];
+    const seed = seedOf(`${sp}#${mutId}#${spot.id}`);
+    const res2: any = await withTimeout(fal.subscribe(model, { input: picInput(model, prompt, urls, seed, res) }), 150000, 'fal ' + model);
+    const img = res2?.data?.images?.[0];
+    if (!img?.url) throw new Error('fal: no image in result');
+    const buf = await download(img.url);
+    await pay(cost);
+    return { buf, ext: 'jpg', kind: 'spotpic', meta: { spec: { kind: 'spotpic', sp, mut: mutId, spot: spot.id, src: srcId }, model, prompt, seed, cost } };
+  });
+}
+export async function spotClip(sp: string, mutId: string, spotId: string, picId: string): Promise<Out> {
+  const spot = P.spotOf(spotId);
+  if (!spot || !A.isPictureId(picId) || !okMut(mutId) || !(await hasImage(picId))) return { status: 'invalid' };
+  const model = animModel(), seconds = animSeconds(), prompt = P.spotClipPrompt(spot), cost = A.clipCost(model, seconds);
+  const id = sha('spotclip', picId, model, seconds, prompt);
+  return launch(id, cost, async (pay) => {
+    const pic = await readImage(picId);
+    if (!pic) throw new Error('the spot picture is gone');
+    const { fal } = await import('@fal-ai/client');
+    const url = await upload(fal, pic);
+    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
+    const v = res?.data?.video;
+    if (!v?.url) throw new Error('fal: no video in result');
+    const buf = await download(v.url);
+    await pay(cost);
+    if (!isMp4(buf)) throw new Error('not an mp4 file');
+    return { buf, ext: 'mp4', kind: 'spotclip', meta: { spec: { kind: 'spotclip', sp, mut: mutId, spot: spot.id, src: picId }, model, prompt, seconds, cost, requestId: res?.requestId } };
+  });
+}
+export interface SpotAsset { id: string; kind: 'spotpic' | 'spotclip'; sp: string; mut: string; spot: string; src: string; url?: string }
+export async function spotsAll(): Promise<SpotAsset[]> {
+  const r = await query<{ id: string; kind: 'spotpic' | 'spotclip'; spec: any; url: string | null }>(
+    `SELECT id, kind, meta->'spec' AS spec, meta->'blob'->>'url' AS url FROM images WHERE kind IN ('spotpic', 'spotclip') ORDER BY created`);
+  return r.rows.filter((x) => x.spec?.sp && x.spec?.spot).map((x) => ({ id: x.id, kind: x.kind, sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), spot: String(x.spec.spot), src: String(x.spec.src || ''), ...(x.url ? { url: x.url } : {}) }));
+}
+export const spotUsd = () => ({ pic: falCost(falModels().outfit, 1024, 1024, falModels().outfitRes), clip: A.clipCost(animModel(), animSeconds()) });
+
 // ---- what the lab page needs
 export interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }
 export async function assetsOf(sp: string): Promise<Asset[]> {
@@ -233,6 +310,10 @@ export async function cutsAll() {
   const r = await query<{ id: string; spec: any }>(`SELECT id, meta->'spec' AS spec FROM images WHERE kind = 'animcut' ORDER BY created`);
   return r.rows.filter((x) => x.spec?.alpha && x.spec?.sp).map((x) => ({ id: x.id, alpha: String(x.spec.alpha), sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), motion: String(x.spec.motion || '') }));
 }
+// how much of the lab's video is in Blob (the free plan holds 1 GB)
+async function blobMb(): Promise<number> {
+  try { return Math.round(Number((await query<{ n: number }>(`SELECT COALESCE(SUM((meta->'blob'->>'size')::bigint), 0)::float8 AS n FROM images WHERE meta ? 'blob'`)).rows[0]?.n || 0) / 1048576 * 10) / 10; } catch { return 0; }
+}
 export async function info() {
-  return { enabled: falReady(), provider: provider().name, model: animModel(), cutModel: cutModel(), seconds: animSeconds(), editUsd: editCost(), spent: r4(await labSpent()), cap: labCap() };
+  return { blob: { on: blobOn(), mb: await blobMb() }, enabled: falReady(), provider: provider().name, model: animModel(), cutModel: cutModel(), seconds: animSeconds(), editUsd: editCost(), spent: r4(await labSpent()), cap: labCap() };
 }

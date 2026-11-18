@@ -90,8 +90,8 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade }: { r
   return (
     <span className={`zl-alpha ${className || ''}`}>
       <canvas ref={cv} className="zl-alpha-cv" />
-      <video ref={vc} src={rgb} className="zl-hid" muted loop playsInline preload="auto" />
-      <video ref={va} src={alpha} className="zl-hid" muted loop playsInline preload="auto" />
+      <video ref={vc} src={rgb} className="zl-hid" muted loop playsInline preload="auto" crossOrigin="anonymous" />
+      <video ref={va} src={alpha} className="zl-hid" muted loop playsInline preload="auto" crossOrigin="anonymous" />
     </span>
   );
 }

@@ -129,7 +129,7 @@ export function ZooLab() {
   return (
     <main className="zl">
       <h1>Linh Thú Viên · thử hoạt ảnh</h1>
-      <p className="zl-note">Vẽ biến thể dị biến từ ảnh gốc của loài, làm mỗi ảnh thành đoạn hoạt ảnh lặp, rồi tách nền để thú đi lại được trong cảnh. Ảnh đã có thì dùng lại, không tính tiền lần nữa. <a className="zl-link" href="/lab/linh-thu/canh">Mở cảnh thử →</a></p>
+      <p className="zl-note">Vẽ biến thể dị biến từ ảnh gốc của loài, làm mỗi ảnh thành đoạn hoạt ảnh lặp, rồi tách nền để thú đi lại được trong cảnh. Ảnh đã có thì dùng lại, không tính tiền lần nữa. <a className="zl-link" href="/lab/linh-thu/vien">Chỗ đứng cố định (demo) →</a> · <a className="zl-link" href="/lab/linh-thu/canh">Cảnh thú đi lại →</a></p>
 
       <section className="zl-panel">
         <label className="zl-row">

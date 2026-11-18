@@ -34,7 +34,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - name: Install
         if: steps.chk.outputs.skip != '1'
-        run: npm ci
+        run: npm ci || npm install --no-audit --no-fund   # the second only when package-lock.json lags behind package.json
       - name: Draw missing pictures
         if: steps.chk.outputs.skip != '1'
         run: npm run pregen
