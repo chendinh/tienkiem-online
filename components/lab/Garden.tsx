@@ -293,8 +293,8 @@ export function Garden() {
           <div className="zl-chips">
             <button type="button" className="zl-chip" aria-pressed={adjust} onClick={() => { setAdjust((v) => !v); setSelPerch(null); setSel(null); }}>Chỉnh bệ đứng ({lay.perches.length})</button>
             <button type="button" className="zl-chip" aria-pressed={fx} onClick={() => setFx((v) => !v)}>Hiệu ứng: hạc, bướm, cánh hoa</button>
-            <button type="button" className="zl-chip" disabled={!!busy || !info?.enabled || !!clip} onClick={() => make(`bg-${bg.id}`, { step: 'bgclip', bg: bg.id })}>
-              {clip ? 'Đã có nền động' : busy === `bg-${bg.id}` ? 'Đang làm nền động (1–4 phút)…' : `Làm nền động (~${usd(info?.gardenUsd.bg || 0.7)}, một lần)`}
+            <button type="button" className="zl-chip" disabled={!!busy || !info?.enabled || !!clip || (!!info && info.spent + info.gardenUsd.bg > info.cap)} onClick={() => make(`bg-${bg.id}`, { step: 'bgclip', bg: bg.id })}>
+              {clip ? 'Đã có nền động' : info && info.spent + info.gardenUsd.bg > info.cap ? `Hết hạn mức (còn ${usd(Math.max(0, info.cap - info.spent))}, cần ${usd(info.gardenUsd.bg)})` : busy === `bg-${bg.id}` ? 'Đang làm nền động (1–4 phút)…' : `Làm nền động (~${usd(info?.gardenUsd.bg || 0.7)}, một lần)`}
             </button>
           </div>
         </div>
@@ -321,7 +321,6 @@ export function Garden() {
           <img className="zs-bg" src={bg.src} alt="" />
           {clip && <div className="zs-bgvid"><LoopVideo src={mediaUrl(clip.id, clip.url)} poster={bg.src} label="Nền chuyển động" /></div>}
           {fx && <Ambient layer="back" river={!!bg.river} />}
-          <div className="zs-fog zs-fog-b" aria-hidden="true"><div className="zl-mist zl-mist-b" /></div>
           <div className="zs-items">
             {lay.items.map((it) => {
               const c = cutById.get(it.cut), pr = lay.perches.find((p) => p.id === it.perch);
@@ -339,7 +338,6 @@ export function Garden() {
               );
             })}
           </div>
-          <div className="zs-fog zs-fog-f" style={{ ['--mist' as string]: 0.16 }} aria-hidden="true"><div className="zl-mist zl-mist-f" /></div>
           {fx && <Ambient layer="front" river={!!bg.river} />}
           {(adjust || ghost) && lay.perches.map((p) => (
             <Fragment key={p.id}>
