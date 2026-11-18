@@ -57,9 +57,9 @@ test('a run is priced per creature and spot', () => {
 
 test('the background clip: the scene moves, nothing is added, it loops', () => {
   const p = bgClipPrompt();
-  assert.match(p, /river flows/);
-  assert.match(p, /fireflies/);
-  assert.match(p, /no creature or person appears/);
+  assert.match(p, /river flows steadily/);
+  assert.match(p, /spirit lights/);
+  assert.match(p, /no creature, bird, insect or person is added/);
   assert.match(p, /last frame returns exactly to the first frame/);
   assert.ok([5, 10].includes(BG_SECONDS), 'a length the video model accepts');
 });

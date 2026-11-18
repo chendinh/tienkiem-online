@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BASE, MUTATIONS } from '@/lib/anim';
 import { BG, SPOTS, tileRect, spotRunUsd } from '@/lib/spots';
 import { errText } from '@/lib/strings';
+import { Ambient } from './Ambient';
 import { LoopVideo } from './LoopVideo';
 
 // Demo of the Linh Thú Viên: one background (Thanh Vân), four spots. For each spot the owner picks a creature (and a mutation); the page asks the server for
@@ -10,7 +11,7 @@ import { LoopVideo } from './LoopVideo';
 const KEY = 'tutien-admin-key';
 type St = 'pending' | 'ready' | 'failed' | 'limited' | 'disabled' | 'invalid';
 interface Asset { id: string; kind: 'spotpic' | 'spotclip'; sp: string; mut: string; spot: string; src: string; url?: string }
-interface Info { enabled: boolean; model: string; seconds: number; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; spots: Asset[]; spotUsd: { pic: number; clip: number; bg: number }; bg: { id: string; url?: string } | null }
+interface Info { enabled: boolean; model: string; seconds: number; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; spots: Asset[]; spotUsd: { pic: number; clip: number; bg: number }; bg: { id: string; url?: string; current: boolean } | null }
 interface Pick { sp: string; mut: string }
 type Answer = { status: St; id?: string; why?: string };
 
@@ -27,6 +28,7 @@ export function ZooSpots() {
   const [note, setNote] = useState<Record<string, string>>({});   // what each spot is doing right now
   const [running, setRunning] = useState(false);
   const [bgBusy, setBgBusy] = useState(false);
+  const [fx, setFx] = useState(true);   // the drawn details (cranes, dragonflies, petals ...): off for a slow phone
   const stop = useRef(false);
 
   useEffect(() => { try { setKey(sessionStorage.getItem(KEY) || ''); } catch { setKey(''); } }, []);
@@ -174,7 +176,8 @@ export function ZooSpots() {
         {info && <p className="zl-note">{info.blob.on ? `Video lưu ở Blob: đã dùng ${info.blob.mb} MB (gói Hobby có 1024 MB).` : 'Blob chưa bật (thiếu BLOB_READ_WRITE_TOKEN): video đang lưu trong database, mỗi lần xem tốn transfer Neon. Nên bật Blob trước khi thử nhiều.'}</p>}
         <div className="zl-row"><span>Nền chuyển động</span>
           <div className="zl-chips">
-            <button type="button" className="zl-chip" disabled={bgBusy || running || !info?.enabled || !!info?.bg} onClick={makeBg}>{info?.bg ? 'Đã có nền động' : bgBusy ? 'Đang làm nền động (1–4 phút)…' : `Làm nền động (~${usd(info?.spotUsd.bg || 0.7)}, một lần cho mọi người)`}</button>
+            <button type="button" className="zl-chip" disabled={bgBusy || running || !info?.enabled || !!info?.bg?.current} onClick={makeBg}>{info?.bg?.current ? 'Đã có nền động mới nhất' : bgBusy ? 'Đang làm nền động (1–4 phút)…' : info?.bg ? `Làm lại nền động, chuyển động mạnh hơn (~${usd(info.spotUsd.bg)})` : `Làm nền động (~${usd(info?.spotUsd.bg || 0.7)}, một lần cho mọi người)`}</button>
+            <button type="button" className="zl-chip" aria-pressed={fx} onClick={() => setFx((v) => !v)}>Hiệu ứng: chuồn chuồn, bướm, hạc, cánh hoa</button>
           </div>
         </div>
         <div className="zl-actions">
@@ -188,6 +191,8 @@ export function ZooSpots() {
         <div className="zs-stage" style={{ aspectRatio: `${BG.w} / ${BG.h}` }}>
           <img className="zs-bg" src={`/art/zones/${BG.id}.jpg`} alt="" />
           {info?.bg && <div className="zs-bgvid"><LoopVideo src={info.bg.url || `/api/lab/media/${info.bg.id}`} poster={`/art/zones/${BG.id}.jpg`} label="Nền chuyển động" /></div>}
+          {fx && <Ambient layer="back" />}
+          <div className="zs-fog zs-fog-b" aria-hidden="true"><div className="zl-mist zl-mist-b" /></div>
           {SPOTS.map((s) => {
             const sh = shown[s.id], r = tileRect(s);
             const poster = sh?.pic ? `/api/img/${sh.pic.id}` : '';
@@ -199,6 +204,9 @@ export function ZooSpots() {
               </div>
             );
           })}
+          <div className="zs-fog zs-fog-f" aria-hidden="true"><div className="zl-mist zl-mist-f" /></div>
+          {fx && <Ambient layer="front" />}
+          <div className="zs-rays" aria-hidden="true"><i /><i /></div>
         </div>
       </div>
     </main>

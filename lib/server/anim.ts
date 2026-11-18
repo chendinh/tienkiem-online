@@ -292,9 +292,10 @@ export async function spotClip(sp: string, mutId: string, spotId: string, picId:
 }
 // The background's own clip (kind 'bgclip'): the whole picture moving, once for all.
 const bgSeconds = () => (process.env.FAL_BG_SECONDS === '5' ? 5 : P.BG_SECONDS);
+const bgClipId = () => sha('bgclip', P.BG.id, animModel(), bgSeconds(), P.bgClipPrompt());
 export async function bgClip(origin: string): Promise<Out> {
   const model = animModel(), seconds = bgSeconds(), prompt = P.bgClipPrompt(), cost = A.clipCost(model, seconds);
-  const id = sha('bgclip', P.BG.id, model, seconds, prompt);
+  const id = bgClipId();
   return launch(id, cost, async (pay) => {
     const r = await fetch(new URL(A.bgPath(P.BG.id), origin), { signal: AbortSignal.timeout(30000) });
     if (!r.ok) throw new Error(`background ${P.BG.id}: ${r.status}`);
@@ -309,9 +310,11 @@ export async function bgClip(origin: string): Promise<Out> {
     return { buf, ext: 'mp4', kind: 'bgclip', meta: { spec: { kind: 'bgclip', bg: P.BG.id }, model, prompt, seconds, cost, requestId: res?.requestId } };
   });
 }
-export async function bgClipOf(): Promise<{ id: string; url?: string } | null> {
-  const r = (await query<{ id: string; url: string | null }>(`SELECT id, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' AND meta->'spec'->>'bg' = $1 ORDER BY created DESC LIMIT 1`, [P.BG.id])).rows[0];
-  return r ? { id: r.id, ...(r.url ? { url: r.url } : {}) } : null;
+// The clip to show: the one made with today's wording if it exists, else the newest older one (`current: false`, so the page offers to make the new one).
+export async function bgClipOf(): Promise<{ id: string; url?: string; current: boolean } | null> {
+  const cur = bgClipId();
+  const r = (await query<{ id: string; url: string | null }>(`SELECT id, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' AND meta->'spec'->>'bg' = $1 ORDER BY (id = $2) DESC, created DESC LIMIT 1`, [P.BG.id, cur])).rows[0];
+  return r ? { id: r.id, current: r.id === cur, ...(r.url ? { url: r.url } : {}) } : null;
 }
 export interface SpotAsset { id: string; kind: 'spotpic' | 'spotclip'; sp: string; mut: string; spot: string; src: string; url?: string }
 export async function spotsAll(): Promise<SpotAsset[]> {

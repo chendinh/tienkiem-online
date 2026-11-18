@@ -90,3 +90,17 @@
   mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent), linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
   mask-composite: intersect; }
 .zs-tile img, .zs-tile video { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* living details over the Linh Thú Viên background: drawn canvases (components/lab/Ambient.tsx), drifting mist, and light rays from the sun of Thanh Vân */
+.zs-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.zs-fog { position: absolute; inset: 0; pointer-events: none; overflow: hidden; --mc: rgba(246, 242, 222, 0.55); }
+.zs-fog-b { --mist: 0.5; }
+.zs-fog-f { --mist: 0.4; }
+.zs-rays { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%); mask-image: linear-gradient(to bottom, #000, transparent 75%); }
+.zs-rays i { position: absolute; inset: -30%; transform-origin: 54% 38%; }
+.zs-rays i:nth-child(1) { background: conic-gradient(from 168deg at 54% 38%, transparent 0 4deg, rgba(255, 236, 170, 0.20) 7deg, transparent 12deg, transparent 18deg, rgba(255, 236, 170, 0.14) 21deg, transparent 27deg, transparent 34deg, rgba(255, 236, 170, 0.18) 38deg, transparent 44deg, transparent 52deg, rgba(255, 236, 170, 0.12) 56deg, transparent 62deg); animation: zs-ray-a 9s ease-in-out infinite alternate; }
+.zs-rays i:nth-child(2) { background: conic-gradient(from 176deg at 54% 38%, transparent 0 6deg, rgba(255, 244, 200, 0.14) 10deg, transparent 15deg, transparent 24deg, rgba(255, 244, 200, 0.16) 28deg, transparent 33deg, transparent 42deg, rgba(255, 244, 200, 0.12) 46deg, transparent 52deg); animation: zs-ray-b 13s ease-in-out infinite alternate; }
+@keyframes zs-ray-a { from { opacity: 0.35; transform: rotate(-2.5deg); } to { opacity: 0.95; transform: rotate(2.5deg); } }
+@keyframes zs-ray-b { from { opacity: 0.9; transform: rotate(3deg); } to { opacity: 0.3; transform: rotate(-3deg); } }
+@media (prefers-reduced-motion: reduce) { .zs-rays i { animation: none; opacity: 0.6; } }
