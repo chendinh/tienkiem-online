@@ -5,7 +5,6 @@ import { DEFAULT_PERCHES, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RA
 import { errText } from '@/lib/strings';
 import { AlphaVideo } from './AlphaVideo';
 import { Ambient } from './Ambient';
-import { BgLoop } from './BgLoop';
 
 // The Linh Thú Viên garden: every creature has ONE idle clip with its background cut out. The owner drags creatures from the tray onto a beautiful background; they go to
 // the nearest perch (a small flat place in the picture: a boulder top, a ledge, a stone slab) and stand on it, as big as that perch suits. The perches of a background are
@@ -14,8 +13,8 @@ const KEY = 'tutien-admin-key';
 const ASPECT = 16 / 9;
 type St = 'pending' | 'ready' | 'failed' | 'limited' | 'disabled' | 'invalid';
 interface Cut { id: string; alpha: string; sp: string; mut: string; motion: string; pic?: string; url?: string; alphaUrl?: string }
-interface Usd { plane: number; edit: number; clip: number; cut: number; bg: number }
-interface Info { enabled: boolean; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; cuts: Cut[]; planes: { id: string; theme: string }[]; bgclips: { bg: string; id: string; url?: string }[]; garden: Record<string, unknown>; gardenUsd: Usd }
+interface Usd { plane: number; edit: number; clip: number; cut: number }
+interface Info { enabled: boolean; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; cuts: Cut[]; planes: { id: string; theme: string }[]; garden: Record<string, unknown>; gardenUsd: Usd }
 interface Bg { id: string; name: string; src: string; river?: boolean }
 type Answer = { status: St; id?: string; why?: string };
 
@@ -84,7 +83,6 @@ export function Garden() {
   const bgs = useMemo<Bg[]>(() => [...(info?.planes || []).map((p) => ({ id: p.id, name: themeOf(p.theme)?.name || 'Nền mới', src: `/api/img/${p.id}` })), ...BUILTIN], [info?.planes]);
   const bg = bgs.find((b) => b.id === bgId) || bgs[0];
   const lay: Layout = layouts[bg.id] || { perches: DEFAULT_PERCHES[bg.id] || [], items: [] };
-  const clip = info?.bgclips.find((c) => c.bg === bg.id);
 
   const load = useCallback(async (k: string) => {
     try {
@@ -293,9 +291,6 @@ export function Garden() {
           <div className="zl-chips">
             <button type="button" className="zl-chip" aria-pressed={adjust} onClick={() => { setAdjust((v) => !v); setSelPerch(null); setSel(null); }}>Chỉnh bệ đứng ({lay.perches.length})</button>
             <button type="button" className="zl-chip" aria-pressed={fx} onClick={() => setFx((v) => !v)}>Hiệu ứng: hạc, bướm, cánh hoa</button>
-            <button type="button" className="zl-chip" disabled={!!busy || !info?.enabled || (!!info && info.spent + info.gardenUsd.bg > info.cap)} onClick={() => make(`bg-${bg.id}`, { step: 'bgclip', bg: bg.id })}>
-              {info && info.spent + info.gardenUsd.bg > info.cap ? `Hết hạn mức (còn ${usd(Math.max(0, info.cap - info.spent))}, cần ${usd(info.gardenUsd.bg)})` : busy === `bg-${bg.id}` ? 'Đang làm nền động (1–4 phút)…' : clip ? `Làm lại nền động (~${usd(info?.gardenUsd.bg || 0.7)})` : `Làm nền động (~${usd(info?.gardenUsd.bg || 0.7)}, một lần)`}
-            </button>
           </div>
         </div>
         {adjust && (
@@ -319,7 +314,6 @@ export function Garden() {
       <div className="zs-scroll">
         <div ref={stage} className="zs-stage" style={{ aspectRatio: '16 / 9' }} onPointerDown={(e) => { if (adjust) addPerch(e); else setSel(null); }}>
           <img className="zs-bg" src={bg.src} alt="" />
-          {clip && <div className="zs-bgvid"><BgLoop src={mediaUrl(clip.id, clip.url)} label="Nền chuyển động" /></div>}
           {fx && <Ambient layer="back" river={!!bg.river} />}
           <div className="zs-items">
             {lay.items.map((it) => {

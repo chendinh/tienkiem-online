@@ -144,14 +144,5 @@ export function gridSvg(w: number, h: number): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><path d="${lines}" stroke="#fff" stroke-opacity="0.45" stroke-width="1" fill="none"/><path d="${digits}" stroke="#000" stroke-width="4.5" stroke-linecap="round" fill="none"/><path d="${digits}" stroke="#ffe14d" stroke-width="2" stroke-linecap="round" fill="none"/></svg>`;
 }
-// ---- the moving background: one looping clip of a whole background, made once (about 0.70 USD), shared by everyone
-export const BG_SECONDS = 10;   // longer than a creature's clip, so the repeat is less noticeable
-const STATIC = 'The camera is completely static and everything in the scene stays in place except what is described.';
-export const bgClipPrompt = () =>
-  'Strongly visible, continuous, flowing motion across the whole scene, like a living painting: thick mist and low clouds roll and drift sideways steadily; any water flows and ripples with moving sparkles; waterfalls pour without stopping; ' +
-  'light rays shimmer and slowly shift; tree branches, pine needles, bamboo, flowers and leaves sway and rustle in a steady breeze; glowing spirit lights and petals float and drift upward; clouds in the sky travel across. ' +
-  'The big rocks, ledges and flat places in the picture stay perfectly still and unchanged. Nothing appears or disappears: no creature, bird, insect or person is added. ' +
-  `${STATIC} Cinematic fantasy realism, smooth natural motion, no cuts, no text.`;
-
 // Rough price of one new creature: its variant picture (not for the original), its idle clip and the cut-out of the clip.
 export const creatureUsd = (u: { edit: number; clip: number; cut: number }, mutated: boolean) => Math.round(((mutated ? u.edit : 0) + u.clip + u.cut) * 1000) / 1000;

@@ -14,7 +14,7 @@ import { blobOn, putBlob, readBlob } from './blob';
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
 export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
 interface Done {
-  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'gardenbg' | 'bgclip'; meta: any;
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'gardenbg'; meta: any;
   more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
 }
 
@@ -266,39 +266,8 @@ export async function planesAll() {
 }
 
 // ---- the moving background: one clip of a whole background (a static picture of the site, or a drawn 'gardenbg'), made once and shared by every player
-const bgSeconds = () => (process.env.FAL_BG_SECONDS === '5' ? 5 : G.BG_SECONDS);
-export async function bgClip(bg: string, origin: string): Promise<Out> {
-  if (!G.isBgId(bg)) return { status: 'invalid' };
-  const stat = (SITE_BG as Record<string, string>)[bg];
-  if (!stat && !(await query(`SELECT 1 FROM images WHERE id = $1 AND kind = 'gardenbg'`, [bg])).rows.length) return { status: 'invalid' };
-  const model = animModel(), seconds = bgSeconds(), prompt = G.bgClipPrompt(), cost = A.clipCost(model, seconds);
-  const id = sha('bgclip', bg, model, seconds, prompt);
-  return launch(id, cost, async (pay) => {
-    let img: { data: Buffer; ext: string };
-    if (stat) {
-      // a picture of the site: asked from the site itself (the function's own disk may not hold public/)
-      const r = await fetch(new URL(stat, origin), { signal: AbortSignal.timeout(30000) });
-      if (!r.ok) throw new Error(`background ${bg}: ${r.status}`);
-      img = { data: Buffer.from(await r.arrayBuffer()), ext: stat.endsWith('.webp') ? 'webp' : 'jpg' };
-    } else { const p = await readImage(bg); if (!p) throw new Error('the background is gone'); img = p; }
-    const { fal } = await import('@fal-ai/client');
-    const url = await upload(fal, img);
-    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds, pinEnd: false }) }), 270000, 'fal ' + model);
-    const v = res?.data?.video;
-    if (!v?.url) throw new Error('fal: no video in result');
-    const buf = await download(v.url);
-    await pay(cost);
-    if (!isMp4(buf)) throw new Error('not an mp4 file');
-    return { buf, ext: 'mp4', kind: 'bgclip', meta: { spec: { kind: 'bgclip', bg }, model, prompt, seconds, cost, requestId: res?.requestId } };
-  });
-}
+// the pictures of the site itself that can be a background (asked from the site: the function's own disk may not hold public/)
 const SITE_BG = { thanhvan: '/art/zones/thanhvan.jpg', dawn: '/art/scene/dawn.webp', night: '/art/scene/night.webp' } as const;
-// the newest clip of each background
-export async function bgClipsAll(): Promise<{ bg: string; id: string; url?: string }[]> {
-  const r = await query<{ id: string; bg: string; url: string | null }>(
-    `SELECT DISTINCT ON (meta->'spec'->>'bg') id, meta->'spec'->>'bg' AS bg, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' ORDER BY meta->'spec'->>'bg', created DESC`);
-  return r.rows.filter((x) => x.bg).map((x) => ({ bg: x.bg, id: x.id, ...(x.url ? { url: x.url } : {}) }));
-}
 
 // ---- suggested perches: a vision model looks at the background (with a labelled grid drawn over it) and points at its small flat places. It is a guess: the owner moves them.
 export async function suggestPerches(bg: string, origin: string): Promise<{ status: 'ready' | 'invalid' | 'disabled' | 'failed'; perches?: G.Perch[]; why?: string }> {
@@ -337,7 +306,7 @@ export async function saveGarden(bg: string, raw: unknown): Promise<boolean> {
   );
   return true;
 }
-export const gardenUsd = () => ({ plane: falCost(falModels().creature, 1376, 768, /nano-banana/.test(falModels().creature) ? falModels().creatureRes : ''), edit: editCost(), clip: A.clipCost(animModel(), animSeconds()), cut: A.cutCost(cutModel(), animSeconds()), bg: A.clipCost(animModel(), bgSeconds()) });
+export const gardenUsd = () => ({ plane: falCost(falModels().creature, 1376, 768, /nano-banana/.test(falModels().creature) ? falModels().creatureRes : ''), edit: editCost(), clip: A.clipCost(animModel(), animSeconds()), cut: A.cutCost(cutModel(), animSeconds()) });
 
 export interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }
 export async function assetsOf(sp: string): Promise<Asset[]> {

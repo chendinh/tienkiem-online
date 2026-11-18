@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BG_SECONDS, DEFAULT_PERCHES, HEIGHT, defaultSize, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, alphaBox, bgClipPrompt, boxOk, cleanPerches, creatureUsd, frameOf, isBgId, newUid, parseLayout, perchAt, perchAsk, planePrompt, sizeAtY, sizeOf, snapPerch, themeOf } from '../lib/garden';
+import { DEFAULT_PERCHES, HEIGHT, defaultSize, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, alphaBox, boxOk, cleanPerches, creatureUsd, frameOf, isBgId, newUid, parseLayout, perchAt, perchAsk, planePrompt, sizeAtY, sizeOf, snapPerch, themeOf } from '../lib/garden';
 
 const id = (n: number) => n.toString(16).padStart(20, '0');
 
@@ -107,15 +107,6 @@ test('themes: ids are slugs, every prompt asks for a beautiful scene with severa
   assert.equal(themeOf('x'), undefined);
   const ask = perchAsk();
   assert.match(ask, /JSON only/); assert.match(ask, /grid/);
-});
-
-test('the background clip is generic (no river in particular), loops, adds nothing, and keeps the ground still', () => {
-  const p = bgClipPrompt();
-  assert.match(p, /any water flows/);
-  assert.match(p, /flat places in the picture stay perfectly still/);
-  assert.match(p, /no creature, bird, insect or person is added/);
-  assert.match(p, /Strongly visible, continuous/);
-  assert.ok([5, 10].includes(BG_SECONDS));
 });
 
 test('a creature costs its clip and cut-out, plus a variant picture when it is a mutation', () => {
