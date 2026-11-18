@@ -31,12 +31,26 @@ Từ xa tới gần: ảnh nền → hạt sáng xa → sương sau → thú →
 
 ## Chỗ đứng cố định (hướng chính) · `/lab/linh-thu/vien`
 Thú không đi lại nữa mà **đứng ở những chỗ cố định** trên một nền (Thanh Vân), động đậy tại chỗ theo đúng chỗ đó. Bốn chỗ trong `lib/spots.ts`: bờ suối (uống nước), dưới cây thông (hái quả), tảng đá rêu (nghỉ ngơi), rừng tre (ngắm đom đóm).
-- Mỗi chỗ là một **ô vuông 512 px** cắt từ ảnh nền. Với mỗi (thú, dị biến, chỗ): (1) `google/nano-banana-2.1/edit` nhận ô nền + ảnh thú và vẽ thú vào đúng chỗ (ánh sáng, cỡ, bóng khớp cảnh), khoảng 0,07 USD; (2) Kling 2.6 làm clip lặp 5 giây theo hành động của chỗ, khoảng 0,35 USD. Kết quả dùng chung cho mọi người chơi.
-- Trang đặt clip lại đúng ô đã cắt, viền mờ dần (mask), nên không cần tách nền: nước gợn, bóng đổ, ánh sáng nằm sẵn trong clip.
-- Không dùng bước kiểm tra của game (`review`) cho ảnh này vì nó chấm "một con thú giữa khung" chứ không phải cả một cảnh.
-- Thêm chỗ đứng hay nền khác: thêm phần tử vào `SPOTS` (ô cắt, `place`, `action`), không cần sửa code khác. Tọa độ hiện tại đoán từ ảnh, nên có thể phải dịch ô cho trúng chỗ.
 
-**Nền chuyển động:** nút "Làm nền động" tạo một clip lặp 10 giây của cả tranh nền (nước chảy, sương trôi, tia sáng dịch, lá đung đưa, đom đóm), khoảng 0,70 USD, làm một lần dùng chung cho mọi người. Clip nền chạy bên dưới, clip từng thú đặt lên trên. Chuyển động của nền trong ô thú và của clip nền do hai lần tạo khác nhau nên viền ô (mờ dần 18%) có thể lộ vết nhỏ khi sương trôi lệch pha. Nếu khó chịu, hướng sửa là tách thú khỏi nền (đã có bước `cut`) rồi đặt lên clip nền.
+### Hợp đồng của một chỗ: hai điểm chính xác, giống nhau cho mọi thú
+- `stand`: nơi **chân đặt xuống** (đáy của thú). `focus`: **điểm thú làm việc** (mặt nước để uống, quả để hái, hướng nhìn). Tính bằng pixel của ảnh nền (1376×768).
+- Thú nào vào chỗ này cũng được đặt theo `frameOf()` (`lib/spots.ts`, có test): phóng cùng một tỉ lệ cho vừa **chỗ cho phép** (`room()`), chân nằm đúng `stand`; thú **với tới** (uống, hái) thì mép trước của khung thú nằm đúng `focus`, nên mõm chạm nước dù là cáo hay rắn. Chỗ uống rộng đúng bằng khoảng cách chân–nước, chỗ hái cao đúng bằng khoảng cách chân–quả, chỗ nghỉ/ngắm dùng `size`.
+- **Chấm điểm trên tranh**: nút trên trang cho chạm vào tranh để đặt từng điểm (chấm đỏ = chân, vòng xanh = nước/quả/hướng nhìn, khung vàng = chỗ thú được chiếm). Điểm được lưu ngay (`kv`, khóa `lab.spotpts`, không tốn tiền); thú đã làm dời theo tức thì. Tọa độ mặc định chỉ là đoán từ ảnh, nên điểm "thật" là điểm bạn chấm.
+- **Sinh nền mới cho đúng hợp đồng**: nền phải có sẵn chỗ để đặt hai điểm: một mỏm đất/đá **phẳng, vững** cho chân (đủ rộng cho thú nằm hoặc đứng) và, cạnh nó, **mặt nước phẳng** (hay cành thấp để hái quả) trong tầm với của đầu. Nên ghi các chỗ đó vào lời tả khi sinh nền ("a flat mossy ledge at the water's edge in the lower left, calm clear water right in front of it"), rồi chấm điểm lên đúng chỗ ngay sau khi có ảnh.
+
+### Các bước cho mỗi (thú, dị biến, chỗ)
+1. **Vẽ**: `google/nano-banana-2.1/edit` nhận ô nền 512 px (quanh hai điểm) + ảnh thú, vẽ thú đúng **tư thế của chỗ** (`pose`: mõm chạm mặt nước, miệng cắn quả…), hướng về `focus`, sáng như cảnh, khoảng 0,07 USD. Vị trí thú trong ô **không cần chính xác** vì bước sau đo và đặt lại.
+2. **Tách và đo** (`spotbox`): Bria tách thú khỏi ảnh (khoảng 0,02 USD), máy chủ đo khung và hai đầu (mõm, đuôi) từ kênh alpha (`alphaMetrics`) và lưu cùng ảnh webp nhỏ có alpha. Từ đây thú đã đứng đúng chỗ (ảnh tĩnh).
+3. **Hoạt ảnh** (`spotclip`): Kling 2.6, clip lặp 5 giây, khoảng 0,35 USD. Ảnh đầu đã là tư thế đang uống/đang ăn nên clip chỉ **giữ mõm ở yên chỗ** (nuốt, tai và đuôi động, thỉnh thoảng ngẩng lên chút rồi cúi lại), chân không dịch, kết thúc đúng tư thế ban đầu.
+4. **Tách nền hoạt ảnh** (`spotcut`): VEED như các clip khác (khoảng 0,06 USD), hai video H.264 (hình + alpha) vẽ bằng WebGL (`AlphaVideo`) nên chạy cả trên Safari iPhone.
+Tổng khoảng **0,50 USD** mỗi (thú, dị biến, chỗ), dùng chung cho mọi người chơi. Trang chỉ tính tiền các bước còn thiếu.
+- Thú tách nền được đặt **thẳng lên clip nền** nên không còn ô vuông, không lộ viền sương. Trước khi có clip tách nền, trang dùng ảnh tĩnh đã tách; nếu thiết bị không vẽ nổi alpha (video khác nguồn không có CORS) thì quay về ô vuông mờ viền như cũ.
+- Mặt nước gợn **đúng chỗ mõm** (vòng sóng vẽ bằng code tại điểm đã đo), quả hái có ánh sáng và tia lửa rơi, bóng tiếp đất là elip dưới chân; các video chỉ chạy khi đang trong màn hình (chín video cùng lúc là quá nhiều cho điện thoại).
+- Không dùng bước kiểm tra của game (`review`) cho ảnh này vì nó chấm "một con thú giữa khung" chứ không phải cả một cảnh.
+- Thêm chỗ đứng hay nền khác: thêm phần tử vào `SPOTS` (`kind`, `stand`, `focus`, `size`, `pose`, `action`), không cần sửa code khác.
+- Giới hạn: thú đặt theo cùng một tỉ lệ nên con lớn và con nhỏ có cỡ gần như nhau tại một chỗ (muốn khác thì thêm hệ số cỡ theo loài). Thú đã cắt có thể mất bóng/phản chiếu nước của ảnh gốc (bóng được vẽ lại bằng code), và chất lượng tách trên video chưa kiểm với thú thật.
+
+**Nền chuyển động:** nút "Làm nền động" tạo một clip lặp 10 giây của cả tranh nền (nước chảy, sương trôi, tia sáng dịch, lá đung đưa, đom đóm), khoảng 0,70 USD, làm một lần dùng chung cho mọi người. Clip nền chạy bên dưới, clip từng thú đặt lên trên. Thú được tách khỏi nền rồi đặt lên clip nền (xem trên) nên không còn viền ô lộ sương; chỉ khi chưa tách xong thì trang dùng tạm ô vuông mờ viền.
 
 **Hiệu ứng tiên hiệp vẽ bằng code** (`components/lab/Ambient.tsx`, miễn phí, lặp mãi, có nút tắt cho máy yếu): tiên hạc bay ngang trời (vỗ cánh rồi lượn), chuồn chuồn đậu một chỗ rồi lao sang chỗ khác phần lớn quanh con suối, bướm, cánh hoa và lá bay theo gió lúc mạnh lúc nhẹ, đom đóm và linh quang nổi lên, ánh lấp lánh trên mặt nước; thêm sương trôi hai lớp và tia nắng quét từ mặt trời (CSS). Clip nền do AI làm chỉ lo phần "thiên nhiên" (nước chảy, thác đổ, sương cuộn, thông tre đung đưa), còn sinh vật nhỏ do code vẽ để chúng không bị AI biến dạng và lặp mượt. Tọa độ con suối và mặt trời trong `Ambient.tsx` đọc từ ảnh Thanh Vân, nền khác phải chỉnh lại.
 - Đổi lời tả clip nền (`bgClipPrompt`) thì id đổi: trang hiện nút "Làm lại nền động" (~0,70 USD) và vẫn dùng clip cũ cho tới khi có clip mới.

@@ -6,16 +6,16 @@ import { json, guard, checkWrite, readBody } from '@/lib/server/http';
 import { SCENE_IDS, fgCost } from '@/lib/anim';
 import { requireAdmin } from '@/lib/server/admin';
 import { ensureDaily } from '@/lib/server/dailystore';
-import { assetsOf, bgClip, bgClipOf, clip, cut, cutsAll, fg, fgsAll, idle, info, spotClip, spotPic, spotsAll, spotUsd, variant, type Out } from '@/lib/server/anim';
+import { assetsOf, bgClip, bgClipOf, clip, cut, cutsAll, fg, fgsAll, idle, info, savePoints, spotBox, spotClip, spotCut, spotPic, spotPoints, spotsAll, spotUsd, variant, type Out } from '@/lib/server/anim';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;   // a clip is made after the answer is sent: the function must stay alive until it is saved
 
 // Owner only (Authorization: Bearer <ADMIN_KEY>, the same key as /admin). This route spends money.
 // GET  ?sp=<species id>   prices, spend, the species list and what is already made for that species
-// GET  ?spots=1           the same, plus every creature picture and clip at the spots of the background
+// GET  ?spots=1           the same, plus every creature picture, cut-out and clip at the spots of the background, and the owner's points of the spots
 // GET  ?cuts=1            the same, plus every cut-out creature and every foreground layer (for the scene page)
-// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }  or  { step: 'spotpic' | 'spotclip', sp, mut, spot, src }   answers { status, id } at once; ask again until the status is not 'pending'
+// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }  or  { step: 'spotpic' | 'spotbox' | 'spotclip' | 'spotcut', sp, mut, spot, src }  or  { step: 'points', spot, stand: {x,y}, focus: {x,y} } (free, answers at once)   answers { status, id } at once; ask again until the status is not 'pending'
 const fgPrice = () => fgCost(falCost(falModels().edit, 1376, 768));
 const speciesOk = (sp: string) => D.allSpecies().some((s) => s.id === sp) && !!C.SPECIES_EN[sp];
 
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     await ensureDaily();
     const q = new URL(req.url).searchParams, sp = q.get('sp') || '';
     const species = D.allSpecies().filter((s) => C.SPECIES_EN[s.id]).map((s) => ({ id: s.id, name: s.name, isNew: !C.SPECIES.some((x) => x.id === s.id) }));
-    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('spots') === '1' ? { spots: await spotsAll(), spotUsd: spotUsd(), bg: await bgClipOf() } : {}), ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
+    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('spots') === '1' ? { spots: await spotsAll(), spotUsd: spotUsd(), bg: await bgClipOf(), points: await spotPoints() } : {}), ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
   });
 }
 
@@ -42,6 +42,10 @@ export async function POST(req: Request) {
       out = (C.ZONES.some((x) => x.id === z) || (SCENE_IDS as readonly string[]).includes(z)) ? await fg(z, new URL(req.url).origin) : { status: 'invalid' };
       if (out.started) after(() => idle());
       return json({ status: out.status, id: out.id, why: out.why });
+    }
+    if (b?.step === 'points') {
+      // where the feet stand and where the creature drinks or eats: exact points of the background picture, tapped by the owner (no money is spent)
+      return json({ status: (await savePoints(String(b.spot), b)) ? 'ready' : 'invalid' });
     }
     if (b?.step === 'bgclip') {
       // the background's own moving clip: one for the whole picture, not tied to a species
@@ -64,8 +68,12 @@ export async function POST(req: Request) {
       out = await clip(sp, String(b.mut), String(b.motion), String(b.src));
     } else if (b.step === 'spotpic') {
       out = await spotPic(sp, String(b.mut), String(b.spot), String(b.src), new URL(req.url).origin);
+    } else if (b.step === 'spotbox') {
+      out = await spotBox(sp, String(b.mut), String(b.spot), String(b.src));
     } else if (b.step === 'spotclip') {
       out = await spotClip(sp, String(b.mut), String(b.spot), String(b.src));
+    } else if (b.step === 'spotcut') {
+      out = await spotCut(sp, String(b.mut), String(b.spot), String(b.src));
     } else if (b.step === 'cut') {
       out = await cut(sp, String(b.mut), String(b.motion), String(b.src));
     } else return json({ status: 'invalid' }, 400);

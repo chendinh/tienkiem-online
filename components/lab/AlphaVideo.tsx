@@ -29,10 +29,14 @@ function texture(gl: WebGLRenderingContext) {
   return t;
 }
 
-export function AlphaVideo({ rgb, alpha, playing = true, className, grade }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade> }) {
+export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFail, onDraw }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade>; onFail?: () => void; onDraw?: () => void }) {
   const cv = useRef<HTMLCanvasElement>(null), vc = useRef<HTMLVideoElement>(null), va = useRef<HTMLVideoElement>(null);
   const dirty = useRef(true);   // a picture must be drawn although the video is paused (after a seek, or when a new source has loaded)
   const [plain, setPlain] = useState(false);
+  const fail = useRef(onFail);   // told once when the videos cannot be used as textures (a video from another site without CORS headers), so the page can show something else
+  fail.current = onFail;
+  const drawn = useRef(onDraw);   // told once, when the first picture of the video is on the canvas (the page then hides the still that stood in for it)
+  drawn.current = onDraw;
 
   // WebGL is set up once; the loop reads whatever the two videos show now, so changing `rgb` or `alpha` needs nothing here.
   useEffect(() => {
@@ -40,7 +44,7 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade }: { r
     if (!canvas || !c || !a) return;
     const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true }) as WebGLRenderingContext | null;
     const pr = gl && program(gl);
-    if (!gl || !pr) { setPlain(true); return; }
+    if (!gl || !pr) { fail.current?.(); setPlain(true); return; }
     gl.useProgram(pr);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -60,8 +64,10 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade }: { r
       if (c.paused && !dirty.current && gv === seen) return;
       if (!c.paused && Math.abs(a.currentTime - c.currentTime) > 0.08) a.currentTime = c.currentTime;
       if (canvas.width !== c.videoWidth || canvas.height !== c.videoHeight) { canvas.width = c.videoWidth; canvas.height = c.videoHeight; gl.viewport(0, 0, canvas.width, canvas.height); }
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tc); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, ta); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a);
+      try {
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tc); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, ta); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a);
+      } catch { cancelAnimationFrame(raf); fail.current?.(); return; }
       gl.uniform1i(gl.getUniformLocation(pr, 'c'), 0); gl.uniform1i(gl.getUniformLocation(pr, 'a'), 1);
       if (g) { gl.uniform3f(uHaze, g.haze[0] / 255, g.haze[1] / 255, g.haze[2] / 255); gl.uniform1f(uAmt, g.amt); gl.uniform1f(uBright, g.bright); gl.uniform1f(uSat, g.sat); }
       else { gl.uniform1f(uAmt, 0); gl.uniform1f(uBright, 1); gl.uniform1f(uSat, 1); }
@@ -69,6 +75,7 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade }: { r
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       dirty.current = false;
+      if (drawn.current) { const f = drawn.current; drawn.current = undefined; f(); }
     };
     raf = requestAnimationFrame(draw);
     return () => {

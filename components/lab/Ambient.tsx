@@ -145,12 +145,54 @@ function glints(): Sim {
   };
 }
 
-export function Ambient({ layer }: { layer: Layer }) {
-  const ref = useRef<HTMLCanvasElement>(null);
+// ---- what happens at a spot's focus, from the exact point the spot defines (so it is where the creature's muzzle is): rings spread on the water where one drinks,
+// a glowing fruit with falling sparks where one eats. x, y are shares of the stage.
+export interface Mark { kind: 'drink' | 'eat'; x: number; y: number }
+function marks(get: () => Mark[]): Sim {
+  const sp: { x: number; y: number; life: number; max: number; dx: number }[] = [];
+  let acc = 0;
+  return (c, { w, h, u, t, dt }) => {
+    const all = get();
+    acc += dt;
+    for (const m of all) {
+      const x = m.x * w, y = m.y * h;
+      if (m.kind === 'drink') {
+        c.lineWidth = 1.3 * u;
+        for (let i = 0; i < 3; i++) {
+          const p = (t * 0.45 + i / 3) % 1, rx = u * (3 + 30 * p);
+          c.strokeStyle = `rgba(236,251,255,${((1 - p) * 0.6).toFixed(3)})`;
+          c.beginPath(); c.ellipse(x, y, rx, rx * 0.32, 0, 0, TAU); c.stroke();
+        }
+      } else {
+        c.globalCompositeOperation = 'lighter';
+        const pulse = 0.65 + 0.35 * Math.sin(t * 2.4);
+        glow(c, x, y - 2 * u, 3.4 * u, '255,214,110', pulse);
+        glow(c, x - 11 * u, y - 9 * u, 2.2 * u, '255,226,140', 0.5 + 0.4 * Math.sin(t * 1.9 + 1));
+        glow(c, x + 10 * u, y - 12 * u, 2 * u, '255,226,140', 0.5 + 0.4 * Math.sin(t * 2.1 + 2));
+        c.globalCompositeOperation = 'source-over';
+      }
+    }
+    // sparks fall from the fruit
+    const eat = all.find((m) => m.kind === 'eat');
+    if (eat && acc > 0.22) { acc = 0; sp.push({ x: eat.x, y: eat.y, life: 0, max: rnd(0.8, 1.5), dx: rnd(-0.01, 0.01) }); }
+    c.globalCompositeOperation = 'lighter';
+    for (let i = sp.length - 1; i >= 0; i--) {
+      const q = sp[i]; q.life += dt;
+      if (q.life >= q.max || !eat) { sp.splice(i, 1); continue; }
+      q.x += q.dx * dt; q.y += 0.05 * dt;
+      glow(c, q.x * w, q.y * h, 1.1 * u, '255,226,130', (1 - q.life / q.max) * 0.9);
+    }
+    c.globalCompositeOperation = 'source-over';
+  };
+}
+
+export function Ambient({ layer, marks: list }: { layer: Layer; marks?: Mark[] }) {
+  const ref = useRef<HTMLCanvasElement>(null), mk = useRef<Mark[]>([]);
+  mk.current = list || [];
   useEffect(() => {
     const cv = ref.current, c = cv?.getContext('2d');
     if (!cv || !c || calm()) return;
-    const sims: Sim[] = layer === 'back' ? [cranes(), lights(14, 1.1, ['255,236,170', '190,255,235'])] : [glints(), petals(20), lights(18, 1.8, ['255,224,130', '170,255,225', '255,255,235']), butterflies(3), dragonflies(3)];
+    const sims: Sim[] = layer === 'back' ? [cranes(), lights(14, 1.1, ['255,236,170', '190,255,235'])] : [glints(), marks(() => mk.current), petals(20), lights(18, 1.8, ['255,224,130', '170,255,225', '255,255,235']), butterflies(3), dragonflies(3)];
     const e: Env = { w: 1, h: 1, u: 1, t: 0, dt: 0 };
     const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(1.25, window.devicePixelRatio || 1); e.w = cv.width = Math.max(1, Math.round(r.width * d)); e.h = cv.height = Math.max(1, Math.round(r.height * d)); e.u = e.h / 768; };
     size();
