@@ -7,16 +7,28 @@ import * as C from '../content';
 import { query, savepoint } from './db';
 import { loadAccount, decodeState } from './store';
 
-export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number; qd?: number; av?: string }
-export type Board = 'cult' | 'power';
+export interface RankEntry { pid: string; acc: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; cp: number; power: number; el: string[]; hide: boolean; t: number; qd?: number; av?: string; tp?: TienOwn[] }
+export type Board = 'cult' | 'power' | 'quest';
+// An item of the highest rarity (Tiên, tier 5) that the player owns: worn, in the bag or in the stash. Kept on the player's row so the Tiên Phẩm list needs no account loads.
+export interface TienOwn { it: G.Item; w?: 1 }
+const TIEN = C.RARITY.length - 1, TIEN_MAX = 12;
+const tienOf = (st: G.GameState): TienOwn[] => {
+  const worn = new Set(Object.values(st.eq).filter((i): i is G.Item => !!i).map((i) => i.id));
+  const seen = new Set<number>(), out: TienOwn[] = [];
+  for (const it of [...Object.values(st.eq), ...(st.bag || []), ...(st.stash || [])]) {
+    if (!it || it.tier !== TIEN || seen.has(it.id)) continue;
+    seen.add(it.id); out.push(worn.has(it.id) ? { it, w: 1 } : { it });
+  }
+  return out.sort((a, b) => (b.w || 0) - (a.w || 0) || b.it.power - a.it.power).slice(0, TIEN_MAX);
+};
 
 const g = globalThis as any;
-const S: { secret?: Promise<string>; sorted: Record<string, { at: number; list: RankEntry[] }>; last: Map<string, { sig: string; at: number }> } = g.__tutienRank || (g.__tutienRank = { sorted: {}, last: new Map() });
+const S: { secret?: Promise<string>; sorted: Record<string, { at: number; list: RankEntry[] }>; last: Map<string, { sig: string; at: number }>; tien?: { at: number; list: { e: RankEntry; o: TienOwn }[] } } = g.__tutienRank || (g.__tutienRank = { sorted: {}, last: new Map() });
 const pidOf = (secret: string, acc: string) => createHmac('sha256', secret).update(acc).digest('hex').slice(0, 12);
 
 export function entryOf(st: G.GameState, pid: string, acc: string, now: number): RankEntry {
-  const p = st.player;
-  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now, qd: G.questCount(st), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
+  const p = st.player, tp = tienOf(st);
+  return { pid, acc, name: p.name, dao: p.dao, g: p.look.g, realm: p.realm, sub: p.sub, level: G.levelOf(p), cp: Math.round(p.cp), power: G.combatPower(st), el: p.linh, hide: !!st.set.hideRank, t: now, qd: G.questCount(st), ...(tp.length ? { tp } : {}), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}) };
 }
 
 const upsert = (e: RankEntry) => query('INSERT INTO rank_entries (acc, entry) VALUES ($1, $2::jsonb) ON CONFLICT (acc) DO UPDATE SET entry = EXCLUDED.entry', [e.acc, JSON.stringify(e)]);
@@ -49,19 +61,20 @@ export async function publish(acc: string, st: G.GameState, now: number) {
 }
 export async function unpublish(acc: string) {
   await query('DELETE FROM rank_entries WHERE acc = $1', [acc]);
-  S.last.delete(acc); S.sorted = {};
+  S.last.delete(acc); S.sorted = {}; S.tien = undefined;
 }
 
 const cmp: Record<Board, (a: RankEntry, b: RankEntry) => number> = {
   cult: (a, b) => b.level - a.level || b.cp - a.cp || b.power - a.power || a.t - b.t,
   power: (a, b) => b.power - a.power || b.level - a.level || a.t - b.t,
+  quest: (a, b) => (b.qd || 0) - (a.qd || 0) || b.level - a.level || b.power - a.power || a.t - b.t,
 };
 async function sortedBoard(board: Board, now: number): Promise<RankEntry[]> {
   await secret();
   const hit = S.sorted[board];
   if (hit && now - hit.at < 5000) return hit.list;
   const rows = (await query<{ entry: RankEntry }>('SELECT entry FROM rank_entries')).rows;
-  const list = rows.map((r) => r.entry).filter((e) => !e.hide).sort(cmp[board]);
+  const list = rows.map((r) => r.entry).filter((e) => !e.hide && (board !== 'quest' || (e.qd || 0) > 0)).sort(cmp[board]);
   S.sorted[board] = { at: now, list };
   return list;
 }
@@ -72,6 +85,20 @@ export async function board(b: Board, meAcc: string, now: number, top = 100) {
   const row = (e: RankEntry, i: number): RankRow => ({ rank: i + 1, pid: e.pid, name: e.name, dao: e.dao, g: e.g, realm: e.realm, sub: e.sub, level: e.level, power: e.power, el: e.el, me: e.acc === meAcc, t: e.t, qd: e.qd || 0, av: e.av });
   const mine = list.findIndex((e) => e.acc === meAcc);
   return { board: b, total: list.length, rows: list.slice(0, top).map(row), me: mine >= 0 ? row(list[mine], mine) : null };
+}
+
+export interface TienRow { rank: number; pid: string; owner: string; dao: string; me: boolean; worn: boolean; it: G.Item }
+// Tiên Phẩm: every Tiên-rarity item and who owns it, strongest first.
+export async function tien(meAcc: string, now: number, top = 100) {
+  await secret();
+  let hit = S.tien;
+  if (!hit || now - hit.at > 5000) {
+    const rows = (await query<{ entry: RankEntry }>('SELECT entry FROM rank_entries')).rows.map((r) => r.entry).filter((e) => !e.hide && e.tp && e.tp.length);
+    const list = rows.flatMap((e) => e.tp!.map((o) => ({ e, o }))).sort((x, y) => y.o.it.power - x.o.it.power || x.e.t - y.e.t);
+    hit = S.tien = { at: now, list };
+  }
+  const row = (x: { e: RankEntry; o: TienOwn }, i: number): TienRow => ({ rank: i + 1, pid: x.e.pid, owner: x.e.name, dao: x.e.dao, me: x.e.acc === meAcc, worn: !!x.o.w, it: x.o.it });
+  return { board: 'tien' as const, total: hit.list.length, owners: new Set(hit.list.map((x) => x.e.acc)).size, rows: hit.list.slice(0, top).map(row), me: null };
 }
 
 // A player's open page: stats, worn items and the Linh Thú that go into battle.

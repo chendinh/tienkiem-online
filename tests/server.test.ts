@@ -209,6 +209,13 @@ test('Bảng Phong Thần: boards, hiding, profiles without private data, remova
   const ptext = JSON.stringify(prof);
   for (const secret of ['@example.com', a.id, b.id, '"streams"', '"seed"']) assert.ok(!ptext.includes(secret), secret);
   assert.equal(await R.profile('0123456789ab', now()), null);
+  // Chiến Công lists only players who finished the daily quest; Tiên Phẩm lists Tiên items with their owner
+  const quest = await R.board('quest', a.id, now());
+  assert.ok(quest.rows.every((r) => r.qd > 0));
+  const tienList = await R.tien(a.id, now());
+  assert.ok(tienList.rows.some((r) => r.pid === bPid && r.it.tier === 5 && r.worn));
+  assert.ok(tienList.rows.every((r) => r.it.tier === 5));
+  assert.ok(!JSON.stringify(tienList).includes('@example.com'));
   // hiding removes the player from lists and pages
   const cPid = (await R.board('cult', c.id, now())).me!.pid;
   await pub(c.id, (st) => { st.set.hideRank = true; });

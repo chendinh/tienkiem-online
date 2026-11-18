@@ -11,8 +11,9 @@ import { Icon } from './ds/Icon';
 import { Seg } from './ds/Seg';
 import { Logo } from './Logo';
 
-type Board = 'cult' | 'power';
+type Board = 'cult' | 'power' | 'quest' | 'tien';
 interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd?: number; av?: string }
+interface TienRow { rank: number; pid: string; owner: string; dao: string; me: boolean; worn: boolean; it: Item }
 interface Profile {
   pid: string; name: string; dao: string; title?: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
   stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number; quests?: number;
@@ -30,14 +31,15 @@ const MEDAL = ['', 'Thiên Bảng', 'Địa Bảng', 'Nhân Bảng'];
 export function RankingModal({ onClose }: { onClose: () => void }) {
   const [board, setBoard] = useState<Board>('cult');
   const [data, setData] = useState<{ rows: Row[]; total: number; me: Row | null } | null>(null);
+  const [tienData, setTienData] = useState<{ rows: TienRow[]; total: number; owners: number } | null>(null);
   const [pid, setPid] = useState<string | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
-    let alive = true; setData(null); setErr('');
+    let alive = true; setData(null); setTienData(null); setErr('');
     rankingGet(`board=${board}`).then((j) => {
       if (!alive) return;
       if (!j.ok) { setErr(errText(j.code)); return; }
-      setData(j);
+      if (board === 'tien') setTienData(j); else setData(j);
       // with room for two panes, open the first page at once
       if (window.matchMedia('(min-width: 900px)').matches) setPid((cur) => cur ?? j.me?.pid ?? j.rows[0]?.pid ?? null);
     }).catch(() => alive && setErr(errText('E_SERVER')));
@@ -48,8 +50,9 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
   const rows = data?.rows || [];
   const top = rows.slice(0, 3), rest = rows.slice(3);
   const maxPow = Math.max(1, ...rows.map((r) => r.power)), maxLv = Math.max(1, ...rows.map((r) => r.level));
-  const metric = (r: Row) => board === 'power' ? <><Icon name="atk" size={14} /> {fmt(r.power)}</> : <><Icon name="rise" size={14} /> Lv{r.level}</>;
-  const pct = (r: Row) => Math.max(4, Math.round((board === 'power' ? r.power / maxPow : r.level / maxLv) * 100));
+  const maxQd = Math.max(1, ...rows.map((r) => r.qd || 0));
+  const metric = (r: Row) => board === 'power' ? <><Icon name="atk" size={14} /> {fmt(r.power)}</> : board === 'quest' ? <><Icon name="scroll" size={14} /> ×{fmt(r.qd || 0)}</> : <><Icon name="rise" size={14} /> Lv{r.level}</>;
+  const pct = (r: Row) => Math.max(4, Math.round((board === 'power' ? r.power / maxPow : board === 'quest' ? (r.qd || 0) / maxQd : r.level / maxLv) * 100));
   const who = (r: Row) => r.dao || (r.g === 'f' ? 'Nữ tu' : 'Nam tu');
 
   const pod = (r: Row | undefined, i: number) => {
@@ -61,7 +64,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
         <span className={`podSeal ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={k === 1 ? 32 : 26} />}</span>
         <b className="podName">{r.name}</b>
         <small className="podDao">{who(r)}{r.me ? ' · ngươi' : ''}</small>
-        <QuestTag n={r.qd} />
+        {board !== 'quest' && <QuestTag n={r.qd} />}
         <span className="podRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}</span>
         <span className="podMetric">{metric(r)}</span>
         <span className="podStand"><i>{r.rank}</i><em>{MEDAL[k]}</em></span>
@@ -73,12 +76,22 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
     <button key={r.pid} type="button" className={`rkRow ${r.me ? 'me' : ''} ${pid === r.pid ? 'sel' : ''}`} style={{ '--el': elColor(r), '--pct': `${pct(r)}%` } as CSSProperties} onClick={() => setPid(r.pid)} aria-label={`Hạng ${r.rank}, ${r.name}`}>
       <span className="rkNum">{r.rank}</span>
       <span className={`rkEl ${r.av ? 'face' : ''}`}>{r.av ? <Img src={`${r.av}?s=face`} className="faceImg" fb={<ElIcon el={r.el[0] || 'Kim'} size={18} />} /> : <ElIcon el={r.el[0] || 'Kim'} size={18} />}</span>
-      <span className="rkWho"><b>{r.name}</b><small>{who(r)}{r.me ? ' · ngươi' : ''}</small><QuestTag n={r.qd} /></span>
+      <span className="rkWho"><b>{r.name}</b><small>{who(r)}{r.me ? ' · ngươi' : ''}</small>{board !== 'quest' && <QuestTag n={r.qd} />}</span>
       <span className="rkRealm">{C.REALMS[r.realm]} · {C.SUBS[r.sub]}<small>Lv{r.level}</small></span>
       <span className="rkMetric">{metric(r)}</span>
       <i className="rkBar" aria-hidden="true" />
     </button>
   );
+
+  const tienRow = (r: TienRow) => (
+    <button key={`${r.pid}-${r.it.id}`} type="button" className={`rkRow tpRow ${r.me ? 'me' : ''} ${pid === r.pid ? 'sel' : ''}`} style={{ '--rc': C.RCOLOR[r.it.tier] } as CSSProperties} onClick={() => setPid(r.pid)} aria-label={`Hạng ${r.rank}, ${r.it.name}, của ${r.owner}`}>
+      <span className="rkNum">{r.rank}</span>
+      <span className="tpIcon"><ItemIcon it={r.it} size={44} zoom /></span>
+      <span className="rkWho"><b style={{ color: C.RCOLOR[r.it.tier] }}>{r.it.name}</b><small>{C.RARITY[r.it.tier]} · Lv{r.it.level} · {C.SLOT_VI[r.it.slot]}</small><small className="tpOwner"><Icon name="crown" size={11} /> {r.owner}{r.dao ? ` · ${r.dao}` : ''}{r.me ? ' · ngươi' : ''}{r.worn ? ' · đang mặc' : ''}</small></span>
+      <span className="rkMetric"><Icon name="atk" size={14} /> {fmt(r.it.power)}</span>
+    </button>
+  );
+  const tRows = tienData?.rows || [];
 
   return (
     <div className="modal rkModal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Bảng Phong Thần">
@@ -87,28 +100,31 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
         <header className="rkBanner">
           <div className="rkTitle">
             <span className="rkSeal"><Icon name="crown" size={22} /></span>
-            <div><h2>Bảng Phong Thần</h2><small>{data ? `${data.total} tu sĩ đã ghi danh` : 'Thiên Đạo đang xếp hạng…'}</small></div>
+            <div><h2>Bảng Phong Thần</h2><small>{board === 'tien' ? (tienData ? `${tienData.total} món Tiên Phẩm · ${tienData.owners} chủ nhân` : 'Thiên Đạo đang kiểm kê…') : data ? (board === 'quest' ? `${data.total} tu sĩ đã hoàn thành nhiệm vụ ngày` : `${data.total} tu sĩ đã ghi danh`) : 'Thiên Đạo đang xếp hạng…'}</small></div>
           </div>
           <Seg<Board> label="Bảng" value={board} onChange={setBoard} options={[
             { v: 'cult' as const, label: <><Icon name="lotus" size={15} /><span>Tu Vi</span></>, title: 'Xếp theo cảnh giới' },
             { v: 'power' as const, label: <><Icon name="atk" size={15} /><span>Chiến Lực</span></>, title: 'Xếp theo sức mạnh chiến đấu' },
+            { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Chiến Công</span></>, title: 'Xếp theo số lần hoàn thành nhiệm vụ ngày' },
+            { v: 'tien' as const, label: <><Icon name="sparkle" size={15} /><span>Tiên Phẩm</span></>, title: 'Pháp khí hạng Tiên và chủ nhân' },
           ]} />
         </header>
 
         <div className="rkBody">
           <section className="rkBoard" aria-label="Danh sách">
             {err && <div className="eqMsg err" role="alert">{err}</div>}
-            {!data && !err && <div className="rkSkel" aria-busy="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</div>}
-            {data && rows.length === 0 && <div className="empty">Chưa có ai trên bảng.</div>}
-            {data && rows.length > 0 && (
+            {!(board === 'tien' ? tienData : data) && !err && <div className="rkSkel" aria-busy="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</div>}
+            {board === 'tien' && tienData && (tRows.length === 0 ? <div className="empty">Chưa có Tiên Phẩm nào xuất thế.</div> : <div className="rkList tpList">{tRows.map(tienRow)}</div>)}
+            {board !== 'tien' && data && rows.length === 0 && <div className="empty">{board === 'quest' ? 'Chưa ai hoàn thành nhiệm vụ ngày.' : 'Chưa có ai trên bảng.'}</div>}
+            {board !== 'tien' && data && rows.length > 0 && (
               <>
                 <div className="rkPodium">{[1, 0, 2].map((i) => pod(top[i], i))}</div>
                 {rest.length > 0 && <div className="rkList">{rest.map(rowEl)}</div>}
               </>
             )}
-            {data && (
+            {board !== 'tien' && data && (
               <div className="rkMe">
-                {data.me ? <><span className="rkMeLbl">Hạng của ngươi <b>{data.me.rank}</b> / {data.total}</span>{rowEl(data.me)}</> : <span className="rkMeLbl">Ngươi đang ẩn khỏi bảng. Bật lại trong Cài đặt.</span>}
+                {data.me ? <><span className="rkMeLbl">Hạng của ngươi <b>{data.me.rank}</b> / {data.total}</span>{rowEl(data.me)}</> : <span className="rkMeLbl">{board === 'quest' ? 'Ngươi chưa hoàn thành nhiệm vụ ngày nào, hoặc đang ẩn khỏi bảng.' : 'Ngươi đang ẩn khỏi bảng. Bật lại trong Cài đặt.'}</span>}
               </div>
             )}
           </section>

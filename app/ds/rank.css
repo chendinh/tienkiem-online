@@ -15,6 +15,14 @@
   .rkBanner .seg > button { display: inline-flex; align-items: center; gap: 6px; }
   .rkClose { flex: none; }
 
+  /* Tiên Phẩm: one line per Tiên item, with its owner */
+  .tpList { padding-top: var(--sp-4); }
+  .tpRow { grid-template-columns: 34px 48px minmax(0, 1fr) auto; min-height: 64px; border-color: color-mix(in srgb, var(--rc) 35%, var(--line)); }
+  .tpRow .rkWho b { color: var(--rc); }
+  .tpIcon { display: grid; place-items: center; }
+  .tpOwner { display: inline-flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gold-200) !important; }
+  .rkBanner .seg { flex-wrap: wrap; }
+
   /* two panes */
   .rkBody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 430px); }
   .rkBoard, .rkDetail { min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }   /* never sideways: whatever is too wide is cut or wrapped inside its own cell */
@@ -115,7 +123,10 @@
   @media (max-width: 560px) {
     .rkModal { padding: 0; align-items: flex-end; }
     .modalBody.rkShell { height: 96dvh; border-radius: var(--r-xl) var(--r-xl) 0 0; }
+    .rkBanner .seg > button span { display: none; }
+    .rkBanner .seg > button.on span { display: inline; }
     .rkRow { grid-template-columns: 28px minmax(0, 1fr) auto; }
+    .tpRow { grid-template-columns: 28px 48px minmax(0, 1fr) auto; }
     .rkRealm { display: none; }
     .rkEl:not(.face) { display: none; }
     .rkRow:has(.rkEl.face) { grid-template-columns: 28px 36px minmax(0, 1fr) auto; }
