@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, estimate, isPictureId, parseRange, variantPrompt, DEFAULT_MODEL } from '../lib/anim';
+import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL } from '../lib/anim';
 
 test('mutation and motion ids are unique, lowercase slugs', () => {
   for (const list of [MUTATIONS, MOTIONS]) {
@@ -19,6 +19,11 @@ test('a variant keeps the creature and a clip returns to its first frame', () =>
   for (const m of MOTIONS) assert.match(clipPrompt(m), /last frame returns exactly to the first frame/);
 });
 
+test('walk and run are done in place and are the only motions that travel', () => {
+  assert.deepEqual(MOTIONS.filter((m) => m.move).map((m) => m.id), ['walk', 'run']);
+  for (const id of ['walk', 'run']) assert.match(motionOf(id)!.en, /in place[\s\S]*does not travel forward/);
+});
+
 test('Kling 2.6 loops: start and end frame are the same picture, no audio', () => {
   const i = clipInput(DEFAULT_MODEL, { prompt: 'p', imageUrl: 'https://v3.fal.media/x.jpg', seconds: 5 });
   assert.equal(i.start_image_url, i.end_image_url);
@@ -28,11 +33,21 @@ test('Kling 2.6 loops: start and end frame are the same picture, no audio', () =
   assert.equal(clipInput(DEFAULT_MODEL, { prompt: 'p', imageUrl: 'u', seconds: 7 }).duration, '5');
 });
 
-test('prices: a known model, an unknown model (priced high), and a whole run', () => {
+test('the cut-out asks VEED for two H.264 videos (Safari cannot show the alpha of a WebM)', () => {
+  const i = cutInput(DEFAULT_CUT_MODEL, 'https://v3.fal.media/c.mp4');
+  assert.equal(i.output_codec, 'h264');
+  assert.equal(i.subject_is_person, false);
+  assert.deepEqual(cutInput('other/model', 'u'), { video_url: 'u' });
+});
+
+test('prices: a known model, an unknown model (priced high), a cut-out, and a whole run', () => {
   assert.equal(clipCost(DEFAULT_MODEL, 5), 0.35);
   assert.equal(clipCost('some/new-model', 5), 1);
+  assert.equal(cutCost(DEFAULT_CUT_MODEL, 5), 0.06);
   // 3 variants -> 4 pictures; 2 motions -> 8 clips of 5 s
   assert.deepEqual(estimate({ model: DEFAULT_MODEL, seconds: 5, editUsd: 0.04, variants: 3, motions: 2 }), { edits: 3, clips: 8, usd: 2.92 });
+  // the same run with every clip cut out: 8 x 0.06 more
+  assert.equal(estimate({ model: DEFAULT_MODEL, seconds: 5, editUsd: 0.04, variants: 3, motions: 2, cutModel: DEFAULT_CUT_MODEL }).usd, 3.4);
   assert.equal(estimate({ model: DEFAULT_MODEL, seconds: 5, editUsd: 0.04, variants: 0, motions: 0 }).usd, 0);
 });
 

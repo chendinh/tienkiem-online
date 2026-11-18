@@ -2,10 +2,12 @@
 .zl { max-width: 1100px; margin: 0 auto; padding: var(--sp-5) var(--sp-4) var(--sp-9); color: var(--ink); font-family: var(--font-text); }
 .zl h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; color: var(--gold-300); margin: 0 0 var(--sp-2); }
 .zl-note { font-size: 0.88rem; line-height: 1.5; margin: var(--sp-2) 0; color: color-mix(in srgb, var(--ink) 70%, transparent); }
+.zl-link { color: var(--jade-300); text-decoration: underline; }
 .zl-err { color: var(--cinnabar-300); font-size: 0.9rem; margin: var(--sp-2) 0 0; }
 .zl-panel { display: grid; gap: var(--sp-3); padding: var(--sp-4); margin: var(--sp-4) 0; background: var(--ink-850); border: 1px solid var(--line-gold); border-radius: var(--r-lg); }
 .zl-row { display: grid; gap: var(--sp-2); }
 .zl-row > span { font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-400); }
+.zl-check { display: flex; gap: var(--sp-2); align-items: center; font-size: 0.95rem; }
 .zl-in { width: 100%; padding: 0.65rem 0.8rem; font: inherit; font-size: 1rem; color: var(--ink); background: var(--ink-800); border: 1px solid var(--line-strong); border-radius: var(--r-sm); }
 .zl-chips, .zl-moves { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .zl-chip { padding: 0.45rem 0.8rem; font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--ink-800); border: 1px solid var(--line-strong); border-radius: var(--r-pill); cursor: pointer; }
@@ -20,8 +22,24 @@
 .zl-tile { margin: 0; overflow: hidden; background: var(--ink-850); border: 1px solid var(--line-gold); border-radius: var(--r-lg); }
 .zl-art { position: relative; aspect-ratio: 1 / 1; background: var(--ink-900); }
 .zl-art img, .zl-video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.zl-checker { background: repeating-conic-gradient(#1c2a33 0 25%, #2b3b46 0 50%) 50% / 24px 24px; }
 .zl-empty { display: grid; place-items: center; height: 100%; padding: var(--sp-3); text-align: center; font-size: 0.9rem; color: color-mix(in srgb, var(--ink) 60%, transparent); }
 .zl-badge { position: absolute; left: var(--sp-2); bottom: var(--sp-2); padding: 0.2rem 0.6rem; font-size: 0.75rem; color: var(--ink); background: color-mix(in srgb, var(--ink-950) 80%, transparent); border-radius: var(--r-pill); }
 .zl-tile figcaption { display: grid; gap: var(--sp-2); padding: var(--sp-3); }
 .zl-tile figcaption b { font-family: var(--font-display); font-size: 1.1rem; color: var(--gold-300); }
+
+/* a creature cut out of its clip: a canvas fed by two hidden videos (components/lab/AlphaVideo.tsx) */
+.zl-alpha { display: block; position: relative; width: 100%; height: 100%; }
+.zl-alpha-cv { display: block; width: 100%; height: 100%; }
+.zl-hid { position: absolute; left: 0; top: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+
+/* the scene: a background picture and creatures on it. The stage is a size container, so cqw is a share of the picture's width. */
+.zl-stage { position: relative; overflow: hidden; container-type: inline-size; border: 1px solid var(--line-gold); border-radius: var(--r-lg); background: var(--ink-900); }
+.zl-bg { display: block; width: 100%; height: auto; }
+.zl-field { position: absolute; inset: 0; --w: 26cqw; }
+.zl-actor { position: absolute; width: 0; height: 0; }
+/* the feet are at 86% of the picture's height: the creature is placed so that point is on the spot, and grows or shrinks around it */
+.zl-fig { position: absolute; left: 0; top: 0; width: var(--w); height: var(--w); margin: calc(var(--w) * -0.86) 0 0 calc(var(--w) * -0.5); transform-origin: 50% 86%; transform: scale(var(--s, 1)) scaleX(calc(var(--f, 1) * var(--flip, 1))); }
+.zl-shadow { position: absolute; left: 0; top: 0; width: calc(var(--w) * 0.7); height: calc(var(--w) * 0.12); margin: calc(var(--w) * -0.06) 0 0 calc(var(--w) * -0.35); border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.45), transparent 70%); transform: scale(var(--s, 1)); }
+@media (orientation: portrait) { .zl-field { --w: 44cqw; } }
 @media (max-width: 520px) { .zl-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); } }

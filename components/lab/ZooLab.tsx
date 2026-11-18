@@ -2,16 +2,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BASE, MOTIONS, MUTATIONS, estimate } from '@/lib/anim';
 import { errText } from '@/lib/strings';
+import { AlphaVideo } from './AlphaVideo';
 import { LoopVideo } from './LoopVideo';
 
-// Lab: pick a creature, pick mutations and motions, and the page asks the server for every variant picture and every looping clip, a few at a time.
-// Nothing here is a toast: each card says what it is doing. The owner's key is the one of /admin (kept in the tab only).
+// Lab: pick a creature, pick mutations and motions, and the page asks the server for every variant picture, every looping clip and (if asked) every
+// cut-out of a clip, a few at a time. Nothing here is a toast: each card says what it is doing. The owner's key is the one of /admin (kept in the tab only).
 const KEY = 'tutien-admin-key';
 type St = 'pending' | 'ready' | 'failed' | 'limited' | 'disabled' | 'invalid';
-interface Cell { id?: string; src?: string; st: St; why?: string }
-interface Asset { id: string; kind: 'animvar' | 'anim'; mut?: string; motion?: string; src?: string }
-interface Info { enabled: boolean; provider: string; model: string; seconds: number; editUsd: number; spent: number; cap: number; species: { id: string; name: string; isNew: boolean }[]; assets: Asset[] }
-type Answer = { status: St; id?: string; why?: string };
+interface Cell { id?: string; alpha?: string; src?: string; st: St; why?: string }
+interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }
+interface Info { enabled: boolean; provider: string; model: string; cutModel: string; seconds: number; editUsd: number; spent: number; cap: number; species: { id: string; name: string; isNew: boolean }[]; assets: Asset[] }
+type Answer = { status: St; id?: string; alpha?: string; why?: string };
 
 const WHY: Record<string, string> = { limited: 'Hết hạn mức của lab', disabled: 'fal chưa được bật', invalid: 'Yêu cầu không hợp lệ', failed: 'Lỗi' };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -24,10 +25,12 @@ export function ZooLab() {
   const [info, setInfo] = useState<Info | null>(null);
   const [err, setErr] = useState('');
   const [sp, setSp] = useState('');
-  const [muts, setMuts] = useState<string[]>(['ngusac', 'hoalinh', 'hanbang']);
-  const [moves, setMoves] = useState<string[]>(['idle']);
+  const [muts, setMuts] = useState<string[]>(['ngusac']);
+  const [moves, setMoves] = useState<string[]>(['walk']);
+  const [cutOn, setCutOn] = useState(true);
   const [pics, setPics] = useState<Record<string, Cell>>({});
   const [clips, setClips] = useState<Record<string, Cell>>({});
+  const [cuts, setCuts] = useState<Record<string, Cell>>({});
   const [running, setRunning] = useState(false);
   const stop = useRef(false);
 
@@ -42,12 +45,13 @@ export function ZooLab() {
       if (!r.ok || !j.ok) { setErr(errText(String(j.code || 'E_SERVER'))); return; }
       try { sessionStorage.setItem(KEY, k); } catch {}
       setErr(''); setInfo(j);
-      const pc: Record<string, Cell> = {}, cc: Record<string, Cell> = {};
+      const pc: Record<string, Cell> = {}, cc: Record<string, Cell> = {}, xc: Record<string, Cell> = {};
       for (const a of j.assets as Asset[]) {
         if (a.kind === 'animvar' && a.mut) pc[a.mut] = { id: a.id, st: 'ready' };
         else if (a.kind === 'anim' && a.mut && a.motion) cc[`${a.mut}:${a.motion}`] = { id: a.id, src: a.src, st: 'ready' };
+        else if (a.kind === 'animcut' && a.mut && a.motion) xc[`${a.mut}:${a.motion}`] = { id: a.id, alpha: a.alpha, src: a.src, st: 'ready' };
       }
-      setPics(pc); setClips(cc);
+      setPics(pc); setClips(cc); setCuts(xc);
     } catch { setErr('Không gọi được máy chủ.'); }
   }, []);
   useEffect(() => { if (key) void load(key, sp); }, [key, sp, load]);
@@ -75,6 +79,7 @@ export function ZooLab() {
     stop.current = false; setRunning(true); setErr('');
     const setPic = (m: string, c: Cell) => setPics((p) => ({ ...p, [m]: c }));
     const setClip = (k: string, c: Cell) => setClips((p) => ({ ...p, [k]: { ...p[k], ...c } }));
+    const setCut = (k: string, c: Cell) => setCuts((p) => ({ ...p, [k]: { ...p[k], ...c } }));
     try {
       setPic(BASE, { st: 'pending' });
       const base = await until(key, { step: 'base', sp });
@@ -93,12 +98,16 @@ export function ZooLab() {
         setClip(k, { st: 'pending', src: src[m] });
         const c = await until(key, { step: 'clip', sp, mut: m, motion: mv, src: src[m] });
         setClip(k, { id: c.id, src: src[m], st: c.status, why: c.why });
+        if (!cutOn || c.status !== 'ready' || !c.id || stop.current) return;
+        setCut(k, { st: 'pending' });
+        const x = await until(key, { step: 'cut', sp, mut: m, motion: mv, src: c.id });
+        setCut(k, { id: x.id, alpha: x.alpha, st: x.status, why: x.why });
       });
     } catch { setErr('Mất kết nối giữa chừng. Những ảnh đã làm xong vẫn được giữ.'); }
     finally { setRunning(false); }
   }
 
-  const plan = useMemo(() => info ? estimate({ model: info.model, seconds: info.seconds, editUsd: info.editUsd, variants: muts.length, motions: moves.length }) : null, [info, muts, moves]);
+  const plan = useMemo(() => info ? estimate({ model: info.model, seconds: info.seconds, editUsd: info.editUsd, variants: muts.length, motions: moves.length, cutModel: cutOn ? info.cutModel : undefined }) : null, [info, muts, moves, cutOn]);
   const over = !!info && !!plan && info.spent + plan.usd > info.cap;
 
   if (key === null) return null;
@@ -120,7 +129,7 @@ export function ZooLab() {
   return (
     <main className="zl">
       <h1>Linh Thú Viên · thử hoạt ảnh</h1>
-      <p className="zl-note">Vẽ biến thể dị biến từ ảnh gốc của loài, rồi làm mỗi ảnh thành đoạn hoạt ảnh lặp. Ảnh đã có thì dùng lại, không tính tiền lần nữa.</p>
+      <p className="zl-note">Vẽ biến thể dị biến từ ảnh gốc của loài, làm mỗi ảnh thành đoạn hoạt ảnh lặp, rồi tách nền để thú đi lại được trong cảnh. Ảnh đã có thì dùng lại, không tính tiền lần nữa. <a className="zl-link" href="/lab/linh-thu/canh">Mở cảnh thử →</a></p>
 
       <section className="zl-panel">
         <label className="zl-row">
@@ -135,9 +144,10 @@ export function ZooLab() {
         <div className="zl-row"><span>Chuyển động</span>
           <div className="zl-chips">{MOTIONS.map((m) => <button key={m.id} type="button" className="zl-chip" aria-pressed={moves.includes(m.id)} disabled={running} onClick={() => setMoves((a) => flip(a, m.id))}>{m.name}</button>)}</div>
         </div>
+        <label className="zl-check"><input type="checkbox" checked={cutOn} disabled={running} onChange={(e) => setCutOn(e.target.checked)} /> Tách nền (thú trong suốt, để đặt vào cảnh)</label>
         {info && plan && (
           <p className="zl-note">
-            Tối đa {plan.edits} ảnh biến thể + {plan.clips} đoạn {info.seconds} giây ≈ <b>{usd(plan.usd)}</b>. Đã dùng {usd(info.spent)} / {usd(info.cap)}. Mô hình: {info.model}.
+            Tối đa {plan.edits} ảnh biến thể + {plan.clips} đoạn {info.seconds} giây{cutOn ? ' (có tách nền)' : ''} ≈ <b>{usd(plan.usd)}</b>. Đã dùng {usd(info.spent)} / {usd(info.cap)}.
             {!info.enabled && ' fal chưa bật: cần FAL_KEY (IMAGE_PROVIDER=fal).'}
             {over && ' Vượt hạn mức, bớt dị biến hoặc chuyển động.'}
           </p>
@@ -150,23 +160,28 @@ export function ZooLab() {
       </section>
 
       <section className="zl-grid">
-        {shown.map((id) => <Tile key={id} title={id === BASE ? 'Nguyên bản' : MUTATIONS.find((m) => m.id === id)!.name} pic={pics[id]} cells={Object.fromEntries(MOTIONS.map((mv) => [mv.id, clips[`${id}:${mv.id}`]]))} />)}
+        {shown.map((id) => <Tile key={id} title={id === BASE ? 'Nguyên bản' : MUTATIONS.find((m) => m.id === id)!.name} pic={pics[id]}
+          cells={Object.fromEntries(MOTIONS.map((mv) => [mv.id, clips[`${id}:${mv.id}`]]))} cuts={Object.fromEntries(MOTIONS.map((mv) => [mv.id, cuts[`${id}:${mv.id}`]]))} />)}
       </section>
     </main>
   );
 }
 
-function Tile({ title, pic, cells }: { title: string; pic?: Cell; cells: Record<string, Cell | undefined> }) {
+function Tile({ title, pic, cells, cuts }: { title: string; pic?: Cell; cells: Record<string, Cell | undefined>; cuts: Record<string, Cell | undefined> }) {
   const [pick, setPick] = useState('');
+  const [clear, setClear] = useState(false);   // show the cut-out on a checkerboard instead of the clip with its background
   const ready = MOTIONS.filter((m) => cells[m.id]?.st === 'ready');
   const cur = ready.find((m) => m.id === pick) || ready[0];
   const clip = cur ? cells[cur.id] : undefined;
+  const cut = cur && cuts[cur.id]?.st === 'ready' && cuts[cur.id]?.alpha ? cuts[cur.id] : undefined;
   const still = pic?.id ? `/api/img/${pic.id}` : clip?.src ? `/api/img/${clip.src}` : '';
   const busy = pic?.st === 'pending';
+  const showCut = clear && !!cut;
   return (
     <figure className="zl-tile">
-      <div className="zl-art">
-        {clip?.id ? <LoopVideo src={`/api/lab/media/${clip.id}`} poster={still} label={title} />
+      <div className={`zl-art ${showCut ? 'zl-checker' : ''}`}>
+        {showCut ? <AlphaVideo rgb={`/api/lab/media/${cut!.id}`} alpha={`/api/lab/media/${cut!.alpha}`} />
+          : clip?.id ? <LoopVideo src={`/api/lab/media/${clip.id}`} poster={still} label={title} />
           : still ? <img src={still} alt={title} loading="lazy" />
           : <div className="zl-empty">{busy ? 'Đang vẽ…' : pic && pic.st !== 'ready' ? (pic.why || WHY[pic.st] || 'Lỗi') : 'Chưa có'}</div>}
         {busy && still && <span className="zl-badge">Đang vẽ…</span>}
@@ -175,12 +190,13 @@ function Tile({ title, pic, cells }: { title: string; pic?: Cell; cells: Record<
         <b>{title}</b>
         <span className="zl-moves">
           {MOTIONS.map((m) => {
-            const c = cells[m.id];
+            const c = cells[m.id], x = cuts[m.id];
             if (!c) return null;
             const label = c.st === 'ready' ? m.name : c.st === 'pending' ? `${m.name} …` : `${m.name} ✕`;
-            return <button key={m.id} type="button" className="zl-chip zl-sm" aria-pressed={cur?.id === m.id} disabled={c.st !== 'ready'} title={c.st === 'failed' || c.st === 'limited' ? c.why || WHY[c.st] : undefined} onClick={() => setPick(m.id)}>{label}</button>;
+            return <button key={m.id} type="button" className="zl-chip zl-sm" aria-pressed={cur?.id === m.id} disabled={c.st !== 'ready'} title={c.st === 'failed' || c.st === 'limited' ? c.why || WHY[c.st] : x?.st === 'failed' ? x.why : undefined} onClick={() => setPick(m.id)}>{label}{x?.st === 'pending' ? ' ✂…' : x?.st === 'failed' ? ' ✂✕' : ''}</button>;
           })}
         </span>
+        {cur && <button type="button" className="zl-chip zl-sm" aria-pressed={showCut} disabled={!cut} onClick={() => setClear((v) => !v)}>{cut ? 'Xem bản trong suốt' : cuts[cur.id]?.st === 'pending' ? 'Đang tách nền…' : 'Chưa tách nền'}</button>}
       </figcaption>
     </figure>
   );

@@ -1,14 +1,16 @@
 // Linh Thú Viên lab (/lab/linh-thu). The parts that the page and the server share, with no imports, so the page can price a run before it starts.
 // A variant is a mutated picture of a creature, drawn by EDITING its base picture (same body and pose, new colours and aura).
 // A clip is a short looping video made from one picture: the first and the last frame are that same picture, so the end joins the start.
+// A cut is a clip with its background removed: two H.264 videos, the picture and its alpha matte (the page joins them, see components/lab/AlphaVideo.tsx).
 // Prices are as published on fal.ai (USD, audio off). A model that is not in the table is priced high on purpose.
 
 export const ANIM_VERSION = 1;   // bump when the wording below changes: new ids, so new pictures are drawn instead of old ones reused
 export const BASE = 'base';      // the creature's own picture, as opposed to a mutation of it
 export const DEFAULT_MODEL = 'fal-ai/kling-video/v2.6/pro/image-to-video';
+export const DEFAULT_CUT_MODEL = 'veed/video-background-removal/fast';
 
 export interface Mutation { id: string; name: string; en: string }
-export interface Motion { id: string; name: string; en: string }
+export interface Motion { id: string; name: string; en: string; move?: boolean }   // move: the creature travels in the scene while this plays (walk, run)
 
 // What a mutation looks like. 'ngusac' is the one the game already draws (lib/imageprompt.ts), so the lab reuses that picture instead of paying twice.
 export const MUTATIONS: Mutation[] = [
@@ -25,10 +27,13 @@ export const MUTATIONS: Mutation[] = [
 ];
 
 // What the creature does in a clip. Every clip ends where it started (the end frame is the start frame), so the motion has to come back to the first pose.
+// Walk and run are done IN PLACE (like on a treadmill): the page moves the cut-out creature across the scene itself, so the picture must not travel.
 const STATIC_CAM = 'The camera is completely static and the background stays the same.';
 export const MOTIONS: Motion[] = [
   { id: 'idle', name: 'Thở và chớp mắt', en: `The creature stands calmly: its chest rises and falls as it breathes slowly, it blinks, its tail or mane sways gently, and the aura and light particles drift softly. ${STATIC_CAM}` },
   { id: 'aura', name: 'Hào quang dâng', en: `The creature stays in place while its glowing aura swells and pulses brighter, light particles swirl upward around it, and its fur or scales shimmer. ${STATIC_CAM}` },
+  { id: 'walk', name: 'Đi bộ', move: true, en: `The creature walks in place in side view, taking slow steady steps with its legs cycling, its body and head bobbing gently and its tail or mane swaying. It stays in the same spot in the frame like on a treadmill and does not travel forward. ${STATIC_CAM}` },
+  { id: 'run', name: 'Chạy', move: true, en: `The creature runs in place in side view at a fast gallop, its legs cycling quickly, its body stretching and bouncing and its fur or mane streaming backward. It stays in the same spot in the frame like on a treadmill and does not travel forward. ${STATIC_CAM}` },
   { id: 'roar', name: 'Ngẩng đầu gầm', en: `The creature slowly lifts its head and lets out a majestic roar, then settles back into the original pose, while wind moves its fur and the mist behind it. ${STATIC_CAM}` },
 ];
 
@@ -50,6 +55,13 @@ export function clipInput(model: string, p: { prompt: string; imageUrl: string; 
   return { prompt: p.prompt, image_url: p.imageUrl, duration };
 }
 
+// Input of the background-removal model. H.264 gives TWO videos (the picture and its alpha matte), which is what Safari needs: it shows the alpha of a
+// WebM as black. Only VEED's fast model is checked against its documentation (video_url, output_codec, refine_foreground_edges, subject_is_person).
+export function cutInput(model: string, videoUrl: string): Record<string, unknown> {
+  if (model === 'veed/video-background-removal/fast') return { video_url: videoUrl, output_codec: 'h264', refine_foreground_edges: true, subject_is_person: false };
+  return { video_url: videoUrl };
+}
+
 // USD per second of video, audio off.
 const CLIP_PER_SEC: Record<string, number> = {
   'fal-ai/kling-video/v2.6/pro/image-to-video': 0.07,
@@ -58,14 +70,18 @@ const CLIP_PER_SEC: Record<string, number> = {
   'fal-ai/kling-video/v3/pro/image-to-video': 0.112,
   'fal-ai/wan-pro/image-to-video': 0.16,
 };
+// VEED fast: $0.012 per 30 frames with edge refinement, counted here as 30 frames per second of clip (a clip may have fewer, so this errs high).
+const CUT_PER_SEC: Record<string, number> = { 'veed/video-background-removal/fast': 0.012 };
 const r3 = (x: number) => Math.round(x * 1000) / 1000;
 export const clipCost = (model: string, seconds: number) => r3((CLIP_PER_SEC[model] ?? 0.2) * seconds);
+export const cutCost = (model: string, seconds: number) => r3((CUT_PER_SEC[model] ?? 0.05) * seconds);
 
 export interface RunPlan { edits: number; clips: number; usd: number }
-// The most a run can cost: every variant drawn and every clip made (pictures that already exist are free).
-export function estimate(o: { model: string; seconds: number; editUsd: number; variants: number; motions: number }): RunPlan {
+// The most a run can cost: every variant drawn, every clip made and, when cutModel is given, every clip cut out (pictures that already exist are free).
+export function estimate(o: { model: string; seconds: number; editUsd: number; variants: number; motions: number; cutModel?: string }): RunPlan {
   const edits = Math.max(0, o.variants), clips = (edits + 1) * Math.max(0, o.motions);
-  return { edits, clips, usd: Math.round((edits * o.editUsd + clips * clipCost(o.model, o.seconds)) * 100) / 100 };
+  const per = clipCost(o.model, o.seconds) + (o.cutModel ? cutCost(o.cutModel, o.seconds) : 0);
+  return { edits, clips, usd: Math.round((edits * o.editUsd + clips * per) * 100) / 100 };
 }
 
 // One HTTP Range header -> the bytes to send. null: no header (send everything). 'bad': cannot be satisfied (answer 416).

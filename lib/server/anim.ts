@@ -1,6 +1,6 @@
-// Server side of the Linh Thú Viên lab (/lab/linh-thu): draws mutated variants of a creature and turns a picture into a looping clip.
-// Everything is kept in the images table next to the game's own pictures (kind 'animvar' for a variant, 'anim' for a clip, folder 'lab'),
-// under an id that is a hash of everything that went into it, so asking twice never pays twice.
+// Server side of the Linh Thú Viên lab (/lab/linh-thu): draws mutated variants of a creature, turns a picture into a looping clip and cuts a clip out of its background.
+// Everything is kept in the images table next to the game's own pictures (kind 'animvar' for a variant, 'anim' for a clip, 'animcut' and 'animalpha' for the two
+// videos of a cut-out, folder 'lab'), under an id that is a hash of everything that went into it, so asking twice never pays twice.
 // Money: the lab has its own ledger and cap (LAB_BUDGET_USD), apart from IMAGE_BUDGET_USD, so a batch of clips cannot use up the pictures players wait for.
 import crypto from 'node:crypto';
 import { query } from './db';
@@ -9,8 +9,11 @@ import { falModels, falCost, provider, review } from '../imagegen';
 import * as A from '../anim';
 
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
-export interface Out { status: Status; id?: string; why?: string; started?: boolean }
-interface Done { buf: Buffer; ext: string; kind: 'animvar' | 'anim'; meta: any }
+export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
+interface Done {
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut'; meta: any;
+  more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
+}
 
 const g = globalThis as any;
 const S: { inflight: Set<string>; failed: Map<string, { t: number; why: string }> } = g.__tutienAnim || (g.__tutienAnim = { inflight: new Set(), failed: new Map() });
@@ -18,6 +21,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const r4 = (x: number) => Math.round(x * 10000) / 10000;
 
 export const animModel = () => process.env.FAL_ANIM_MODEL || A.DEFAULT_MODEL;
+export const cutModel = () => process.env.FAL_CUT_MODEL || A.DEFAULT_CUT_MODEL;
 export const animSeconds = () => (process.env.FAL_ANIM_SECONDS === '10' ? 10 : 5);
 export const labCap = () => Number(process.env.LAB_BUDGET_USD || 5);
 const editCost = () => falCost(falModels().edit, 960, 960);
@@ -61,12 +65,13 @@ async function download(url: string, tries = 4): Promise<Buffer> {
   throw last;
 }
 async function upload(fal: any, p: { data: Buffer; ext: string }): Promise<string> {
-  const mime = p.ext === 'png' ? 'image/png' : p.ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  const mime = p.ext === 'mp4' ? 'video/mp4' : p.ext === 'png' ? 'image/png' : p.ext === 'webp' ? 'image/webp' : 'image/jpeg';
   const u = await withTimeout<string>(fal.storage.upload(new Blob([new Uint8Array(p.data)], { type: mime })), 90000, 'fal upload');
   falHost(u);
   return u;
 }
 const isMp4 = (b: Buffer) => b.length > 12 && b.subarray(4, 8).toString() === 'ftyp';
+const videoExt = (b: Buffer) => (isMp4(b) ? 'mp4' : b.length > 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 ? 'webm' : '');
 
 // ---- one job: claim it, answer "pending" at once, finish in the background (the route keeps the function alive with idle())
 async function launch(id: string, cost: number, work: (pay: (usd: number) => Promise<void>) => Promise<Done>): Promise<Out> {
@@ -84,8 +89,9 @@ async function launch(id: string, cost: number, work: (pay: (usd: number) => Pro
   S.inflight.add(id);
   void (async () => {
     try {
-      const d = await work(labAdd);
-      await putImage({ id, kind: d.kind, folder: 'lab', ext: d.ext, data: d.buf, meta: { ...d.meta, provider: 'fal', date: new Date().toISOString() } });
+      const d = await work(labAdd), date = new Date().toISOString();
+      for (const m of d.more || []) await putImage({ id: m.id, kind: m.kind, folder: 'lab', ext: m.ext, data: m.buf, meta: { ...m.meta, provider: 'fal', date } });
+      await putImage({ id, kind: d.kind, folder: 'lab', ext: d.ext, data: d.buf, meta: { ...d.meta, provider: 'fal', date } });
       S.failed.delete(id);
     } catch (e: any) {
       const why = String(e?.message || e).slice(0, 200);
@@ -150,13 +156,51 @@ export async function clip(sp: string, mutId: string, motionId: string, srcId: s
   });
 }
 
+// ---- a clip with its background removed: two videos, the picture (kind 'animcut', the id answered) and its alpha matte (kind 'animalpha', the id in `alpha`)
+export async function cut(sp: string, mutId: string, motionId: string, clipId: string): Promise<Out> {
+  const mv = A.motionOf(motionId);
+  if (!mv || !A.isPictureId(clipId) || (mutId !== A.BASE && !A.mutationOf(mutId))) return { status: 'invalid' };
+  const head = (await query<{ ext: string; kind: string; seconds: number | null }>(`SELECT ext, kind, (meta->>'seconds')::int AS seconds FROM images WHERE id = $1`, [clipId])).rows[0];
+  if (!head || head.kind !== 'anim' || head.ext !== 'mp4') return { status: 'invalid' };
+  const model = cutModel(), cost = A.cutCost(model, Number(head.seconds) || animSeconds());
+  const id = sha('cut', clipId, model), alphaId = sha('cutalpha', clipId, model);
+  const o = await launch(id, cost, async (pay) => {
+    const src = await getImage(clipId);
+    if (!src) throw new Error('the clip is gone');
+    const { fal } = await import('@fal-ai/client');
+    const url = await upload(fal, src);
+    const res: any = await withTimeout(fal.subscribe(model, { input: A.cutInput(model, url) }), 270000, 'fal ' + model);
+    const raw = res?.data?.video;
+    const files: any[] = (Array.isArray(raw) ? raw : raw ? [raw] : []).filter((f: any) => f?.url);
+    // H.264 answers with two files: the picture and its alpha matte. The matte is told by its name; without a name the second one is taken.
+    if (files.length < 2) throw new Error(`fal: expected two videos (picture and alpha), got ${files.length}: ${files.map((f) => f.content_type).join(',')}`);
+    const alphaFile = files.find((f) => /alpha/i.test(String(f.file_name || '') + String(f.url || ''))) || files[1];
+    const rgbFile = files.find((f) => f !== alphaFile);
+    const rgb = await download(rgbFile.url), alpha = await download(alphaFile.url);
+    await pay(cost);
+    const re = videoExt(rgb), ae = videoExt(alpha);
+    if (!re || !ae) throw new Error('the cut-out is not a video file');
+    return {
+      buf: rgb, ext: re, kind: 'animcut',
+      meta: { spec: { kind: 'cut', sp, mut: mutId, motion: mv.id, src: clipId, alpha: alphaId }, model, cost, seconds: head.seconds, requestId: res?.requestId, names: files.map((f) => f.file_name) },
+      more: [{ id: alphaId, buf: alpha, ext: ae, kind: 'animalpha', meta: { spec: { kind: 'alpha', sp, of: id } } }],
+    };
+  });
+  return { ...o, alpha: alphaId };
+}
+
 // ---- what the lab page needs
-export interface Asset { id: string; kind: 'animvar' | 'anim'; mut?: string; motion?: string; src?: string }
+export interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }
 export async function assetsOf(sp: string): Promise<Asset[]> {
-  const r = await query<{ id: string; kind: 'animvar' | 'anim'; spec: any }>(
-    `SELECT id, kind, meta->'spec' AS spec FROM images WHERE kind IN ('animvar', 'anim') AND meta->'spec'->>'sp' = $1 ORDER BY created`, [sp]);
-  return r.rows.map((x) => ({ id: x.id, kind: x.kind, mut: x.spec?.mut, motion: x.spec?.motion, src: x.spec?.src || x.spec?.base }));
+  const r = await query<{ id: string; kind: 'animvar' | 'anim' | 'animcut'; spec: any }>(
+    `SELECT id, kind, meta->'spec' AS spec FROM images WHERE kind IN ('animvar', 'anim', 'animcut') AND meta->'spec'->>'sp' = $1 ORDER BY created`, [sp]);
+  return r.rows.map((x) => ({ id: x.id, kind: x.kind, mut: x.spec?.mut, motion: x.spec?.motion, src: x.spec?.src || x.spec?.base, alpha: x.spec?.alpha }));
+}
+// Every cut-out creature of every species, for the scene page.
+export async function cutsAll() {
+  const r = await query<{ id: string; spec: any }>(`SELECT id, meta->'spec' AS spec FROM images WHERE kind = 'animcut' ORDER BY created`);
+  return r.rows.filter((x) => x.spec?.alpha && x.spec?.sp).map((x) => ({ id: x.id, alpha: String(x.spec.alpha), sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), motion: String(x.spec.motion || '') }));
 }
 export async function info() {
-  return { enabled: falReady(), provider: provider().name, model: animModel(), seconds: animSeconds(), editUsd: editCost(), spent: r4(await labSpent()), cap: labCap() };
+  return { enabled: falReady(), provider: provider().name, model: animModel(), cutModel: cutModel(), seconds: animSeconds(), editUsd: editCost(), spent: r4(await labSpent()), cap: labCap() };
 }
