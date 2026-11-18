@@ -63,3 +63,24 @@ export const etaText = (stage: Stage | undefined) => `khoảng ${ETA_MIN[stage |
 export const LOOK_COLOR: Record<string, string> = {
   ngusac: '#e58bff', hoalinh: '#ff7a3d', hanbang: '#8fd8ff', loidien: '#8c6bff', huyetma: '#d03a4e', hoangkim: '#f0c33c', tinhha: '#6c8bff', ngocbich: '#3fd6a2', amminh: '#b3a6e0', thanhmoc: '#7bd25a',
 };
+
+// ---- the moving air of a background: a few specks that drift (petals fall in Thanh Vân, starlight and embers rise elsewhere). They are plain CSS animations of small
+// elements (transform and opacity only, drawn by the GPU, no video), so they cost almost nothing next to the creatures. Placed by a fixed formula: the same on every render.
+export interface Air { kind: 'fall' | 'rise'; shape: 'petal' | 'dot'; color: string; glow: number; n: number; size: [number, number]; dur: [number, number] }
+export const AIR: Record<string, Air> = {
+  thanhvan: { kind: 'fall', shape: 'petal', color: '#fff0f2', glow: 3, n: 12, size: [4, 8], dur: [16, 28] },
+  tinhha: { kind: 'rise', shape: 'dot', color: '#d2e6ff', glow: 8, n: 16, size: [2, 5], dur: [14, 26] },
+  xichviem: { kind: 'rise', shape: 'dot', color: '#ffb057', glow: 9, n: 14, size: [2, 5], dur: [9, 17] },
+};
+export interface Speck { x: number; s: number; dur: number; delay: number; dx: number; rot: number }   // x: % of the width; s: px; dx: px sideways over the whole way
+export function specks(bg: string): Speck[] {
+  const a = AIR[bg];
+  if (!a) return [];
+  let r = fnv(`air#${bg}`) || 1;
+  const rnd = () => { r = (Math.imul(r, 1664525) + 1013904223) >>> 0; return r / 4294967296; };
+  const mix = (lo: number, hi: number) => Math.round((lo + (hi - lo) * rnd()) * 100) / 100;
+  return Array.from({ length: a.n }, (_, i) => {
+    const dur = mix(a.dur[0], a.dur[1]);
+    return { x: mix(3, 97), s: mix(a.size[0], a.size[1]), dur, delay: -mix(0, dur), dx: mix(-28, 28), rot: Math.round(rnd() * 360) };   // a negative delay: already on its way when the page opens
+  });
+}

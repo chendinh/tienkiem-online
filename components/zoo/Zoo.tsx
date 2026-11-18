@@ -1,7 +1,7 @@
 'use client';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouse, type PointerEvent as ReactPointer } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouse, type PointerEvent as ReactPointer } from 'react';
 import { ASPECT, DEFAULT_PERCHES, HEIGHT, K_RANGE, frameOf, newUid, sizeOf, snapPerch, type Box } from '@/lib/garden';
-import { LOOK_COLOR, ZOO_BGS, etaText, variantName, type Stage, type ZooItem } from '@/lib/zoo';
+import { AIR, LOOK_COLOR, ZOO_BGS, etaText, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
 import { useGenImage } from '@/lib/useGenImage';
 import { monsterSpec } from '@/lib/avatarSpec';
 import { Icon } from '@/components/ds/Icon';
@@ -16,6 +16,17 @@ const keyOf = (b: { sp: string; look: string }) => `${b.sp}:${b.look}`;
 const pc = (n: number) => `${n}%`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const post = (body: object) => fetch('/api/zoo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+// the drifting specks of the background (lib/zoo.ts AIR); each is a tall strip as high as the stage with the speck at one end, so a percentage of its own height is the whole way across
+function Air({ bg }: { bg: string }) {
+  const a = AIR[bg], list = useMemo(() => specks(bg), [bg]);
+  if (!a) return null;
+  return (
+    <div className={`zv-air ${a.kind} ${a.shape}`} aria-hidden style={{ '--c': a.color, '--g': `${a.glow}px` } as CSSProperties}>
+      {list.map((k, i) => <i key={`${bg}${i}`} style={{ left: pc(k.x), '--s': `${k.s}px`, '--dx': `${k.dx}px`, '--r': `${k.rot}deg`, animationDuration: `${k.dur}s`, animationDelay: `${k.delay}s` } as CSSProperties} />)}
+    </div>
+  );
+}
 
 function Pic({ b }: { b: { sp: string; look: string } }) {
   const g = useGenImage(monsterSpec(b.sp, b.look === 'ngusac'), 3);
@@ -182,6 +193,7 @@ export function Zoo() {
       <div className="zv-main">
         <div ref={stage} className="zv-stage" onPointerDown={() => setSel(null)}>
           <img className="zv-bg" src={bgInfo.src} alt="" draggable={false} />
+          <Air bg={bg} />
           <div className="zv-items">
             {items.map((it) => {
               const b = byId.get(it.beast), pr = perches.find((p) => p.id === it.perch);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ETA_MIN, ZOO_BGS, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
+import { AIR, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
 import { MUTATIONS } from '../lib/anim';
 import { DEFAULT_PERCHES } from '../lib/garden';
 
@@ -45,4 +45,15 @@ test('the waiting time shown to the player shrinks as the steps are done', () =>
   assert.ok(ETA_MIN.base > ETA_MIN.variant && ETA_MIN.variant > ETA_MIN.clip && ETA_MIN.clip > ETA_MIN.cut);
   assert.equal(etaText('clip'), 'khoảng 4 phút');
   assert.equal(etaText(undefined), 'khoảng 6 phút');
+});
+
+test('every background has its drifting specks, placed the same way every time and inside the picture', () => {
+  for (const b of ZOO_BGS) {
+    const a = AIR[b.id], l = specks(b.id);
+    assert.equal(l.length, a.n);
+    assert.deepEqual(l, specks(b.id));
+    for (const k of l) { assert.ok(k.x >= 3 && k.x <= 97); assert.ok(k.s >= a.size[0] && k.s <= a.size[1]); assert.ok(k.dur >= a.dur[0] && k.dur <= a.dur[1] && k.delay <= 0 && k.delay >= -k.dur); }
+  }
+  assert.notDeepEqual(specks('tinhha').map((k) => k.x), specks('xichviem').map((k) => k.x));
+  assert.deepEqual(specks('nowhere'), []);
 });
