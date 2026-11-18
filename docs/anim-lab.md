@@ -36,6 +36,8 @@ Thú không đi lại nữa mà **đứng ở những chỗ cố định** trên
 - Không dùng bước kiểm tra của game (`review`) cho ảnh này vì nó chấm "một con thú giữa khung" chứ không phải cả một cảnh.
 - Thêm chỗ đứng hay nền khác: thêm phần tử vào `SPOTS` (ô cắt, `place`, `action`), không cần sửa code khác. Tọa độ hiện tại đoán từ ảnh, nên có thể phải dịch ô cho trúng chỗ.
 
+**Nền chuyển động:** nút "Làm nền động" tạo một clip lặp 10 giây của cả tranh nền (nước chảy, sương trôi, tia sáng dịch, lá đung đưa, đom đóm), khoảng 0,70 USD, làm một lần dùng chung cho mọi người. Clip nền chạy bên dưới, clip từng thú đặt lên trên. Chuyển động của nền trong ô thú và của clip nền do hai lần tạo khác nhau nên viền ô (mờ dần 18%) có thể lộ vết nhỏ khi sương trôi lệch pha. Nếu khó chịu, hướng sửa là tách thú khỏi nền (đã có bước `cut`) rồi đặt lên clip nền.
+
 ### Kho Blob (không tốn transfer Neon)
 Video lưu ở **Vercel Blob** khi có `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → Blob → nối vào project): hàng trong `images` chỉ giữ `meta.blob.url`, video phát từ CDN. Không có token thì video nằm trong Postgres như cũ. Lý do: Neon Free chỉ cho 5 GB egress/tháng, và trình duyệt điện thoại xin video theo từng đoạn (Range) nên CDN trước hàm không cache, mỗi đoạn đều đọc từ database. Hobby có 1 GB Blob và 10 GB transfer/tháng; trang xưởng hiện dung lượng đã dùng. `/api/lab/media/<id>` với clip ở Blob chỉ trả 302 sang URL Blob.
 - `@vercel/blob` được thêm vào `package.json` nhưng `package-lock.json` chưa cập nhật (không có mạng): chạy `npm install` rồi commit lock; workflow `art.yml` tạm dùng `npm ci || npm install`.

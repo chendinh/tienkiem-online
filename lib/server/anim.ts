@@ -14,7 +14,7 @@ import { blobOn, putBlob, readBlob } from './blob';
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
 export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
 interface Done {
-  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'spotpic' | 'spotclip'; meta: any;
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'spotpic' | 'spotclip' | 'bgclip'; meta: any;
   more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
 }
 
@@ -290,13 +290,36 @@ export async function spotClip(sp: string, mutId: string, spotId: string, picId:
     return { buf, ext: 'mp4', kind: 'spotclip', meta: { spec: { kind: 'spotclip', sp, mut: mutId, spot: spot.id, src: picId }, model, prompt, seconds, cost, requestId: res?.requestId } };
   });
 }
+// The background's own clip (kind 'bgclip'): the whole picture moving, once for all.
+const bgSeconds = () => (process.env.FAL_BG_SECONDS === '5' ? 5 : P.BG_SECONDS);
+export async function bgClip(origin: string): Promise<Out> {
+  const model = animModel(), seconds = bgSeconds(), prompt = P.bgClipPrompt(), cost = A.clipCost(model, seconds);
+  const id = sha('bgclip', P.BG.id, model, seconds, prompt);
+  return launch(id, cost, async (pay) => {
+    const r = await fetch(new URL(A.bgPath(P.BG.id), origin), { signal: AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error(`background ${P.BG.id}: ${r.status}`);
+    const { fal } = await import('@fal-ai/client');
+    const url = await upload(fal, { data: Buffer.from(await r.arrayBuffer()), ext: A.bgExt(P.BG.id) });
+    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
+    const v = res?.data?.video;
+    if (!v?.url) throw new Error('fal: no video in result');
+    const buf = await download(v.url);
+    await pay(cost);
+    if (!isMp4(buf)) throw new Error('not an mp4 file');
+    return { buf, ext: 'mp4', kind: 'bgclip', meta: { spec: { kind: 'bgclip', bg: P.BG.id }, model, prompt, seconds, cost, requestId: res?.requestId } };
+  });
+}
+export async function bgClipOf(): Promise<{ id: string; url?: string } | null> {
+  const r = (await query<{ id: string; url: string | null }>(`SELECT id, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' AND meta->'spec'->>'bg' = $1 ORDER BY created DESC LIMIT 1`, [P.BG.id])).rows[0];
+  return r ? { id: r.id, ...(r.url ? { url: r.url } : {}) } : null;
+}
 export interface SpotAsset { id: string; kind: 'spotpic' | 'spotclip'; sp: string; mut: string; spot: string; src: string; url?: string }
 export async function spotsAll(): Promise<SpotAsset[]> {
   const r = await query<{ id: string; kind: 'spotpic' | 'spotclip'; spec: any; url: string | null }>(
     `SELECT id, kind, meta->'spec' AS spec, meta->'blob'->>'url' AS url FROM images WHERE kind IN ('spotpic', 'spotclip') ORDER BY created`);
   return r.rows.filter((x) => x.spec?.sp && x.spec?.spot).map((x) => ({ id: x.id, kind: x.kind, sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), spot: String(x.spec.spot), src: String(x.spec.src || ''), ...(x.url ? { url: x.url } : {}) }));
 }
-export const spotUsd = () => ({ pic: falCost(falModels().outfit, 1024, 1024, falModels().outfitRes), clip: A.clipCost(animModel(), animSeconds()) });
+export const spotUsd = () => ({ pic: falCost(falModels().outfit, 1024, 1024, falModels().outfitRes), clip: A.clipCost(animModel(), animSeconds()), bg: A.clipCost(animModel(), bgSeconds()) });
 
 // ---- what the lab page needs
 export interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }

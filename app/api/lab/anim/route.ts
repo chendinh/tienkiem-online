@@ -6,7 +6,7 @@ import { json, guard, checkWrite, readBody } from '@/lib/server/http';
 import { SCENE_IDS, fgCost } from '@/lib/anim';
 import { requireAdmin } from '@/lib/server/admin';
 import { ensureDaily } from '@/lib/server/dailystore';
-import { assetsOf, clip, cut, cutsAll, fg, fgsAll, idle, info, spotClip, spotPic, spotsAll, spotUsd, variant, type Out } from '@/lib/server/anim';
+import { assetsOf, bgClip, bgClipOf, clip, cut, cutsAll, fg, fgsAll, idle, info, spotClip, spotPic, spotsAll, spotUsd, variant, type Out } from '@/lib/server/anim';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;   // a clip is made after the answer is sent: the function must stay alive until it is saved
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     await ensureDaily();
     const q = new URL(req.url).searchParams, sp = q.get('sp') || '';
     const species = D.allSpecies().filter((s) => C.SPECIES_EN[s.id]).map((s) => ({ id: s.id, name: s.name, isNew: !C.SPECIES.some((x) => x.id === s.id) }));
-    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('spots') === '1' ? { spots: await spotsAll(), spotUsd: spotUsd() } : {}), ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
+    return json({ ok: true, ...(await info()), species, assets: sp && speciesOk(sp) ? await assetsOf(sp) : [], ...(q.get('spots') === '1' ? { spots: await spotsAll(), spotUsd: spotUsd(), bg: await bgClipOf() } : {}), ...(q.get('cuts') === '1' ? { cuts: await cutsAll(), fgs: await fgsAll(), fgUsd: fgPrice() } : {}) });
   });
 }
 
@@ -40,6 +40,12 @@ export async function POST(req: Request) {
       // the foreground layer belongs to a background picture (the game's dawn/night or a zone's), not to a species
       const z = typeof b.zone === 'string' ? b.zone : '';
       out = (C.ZONES.some((x) => x.id === z) || (SCENE_IDS as readonly string[]).includes(z)) ? await fg(z, new URL(req.url).origin) : { status: 'invalid' };
+      if (out.started) after(() => idle());
+      return json({ status: out.status, id: out.id, why: out.why });
+    }
+    if (b?.step === 'bgclip') {
+      // the background's own moving clip: one for the whole picture, not tied to a species
+      out = await bgClip(new URL(req.url).origin);
       if (out.started) after(() => idle());
       return json({ status: out.status, id: out.id, why: out.why });
     }

@@ -10,7 +10,7 @@ import { LoopVideo } from './LoopVideo';
 const KEY = 'tutien-admin-key';
 type St = 'pending' | 'ready' | 'failed' | 'limited' | 'disabled' | 'invalid';
 interface Asset { id: string; kind: 'spotpic' | 'spotclip'; sp: string; mut: string; spot: string; src: string; url?: string }
-interface Info { enabled: boolean; model: string; seconds: number; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; spots: Asset[]; spotUsd: { pic: number; clip: number } }
+interface Info { enabled: boolean; model: string; seconds: number; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; spots: Asset[]; spotUsd: { pic: number; clip: number; bg: number }; bg: { id: string; url?: string } | null }
 interface Pick { sp: string; mut: string }
 type Answer = { status: St; id?: string; why?: string };
 
@@ -26,6 +26,7 @@ export function ZooSpots() {
   const [pick, setPick] = useState<Record<string, Pick>>({});
   const [note, setNote] = useState<Record<string, string>>({});   // what each spot is doing right now
   const [running, setRunning] = useState(false);
+  const [bgBusy, setBgBusy] = useState(false);
   const stop = useRef(false);
 
   useEffect(() => { try { setKey(sessionStorage.getItem(KEY) || ''); } catch { setKey(''); } }, []);
@@ -109,6 +110,17 @@ export function ZooSpots() {
     finally { setRunning(false); await load(key); }
   }
 
+  // the background's own moving clip (once for all, shared)
+  async function makeBg() {
+    if (!key || bgBusy) return;
+    setBgBusy(true); setErr('');
+    try {
+      const a = await until(key, { step: 'bgclip' });
+      if (a.status !== 'ready') setErr(a.why || WHY[a.status] || 'Lỗi');
+      await load(key);
+    } catch { setErr('Mất kết nối giữa chừng.'); } finally { setBgBusy(false); }
+  }
+
   const todo = SPOTS.filter((s) => pick[s.id]?.sp && !shown[s.id]?.clip).length;
   const plan = info ? spotRunUsd(todo, info.spotUsd.pic, info.spotUsd.clip) : 0;
   const over = !!info && info.spent + plan > info.cap;
@@ -160,6 +172,11 @@ export function ZooSpots() {
           </p>
         )}
         {info && <p className="zl-note">{info.blob.on ? `Video lưu ở Blob: đã dùng ${info.blob.mb} MB (gói Hobby có 1024 MB).` : 'Blob chưa bật (thiếu BLOB_READ_WRITE_TOKEN): video đang lưu trong database, mỗi lần xem tốn transfer Neon. Nên bật Blob trước khi thử nhiều.'}</p>}
+        <div className="zl-row"><span>Nền chuyển động</span>
+          <div className="zl-chips">
+            <button type="button" className="zl-chip" disabled={bgBusy || running || !info?.enabled || !!info?.bg} onClick={makeBg}>{info?.bg ? 'Đã có nền động' : bgBusy ? 'Đang làm nền động (1–4 phút)…' : `Làm nền động (~${usd(info?.spotUsd.bg || 0.7)}, một lần cho mọi người)`}</button>
+          </div>
+        </div>
         <div className="zl-actions">
           <button className="zl-btn" type="button" onClick={run} disabled={running || !info?.enabled || !todo || over}>{running ? 'Đang làm…' : 'Tạo'}</button>
           {running && <button className="zl-btn zl-ghost" type="button" onClick={() => { stop.current = true; }}>Dừng</button>}
@@ -170,6 +187,7 @@ export function ZooSpots() {
       <div className="zs-scroll">
         <div className="zs-stage" style={{ aspectRatio: `${BG.w} / ${BG.h}` }}>
           <img className="zs-bg" src={`/art/zones/${BG.id}.jpg`} alt="" />
+          {info?.bg && <div className="zs-bgvid"><LoopVideo src={info.bg.url || `/api/lab/media/${info.bg.id}`} poster={`/art/zones/${BG.id}.jpg`} label="Nền chuyển động" /></div>}
           {SPOTS.map((s) => {
             const sh = shown[s.id], r = tileRect(s);
             const poster = sh?.pic ? `/api/img/${sh.pic.id}` : '';

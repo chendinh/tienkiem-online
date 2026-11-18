@@ -27,6 +27,12 @@ export const SPOTS: Spot[] = [
     place: 'standing on the mossy ground beside the mossy rocks and the bamboo on the left side of the image, in the lower half, with fireflies glowing around it',
     action: 'The creature looks around curiously, its ears or head turning to follow the glowing fireflies that drift past, it sniffs the air, then it settles back into the starting pose.' },
 ];
+// The background itself moves too: one clip of the whole picture, made once and shared by every player (the creatures' clips are laid over it).
+export const BG_SECONDS = 10;   // longer than a creature's clip, so the repeat is less noticeable; it is made once
+export const bgClipPrompt = () =>
+  'The whole scene comes gently alive: the river flows with soft ripples and sparkling light on the water, the mist drifts slowly through the valley, the sun rays shift softly, ' +
+  'the pine needles, bamboo leaves and branches sway in a light breeze, glowing fireflies drift and flicker, distant clouds move slowly. Nothing else changes and no creature or person appears. ' +
+  `${STATIC} The animation loops seamlessly: the last frame returns exactly to the first frame. Cinematic fantasy realism, smooth natural motion, no cuts, no text.`;
 export const spotOf = (id: unknown) => SPOTS.find((s) => s.id === id);
 
 const NEG = 'No text, no watermark, no logo, no border.';

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BG, SPOTS, cropBox, spotClipPrompt, spotOf, spotPicPrompt, spotRunUsd, tileRect } from '../lib/spots';
+import { BG, BG_SECONDS, SPOTS, bgClipPrompt, cropBox, spotClipPrompt, spotOf, spotPicPrompt, spotRunUsd, tileRect } from '../lib/spots';
 
 test('spot ids are unique lowercase slugs and every window lies inside the picture', () => {
   assert.equal(new Set(SPOTS.map((s) => s.id)).size, SPOTS.length);
@@ -53,4 +53,13 @@ test('a run is priced per creature and spot', () => {
   assert.equal(spotRunUsd(4, 0.07, 0.35), 1.68);
   assert.equal(spotRunUsd(0, 0.07, 0.35), 0);
   assert.equal(spotRunUsd(-3, 0.07, 0.35), 0);
+});
+
+test('the background clip: the scene moves, nothing is added, it loops', () => {
+  const p = bgClipPrompt();
+  assert.match(p, /river flows/);
+  assert.match(p, /fireflies/);
+  assert.match(p, /no creature or person appears/);
+  assert.match(p, /last frame returns exactly to the first frame/);
+  assert.ok([5, 10].includes(BG_SECONDS), 'a length the video model accepts');
 });
