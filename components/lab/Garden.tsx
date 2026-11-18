@@ -1,7 +1,7 @@
 'use client';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer } from 'react';
 import { BASE, MUTATIONS } from '@/lib/anim';
-import { DEFAULT_PERCHES, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, creatureUsd, frameOf, newUid, parseLayout, perchAt, sizeOf, snapPerch, themeOf, type Box, type Layout, type Perch, type Placed } from '@/lib/garden';
+import { ASPECT, DEFAULT_PERCHES, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, creatureUsd, frameOf, newUid, parseLayout, perchAt, sizeOf, snapPerch, themeOf, type Box, type Layout, type Perch, type Placed } from '@/lib/garden';
 import { errText } from '@/lib/strings';
 import { AlphaVideo } from './AlphaVideo';
 import { Ambient } from './Ambient';
@@ -10,7 +10,6 @@ import { Ambient } from './Ambient';
 // the nearest perch (a small flat place in the picture: a boulder top, a ledge, a stone slab) and stand on it, as big as that perch suits. The perches of a background are
 // tapped in by the owner (or suggested by a vision model) and, with what is put where, saved on the server per background.
 const KEY = 'tutien-admin-key';
-const ASPECT = 16 / 9;
 type St = 'pending' | 'ready' | 'failed' | 'limited' | 'disabled' | 'invalid';
 interface Cut { id: string; alpha: string; sp: string; mut: string; motion: string; pic?: string; url?: string; alphaUrl?: string }
 interface Usd { plane: number; edit: number; clip: number; cut: number }
@@ -19,9 +18,9 @@ interface Bg { id: string; name: string; src: string; river?: boolean }
 type Answer = { status: St; id?: string; why?: string };
 
 const BUILTIN: Bg[] = [
-  { id: 'thanhvan', name: 'Thanh Vân (có suối)', src: '/art/zones/thanhvan.jpg', river: true },
-  { id: 'dawn', name: 'Biển mây (sáng)', src: '/art/scene/dawn.webp' },
-  { id: 'night', name: 'Biển mây (đêm)', src: '/art/scene/night.webp' },
+  { id: 'thanhvan', name: 'Thanh Vân (suối)', src: '/art/zones/thanhvan_v.jpg' },
+  { id: 'tinhha', name: 'Tinh Hà (đài đá)', src: '/art/zones/tinhha_v.jpg' },
+  { id: 'xichviem', name: 'Xích Viêm (dung nham)', src: '/art/zones/xichviem_v.jpg' },
 ];
 const WHY: Record<string, string> = { limited: 'Hết hạn mức của lab', disabled: 'fal chưa được bật', invalid: 'Yêu cầu không hợp lệ' };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -95,7 +94,7 @@ export function Garden() {
       if (!init.current) {   // later answers must not undo what was just moved
         init.current = true;
         const g = (j.garden || {}) as Record<string, unknown>, out: Record<string, Layout> = {};
-        for (const id of Object.keys(g)) out[id] = parseLayout(g[id], DEFAULT_PERCHES[id] || [], ASPECT);
+        for (const id of Object.keys(g)) if ((g[id] as { v?: number } | null)?.v === 2) out[id] = parseLayout(g[id], DEFAULT_PERCHES[id] || [], ASPECT);   // wide layouts of the earlier version are left behind
         layRef.current = out; setLayouts(out);
         const first = (j.planes as { id: string }[])[0];
         if (first) setBgId(first.id);
@@ -312,7 +311,7 @@ export function Garden() {
       </section>
 
       <div className="zs-scroll">
-        <div ref={stage} className="zs-stage" style={{ aspectRatio: '16 / 9' }} onPointerDown={(e) => { if (adjust) addPerch(e); else setSel(null); }}>
+        <div ref={stage} className="zs-stage" style={{ aspectRatio: '9 / 16' }} onPointerDown={(e) => { if (adjust) addPerch(e); else setSel(null); }}>
           <img className="zs-bg" src={bg.src} alt="" />
           {fx && <Ambient layer="back" river={!!bg.river} />}
           <div className="zs-items">
@@ -354,7 +353,7 @@ export function Garden() {
         </section>
       )}
 
-      <section className="zl-panel">
+      <section className="zl-panel zs-dock">
         <div className="zl-row"><span>Khay thú ({cuts.length}) · {lay.items.length}/{MAX_ITEMS} trên nền này</span>
           <div className="zs-tray">
             {cuts.length === 0 && <p className="zl-note">Chưa có thú nào có clip đứng yên đã tách nền. Làm ở khung bên dưới.</p>}

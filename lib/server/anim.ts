@@ -247,27 +247,27 @@ export async function fgsAll() {
 export async function plane(themeId: string): Promise<Out> {
   const t = G.themeOf(themeId);
   if (!t) return { status: 'invalid' };
-  const m = falModels(), model = m.creature, res = m.creatureRes, cost = falCost(model, 1376, 768, /nano-banana/.test(model) ? res : '');
-  const prompt = G.planePrompt(t), id = sha('plane', t.id, model, res, prompt);
+  const m = falModels(), model = m.creature, res = m.creatureRes, cost = falCost(model, 768, 1376, /nano-banana/.test(model) ? res : '');
+  const prompt = G.planePrompt(t), id = sha('plane', t.id, model, res, '9:16', prompt);
   return launch(id, cost, async (pay) => {
     const { fal } = await import('@fal-ai/client');
-    const input = { prompt, aspect_ratio: '16:9', seed: seedOf('plane#' + t.id), num_images: 1, output_format: 'jpeg', ...(/nano-banana/.test(model) ? { resolution: res } : {}), ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}) };
+    const input = { prompt, aspect_ratio: '9:16', seed: seedOf('plane#' + t.id), num_images: 1, output_format: 'jpeg', ...(/nano-banana/.test(model) ? { resolution: res } : {}), ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}) };
     const r: any = await withTimeout(fal.subscribe(model, { input }), 150000, 'fal ' + model);
     const img = r?.data?.images?.[0];
     if (!img?.url) throw new Error('fal: no image in result');
     const buf = await download(img.url);
     await pay(cost);
-    return { buf, ext: 'jpg', kind: 'gardenbg', meta: { spec: { kind: 'gardenbg', theme: t.id }, model, prompt, cost } };
+    return { buf, ext: 'jpg', kind: 'gardenbg', meta: { spec: { kind: 'gardenbg', theme: t.id }, aspect: '9:16', model, prompt, cost } };
   });
 }
 export async function planesAll() {
-  const r = await query<{ id: string; theme: string }>(`SELECT id, meta->'spec'->>'theme' AS theme FROM images WHERE kind = 'gardenbg' ORDER BY created`);
+  const r = await query<{ id: string; theme: string }>(`SELECT id, meta->'spec'->>'theme' AS theme FROM images WHERE kind = 'gardenbg' AND meta->>'aspect' = '9:16' ORDER BY created`);
   return r.rows.filter((x) => G.themeOf(x.theme)).map((x) => ({ id: x.id, theme: x.theme }));
 }
 
 // ---- the moving background: one clip of a whole background (a static picture of the site, or a drawn 'gardenbg'), made once and shared by every player
 // the pictures of the site itself that can be a background (asked from the site: the function's own disk may not hold public/)
-const SITE_BG = { thanhvan: '/art/zones/thanhvan.jpg', dawn: '/art/scene/dawn.webp', night: '/art/scene/night.webp' } as const;
+const SITE_BG = { thanhvan: '/art/zones/thanhvan_v.jpg', tinhha: '/art/zones/tinhha_v.jpg', xichviem: '/art/zones/xichviem_v.jpg' } as const;
 
 // ---- suggested perches: a vision model looks at the background (with a labelled grid drawn over it) and points at its small flat places. It is a guess: the owner moves them.
 export async function suggestPerches(bg: string, origin: string): Promise<{ status: 'ready' | 'invalid' | 'disabled' | 'failed'; perches?: G.Perch[]; why?: string }> {
@@ -279,7 +279,7 @@ export async function suggestPerches(bg: string, origin: string): Promise<{ stat
     if (stat) { const r = await fetch(new URL(stat, origin), { signal: AbortSignal.timeout(30000) }); if (!r.ok) return { status: 'failed', why: `background ${r.status}` }; data = Buffer.from(await r.arrayBuffer()); }
     else { const p = await readImage(bg); if (!p) return { status: 'invalid' }; data = p.data; }
     const sharp = (await import('sharp')).default;
-    const base = sharp(data).resize({ width: 1024 }), meta = await base.clone().toBuffer({ resolveWithObject: true }), W = meta.info.width, H = meta.info.height;
+    const base = sharp(data).resize({ width: 640 }), meta = await base.clone().toBuffer({ resolveWithObject: true }), W = meta.info.width, H = meta.info.height;
     const img = await sharp(meta.data).composite([{ input: Buffer.from(G.gridSvg(W, H)) }]).jpeg({ quality: 88 }).toBuffer();
     const out = await ask({
       model: process.env.PERCH_MODEL || 'claude-sonnet-5-5', maxTokens: 700, tag: 'perch', maxPerHour: 30,
@@ -298,7 +298,7 @@ export async function gardenAll(): Promise<Record<string, G.Layout>> {
 }
 export async function saveGarden(bg: string, raw: unknown): Promise<boolean> {
   if (!G.isBgId(bg)) return false;
-  const l = G.parseLayout(raw);
+  const l = { ...G.parseLayout(raw), v: 2 };   // v 2 = laid out on an upright (9:16) stage; older, wide layouts are not reused
   await query(
     `INSERT INTO kv (key, value) VALUES ($1, jsonb_build_object($2::text, $3::jsonb))
      ON CONFLICT (key) DO UPDATE SET value = kv.value || jsonb_build_object($2::text, $3::jsonb)`,
@@ -306,7 +306,7 @@ export async function saveGarden(bg: string, raw: unknown): Promise<boolean> {
   );
   return true;
 }
-export const gardenUsd = () => ({ plane: falCost(falModels().creature, 1376, 768, /nano-banana/.test(falModels().creature) ? falModels().creatureRes : ''), edit: editCost(), clip: A.clipCost(animModel(), animSeconds()), cut: A.cutCost(cutModel(), animSeconds()) });
+export const gardenUsd = () => ({ plane: falCost(falModels().creature, 768, 1376, /nano-banana/.test(falModels().creature) ? falModels().creatureRes : ''), edit: editCost(), clip: A.clipCost(animModel(), animSeconds()), cut: A.cutCost(cutModel(), animSeconds()) });
 
 export interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }
 export async function assetsOf(sp: string): Promise<Asset[]> {

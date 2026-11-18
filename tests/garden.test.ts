@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_PERCHES, HEIGHT, defaultSize, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, alphaBox, boxOk, cleanPerches, creatureUsd, frameOf, isBgId, newUid, parseLayout, perchAt, perchAsk, planePrompt, sizeAtY, sizeOf, snapPerch, themeOf } from '../lib/garden';
+import { ASPECT, DEFAULT_PERCHES, DEFAULT_W, HEIGHT, defaultSize, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, alphaBox, boxOk, cleanPerches, creatureUsd, frameOf, isBgId, newUid, parseLayout, perchAt, perchAsk, planePrompt, sizeAtY, sizeOf, snapPerch, themeOf } from '../lib/garden';
 
 const id = (n: number) => n.toString(16).padStart(20, '0');
 
@@ -20,14 +20,15 @@ test('perches from outside are kept sane: ids, ranges, duplicates, defaults', ()
   const ps = cleanPerches([{ id: 'ok', x: -4, y: 9, w: 5, s: 99 }, { id: 'ok', x: 0.5, y: 0.5 }, { id: 'BAD ID', x: 0.5, y: 0.5 }, { id: 'nx', x: 'a', y: 0.5 }, { id: 'def', x: 0.5, y: 0.9 }, 7, null]);
   assert.deepEqual(ps.map((p) => p.id), ['ok', 'def']);
   assert.equal(ps[0].x, 0.02); assert.equal(ps[0].y, 0.99); assert.equal(ps[0].w, W_RANGE.max); assert.equal(ps[0].s, S_RANGE.max);
-  assert.equal(ps[1].w, 0.07); assert.equal(ps[1].s, defaultSize(0.9, 0.07));
+  assert.equal(ps[1].w, DEFAULT_W); assert.equal(ps[1].s, defaultSize(0.9, DEFAULT_W));
   assert.deepEqual(cleanPerches('x'), []);
   assert.equal(cleanPerches(Array.from({ length: 80 }, (_, i) => ({ id: `p${i}`, x: 0.5, y: 0.5 }))).length, MAX_PERCHES);
   assert.ok(sizeAtY(0.95) > sizeAtY(0.75), 'near is bigger than far');
   assert.ok(sizeAtY(0.2) >= 0.4 && sizeAtY(1) <= 1.2);
   const p = perchAt('zz', 0.5, 0.9);
-  assert.deepEqual(p, { id: 'zz', x: 0.5, y: 0.9, w: 0.07, s: 0.56 });
-  assert.equal(perchAt('wide', 0.5, 0.9, 0.2).s, 1, 'a wide perch near the viewer holds a big creature');
+  assert.deepEqual(p, { id: 'zz', x: 0.5, y: 0.9, w: DEFAULT_W, s: defaultSize(0.9, DEFAULT_W) });
+  assert.ok(p.s < sizeAtY(0.9), 'a narrow perch holds a smaller creature than the distance alone gives');
+  assert.equal(perchAt('wide', 0.5, 0.9, 0.6).s, sizeAtY(0.9), 'a wide perch near the viewer holds a big creature');
   assert.ok(perchAt('tiny', 0.5, 0.9, 0.02).s >= 0.3, 'never smaller than 0.3');
   assert.equal(sizeOf(p, 9), p.s * K_RANGE.max);
 });
@@ -77,6 +78,8 @@ test('alphaBox: the box of the creature, ignoring dust', () => {
   assert.ok(!boxOk({ x0: 0.5, y0: 0.1, x1: 0.1, y1: 0.9 }) && !boxOk(null) && !boxOk({ x0: 'a' }));
 });
 
+test('the stage is an upright phone', () => { assert.equal(ASPECT, 9 / 16); assert.ok(HEIGHT > 0.1 && HEIGHT < 0.4); });
+
 test('frameOf: the feet of any creature stand on the perch point, whatever the empty margin of its picture', () => {
   const aspect = 16 / 9;
   for (const b of [{ x0: 0.1, y0: 0.2, x1: 0.9, y1: 0.95 }, { x0: 0.4, y0: 0.05, x1: 0.6, y1: 0.8 }, { x0: 0.02, y0: 0.5, x1: 0.98, y1: 0.7 }]) {
@@ -101,6 +104,7 @@ test('themes: ids are slugs, every prompt asks for a beautiful scene with severa
     assert.match(p, /SEVERAL small natural flat places/);
     assert.match(p, /mossy boulder/);
     assert.match(p, /open space above it/);
+    assert.match(p, /vertical 9:16 portrait/);
     assert.match(p, /No creatures, no people/);
     assert.ok(!/completely empty|FLAT HORIZONTAL/.test(p), 'not a big empty plane');
   }

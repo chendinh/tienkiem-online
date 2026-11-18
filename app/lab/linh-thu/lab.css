@@ -76,10 +76,10 @@
 @media (orientation: portrait) { .zl-field { --w: 44cqw; } }
 @media (max-width: 520px) { .zl-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); } }
 
-/* /lab/linh-thu/vien: the garden. One background (a picture and, optionally, its clip), creatures laid over it. Held upright, the stage is wider than the screen and scrolls sideways. */
+/* /lab/linh-thu/vien: the garden. One background (a picture and, optionally, its clip), creatures laid over it. The stage is a phone held upright (9:16); on a wide screen it is a column in the middle. */
 .zs-pick { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-.zs-scroll { overflow-x: auto; border: 1px solid var(--line-gold); border-radius: var(--r-lg); background: var(--ink-900); }
-.zs-stage { position: relative; width: max(100%, calc(70vh * 1.7778)); }
+.zs-scroll { width: min(100%, 480px); margin: 0 auto; overflow: hidden; border: 1px solid var(--line-gold); border-radius: var(--r-lg); background: var(--ink-900); }
+.zs-stage { position: relative; width: 100%; }
 .zs-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
 /* the garden: creatures are laid over the background (and its clip); each is a frame (two videos on a WebGL canvas) with a hit box over the creature itself */
 .zs-items { position: absolute; inset: 0; isolation: isolate; pointer-events: none; }
@@ -94,6 +94,7 @@
 .zs-pdot { position: absolute; z-index: 4; width: 26px; height: 26px; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255, 224, 80, 0.9); border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5); touch-action: none; cursor: grab; }
 .zs-pdot.on { background: #ff7a3d; }
 @keyframes zs-pulse { from { opacity: 0.35; } to { opacity: 0.95; } }
+.zs-dock { position: sticky; bottom: 0; z-index: 30; background: var(--ink-900); box-shadow: 0 -10px 18px rgba(0, 0, 0, 0.55); }
 .zs-tray { display: flex; gap: var(--sp-2); overflow-x: auto; padding: var(--sp-1) 0; width: 100%; }
 .zs-tile-t { flex: 0 0 auto; width: 84px; display: grid; justify-items: center; gap: 2px; padding: 6px; border: 1px solid var(--line-gold); border-radius: var(--r-md); background: rgba(0, 0, 0, 0.25); touch-action: pan-x; user-select: none; -webkit-user-select: none; cursor: grab; }
 .zs-tile-t img, .zs-tile-t i { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: rgba(255, 255, 255, 0.06); pointer-events: none; }

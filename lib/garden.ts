@@ -6,11 +6,13 @@
 // ---- perches: x, y = the middle of the flat surface, where the feet touch (shares of the picture); w = how wide the surface is (share of the picture's width);
 // s = how big a creature standing there is (1 = HEIGHT of the stage): far perches are small, near ones big
 export interface Perch { id: string; x: number; y: number; w: number; s: number }
-export const HEIGHT = 0.22;            // a creature's height at size 1, as a share of the stage's height
+export const ASPECT = 9 / 16;           // the stage is a phone held upright: width / height. Most players are on a phone, so every background is a tall picture
+export const HEIGHT = 0.18;            // a creature's height at size 1, as a share of the stage's height
 export const MAX_ITEMS = 12;           // each creature is two videos and a WebGL canvas: more than this is too much for a phone
 export const MAX_PERCHES = 24;
 export const K_RANGE = { min: 0.5, max: 2 } as const;
-export const W_RANGE = { min: 0.02, max: 0.3 } as const;
+export const W_RANGE = { min: 0.04, max: 0.6 } as const;
+export const DEFAULT_W = 0.14;
 export const S_RANGE = { min: 0.2, max: 1.6 } as const;
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const fin = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
@@ -19,16 +21,16 @@ const r2 = (x: number) => Math.round(x * 100) / 100;
 
 // the size a perch gets by how low in the picture it is (low = near = big), until the owner sets it
 export const sizeAtY = (y: number) => r2(clamp(0.5 + (y - 0.7) * 2.5, 0.4, 1.2));
-// ... but never bigger than the perch can hold: a creature is about 0.12 * s of the picture's width, so s = 8 * w makes it as wide as its perch
-export const defaultSize = (y: number, w: number) => r2(Math.max(0.3, Math.min(sizeAtY(y), w * 8)));
-export const perchAt = (id: string, x: number, y: number, w = 0.07): Perch => ({ id, x: r4(clamp(x, 0.02, 0.98)), y: r4(clamp(y, 0.2, 0.99)), w: r4(clamp(w, W_RANGE.min, W_RANGE.max)), s: defaultSize(y, clamp(w, W_RANGE.min, W_RANGE.max)) });
+// ... but not much bigger than the perch can hold: a creature is about 1.2 * HEIGHT * s / ASPECT of the picture's width, and may overhang its perch a little
+export const defaultSize = (y: number, w: number) => r2(Math.max(0.3, Math.min(sizeAtY(y), (w * ASPECT) / (0.8 * HEIGHT))));
+export const perchAt = (id: string, x: number, y: number, w = DEFAULT_W): Perch => ({ id, x: r4(clamp(x, 0.02, 0.98)), y: r4(clamp(y, 0.2, 0.99)), w: r4(clamp(w, W_RANGE.min, W_RANGE.max)), s: defaultSize(y, clamp(w, W_RANGE.min, W_RANGE.max)) });
 export function cleanPerches(raw: unknown): Perch[] {
   const out: Perch[] = [], seen = new Set<string>();
   for (const p of Array.isArray(raw) ? raw : []) {
     if (out.length >= MAX_PERCHES) break;
     if (typeof p?.id !== 'string' || !/^[a-z0-9]{2,12}$/.test(p.id) || seen.has(p.id) || !fin(p.x) || !fin(p.y)) continue;
     seen.add(p.id);
-    out.push({ id: p.id, x: r4(clamp(p.x, 0.02, 0.98)), y: r4(clamp(p.y, 0.2, 0.99)), w: fin(p.w) ? r4(clamp(p.w, W_RANGE.min, W_RANGE.max)) : 0.07, s: fin(p.s) ? r2(clamp(p.s, S_RANGE.min, S_RANGE.max)) : defaultSize(p.y, fin(p.w) ? clamp(p.w, W_RANGE.min, W_RANGE.max) : 0.07) });
+    out.push({ id: p.id, x: r4(clamp(p.x, 0.02, 0.98)), y: r4(clamp(p.y, 0.2, 0.99)), w: fin(p.w) ? r4(clamp(p.w, W_RANGE.min, W_RANGE.max)) : DEFAULT_W, s: fin(p.s) ? r2(clamp(p.s, S_RANGE.min, S_RANGE.max)) : defaultSize(p.y, fin(p.w) ? clamp(p.w, W_RANGE.min, W_RANGE.max) : DEFAULT_W) });
   }
   return out;
 }
@@ -66,10 +68,10 @@ export const newUid = (rnd: () => number = Math.random) => Array.from({ length: 
 // The perches of the pictures that come with the site, read off them by eye (the owner can move every one). The drawn backgrounds start empty: the owner
 // asks for suggestions (a vision model looks at the picture) or taps them in.
 const mk = (rows: [string, number, number, number][]) => rows.map(([id, x, y, w]) => perchAt(id, x, y, w));
-const CLOUD = mk([['tru1', 0.603, 0.547, 0.04], ['tru2', 0.367, 0.527, 0.045], ['tru3', 0.43, 0.742, 0.035], ['da1', 0.316, 0.86, 0.045], ['da2', 0.789, 0.846, 0.04], ['da3', 0.865, 0.625, 0.04]]);
 export const DEFAULT_PERCHES: Record<string, Perch[]> = {
-  dawn: CLOUD, night: CLOUD,
-  thanhvan: mk([['tang', 0.836, 0.747, 0.08], ['bo1', 0.32, 0.909, 0.09], ['da1', 0.396, 0.855, 0.05], ['da2', 0.447, 0.88, 0.04], ['tre', 0.225, 0.875, 0.08], ['thong', 0.607, 0.766, 0.07], ['bo2', 0.58, 0.795, 0.06], ['xa', 0.523, 0.736, 0.05]]),
+  thanhvan: mk([['da1', 0.1, 0.765, 0.16], ['da2', 0.88, 0.775, 0.18], ['suoi1', 0.4, 0.665, 0.1], ['suoi2', 0.64, 0.685, 0.09], ['bo', 0.7, 0.725, 0.12], ['dao', 0.5, 0.82, 0.2], ['gan', 0.35, 0.9, 0.24]]),
+  tinhha: mk([['xa', 0.55, 0.775, 0.2], ['trai', 0.25, 0.84, 0.2], ['phai', 0.78, 0.83, 0.2], ['giua', 0.5, 0.9, 0.3]]),
+  xichviem: mk([['da1', 0.13, 0.745, 0.14], ['da2', 0.88, 0.735, 0.12], ['bo', 0.5, 0.765, 0.2], ['trai', 0.3, 0.82, 0.26], ['phai', 0.72, 0.86, 0.26], ['gan', 0.45, 0.92, 0.3]]),
 };
 
 // ---- measuring a cut-out creature from its alpha: the box of the creature inside its (square) video frame, as shares of the frame
@@ -114,7 +116,7 @@ export const THEMES: Theme[] = [
 ];
 export const themeOf = (id: unknown) => THEMES.find((t) => t.id === id);
 export const planePrompt = (t: Theme) =>
-  `A breathtaking, richly detailed xianxia (Chinese immortal-cultivation fantasy) landscape painting in a wide 16:9 picture: ${t.en}. ` +
+  `A breathtaking, richly detailed xianxia (Chinese immortal-cultivation fantasy) landscape painting in a tall vertical 9:16 portrait picture made for a phone screen: ${t.en}. ` +
   `Layered, cinematic depth with a clear foreground, middle ground and far distance, soft glowing light, atmospheric mist, painterly style. ` +
   `Spread through the middle ground and the foreground there are SEVERAL small natural flat places where a single animal could stand or lie, at different distances from the viewer: ` +
   `for example the flat top of a mossy boulder, a wide rock ledge, a smooth stone slab at the water's edge, a stone step, a wooden jetty, the broad root platform of an old tree, a flat jade terrace. ` +
@@ -122,10 +124,10 @@ export const planePrompt = (t: Theme) =>
   `Everything else stays natural and uneven. No creatures, no people, no text, no watermark, no border.`;
 // asked of a vision model, with a labelled grid drawn over the picture (the grid is what makes its coordinates usable)
 export const perchAsk = () =>
-  'This is a painted fantasy landscape. A grid is drawn over it, labelled with fractions of the picture width along the top and of its height down the left side (0.1 to 0.9). ' +
+  'This is a tall painted fantasy scene. A grid is drawn over it, labelled with fractions of the picture width along the top and of its height down the left side (0.1 to 0.9). ' +
   'Find up to 8 small flat places where one animal about the size of a dog could stand or lie: the flat top of a boulder, a rock ledge, a stone slab, a stone step, a jetty, a root platform, a terrace. ' +
-  'Choose different distances (some far and high in the picture, some near and low), clearly visible, not hidden behind trees or mist, and spread across the width. ' +
-  'For each give x, y = the point on the flat surface where an animal\'s feet would touch it (the middle of the surface, on its top), as fractions of the picture width and height, and w = how wide the flat surface is as a fraction of the picture width (usually 0.03 to 0.12). ' +
+  'Choose different distances (some far and high in the picture, some near and low), clearly visible, not hidden behind trees or mist, and spread across the width and over the lower two thirds of the picture. ' +
+  'For each give x, y = the point on the flat surface where an animal\'s feet would touch it (the middle of the surface, on its top), as fractions of the picture width and height, and w = how wide the flat surface is as a fraction of the picture width (usually 0.1 to 0.3). ' +
   'Be precise: read the grid labels. Answer with JSON only: {"perches":[{"x":0.5,"y":0.7,"w":0.06}]}';
 
 // A labelled grid drawn over a background before a vision model looks at it. The labels are seven-segment digits drawn as paths, not text (a server may have no fonts).
