@@ -8,6 +8,7 @@ import { getImage, hasImage, putImage, claimJob, releaseJobs } from './images';
 import { falModels, falCost, provider, review } from '../imagegen';
 import * as A from '../anim';
 import * as G from '../garden';
+import { ask, llmEnabled, parseJson } from '../llm';
 import { blobOn, putBlob, readBlob } from './blob';
 
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
@@ -297,6 +298,28 @@ export async function bgClipsAll(): Promise<{ bg: string; id: string; url?: stri
   const r = await query<{ id: string; bg: string; url: string | null }>(
     `SELECT DISTINCT ON (meta->'spec'->>'bg') id, meta->'spec'->>'bg' AS bg, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' ORDER BY meta->'spec'->>'bg', created DESC`);
   return r.rows.filter((x) => x.bg).map((x) => ({ bg: x.bg, id: x.id, ...(x.url ? { url: x.url } : {}) }));
+}
+
+// ---- suggested perches: a vision model looks at the background (with a labelled grid drawn over it) and points at its small flat places. It is a guess: the owner moves them.
+export async function suggestPerches(bg: string, origin: string): Promise<{ status: 'ready' | 'invalid' | 'disabled' | 'failed'; perches?: G.Perch[]; why?: string }> {
+  if (!G.isBgId(bg)) return { status: 'invalid' };
+  if (!llmEnabled()) return { status: 'disabled', why: 'Chưa có TUTIEN_ONLINE_AI_KEY để nhờ Claude xem tranh.' };
+  try {
+    const stat = (SITE_BG as Record<string, string>)[bg];
+    let data: Buffer;
+    if (stat) { const r = await fetch(new URL(stat, origin), { signal: AbortSignal.timeout(30000) }); if (!r.ok) return { status: 'failed', why: `background ${r.status}` }; data = Buffer.from(await r.arrayBuffer()); }
+    else { const p = await readImage(bg); if (!p) return { status: 'invalid' }; data = p.data; }
+    const sharp = (await import('sharp')).default;
+    const base = sharp(data).resize({ width: 1024 }), meta = await base.clone().toBuffer({ resolveWithObject: true }), W = meta.info.width, H = meta.info.height;
+    const img = await sharp(meta.data).composite([{ input: Buffer.from(G.gridSvg(W, H)) }]).jpeg({ quality: 88 }).toBuffer();
+    const out = await ask({
+      model: process.env.PERCH_MODEL || 'claude-sonnet-5-5', maxTokens: 700, tag: 'perch', maxPerHour: 30,
+      content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img.toString('base64') } }, { type: 'text', text: G.perchAsk() }],
+    });
+    const raw: any[] = Array.isArray(parseJson(out)?.perches) ? parseJson(out).perches : [];
+    const perches = G.cleanPerches(raw.map((p, i) => ({ id: `s${i + 1}`, x: Number(p?.x), y: Number(p?.y), w: Number(p?.w) || 0.07 })));
+    return perches.length ? { status: 'ready', perches } : { status: 'failed', why: 'Claude không chỉ ra được chỗ đứng nào.' };
+  } catch (e: any) { return { status: 'failed', why: String(e?.message || e).slice(0, 160) }; }
 }
 
 // ---- what the owner has put on each background (the kv table, one row for all: {bg: {plane, items}})

@@ -6,7 +6,7 @@ import { json, guard, checkWrite, readBody } from '@/lib/server/http';
 import { SCENE_IDS, fgCost } from '@/lib/anim';
 import { requireAdmin } from '@/lib/server/admin';
 import { ensureDaily } from '@/lib/server/dailystore';
-import { assetsOf, bgClip, bgClipsAll, clip, cut, cutsAll, fg, fgsAll, gardenAll, gardenUsd, idle, info, plane, planesAll, saveGarden, variant, type Out } from '@/lib/server/anim';
+import { assetsOf, bgClip, bgClipsAll, clip, cut, cutsAll, fg, fgsAll, gardenAll, gardenUsd, idle, info, plane, planesAll, saveGarden, suggestPerches, variant, type Out } from '@/lib/server/anim';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;   // a clip is made after the answer is sent: the function must stay alive until it is saved
@@ -15,7 +15,7 @@ export const maxDuration = 300;   // a clip is made after the answer is sent: th
 // GET  ?sp=<species id>   prices, spend, the species list and what is already made for that species
 // GET  ?garden=1          the same, plus every cut-out creature, the drawn backgrounds, the backgrounds' clips and what the owner has put on each background
 // GET  ?cuts=1            the same, plus every cut-out creature and every foreground layer (for the scene page)
-// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }  or  { step: 'plane', theme }  or  { step: 'bgclip', bg }  or  { step: 'garden', bg, plane, items } (free, answers at once)   answers at once)   answers { status, id } at once; ask again until the status is not 'pending'
+// POST { step: 'base' | 'variant' | 'clip' | 'cut', sp, mut?, motion?, src? }  or  { step: 'fg', zone }  or  { step: 'plane', theme }  or  { step: 'bgclip', bg }  or  { step: 'garden', bg, perches, items } (free, answers at once)  or  { step: 'perches', bg } (a vision model suggests the perches, answers at once)   answers { status, id } at once; ask again until the status is not 'pending'
 const fgPrice = () => fgCost(falCost(falModels().edit, 1376, 768));
 const speciesOk = (sp: string) => D.allSpecies().some((s) => s.id === sp) && !!C.SPECIES_EN[sp];
 
@@ -46,6 +46,10 @@ export async function POST(req: Request) {
     if (b?.step === 'garden') {
       // where the owner put the creatures on a background (no money is spent)
       return json({ status: (await saveGarden(String(b.bg), b)) ? 'ready' : 'invalid' });
+    }
+    if (b?.step === 'perches') {
+      // a vision model points at the small flat places of a background (a guess for the owner to correct; costs a cent or so)
+      return json(await suggestPerches(String(b.bg), new URL(req.url).origin));
     }
     if (b?.step === 'plane') {
       // a background with a flat ground, drawn from a theme

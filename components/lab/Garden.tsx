@@ -1,38 +1,40 @@
 'use client';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer } from 'react';
 import { BASE, MUTATIONS } from '@/lib/anim';
-import { HEIGHT, K_RANGE, MAX_ITEMS, PLANE, THEMES, cleanPlane, creatureUsd, frameOf, newUid, parseLayout, snap, themeOf, type Box, type Layout, type Placed, type Plane } from '@/lib/garden';
+import { DEFAULT_PERCHES, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, creatureUsd, frameOf, newUid, parseLayout, perchAt, sizeOf, snapPerch, themeOf, type Box, type Layout, type Perch, type Placed } from '@/lib/garden';
 import { errText } from '@/lib/strings';
 import { AlphaVideo } from './AlphaVideo';
 import { Ambient } from './Ambient';
 import { LoopVideo } from './LoopVideo';
 
-// The Linh Thú Viên garden: every creature has ONE idle clip with its background cut out. The owner drags creatures from the tray onto a background; they snap onto the
-// flat ground (the plane) of that background and get smaller the farther back they stand. What is put where is saved on the server, per background.
+// The Linh Thú Viên garden: every creature has ONE idle clip with its background cut out. The owner drags creatures from the tray onto a beautiful background; they go to
+// the nearest perch (a small flat place in the picture: a boulder top, a ledge, a stone slab) and stand on it, as big as that perch suits. The perches of a background are
+// tapped in by the owner (or suggested by a vision model) and, with what is put where, saved on the server per background.
 const KEY = 'tutien-admin-key';
 const ASPECT = 16 / 9;
 type St = 'pending' | 'ready' | 'failed' | 'limited' | 'disabled' | 'invalid';
 interface Cut { id: string; alpha: string; sp: string; mut: string; motion: string; pic?: string; url?: string; alphaUrl?: string }
 interface Usd { plane: number; edit: number; clip: number; cut: number; bg: number }
 interface Info { enabled: boolean; spent: number; cap: number; blob: { on: boolean; mb: number }; species: { id: string; name: string }[]; cuts: Cut[]; planes: { id: string; theme: string }[]; bgclips: { bg: string; id: string; url?: string }[]; garden: Record<string, unknown>; gardenUsd: Usd }
-interface Bg { id: string; name: string; src: string; plane: Plane; river?: boolean }
+interface Bg { id: string; name: string; src: string; river?: boolean }
 type Answer = { status: St; id?: string; why?: string };
 
 const BUILTIN: Bg[] = [
-  { id: 'dawn', name: 'Biển mây (sáng)', src: '/art/scene/dawn.webp', plane: { y0: 0.72, y1: 0.93 } },
-  { id: 'night', name: 'Biển mây (đêm)', src: '/art/scene/night.webp', plane: { y0: 0.72, y1: 0.93 } },
-  { id: 'thanhvan', name: 'Thanh Vân (có suối)', src: '/art/zones/thanhvan.jpg', plane: { y0: 0.7, y1: 0.92 }, river: true },
+  { id: 'thanhvan', name: 'Thanh Vân (có suối)', src: '/art/zones/thanhvan.jpg', river: true },
+  { id: 'dawn', name: 'Biển mây (sáng)', src: '/art/scene/dawn.webp' },
+  { id: 'night', name: 'Biển mây (đêm)', src: '/art/scene/night.webp' },
 ];
 const WHY: Record<string, string> = { limited: 'Hết hạn mức của lab', disabled: 'fal chưa được bật', invalid: 'Yêu cầu không hợp lệ' };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const usd = (x: number) => `$${x.toFixed(2)}`;
 const pc = (n: number) => `${n}%`;
 const mediaUrl = (id: string, url?: string) => url || `/api/lab/media/${id}`;
+const NO_PERCH = 'Nền này chưa có bệ đứng. Bấm "Chỉnh bệ đứng" rồi chạm vào tranh ở chỗ phẳng (đỉnh đá, mỏm đá, phiến đá) để thêm, hoặc nhờ AI gợi ý.';
 const mutName = (m: string) => (m === BASE ? 'Nguyên bản' : MUTATIONS.find((x) => x.id === m)?.name || m);
 
 // One creature on the stage: its cut-out video, played only while it is on the screen. Its box is measured from the first picture, so that its FEET (not the empty
 // margin of its picture) stand on the point it was dropped on; until then it is invisible.
-function Creature({ c, it, plane, box, onBox, onFail, z }: { c: Cut; it: Placed; plane: Plane; box?: Box; onBox: (b: Box) => void; onFail: () => void; z: number }) {
+function Creature({ c, it, size, box, onBox, onFail, z }: { c: Cut; it: Placed; size: number; box?: Box; onBox: (b: Box) => void; onFail: () => void; z: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(true), [ever, setEver] = useState(false);
   useEffect(() => {
@@ -42,7 +44,7 @@ function Creature({ c, it, plane, box, onBox, onFail, z }: { c: Cut; it: Placed;
     io.observe(el);
     return () => io.disconnect();
   }, []);
-  const f = frameOf(plane, box || { x0: 0.1, y0: 0.05, x1: 0.9, y1: 1 }, it, ASPECT);
+  const f = frameOf(box || { x0: 0.1, y0: 0.05, x1: 0.9, y1: 1 }, it, size, ASPECT);
   return (
     <>
       {box && <div className="zs-shadow" style={{ left: pc(f.shadow.left), top: pc(f.shadow.top), width: pc(f.shadow.width), height: pc(f.shadow.height), zIndex: z }} />}
@@ -64,7 +66,8 @@ export function Garden() {
   const [ghost, setGhost] = useState<{ c: Cut; x: number; y: number } | null>(null);
   const [boxes, setBoxes] = useState<Record<string, Box>>({});
   const [fx, setFx] = useState(true);
-  const [adjust, setAdjust] = useState(false);
+  const [adjust, setAdjust] = useState(false);               // editing the perches
+  const [selPerch, setSelPerch] = useState<string | null>(null);
   const [busy, setBusy] = useState('');                       // what is being made right now (a background, a clip of one)
   const [sp, setSp] = useState('');
   const [mut, setMut] = useState<string>(BASE);
@@ -78,9 +81,9 @@ export function Garden() {
 
   useEffect(() => { try { setKey(sessionStorage.getItem(KEY) || ''); } catch { setKey(''); } }, []);
 
-  const bgs = useMemo<Bg[]>(() => [...(info?.planes || []).map((p) => ({ id: p.id, name: themeOf(p.theme)?.name || 'Nền mới', src: `/api/img/${p.id}`, plane: PLANE })), ...BUILTIN], [info?.planes]);
+  const bgs = useMemo<Bg[]>(() => [...(info?.planes || []).map((p) => ({ id: p.id, name: themeOf(p.theme)?.name || 'Nền mới', src: `/api/img/${p.id}` })), ...BUILTIN], [info?.planes]);
   const bg = bgs.find((b) => b.id === bgId) || bgs[0];
-  const lay: Layout = layouts[bg.id] || { plane: bg.plane, items: [] };
+  const lay: Layout = layouts[bg.id] || { perches: DEFAULT_PERCHES[bg.id] || [], items: [] };
   const clip = info?.bgclips.find((c) => c.bg === bg.id);
 
   const load = useCallback(async (k: string) => {
@@ -94,7 +97,7 @@ export function Garden() {
       if (!init.current) {   // later answers must not undo what was just moved
         init.current = true;
         const g = (j.garden || {}) as Record<string, unknown>, out: Record<string, Layout> = {};
-        for (const id of Object.keys(g)) out[id] = parseLayout(g[id], BUILTIN.find((b) => b.id === id)?.plane || PLANE);
+        for (const id of Object.keys(g)) out[id] = parseLayout(g[id], DEFAULT_PERCHES[id] || [], ASPECT);
         layRef.current = out; setLayouts(out);
         const first = (j.planes as { id: string }[])[0];
         if (first) setBgId(first.id);
@@ -111,16 +114,16 @@ export function Garden() {
       const k = keyRef.current, l = layRef.current[id];
       if (!k || !l) return;
       try {
-        const r = await fetch('/api/lab/anim', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${k}` }, body: JSON.stringify({ step: 'garden', bg: id, plane: l.plane, items: l.items }) });
+        const r = await fetch('/api/lab/anim', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${k}` }, body: JSON.stringify({ step: 'garden', bg: id, perches: l.perches, items: l.items }) });
         if (!r.ok) setErr('Không lưu được chỗ đặt thú.');
       } catch { setErr('Không lưu được chỗ đặt thú.'); }
     }, 600);
   }, []);
   const upd = useCallback((fn: (l: Layout) => Layout) => {
-    const id = bg.id, cur = layRef.current[id] || { plane: bg.plane, items: [] }, next = fn(cur);
+    const id = bg.id, cur = layRef.current[id] || { perches: DEFAULT_PERCHES[id] || [], items: [] }, next = fn(cur);
     layRef.current = { ...layRef.current, [id]: next };
     setLayouts(layRef.current); save(id);
-  }, [bg.id, bg.plane, save]);
+  }, [bg.id, save]);
 
   const cuts = useMemo(() => {
     const m = new Map<string, Cut>();   // the newest idle clip of each creature (and mutation)
@@ -132,12 +135,14 @@ export function Garden() {
 
   function add(c: Cut, x: number, y: number) {
     if (lay.items.length >= MAX_ITEMS) { setErr(`Mỗi nền đặt tối đa ${MAX_ITEMS} thú (mỗi thú là hai video, nhiều hơn điện thoại sẽ giật).`); return; }
+    const s = snapPerch(lay.perches, x, y, ASPECT);
+    if (!s) { setErr(NO_PERCH); return; }
     setErr('');
-    const p = snap(lay.plane, x, y), uid = newUid();
-    upd((l) => ({ ...l, items: [...l.items, { uid, cut: c.id, x: p.x, y: p.y, flip: false, k: 1 }] }));
+    const uid = newUid();
+    upd((l) => ({ ...l, items: [...l.items, { uid, cut: c.id, perch: s.perch.id, x: s.x, y: s.y, flip: false, k: 1 }] }));
     setSel(uid);
   }
-  // pull a creature from the tray: a drop on the stage puts it there (feet at the pointer), a plain tap puts it in the middle of the ground
+  // pull a creature from the tray: a drop on the stage sends it to the perch nearest the pointer, a plain tap puts it on the emptiest perch
   function pull(c: Cut, e: ReactPointer) {
     const x0 = e.clientX, y0 = e.clientY;
     let moved = false;
@@ -148,7 +153,7 @@ export function Garden() {
       setGhost(null);
       if (!ok) return;
       const r = stage.current?.getBoundingClientRect();
-      if (!moved) add(c, 0.35 + Math.random() * 0.3, (lay.plane.y0 + lay.plane.y1) / 2);
+      if (!moved) { const free = [...lay.perches].sort((a, b) => lay.items.filter((i) => i.perch === a.id).length - lay.items.filter((i) => i.perch === b.id).length)[0]; if (free) add(c, free.x, free.y); else setErr(NO_PERCH); }
       else if (r && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) add(c, (ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height);
     };
     const up = (ev: PointerEvent) => end(ev, true), cancel = (ev: PointerEvent) => end(ev, false);
@@ -163,12 +168,39 @@ export function Garden() {
   function carry(e: ReactPointer) {
     const d = drag.current, r = stage.current?.getBoundingClientRect();
     if (!d || !r) return;
-    const p = snap(lay.plane, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
-    upd((l) => ({ ...l, items: l.items.map((i) => (i.uid === d.uid ? { ...i, ...p } : i)) }));
+    const p = snapPerch(lay.perches, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, ASPECT);
+    if (p) upd((l) => ({ ...l, items: l.items.map((i) => (i.uid === d.uid ? { ...i, perch: p.perch.id, x: p.x, y: p.y } : i)) }));
   }
   const drop = () => { drag.current = null; };
   const patch = (uid: string, f: (i: Placed) => Placed) => upd((l) => ({ ...l, items: l.items.map((i) => (i.uid === uid ? f(i) : i)) }));
-  const setPlane = (p: Plane) => upd((l) => { const pl = cleanPlane(p, l.plane); return { plane: pl, items: l.items.map((i) => ({ ...i, ...snap(pl, i.x, i.y) })) }; });
+  // ---- the perches: tap the picture to add one, drag to move, sliders for width and size. The creatures on a perch that moves or goes follow to the nearest one.
+  const setPerches = (fn: (p: Perch[]) => Perch[]) => upd((l) => {
+    const perches = fn(l.perches), items: Placed[] = [];
+    for (const i of l.items) { const s = snapPerch(perches, i.x, i.y, ASPECT); if (s) items.push({ ...i, perch: s.perch.id, x: s.x, y: s.y }); }
+    return { perches, items };
+  });
+  const patchPerch = (id: string, f: (p: Perch) => Perch) => setPerches((ps) => ps.map((p) => (p.id === id ? f(p) : p)));
+  const toStage = (e: { clientX: number; clientY: number }) => { const r = stage.current?.getBoundingClientRect(); return r ? { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height } : null; };
+  function addPerch(e: ReactPointer) {
+    const p = toStage(e);
+    if (!p) return;
+    if (lay.perches.length >= MAX_PERCHES) { setErr(`Tối đa ${MAX_PERCHES} bệ đứng mỗi nền.`); return; }
+    const np = perchAt(`p${newUid().slice(0, 5)}`, p.x, p.y);
+    setPerches((ps) => [...ps, np]); setSelPerch(np.id);
+  }
+  const drag2 = useRef<string | null>(null);
+  function grabPerch(id: string, e: ReactPointer) { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag2.current = id; setSelPerch(id); }
+  function carryPerch(e: ReactPointer) { const id = drag2.current, p = toStage(e); if (id && p) patchPerch(id, (x) => ({ ...x, x: Math.min(0.98, Math.max(0.02, p.x)), y: Math.min(0.99, Math.max(0.2, p.y)) })); }
+  async function suggest() {
+    if (!key || busy) return;
+    setBusy('perches'); setErr('');
+    try {
+      const r = await fetch('/api/lab/anim', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ step: 'perches', bg: bg.id }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.status !== 'ready') setErr(j.why || WHY[j.status] || 'AI không gợi ý được.');
+      else { setPerches(() => j.perches as Perch[]); setSelPerch(null); setAdjust(true); }
+    } catch { setErr('Mất kết nối giữa chừng.'); } finally { setBusy(''); }
+  }
 
   // ---- making things: ask until the server stops saying "pending"
   const until = useCallback(async (k: string, body: object): Promise<Answer> => {
@@ -240,7 +272,7 @@ export function Garden() {
   return (
     <main className="zl">
       <h1>Linh Thú Viên · vườn thú</h1>
-      <p className="zl-note">Mỗi thú chỉ cần một clip đứng yên đã tách nền. Kéo thú từ khay xuống nền (hoặc chạm để thả vào giữa); thú tự đứng lên mặt phẳng ngang của nền và nhỏ dần khi lùi xa. <a className="zl-link" href="/lab/linh-thu">← Xưởng</a></p>
+      <p className="zl-note">Mỗi thú chỉ cần một clip đứng yên đã tách nền. Kéo thú từ khay xuống nền (hoặc chạm để thả); thú đứng lên bệ phẳng gần nhất trong tranh, to nhỏ theo bệ đó. <a className="zl-link" href="/lab/linh-thu">← Xưởng</a></p>
 
       <section className="zl-panel">
         <div className="zl-row"><span>Nền</span>
@@ -248,7 +280,7 @@ export function Garden() {
             {bgs.map((b) => <button key={b.id} type="button" className="zl-chip" aria-pressed={b.id === bg.id} onClick={() => { setBgId(b.id); setSel(null); }}>{b.name}</button>)}
           </div>
         </div>
-        <div className="zl-row"><span>Nền mới có mặt phẳng ngang{info ? ` (${usd(info.gardenUsd.plane)} một nền)` : ''}</span>
+        <div className="zl-row"><span>Vẽ nền tiên hiệp mới có nhiều chỗ đặt thú{info ? ` (${usd(info.gardenUsd.plane)} một nền)` : ''}</span>
           <div className="zl-chips">
             {THEMES.map((t) => (
               <button key={t.id} type="button" className="zl-chip" disabled={!!busy || !info?.enabled || (info?.planes || []).some((p) => p.theme === t.id)} onClick={() => make(`plane-${t.id}`, { step: 'plane', theme: t.id }, (id) => setBgId(id))}>
@@ -259,7 +291,7 @@ export function Garden() {
         </div>
         <div className="zl-row"><span>Nền này</span>
           <div className="zl-chips">
-            <button type="button" className="zl-chip" aria-pressed={adjust} onClick={() => setAdjust((v) => !v)}>Chỉnh mặt phẳng đứng</button>
+            <button type="button" className="zl-chip" aria-pressed={adjust} onClick={() => { setAdjust((v) => !v); setSelPerch(null); setSel(null); }}>Chỉnh bệ đứng ({lay.perches.length})</button>
             <button type="button" className="zl-chip" aria-pressed={fx} onClick={() => setFx((v) => !v)}>Hiệu ứng: hạc, bướm, cánh hoa</button>
             <button type="button" className="zl-chip" disabled={!!busy || !info?.enabled || !!clip} onClick={() => make(`bg-${bg.id}`, { step: 'bgclip', bg: bg.id })}>
               {clip ? 'Đã có nền động' : busy === `bg-${bg.id}` ? 'Đang làm nền động (1–4 phút)…' : `Làm nền động (~${usd(info?.gardenUsd.bg || 0.7)}, một lần)`}
@@ -267,31 +299,39 @@ export function Garden() {
           </div>
         </div>
         {adjust && (
-          <div className="zl-row"><span>Mặt phẳng: thú chỉ đứng trong dải này</span>
-            <label className="zl-range">Mép xa (nhỏ) {Math.round(lay.plane.y0 * 100)}%<input type="range" min={30} max={95} value={Math.round(lay.plane.y0 * 100)} onChange={(e) => setPlane({ y0: Number(e.target.value) / 100, y1: lay.plane.y1 })} /></label>
-            <label className="zl-range">Mép gần (to) {Math.round(lay.plane.y1 * 100)}%<input type="range" min={34} max={99} value={Math.round(lay.plane.y1 * 100)} onChange={(e) => setPlane({ y0: lay.plane.y0, y1: Number(e.target.value) / 100 })} /></label>
-            <p className="zl-note">Dải vàng trên tranh là chỗ chân thú được đứng. Kéo cho khớp với mặt đất phẳng của nền.</p>
+          <div className="zl-row"><span>Bệ đứng = chỗ phẳng nhỏ trong tranh để đặt thú</span>
+            <p className="zl-note">Chạm vào tranh để thêm bệ ở chỗ phẳng (đỉnh tảng đá, mỏm đá, phiến đá, bậc đá). Kéo chấm vàng để dời. Thú thả xuống sẽ đứng ở bệ gần nhất.</p>
+            <div className="zl-chips">
+              <button type="button" className="zl-chip" disabled={!!busy} onClick={suggest}>{busy === 'perches' ? 'AI đang xem tranh…' : lay.perches.length ? 'AI gợi ý lại (thay các bệ hiện có)' : 'AI gợi ý bệ đứng'}</button>
+              {selPerch && <button type="button" className="zl-chip" onClick={() => { setPerches((ps) => ps.filter((p) => p.id !== selPerch)); setSelPerch(null); }}>Xóa bệ đang chọn</button>}
+            </div>
+            {(() => { const p = lay.perches.find((x) => x.id === selPerch); return p ? (
+              <>
+                <label className="zl-range">Bề rộng bệ {Math.round(p.w * 100)}%<input type="range" min={W_RANGE.min * 100} max={W_RANGE.max * 100} value={Math.round(p.w * 100)} onChange={(e) => patchPerch(p.id, (x) => ({ ...x, w: Number(e.target.value) / 100 }))} /></label>
+                <label className="zl-range">Cỡ thú đứng ở đây ×{p.s.toFixed(2)}<input type="range" min={S_RANGE.min * 100} max={S_RANGE.max * 100} value={Math.round(p.s * 100)} onChange={(e) => patchPerch(p.id, (x) => ({ ...x, s: Number(e.target.value) / 100 }))} /></label>
+              </>
+            ) : null; })()}
           </div>
         )}
         {err && <p className="zl-err">{err}</p>}
       </section>
 
       <div className="zs-scroll">
-        <div ref={stage} className="zs-stage" style={{ aspectRatio: '16 / 9' }} onPointerDown={() => setSel(null)}>
+        <div ref={stage} className="zs-stage" style={{ aspectRatio: '16 / 9' }} onPointerDown={(e) => { if (adjust) addPerch(e); else setSel(null); }}>
           <img className="zs-bg" src={bg.src} alt="" />
           {clip && <div className="zs-bgvid"><LoopVideo src={mediaUrl(clip.id, clip.url)} poster={bg.src} label="Nền chuyển động" /></div>}
           {fx && <Ambient layer="back" river={!!bg.river} />}
           <div className="zs-fog zs-fog-b" aria-hidden="true"><div className="zl-mist zl-mist-b" /></div>
           <div className="zs-items">
             {lay.items.map((it) => {
-              const c = cutById.get(it.cut);
-              if (!c) return null;
-              const box = boxes[c.id], z = 10 + Math.round(it.y * 1000) * 2;
-              const f = box ? frameOf(lay.plane, box, it, ASPECT) : null;
+              const c = cutById.get(it.cut), pr = lay.perches.find((p) => p.id === it.perch);
+              if (!c || !pr) return null;
+              const box = boxes[c.id], z = 10 + Math.round(it.y * 1000) * 2, size = sizeOf(pr, it.k);
+              const f = box ? frameOf(box, it, size, ASPECT) : null;
               return (
                 <Fragment key={it.uid}>
-                  <Creature c={c} it={it} plane={lay.plane} box={box} z={z} onBox={(b) => setBoxes((o) => ({ ...o, [c.id]: b }))} onFail={() => setErr('Thiết bị này không vẽ được thú tách nền (video cần cho phép CORS).')} />
-                  {f && box && (
+                  <Creature c={c} it={it} size={size} box={box} z={z} onBox={(b) => setBoxes((o) => ({ ...o, [c.id]: b }))} onFail={() => setErr('Thiết bị này không vẽ được thú tách nền (video cần cho phép CORS).')} />
+                  {f && box && !adjust && (
                     <div className={`zs-hit${sel === it.uid ? ' on' : ''}`} style={{ left: pc(f.left + box.x0 * f.width), top: pc(f.top + box.y0 * f.height), width: pc((box.x1 - box.x0) * f.width), height: pc((box.y1 - box.y0) * f.height), zIndex: z + 2 }}
                       onPointerDown={(e) => grab(it.uid, e)} onPointerMove={carry} onPointerUp={drop} onPointerCancel={drop} />
                   )}
@@ -301,7 +341,12 @@ export function Garden() {
           </div>
           <div className="zs-fog zs-fog-f" style={{ ['--mist' as string]: 0.16 }} aria-hidden="true"><div className="zl-mist zl-mist-f" /></div>
           {fx && <Ambient layer="front" river={!!bg.river} />}
-          {adjust && <div className="zs-plane" style={{ top: pc(lay.plane.y0 * 100), height: pc((lay.plane.y1 - lay.plane.y0) * 100) }}><b>xa</b><b>gần</b></div>}
+          {(adjust || ghost) && lay.perches.map((p) => (
+            <Fragment key={p.id}>
+              <i className={`zs-perch${p.id === selPerch ? ' on' : ''}${ghost ? ' hint' : ''}`} style={{ left: pc((p.x - p.w / 2) * 100), top: pc(p.y * 100), width: pc(p.w * 100) }} />
+              {adjust && <b className={`zs-pdot${p.id === selPerch ? ' on' : ''}`} style={{ left: pc(p.x * 100), top: pc(p.y * 100) }} onPointerDown={(e) => grabPerch(p.id, e)} onPointerMove={carryPerch} onPointerUp={() => { drag2.current = null; }} onPointerCancel={() => { drag2.current = null; }} />}
+            </Fragment>
+          ))}
         </div>
       </div>
 
