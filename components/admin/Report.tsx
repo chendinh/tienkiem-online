@@ -139,7 +139,7 @@ export function ReportPage() {
   return <ReportView r={data} busy={busy} auto={auto} setAuto={setAuto} reload={() => load(key!, true)} out={() => { try { sessionStorage.removeItem(KEY); } catch {} setData(null); setKey(''); }} />;
 }
 
-const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ'], ['bots', 'Bot']];
+const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ']];
 
 export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report; busy: boolean; auto: boolean; setAuto: (b: boolean) => void; reload: () => void; out: () => void }) {
   const a = r.ai, p = r.players, o = r.online, it = r.items, b = r.beasts, q = r.quest;
@@ -212,7 +212,7 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
 
         <Card id="players" title="Người chơi" sub={`${num(p.withCharacter)} người đã có nhân vật`}>
           <div className="rp-kpis">
-            <Kpi label="Đã đăng ký" value={num(p.registered)} /><Kpi label="Khách" value={num(p.guests)} /><Kpi label="Bot" value={num(p.bots)} />
+            <Kpi label="Đã đăng ký" value={num(p.registered)} /><Kpi label="Khách" value={num(p.guests)} />
             <Kpi label="24 giờ qua" value={num(p.active24h)} tone="jade" /><Kpi label="7 ngày qua" value={num(p.active7d)} />
           </div>
           <h4>Người mới 14 ngày</h4>
@@ -251,8 +251,8 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
           <div className="rp-grid2">
             <Donut parts={it.names.map((n, i) => ({ label: n, v: it.dropped[i], color: it.colors[i] }))} center={<><b className="num">{num(totDrop)}</b><small>đã rơi</small></>} />
             <div>
-              <Table head={['Độ hiếm', 'Đã rơi', 'Tỉ lệ', 'Đang giữ', 'Bot rơi']} rows={it.names.map((n, i) => [
-                <span key={n} className="rp-dot"><i style={{ background: it.colors[i] }} />{n}</span>, num(it.dropped[i]), totDrop ? `${dec((it.dropped[i] / totDrop) * 100)}%` : '—', num(it.held[i]), num(it.droppedBots[i]),
+              <Table head={['Độ hiếm', 'Đã rơi', 'Tỉ lệ', 'Đang giữ']} rows={it.names.map((n, i) => [
+                <span key={n} className="rp-dot"><i style={{ background: it.colors[i] }} />{n}</span>, num(it.dropped[i]), totDrop ? `${dec((it.dropped[i] / totDrop) * 100)}%` : '—', num(it.held[i]),
               ])} />
               <p className="rp-sub">Đang giữ tổng cộng {num(totHeld)} món trong túi, kho tạm và đang mặc của {num(it.accountsCounted)} người chơi thật.</p>
             </div>
@@ -277,7 +277,6 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
             <Kpi label="Mỗi người" value={dec(b.avgPerPlayer)} sub={`nhiều nhất ${num(b.maxPerPlayer)}`} />
             <Kpi label="Dị Biến" value={num(b.mutants)} tone="jade" />
             <Kpi label="Đã thu phục từ đầu" value={num(b.tamedEver)} sub={`${num(b.mutTamedEver)} Dị Biến`} />
-            <Kpi label="Của bot" value={num(b.bots)} />
           </div>
           <div className="rp-cols">
             <div><h4>Theo cỡ</h4><HBars rows={b.sizes.map((x) => ({ label: x.name, v: x.n }))} color="var(--gold-400)" /></div>
@@ -297,12 +296,6 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
           <Columns h={140} color="var(--gold-400)" data={q.byDay.map((d) => ({ label: dm(d.day), v: d.done, tip: `${dm(d.day)}: ${d.done} người` }))} fmt={(n) => String(Math.round(n))} />
         </Card>
 
-        <Card id="bots" title="Bot" sub="tu sĩ máy tự chơi">
-          <div className="rp-kpis">
-            <Kpi label="Số bot" value={num(r.bots.n)} /><Kpi label="Cấp trung bình" value={dec(r.bots.avgLevel)} /><Kpi label="Cấp cao nhất" value={num(r.bots.maxLevel)} />
-            <Kpi label="Lần chạy gần nhất" value={r.bots.lastRun ? ago(r.bots.lastRun) : '—'} />
-          </div>
-        </Card>
 
         <footer className="rp-note"><h4>Cách đọc số liệu</h4><ul>{r.note.map((n) => <li key={n}>{n}</li>)}</ul></footer>
       </main>

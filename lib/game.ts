@@ -10,7 +10,7 @@ import { ERR, type ErrCode } from './strings';
 export interface Bio { bio: string; motto: string; secret: string }
 // Portrait state: base = plain portrait, pose = the same portrait in a graceful standing pose (an edit of base, drawn right after it),
 // url = what is shown now, sig = equipment that image shows (see avatarSpec), art = art direction version (ART_V).
-export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number; at?: number }   // at: when a bot's picture was last redrawn (bots only, see lib/bots.ts)
+export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number; at?: number }
 export interface Player { title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
@@ -253,7 +253,7 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
 }
 
 export function sizeFactors(size: number) { return [1 + B.sizeHpCoef * (size - 1), 1, 1, 1, 1 - B.sizeSpeedCoef * (size - 1)]; }
-export function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
+function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
   const elite = next(st.streams, 'enc') < B.eliteChance;
   const g = st.streams, R = rates();
   const ws = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, st.clock)];

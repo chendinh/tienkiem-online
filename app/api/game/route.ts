@@ -1,11 +1,10 @@
 import { after } from 'next/server';
 import { getGame, actGame } from '@/lib/server/service';
-import { kickBots } from '@/lib/server/bots';
 import { touchPresence } from '@/lib/server/presence';
 import { json, checkWrite, readBody, guard, requireUser } from '@/lib/server/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;   // the bots may be brought up to date after the answer is sent
+export const maxDuration = 60;
 
 // GET: settle up to the server clock and return the state.
 export async function GET(req: Request) {
@@ -13,7 +12,6 @@ export async function GET(req: Request) {
     const u = await requireUser(req);
     const out = await getGame(u.id);
     after(() => touchPresence(u.id));   // the minute counts as online time on the report page
-    after(() => kickBots());   // a player is online: the bots play too (at most once every 10 minutes)
     return json(out);
   });
 }

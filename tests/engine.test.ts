@@ -773,58 +773,6 @@ test('Luyện Đan: materials become pills for free, and a refusal changes nothi
   assert.ok(G.craft(st, 'hp1', 1).ok); assert.equal(st.inv.hp[1], h1 + 1); assert.equal(st.inv.mat.linhthao, undefined);
 });
 
-test('bots: ten temperaments, a bot plays on its own for a day and stays within the rules', async () => {
-  const Bt = await import('../lib/bots');
-  assert.equal(Bt.PERSONAS.length, 10);
-  assert.equal(new Set(Bt.PERSONAS.map((p) => Bt.botEmail(p.n))).size, 10);
-  assert.ok(Bt.PERSONAS.every((p) => p.diligence > 0 && p.diligence <= 1 && p.retreatPct >= B.minRetreatPct));
-  const ST = (n: number) => Bt.newBot(n, T0);
-  assert.equal(ST(1).player.look.g, 'f'); assert.equal(ST(2).player.look.g, 'm');
-  assert.equal(JSON.stringify(ST(3)), JSON.stringify(ST(3)), 'the same number always makes the same character');
-  assert.ok(Bt.isBotEmail(Bt.botEmail(4)) && !Bt.isBotEmail('x@example.com'));
-  for (const ps of Bt.PERSONAS.slice(0, 4)) {
-    const st = Bt.newBot(ps.n, T0), t = T0 + 24 * 3600 * 1000;
-    const played = Bt.stepBot(st, ps, t);
-    assert.ok(played > 0 && played <= 24 * 720 * ps.diligence + 1, `bot ${ps.n} played ${played} ticks`);
-    assert.equal(st.clock, t);
-    assert.equal(st.decision, null, 'a bot never leaves a question open');
-    assert.ok(G.levelOf(st.player) > 1, `bot ${ps.n} did not progress`);
-    assert.ok(st.kills > 0 && st.stones >= 0 && st.bag.length <= B.bagCapacity && st.stash.length <= B.overflowCapacity && st.beasts.length <= B.penCapacity);
-    assert.equal(st.stones, G.ledgerSum(st) + Object.values(st.pend).reduce((a, b) => a + b, 0), 'the ledger still adds up');
-    assert.ok(st.set.autoTame && st.set.autoFight && st.set.autoEquip && st.set.autoPill);
-    assert.ok(st.set.retreatPct >= B.minRetreatPct);
-    assert.ok(st.reports.length === 0 && st.auditQ.length === 0);
-    assert.ok(st.beasts.length > 0, `bot ${ps.n} tames beasts`);
-    assert.equal(Bt.stepBot(st, ps, t), 0, 'nothing more to play at the same moment');
-  }
-});
-test('bots: they buy, dissolve, brew and sell like a player would', async () => {
-  const Bt = await import('../lib/bots'), ps = Bt.PERSONAS[0];
-  const st = Bt.newBot(1, T0);
-  st.stones = 20000; st.inv.taming = [0, 0, 0, 0]; st.inv.hp = [0, 0, 0];
-  st.inv.mat = { linhthao: 40, truc: 10 };
-  for (let i = 0; i < 12; i++) st.bag.push(G.genItem(st, 1, 0, 'Weapon'));
-  for (let i = 0; i < 45; i++) st.beasts.push({ id: 900 + i, sp: 'ho', name: 'Xích Viêm Hồ', level: 3, size: 1, cm: 70, cls: 2, mut: false, pers: 0, apt: [1, 1, 1, 1, 1], skills: [], stats: [1, 1, 5, 5, 5], power: 10 + i } as any);
-  Bt.thinkBot(st, ps);
-  assert.ok(st.inv.taming[0] > 0, 'bought talismans');
-  assert.ok(st.inv.hp[0] > 0 || st.inv.hp[1] > 0, 'bought or brewed pills');
-  assert.ok(st.inv.hp[1] > 0, 'brewed the better pill from materials');
-  assert.ok(st.bag.length < 12, 'dissolved the spare gear');
-  assert.ok(st.beasts.length <= 30, 'sold surplus beasts');
-  assert.ok(st.stones > 0);
-});
-test('bots: the picture is due every two days, only when what is worn changed, and the ten bots are spread out', async () => {
-  const Bt = await import('../lib/bots'), { equipSig } = await import('../lib/avatarSpec');
-  const st = Bt.newBot(1, T0, { url: '/api/img/abcdef0123456789abcd', crop: 0 });
-  assert.equal(st.player.avatar!.at, T0);
-  assert.equal(Bt.pictureDue(st, T0 + 2 * 86400_000 - 1), false, 'not before two days');
-  assert.equal(Bt.pictureDue(st, T0 + 2 * 86400_000), true, 'worn items differ from the plain picture');
-  st.player.avatar!.sig = equipSig(st);
-  assert.equal(Bt.pictureDue(st, T0 + 9 * 86400_000), false, 'same items, nothing to redraw');
-  assert.equal(Bt.pictureDue(Bt.newBot(2, T0), T0 + 9 * 86400_000), false, 'a bot without a picture never draws one');
-  assert.deepEqual([1, 2, 10].map(Bt.pictureStagger), [0, 3 * 3600_000, 27 * 3600_000]);
-});
-
 test('fal balance: read from credits.current_balance, never invented when it is missing, and a key without billing rights is explained', async () => {
   const F = await import('../lib/server/falbalance');
   assert.deepEqual(F.parseBalance({ credits: { current_balance: 12.5, currency: 'usd' } }), { balance: 12.5, currency: 'USD' });
