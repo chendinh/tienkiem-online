@@ -35,8 +35,10 @@ export function ZonePicker({ st, act, say }: { st: GS; act: Act; say: (t: string
           <b className="zn">{z.name}</b>
           <span className="zs">Lv{z.lv[0]}–{z.lv[1]} · linh khí ×{z.density}</span>
           {!z.open && <span className="zs lock">Cần Lv{z.minLevel} để vào</span>}
+          {(z.phen || z.dropEvent) && <span className="phenRow">
           {z.phen && <span className="phenTag" title={z.phen.text}>{z.phen.name}{z.phen.effects.length > 0 && ` · ${z.phen.effects.join(' · ')}`} · đến {hhmm(z.phen.endsAt)}</span>}
           {z.dropEvent && <span className="phenTag drop" title="Sự kiện: tỷ lệ rơi pháp khí Thiên và Tiên tăng trong khu vực này">✦ Rơi Thiên/Tiên +{Math.round(st.events[0]?.bonus * 100) || 1}%</span>}
+          </span>}
         </button>
       ))}
     </div>

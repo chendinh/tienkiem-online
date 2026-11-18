@@ -35,7 +35,7 @@
   .zoneRow.on { border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 14%, transparent); }
   .zoneRow:disabled { opacity: 0.5; cursor: default; }
   .zoneRow small { color: var(--text-3); font-size: var(--fs-xs); }
-  .phenTag { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs); background: color-mix(in srgb, var(--jade-400) 22%, transparent); color: var(--jade-200); }
+  .phenTag { display: inline-block; margin-top: 0; padding: 1px 8px; border: 1px solid transparent; border-radius: var(--r-pill); font-size: var(--fs-xs); background: color-mix(in srgb, var(--jade-400) 22%, transparent); color: var(--jade-200); }
   .tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
   .tbl th, .tbl td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
   .tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -150,7 +150,9 @@
   .dbTag.rare { color: var(--gold-200); border-color: var(--line-gold-strong); background: color-mix(in srgb, var(--gold-400) 12%, rgb(0 0 0 / 0.3)); }
 }
 @layer game {
-  .phenTag.drop { margin-left: 6px; color: var(--gold-200); background: color-mix(in srgb, var(--gold-400) 22%, transparent); border: 1px solid var(--line-gold); }
+  /* the tags of a zone sit in one wrapping row: the same height (every tag has a 1px border) and the same left edge */
+  .phenRow { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 2px; }
+  .phenTag.drop { color: var(--gold-200); background: color-mix(in srgb, var(--gold-400) 22%, transparent); border-color: var(--line-gold); }
   .effRow { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; }
   em.dropEv { color: var(--gold-200); }
 }

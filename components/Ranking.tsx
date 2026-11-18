@@ -53,6 +53,9 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
   }, [board]);
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
 
+  // On a narrow screen the profile page replaces the list: choosing another board must bring the list back (two panes keep the page, the first row opens again when the new list arrives).
+  const pickBoard = (b: Board) => { setBoard(b); if (!window.matchMedia('(min-width: 900px)').matches) setPid(null); };
+
   const rows = data?.rows || [];
   const top = rows.slice(0, 3), rest = rows.slice(3);
   const maxPow = Math.max(1, ...rows.map((r) => r.power)), maxLv = Math.max(1, ...rows.map((r) => r.level));
@@ -108,7 +111,7 @@ export function RankingModal({ onClose }: { onClose: () => void }) {
             <span className="rkSeal"><Icon name="crown" size={22} /></span>
             <div><h2>Bảng Phong Thần</h2><small>{board === 'tien' ? (tienData ? `${tienData.total} món Tiên Phẩm · ${tienData.owners} chủ nhân` : 'Thiên Đạo đang kiểm kê…') : data ? (board === 'quest' ? `${data.total} tu sĩ đã hoàn thành nhiệm vụ ngày` : `${data.total} tu sĩ đã ghi danh`) : 'Thiên Đạo đang xếp hạng…'}</small></div>
           </div>
-          <Seg<Board> label="Bảng" value={board} onChange={setBoard} options={[
+          <Seg<Board> label="Bảng" value={board} onChange={pickBoard} options={[
             { v: 'cult' as const, label: <><Icon name="lotus" size={15} /><span>Tu Vi</span></>, title: 'Xếp theo cảnh giới' },
             { v: 'power' as const, label: <><Icon name="atk" size={15} /><span>Chiến Lực</span></>, title: 'Xếp theo sức mạnh chiến đấu' },
             { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Chiến Công</span></>, title: 'Xếp theo số lần hoàn thành nhiệm vụ ngày' },

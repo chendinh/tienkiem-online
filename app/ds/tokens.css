@@ -149,7 +149,8 @@
   /* fx level (set on <html data-fx>): off = no motion, low = calm, mid = default, high = everything */
   /* glass blur is the most expensive thing behind an animated background: lighter at mid, none at low and off */
   :root { --bf-panel: none; --bf-top: none; }
-  :root[data-fx='high'] { --bf-panel: blur(16px) saturate(1.25); --bf-top: blur(16px); }
+  /* no blur on the panels even at high: the journey list scrolls inside a blurred panel, and the blur was re-rendered on every scroll frame (lag) */
+  :root[data-fx='high'] { --bf-panel: none; --bf-top: blur(16px); }
   :root[data-fx='low'], :root[data-fx='off'] { --bf-panel: none; --bf-top: none; }
   :root[data-fx='off'] { --dur-instant: 1ms; --dur-fast: 1ms; --dur-base: 1ms; --dur-slow: 1ms; --dur-slower: 1ms; --dur-ambient: 1ms; --stagger: 0ms; }
 }
