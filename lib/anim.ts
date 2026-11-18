@@ -11,20 +11,20 @@ export const DEFAULT_CUT_MODEL = 'veed/video-background-removal/fast';
 export const DEFAULT_FG_CUT_MODEL = 'fal-ai/bria/background/remove';   // picture -> PNG with alpha, for the foreground layer of a scene
 
 export interface Mutation { id: string; name: string; en: string }
-export interface Motion { id: string; name: string; en: string; move?: boolean }   // move: the creature travels in the scene while this plays (walk, run)
+export interface Motion { id: string; name: string; en: string; move?: boolean; bold?: boolean }   // bold: the motion must be big and clearly visible on a small screen (the prompt and the negative prompt say so)   // move: the creature travels in the scene while this plays (walk, run)
 
 // What a mutation looks like. 'ngusac' is the one the game already draws (lib/imageprompt.ts), so the lab reuses that picture instead of paying twice.
 export const MUTATIONS: Mutation[] = [
   { id: 'ngusac', name: 'Ngũ Sắc', en: 'iridescent rainbow-colored fur or scales, a glowing prismatic aura and shimmering particles' },
-  { id: 'hoalinh', name: 'Hỏa Linh', en: 'molten ember-red fur or scales veined with glowing lava, wreathed in drifting flames and floating sparks' },
-  { id: 'hanbang', name: 'Hàn Băng', en: 'pale icy-blue fur or scales with translucent frost crystals growing over its body, a cold mist aura and drifting snow' },
+  { id: 'hoalinh', name: 'Hỏa Linh', en: 'molten ember-red fur or scales veined with glowing lava, with a few small flames licking its back and floating sparks' },
+  { id: 'hanbang', name: 'Hàn Băng', en: 'pale icy-blue fur or scales with pale frost crystals growing over its body, a thin cold glow and a few drifting snowflakes' },
   { id: 'loidien', name: 'Lôi Điện', en: 'deep violet fur or scales with bright blue-white lightning arcs running along its body and a crackling electric aura' },
-  { id: 'huyetma', name: 'Huyết Ma', en: 'dark crimson fur or scales with black markings and glowing red eyes, wrapped in a blood-red mist' },
+  { id: 'huyetma', name: 'Huyết Ma', en: 'dark crimson fur or scales with black markings and glowing red eyes, edged by a thin blood-red glow' },
   { id: 'hoangkim', name: 'Hoàng Kim', en: 'gleaming pure-gold fur or scales like polished metal, a radiant sacred halo and drifting golden light motes' },
   { id: 'tinhha', name: 'Tinh Hà', en: 'a body that looks like a night sky full of stars and nebula colors, with glowing constellations tracing its form' },
-  { id: 'ngocbich', name: 'Ngọc Bích', en: 'translucent jade-green body like polished jade with a soft green inner glow and drifting lotus petals' },
-  { id: 'amminh', name: 'Âm Minh', en: 'a ghostly pale-violet semi-transparent spirit body trailing black ink-like smoke, with cold white eyes' },
-  { id: 'thanhmoc', name: 'Thanh Mộc', en: 'a moss-green coat with blossoming vines, small flowers and leaves growing on its back, and a soft glowing pollen haze' },
+  { id: 'ngocbich', name: 'Ngọc Bích', en: 'a solid body like polished carved jade, deep green with a soft green inner glow, and a few lotus petals clinging to it' },
+  { id: 'amminh', name: 'Âm Minh', en: 'a ghostly pale-violet spirit-like but solid body with wisps of black ink-like smoke kept close to it, and cold white eyes' },
+  { id: 'thanhmoc', name: 'Thanh Mộc', en: 'a moss-green coat with blossoming vines, small flowers and leaves growing on its back, and a soft glow' },
 ];
 
 // What the creature does in a clip. Every clip ends where it started (the end frame is the start frame), so the motion has to come back to the first pose.
@@ -32,6 +32,9 @@ export const MUTATIONS: Mutation[] = [
 const STATIC_CAM = 'The camera is completely static and the background stays the same.';
 export const MOTIONS: Motion[] = [
   { id: 'idle', name: 'Đứng yên: thở, lông mượt, thân dao động', en: `The creature stands calmly in place and does not walk: its whole body sways and breathes gently and smoothly, its chest rises and falls slowly, its fur, mane, tail and any ribbons flow softly as in a light breeze, it blinks now and then, and its aura and light particles drift softly. Its feet stay planted on the same spot. ${STATIC_CAM}` },
+  // The one the player's Linh Thú Viên uses. The creature is small on a phone, so 'gently' and 'softly' (the wording of idle) come out as a nearly still picture: this one names big,
+  // concrete movements, all of them cyclic, and the clip still ends on the first pose. The picture it is made from has a flat plain background (plainPrompt), so nothing else moves.
+  { id: 'live', name: 'Sống động (Linh Thú Viên)', bold: true, en: `The creature stays on the same spot with its feet fixed on the ground, but it is clearly alive and moving during the whole clip: its chest and flanks heave with deep, visible breaths, its whole body sways and shifts its weight from side to side, its head turns slowly to one side and then back and nods, its ears twitch, its tail swishes in a wide sweep, and its fur, mane and any vines, ribbons or feathers ripple and flutter strongly as if in a steady wind. It blinks and glances around. Its glow and light particles swirl and drift visibly around it. At the end it settles back into exactly the pose it started from. The camera is completely static and the plain flat background does not change.` },
   { id: 'aura', name: 'Hào quang dâng', en: `The creature stays in place while its glowing aura swells and pulses brighter, light particles swirl upward around it, and its fur or scales shimmer. ${STATIC_CAM}` },
   { id: 'walk', name: 'Đi bộ', move: true, en: `The creature walks in place in side view, taking slow steady steps with its legs cycling, its body and head bobbing gently and its tail or mane swaying. It stays in the same spot in the frame like on a treadmill and does not travel forward. ${STATIC_CAM}` },
   { id: 'run', name: 'Chạy', move: true, en: `The creature runs in place in side view at a fast gallop, its legs cycling quickly, its body stretching and bouncing and its fur or mane streaming backward. It stays in the same spot in the frame like on a treadmill and does not travel forward. ${STATIC_CAM}` },
@@ -45,14 +48,25 @@ export const isPictureId = (id: unknown): id is string => typeof id === 'string'
 const NEG = 'No text, no watermark, no logo, no border.';
 // The same instruction the game uses for its own mutated creatures, with the look swapped.
 export const variantPrompt = (m: Mutation) => `Edit this image. Transform the creature into a rare mutated variant with ${m.en}. Keep exactly the same creature design, body shape, pose, camera framing, background and painting style. ${NEG}`;
-export const clipPrompt = (m: Motion) => `${m.en} The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design, colors and the background unchanged. Cinematic fantasy realism, smooth natural motion, no cuts, no text.`;
+export const clipPrompt = (m: Motion) => m.bold
+  ? `${m.en} The motion is lively and clearly visible, not subtle. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text.`
+  : `${m.en} The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design, colors and the background unchanged. Cinematic fantasy realism, smooth natural motion, no cuts, no text.`;
+
+// The picture a Linh Thú Viên clip is made from: the creature on ONE flat colour. The game's own creature pictures stand in a misty dusk landscape; the background remover
+// kept patches of that landscape (dark blotches round the creature) and the video model moved the mist instead of the creature. On a plain ground neither can happen.
+// The colour is the one the creature differs from most (pale and glowing looks on a dark ground, the rest on white).
+const PLAIN_DARK = new Set(['ngusac', 'hanbang', 'tinhha']);
+export const plainBg = (look: string) => (PLAIN_DARK.has(look) ? 'deep charcoal grey' : 'pure white');
+// keep: the picture already has the look (the game's own Ngũ Sắc picture), only its ground is changed; otherwise the look is drawn at the same time.
+export const plainPrompt = (m: Mutation, keep: boolean) => `Edit this image. ${keep ? 'Keep the creature exactly as it is, with its colors and glow.' : `Transform the creature into a rare mutated variant with ${m.en}.`} Keep exactly the same creature design, body shape, pose, framing and painting style. Replace the entire background with one perfectly flat, uniform ${plainBg(m.id)} that fills the whole picture, with nothing else in it: no landscape, no mountains, no mist, no clouds, no ground, no floor, no cast shadow, no gradient, no vignette. Any glow, aura or particles stay close to the creature's body, and its outline stays sharp against the plain background. ${NEG}`;
 const CLIP_NEG = 'blur, distortion, low quality, text, watermark, camera movement, zoom, scene change, extra limbs, morphing into another creature';
+const CLIP_NEG_BOLD = 'static, frozen, still image, motionless, ' + CLIP_NEG;
 
 // Input of the video model. Only Kling 2.6 Pro has been checked against its documentation (start_image_url, end_image_url, duration "5" or "10",
 // generate_audio). Any other model gets the plainest input, which may need adjusting: check its page on fal.ai before switching FAL_ANIM_MODEL.
-export function clipInput(model: string, p: { prompt: string; imageUrl: string; seconds: number }): Record<string, unknown> {
+export function clipInput(model: string, p: { prompt: string; imageUrl: string; seconds: number; bold?: boolean }): Record<string, unknown> {
   const duration = String(p.seconds === 10 ? 10 : 5);
-  if (/\/kling-video\/v2\.6\//.test(model)) return { prompt: p.prompt, start_image_url: p.imageUrl, end_image_url: p.imageUrl, duration, negative_prompt: CLIP_NEG, generate_audio: false };
+  if (/\/kling-video\/v2\.6\//.test(model)) return { prompt: p.prompt, start_image_url: p.imageUrl, end_image_url: p.imageUrl, duration, negative_prompt: p.bold ? CLIP_NEG_BOLD : CLIP_NEG, generate_audio: false };
   return { prompt: p.prompt, image_url: p.imageUrl, duration };
 }
 

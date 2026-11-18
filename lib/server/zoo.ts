@@ -7,7 +7,7 @@ import { request, idFromUrl, idle as imageIdle } from '../imagegen';
 import * as C from '../content';
 import * as D from '../daily';
 import * as A from '../anim';
-import { ETA_MIN, parseZoo, variantOf, type Stage, type ZooLayout } from '../zoo';
+import { ETA_MIN, ZOO_MOTION, parseZoo, variantOf, type Stage, type ZooLayout } from '../zoo';
 
 export interface ZooBeast { id: number; sp: string; name: string; level: number; look: string }
 export interface ZooCut { id: string; alpha: string; url?: string; alphaUrl?: string }
@@ -34,7 +34,7 @@ export async function cutsFor(keys: { sp: string; look: string }[]): Promise<Map
   if (!sps.length) return out;
   const r = await query<{ id: string; spec: any; url: string | null; aurl: string | null }>(
     `SELECT i.id, i.meta->'spec' AS spec, i.meta->'blob'->>'url' AS url, (SELECT a.meta->'blob'->>'url' FROM images a WHERE a.id = i.meta->'spec'->>'alpha') AS aurl
-       FROM images i WHERE i.kind = 'animcut' AND i.meta->'spec'->>'motion' = 'idle' AND i.meta->'spec'->>'sp' = ANY($1::text[]) ORDER BY i.created`, [sps]);
+       FROM images i WHERE i.kind = 'animcut' AND i.meta->'spec'->>'motion' = $2 AND i.meta->'spec'->>'sp' = ANY($1::text[]) ORDER BY i.created`, [sps, ZOO_MOTION]);
   for (const x of r.rows) if (x.spec?.alpha) out.set(`${x.spec.sp}:${x.spec.mut}`, { id: x.id, alpha: String(x.spec.alpha), ...(x.url ? { url: x.url } : {}), ...(x.aurl ? { alphaUrl: x.aurl } : {}) });
   return out;
 }
@@ -52,23 +52,23 @@ export async function summon(sp: string, look: string): Promise<Summon> {
   if (base.status === 'pending') return { status: 'making', stage: 'base', eta: ETA_MIN.base, imgStarted: true };
   if (base.status !== 'ready' || !base.url) return why(base);
   const baseId = idFromUrl(base.url);
-  let src: string;
+  // The picture the clip is made from: the look, on a flat plain ground (A.plainPrompt), so the background remover has nothing to get wrong.
+  let from = baseId;
   if (look === 'ngusac') {
-    // the rainbow look is the one the game already draws for its Dị Biến
+    // the rainbow look is the one the game already draws for its Dị Biến; only its ground is changed
     const r = await request({ kind: 'monster', sp, mut: true });
     if (r.status === 'pending') return { status: 'making', stage: 'variant', eta: ETA_MIN.variant, imgStarted: true };
     if (r.status !== 'ready' || !r.url) return why(r);
-    src = idFromUrl(r.url);
-  } else {
-    const v: Out = await variant(sp, look, baseId);
-    if (v.status === 'pending') return { status: 'making', stage: 'variant', eta: ETA_MIN.variant, started: !!v.started };
-    if (v.status !== 'ready' || !v.id) return why(v);
-    src = v.id;
+    from = idFromUrl(r.url);
   }
-  const c: Out = await clip(sp, look, 'idle', src);
+  const v: Out = await variant(sp, look, from, true);
+  if (v.status === 'pending') return { status: 'making', stage: 'variant', eta: ETA_MIN.variant, started: !!v.started };
+  if (v.status !== 'ready' || !v.id) return why(v);
+  const src = v.id;
+  const c: Out = await clip(sp, look, ZOO_MOTION, src);
   if (c.status === 'pending') return { status: 'making', stage: 'clip', eta: ETA_MIN.clip, started: !!c.started };
   if (c.status !== 'ready' || !c.id) return why(c);
-  const x: Out = await cut(sp, look, 'idle', c.id);
+  const x: Out = await cut(sp, look, ZOO_MOTION, c.id);
   if (x.status === 'pending') return { status: 'making', stage: 'cut', eta: ETA_MIN.cut, started: !!x.started };
   if (x.status !== 'ready' || !x.id || !x.alpha) return why(x);
   const done = (await cutsFor([{ sp, look }])).get(`${sp}:${look}`);

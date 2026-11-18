@@ -127,10 +127,11 @@ export async function idle(maxMs = 285000): Promise<void> {
 }
 
 // ---- a mutated variant of a creature: an edit of its base picture
-export async function variant(sp: string, mutId: string, baseId: string): Promise<Out> {
+// plain: the Linh Thú Viên's picture, the creature on one flat colour (A.plainPrompt). For 'ngusac' the base picture is the game's own rainbow picture and only its ground changes.
+export async function variant(sp: string, mutId: string, baseId: string, plain = false): Promise<Out> {
   const m = A.mutationOf(mutId);
   if (!m || !A.isPictureId(baseId)) return { status: 'invalid' };
-  const model = falModels().edit, prompt = A.variantPrompt(m), cost = falCost(model, 960, 960);
+  const model = falModels().edit, prompt = plain ? A.plainPrompt(m, m.id === 'ngusac') : A.variantPrompt(m), cost = falCost(model, 960, 960);
   const id = sha('variant', sp, m.id, baseId, model, prompt);
   return launch(id, cost, async (pay) => {
     const base = await readImage(baseId);
@@ -149,7 +150,7 @@ export async function variant(sp: string, mutId: string, baseId: string): Promis
       if (v.ok) out = buf; else { why = v.why; seed += 7919; }
     }
     if (!out) throw new Error('rejected by review: ' + why);
-    return { buf: out, ext: 'jpg', kind: 'animvar', meta: { spec: { kind: 'variant', sp, mut: m.id, base: baseId }, model, prompt, seed, cost: r4(spent) } };
+    return { buf: out, ext: 'jpg', kind: 'animvar', meta: { spec: { kind: 'variant', sp, mut: m.id, base: baseId, ...(plain ? { plain: true } : {}) }, model, prompt, seed, cost: r4(spent) } };
   });
 }
 
@@ -165,7 +166,7 @@ export async function clip(sp: string, mutId: string, motionId: string, srcId: s
     if (!src) throw new Error('the source picture is gone');
     const { fal } = await import('@fal-ai/client');
     const url = await upload(fal, src);
-    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
+    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds, bold: mv.bold }) }), 270000, 'fal ' + model);
     const v = res?.data?.video;
     if (!v?.url) throw new Error('fal: no video in result');
     const buf = await download(v.url);

@@ -191,7 +191,7 @@ export function Zoo() {
                 const box = boxes[c.id], f = box ? frameOf(box, it, size, ASPECT) : null;
                 return (
                   <Fragment key={it.uid}>
-                    <Creature c={c} it={it} size={size} box={box} z={z} paused={!vis} onBox={(bx) => setBoxes((o) => ({ ...o, [c.id]: bx }))} onFail={() => setErr('Máy này chưa vẽ được thú tách nền.')} />
+                    <Creature c={c} it={it} size={size} box={box} z={z} alive paused={!vis} onBox={(bx) => setBoxes((o) => ({ ...o, [c.id]: bx }))} onFail={() => setErr('Máy này chưa vẽ được thú tách nền.')} />
                     {editing && f && box && (
                       <div className={`zv-hit${sel === it.uid ? ' on' : ''}`} style={{ left: pc(f.left + box.x0 * f.width), top: pc(f.top + box.y0 * f.height), width: pc((box.x1 - box.x0) * f.width), height: pc((box.y1 - box.y0) * f.height), zIndex: z + 2 }}
                         onPointerDown={(e) => grab(it.uid, e)} onPointerMove={carry} onPointerUp={drop} onPointerCancel={drop} />

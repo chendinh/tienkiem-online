@@ -10,7 +10,9 @@ export const newGrade = (): Grade => ({ haze: [200, 200, 210], amt: 0, bright: 1
 // Safari (iPhone) shows the alpha of a WebM as black, so both videos are put on one WebGL canvas and the matte becomes the canvas' alpha.
 // Works the same in every browser. Both videos are muted and inline (iOS refuses anything else to start by itself) and are kept in step by the loop below.
 const VS = 'attribute vec2 p; varying vec2 v; void main(){ v = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }';
-const FS = 'precision mediump float; varying vec2 v; uniform sampler2D c; uniform sampler2D a; uniform vec3 haze; uniform float amt; uniform float bright; uniform float sat; void main(){ vec3 col = texture2D(c, v).rgb; float al = texture2D(a, v).r; float l = dot(col, vec3(0.299, 0.587, 0.114)); col = mix(vec3(l), col, sat) * bright; col = mix(col, haze, amt); gl_FragColor = vec4(col * al, al); }';
+// Breathing (only when `breathe` is given): the picture is stretched a little upwards from the creature's feet and its upper part leans to one side and the other, so a creature
+// that the video moves only slightly still visibly lives on a phone. br = (strength, breath -1..1, sway -1..1); the two waves are computed in JS because a GPU's `mediump` sin() of a clock is not exact.
+const FS = 'precision mediump float; varying vec2 v; uniform sampler2D c; uniform sampler2D a; uniform vec3 haze; uniform float amt; uniform float bright; uniform float sat; uniform vec2 piv; uniform vec3 br; void main(){ vec2 q = v; q.y = piv.y + (v.y - piv.y) / (1.0 + 0.03 * br.x * br.y); q.x = piv.x + (v.x - piv.x) / (1.0 - 0.012 * br.x * br.y) + 0.016 * br.x * br.z * (piv.y - v.y); vec3 col = texture2D(c, q).rgb; float al = texture2D(a, q).r; float l = dot(col, vec3(0.299, 0.587, 0.114)); col = mix(vec3(l), col, sat) * bright; col = mix(col, haze, amt); gl_FragColor = vec4(col * al, al); }';
 
 function program(gl: WebGLRenderingContext): WebGLProgram | null {
   const sh = (type: number, src: string) => { const s = gl.createShader(type)!; gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
@@ -30,7 +32,8 @@ function texture(gl: WebGLRenderingContext) {
   return t;
 }
 
-export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFail, onDraw, onBox }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade>; onFail?: () => void; onDraw?: () => void; onBox?: (b: Box) => void }) {
+// breathe: the point (shares of the frame) the creature's feet are on, which is where the stretch is anchored; without it the video is shown as it is.
+export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFail, onDraw, onBox, breathe }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade>; onFail?: () => void; onDraw?: () => void; onBox?: (b: Box) => void; breathe?: { x: number; y: number } }) {
   const cv = useRef<HTMLCanvasElement>(null), vc = useRef<HTMLVideoElement>(null), va = useRef<HTMLVideoElement>(null);
   const dirty = useRef(true);   // a picture must be drawn although the video is paused (after a seek, or when a new source has loaded)
   const [plain, setPlain] = useState(false);
@@ -40,6 +43,8 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFai
   drawn.current = onDraw;
   const boxed = useRef(onBox), tries = useRef(0);   // onBox: the box of the creature inside the frame, measured once from the first pictures drawn (the page needs it to put the feet on the ground)
   boxed.current = onBox;
+  const live = useRef(breathe), phase = useRef(Math.random() * 6.283);   // each creature breathes at its own moment
+  live.current = breathe;
 
   // WebGL is set up once; the loop reads whatever the two videos show now, so changing `rgb` or `alpha` needs nothing here.
   useEffect(() => {
@@ -59,7 +64,7 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFai
     const mark = () => { dirty.current = true; };
     for (const v of [c, a]) { v.addEventListener('seeked', mark); v.addEventListener('loadeddata', mark); }
     let raf = 0, seen = -1;
-    const uHaze = gl.getUniformLocation(pr, 'haze'), uAmt = gl.getUniformLocation(pr, 'amt'), uBright = gl.getUniformLocation(pr, 'bright'), uSat = gl.getUniformLocation(pr, 'sat');
+    const uPiv = gl.getUniformLocation(pr, 'piv'), uBr = gl.getUniformLocation(pr, 'br'), uHaze = gl.getUniformLocation(pr, 'haze'), uAmt = gl.getUniformLocation(pr, 'amt'), uBright = gl.getUniformLocation(pr, 'bright'), uSat = gl.getUniformLocation(pr, 'sat');
     const draw = () => {
       raf = requestAnimationFrame(draw);
       if (c.readyState < 2 || a.readyState < 2 || !c.videoWidth) return;
@@ -74,6 +79,9 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFai
       gl.uniform1i(gl.getUniformLocation(pr, 'c'), 0); gl.uniform1i(gl.getUniformLocation(pr, 'a'), 1);
       if (g) { gl.uniform3f(uHaze, g.haze[0] / 255, g.haze[1] / 255, g.haze[2] / 255); gl.uniform1f(uAmt, g.amt); gl.uniform1f(uBright, g.bright); gl.uniform1f(uSat, g.sat); }
       else { gl.uniform1f(uAmt, 0); gl.uniform1f(uBright, 1); gl.uniform1f(uSat, 1); }
+      const lv = live.current, tt = performance.now() / 1000 + phase.current;
+      if (lv) { gl.uniform2f(uPiv, lv.x, lv.y); gl.uniform3f(uBr, 1, Math.sin(tt * 1.85), Math.sin(tt * 1.23 + 1.3)); }
+      else { gl.uniform2f(uPiv, 0.5, 1); gl.uniform3f(uBr, 0, 0, 0); }
       seen = gv;
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

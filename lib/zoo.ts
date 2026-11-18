@@ -53,6 +53,8 @@ export function parseZoo(raw: unknown, own: ReadonlySet<number>): ZooLayout {
 
 // How long a creature takes to be made the first time anyone asks for it (its variant picture, one idle clip, the cut-out of the clip), by the step it is at, in minutes.
 // A rough guess from the services' own timings, shown to the player as "khoảng N phút"; once made, a creature is there for everybody at once.
+// The motion a Linh Thú Viên clip is made with (lib/anim.ts MOTIONS). A cut-out made with another motion (the first version used 'idle') is not used: it was nearly still.
+export const ZOO_MOTION = 'live';
 export type Stage = 'base' | 'variant' | 'clip' | 'cut';
 export const ETA_MIN: Record<Stage, number> = { base: 6, variant: 5, clip: 4, cut: 2 };
 export const etaText = (stage: Stage | undefined) => `khoảng ${ETA_MIN[stage || 'base']} phút`;

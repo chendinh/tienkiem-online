@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOTIONS, MUTATIONS, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL, fgCost, fgCutInput, fgPrompt, isZoneId, bgPath, bgExt } from '../lib/anim';
+import { MOTIONS, MUTATIONS, plainBg, plainPrompt, clipCost, clipInput, clipPrompt, cutCost, cutInput, estimate, isPictureId, motionOf, parseRange, variantPrompt, DEFAULT_CUT_MODEL, DEFAULT_MODEL, fgCost, fgCutInput, fgPrompt, isZoneId, bgPath, bgExt } from '../lib/anim';
 
 test('mutation and motion ids are unique, lowercase slugs', () => {
   for (const list of [MUTATIONS, MOTIONS]) {
@@ -83,4 +83,22 @@ test('the background pictures: the game\'s sea of clouds and the zones, each wit
   assert.equal(bgPath('thanhvan'), '/art/zones/thanhvan.jpg');
   assert.equal(bgExt('thanhvan'), 'jpg');
   assert.ok(isZoneId('dawn'));
+});
+
+test('the Linh Thú Viên motion asks for big movement and its picture has a flat ground', () => {
+  const live = motionOf('live')!;
+  assert.ok(live.bold && !live.move);
+  assert.match(clipPrompt(live), /clearly visible, not subtle/);
+  assert.match(clipPrompt(live), /last frame returns exactly to the first frame/);
+  assert.match(String(clipInput(DEFAULT_MODEL, { prompt: 'p', imageUrl: 'u', seconds: 5, bold: true }).negative_prompt), /^static, frozen/);
+  assert.doesNotMatch(String(clipInput(DEFAULT_MODEL, { prompt: 'p', imageUrl: 'u', seconds: 5 }).negative_prompt), /frozen/);
+  for (const m of MUTATIONS) {
+    assert.match(plainPrompt(m, false), new RegExp(`variant with ${m.en.slice(0, 20)}`));
+    assert.match(plainPrompt(m, false), new RegExp(`uniform ${plainBg(m.id)} that fills the whole picture`));
+    assert.match(plainPrompt(m, true), /^Edit this image\. Keep the creature exactly as it is/);
+    assert.doesNotMatch(plainPrompt(m, true), /rare mutated variant/);
+    assert.doesNotMatch(m.en, /translucent|semi-transparent|haze|mist/);   // a see-through or hazy body is cut away by the background remover
+  }
+  assert.equal(plainBg('hanbang'), 'deep charcoal grey');
+  assert.equal(plainBg('thanhmoc'), 'pure white');
 });
