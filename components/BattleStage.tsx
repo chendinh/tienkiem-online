@@ -46,6 +46,13 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
     const h = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setArenaOpen(false); };
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
   }, [arenaOpen]);
+  // on a wide screen the fighters are tall portraits that fill the stage from top to bottom (the hero's full-length picture); on a phone they stay small round faces
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 721px)'); setWide(mq.matches);
+    const on = (ev: MediaQueryListEvent) => setWide(ev.matches);
+    mq.addEventListener('change', on); return () => mq.removeEventListener('change', on);
+  }, []);
   const [hp, setHp] = useState({ you: open?.o.ph ?? 1, foe: open?.o.fh ?? 1 });
   const youRef = useRef<HTMLDivElement>(null), foeRef = useRef<HTMLDivElement>(null), stageRef = useRef<HTMLDivElement>(null), layerRef = useRef<HTMLDivElement>(null), done = useRef(false);
   // per action, read while rendering: whether the technique plays its own effect (else the plain icon flies) and the length of the slot
@@ -155,7 +162,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
   const youPct = Math.max(0, Math.min(100, (hp.you / Math.max(1, open.o.pm)) * 100)), foePct = Math.max(0, Math.min(100, (hp.foe / Math.max(1, open.o.fh)) * 100));
 
   return (
-    <div className="stage" ref={stageRef} role="img" aria-label={`Giao chiến với ${open.o.f}: ${verdict || ''}`}>
+    <div className={`stage ${wide ? 'wide' : ''}`} ref={stageRef} role="img" aria-label={`Giao chiến với ${open.o.f}: ${verdict || ''}`}>
       <div className="stSky" style={arena ? { backgroundImage: `linear-gradient(180deg, rgb(4 10 16 / 0.02), rgb(4 10 16 / 0.5)), url(${C.arenaArt(arena.id)})` } : undefined} /><div className="stGround" />
       {arena && <button type="button" className="stArena" aria-haspopup="dialog" aria-label={`Chiến trường ${arena.name}: xem chi tiết`} onClick={() => setArenaOpen(true)}><b>{arena.name}</b><span className="up">{arena.boost.map((el) => <ElIcon key={el} el={el} size={12} />)}</span><span className="down">{arena.weaken.map((el) => <ElIcon key={el} el={el} size={12} />)}</span></button>}
       {arena && arenaOpen && createPortal(<ArenaPopup arena={arena} close={() => setArenaOpen(false)} />, document.body)}
@@ -164,7 +171,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       <div className="stSide you">
         <div className="stBar you"><i className="lag" style={{ width: `${youPct}%` }} /><i className="cur" style={{ width: `${youPct}%` }} /></div>
         <div ref={youRef} onClick={hero && !pal ? () => zoom({ kind: 'avatar', src: hero, name: 'Ngươi' }) : undefined} className={`stFig ${pal ? 'pal' : ''} ${hp.you <= 0 ? 'down' : ''} ${over && won ? 'win' : ''}`} style={{ '--el': C.EL[palEl || heroEl]?.color } as CSSProperties}>
-          {pal ? <Img src={C.monsterArt(pal.sp!, !!pal.mu, true)} fb={<ElIcon el={palEl!} size={40} />} /> : hero ? <Img src={`${hero}?s=face`} fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
+          {pal ? <Img src={C.monsterArt(pal.sp!, !!pal.mu, !wide)} fb={<ElIcon el={palEl!} size={40} />} /> : hero ? <Img src={wide ? hero : `${hero}?s=face`} fb={<ElIcon el={heroEl} size={40} />} /> : <span className="stSeal"><ElIcon el={heroEl} size={40} /></span>}
         </div>
         <small>{pal ? pal.n : 'Ngươi'}</small>
       </div>
@@ -172,7 +179,7 @@ export function BattleStage({ e, hero, heroEl, onDone }: Props) {
       <div className="stSide foe">
         <div className="stBar foe"><i className="lag" style={{ width: `${foePct}%` }} /><i className="cur" style={{ width: `${foePct}%` }} /></div>
         <div ref={foeRef} onClick={e.beast ? () => zoom({ kind: 'beast', b: e.beast! }) : undefined} className={`stFig foe ${hp.foe <= 0 ? 'down' : ''} ${over && lost ? 'win' : ''} ${e.beast?.mut ? 'mut' : ''}`} style={{ '--el': C.EL[foeEl]?.color } as CSSProperties}>
-          {e.beast ? <Img src={C.monsterArt(e.beast.sp, e.beast.mut, true)} fb={<ElIcon el={foeEl} size={40} />} />
+          {e.beast ? <Img src={C.monsterArt(e.beast.sp, e.beast.mut, !wide)} fb={<ElIcon el={foeEl} size={40} />} />
             : e.kind === 'npc' ? <Img src={npcArt(open.o.f)} className="stFace" fb={<ElIcon el={foeEl} size={40} />} /> : <span className="stSeal"><ElIcon el={foeEl} size={40} /></span>}
         </div>
         <small>{open.o.f}</small>
