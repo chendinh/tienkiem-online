@@ -114,7 +114,7 @@ test('the background clip is generic (no river in particular), loops, adds nothi
   assert.match(p, /any water flows/);
   assert.match(p, /flat places in the picture stay perfectly still/);
   assert.match(p, /no creature, bird, insect or person is added/);
-  assert.match(p, /last frame returns exactly to the first frame/);
+  assert.match(p, /Strongly visible, continuous/);
   assert.ok([5, 10].includes(BG_SECONDS));
 });
 

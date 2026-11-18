@@ -27,6 +27,8 @@ test('walk and run are done in place and are the only motions that travel', () =
 test('Kling 2.6 loops: start and end frame are the same picture, no audio', () => {
   const i = clipInput(DEFAULT_MODEL, { prompt: 'p', imageUrl: 'https://v3.fal.media/x.jpg', seconds: 5 });
   assert.equal(i.start_image_url, i.end_image_url);
+  const free = clipInput('fal-ai/kling-video/v2.6/pro/image-to-video', { prompt: 'p', imageUrl: 'u', seconds: 10, pinEnd: false });
+  assert.equal(free.start_image_url, 'u'); assert.ok(!('end_image_url' in free), 'a background clip is not pinned to its first frame');
   assert.equal(i.generate_audio, false);
   assert.equal(i.duration, '5');
   assert.equal(clipInput(DEFAULT_MODEL, { prompt: 'p', imageUrl: 'u', seconds: 10 }).duration, '10');

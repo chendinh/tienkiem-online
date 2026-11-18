@@ -148,10 +148,10 @@ export function gridSvg(w: number, h: number): string {
 export const BG_SECONDS = 10;   // longer than a creature's clip, so the repeat is less noticeable
 const STATIC = 'The camera is completely static and everything in the scene stays in place except what is described.';
 export const bgClipPrompt = () =>
-  'The whole scene is alive with clearly visible, gentle, continuous motion: any water flows and ripples with moving highlights; waterfalls pour without stopping; thick mist rolls slowly; ' +
-  'light rays shimmer and shift; trees, bamboo, flowers and leaves sway and rustle in a steady breeze; glowing spirit lights float and flicker; clouds drift across the sky. ' +
-  'The rocks, ledges and flat places in the picture stay perfectly still and unchanged. Nothing appears or disappears: no creature, bird, insect or person is added. ' +
-  `${STATIC} The animation loops seamlessly: the last frame returns exactly to the first frame. Cinematic fantasy realism, smooth natural motion, no cuts, no text.`;
+  'Strongly visible, continuous, flowing motion across the whole scene, like a living painting: thick mist and low clouds roll and drift sideways steadily; any water flows and ripples with moving sparkles; waterfalls pour without stopping; ' +
+  'light rays shimmer and slowly shift; tree branches, pine needles, bamboo, flowers and leaves sway and rustle in a steady breeze; glowing spirit lights and petals float and drift upward; clouds in the sky travel across. ' +
+  'The big rocks, ledges and flat places in the picture stay perfectly still and unchanged. Nothing appears or disappears: no creature, bird, insect or person is added. ' +
+  `${STATIC} Cinematic fantasy realism, smooth natural motion, no cuts, no text.`;
 
 // Rough price of one new creature: its variant picture (not for the original), its idle clip and the cut-out of the clip.
 export const creatureUsd = (u: { edit: number; clip: number; cut: number }, mutated: boolean) => Math.round(((mutated ? u.edit : 0) + u.clip + u.cut) * 1000) / 1000;

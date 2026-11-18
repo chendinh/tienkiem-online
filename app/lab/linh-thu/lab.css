@@ -82,7 +82,7 @@
 .zs-stage { position: relative; width: max(100%, calc(70vh * 1.7778)); }
 .zs-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
 .zs-bgvid { position: absolute; inset: 0; pointer-events: none; }
-.zs-bgvid video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.zs-bgvid video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 /* the garden: creatures are laid over the background (and its clip); each is a frame (two videos on a WebGL canvas) with a hit box over the creature itself */
 .zs-items { position: absolute; inset: 0; isolation: isolate; pointer-events: none; }
 .zs-cr { position: absolute; pointer-events: none; }

@@ -50,9 +50,10 @@ const CLIP_NEG = 'blur, distortion, low quality, text, watermark, camera movemen
 
 // Input of the video model. Only Kling 2.6 Pro has been checked against its documentation (start_image_url, end_image_url, duration "5" or "10",
 // generate_audio). Any other model gets the plainest input, which may need adjusting: check its page on fal.ai before switching FAL_ANIM_MODEL.
-export function clipInput(model: string, p: { prompt: string; imageUrl: string; seconds: number }): Record<string, unknown> {
+// pinEnd: the last frame is the first picture again (a creature that stands still loops by itself); a background is NOT pinned, or the model hardly moves anything
+export function clipInput(model: string, p: { prompt: string; imageUrl: string; seconds: number; pinEnd?: boolean }): Record<string, unknown> {
   const duration = String(p.seconds === 10 ? 10 : 5);
-  if (/\/kling-video\/v2\.6\//.test(model)) return { prompt: p.prompt, start_image_url: p.imageUrl, end_image_url: p.imageUrl, duration, negative_prompt: CLIP_NEG, generate_audio: false };
+  if (/\/kling-video\/v2\.6\//.test(model)) return { prompt: p.prompt, start_image_url: p.imageUrl, ...(p.pinEnd === false ? {} : { end_image_url: p.imageUrl }), duration, negative_prompt: CLIP_NEG, generate_audio: false };
   return { prompt: p.prompt, image_url: p.imageUrl, duration };
 }
 

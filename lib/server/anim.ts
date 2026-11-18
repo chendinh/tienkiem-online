@@ -283,7 +283,7 @@ export async function bgClip(bg: string, origin: string): Promise<Out> {
     } else { const p = await readImage(bg); if (!p) throw new Error('the background is gone'); img = p; }
     const { fal } = await import('@fal-ai/client');
     const url = await upload(fal, img);
-    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
+    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds, pinEnd: false }) }), 270000, 'fal ' + model);
     const v = res?.data?.video;
     if (!v?.url) throw new Error('fal: no video in result');
     const buf = await download(v.url);

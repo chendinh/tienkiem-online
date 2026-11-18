@@ -5,7 +5,7 @@ import { DEFAULT_PERCHES, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RA
 import { errText } from '@/lib/strings';
 import { AlphaVideo } from './AlphaVideo';
 import { Ambient } from './Ambient';
-import { LoopVideo } from './LoopVideo';
+import { BgLoop } from './BgLoop';
 
 // The Linh Thú Viên garden: every creature has ONE idle clip with its background cut out. The owner drags creatures from the tray onto a beautiful background; they go to
 // the nearest perch (a small flat place in the picture: a boulder top, a ledge, a stone slab) and stand on it, as big as that perch suits. The perches of a background are
@@ -293,8 +293,8 @@ export function Garden() {
           <div className="zl-chips">
             <button type="button" className="zl-chip" aria-pressed={adjust} onClick={() => { setAdjust((v) => !v); setSelPerch(null); setSel(null); }}>Chỉnh bệ đứng ({lay.perches.length})</button>
             <button type="button" className="zl-chip" aria-pressed={fx} onClick={() => setFx((v) => !v)}>Hiệu ứng: hạc, bướm, cánh hoa</button>
-            <button type="button" className="zl-chip" disabled={!!busy || !info?.enabled || !!clip || (!!info && info.spent + info.gardenUsd.bg > info.cap)} onClick={() => make(`bg-${bg.id}`, { step: 'bgclip', bg: bg.id })}>
-              {clip ? 'Đã có nền động' : info && info.spent + info.gardenUsd.bg > info.cap ? `Hết hạn mức (còn ${usd(Math.max(0, info.cap - info.spent))}, cần ${usd(info.gardenUsd.bg)})` : busy === `bg-${bg.id}` ? 'Đang làm nền động (1–4 phút)…' : `Làm nền động (~${usd(info?.gardenUsd.bg || 0.7)}, một lần)`}
+            <button type="button" className="zl-chip" disabled={!!busy || !info?.enabled || (!!info && info.spent + info.gardenUsd.bg > info.cap)} onClick={() => make(`bg-${bg.id}`, { step: 'bgclip', bg: bg.id })}>
+              {info && info.spent + info.gardenUsd.bg > info.cap ? `Hết hạn mức (còn ${usd(Math.max(0, info.cap - info.spent))}, cần ${usd(info.gardenUsd.bg)})` : busy === `bg-${bg.id}` ? 'Đang làm nền động (1–4 phút)…' : clip ? `Làm lại nền động (~${usd(info?.gardenUsd.bg || 0.7)})` : `Làm nền động (~${usd(info?.gardenUsd.bg || 0.7)}, một lần)`}
             </button>
           </div>
         </div>
@@ -319,7 +319,7 @@ export function Garden() {
       <div className="zs-scroll">
         <div ref={stage} className="zs-stage" style={{ aspectRatio: '16 / 9' }} onPointerDown={(e) => { if (adjust) addPerch(e); else setSel(null); }}>
           <img className="zs-bg" src={bg.src} alt="" />
-          {clip && <div className="zs-bgvid"><LoopVideo src={mediaUrl(clip.id, clip.url)} poster={bg.src} label="Nền chuyển động" /></div>}
+          {clip && <div className="zs-bgvid"><BgLoop src={mediaUrl(clip.id, clip.url)} label="Nền chuyển động" /></div>}
           {fx && <Ambient layer="back" river={!!bg.river} />}
           <div className="zs-items">
             {lay.items.map((it) => {
