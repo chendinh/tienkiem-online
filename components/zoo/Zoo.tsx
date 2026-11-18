@@ -1,7 +1,7 @@
 'use client';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouse, type PointerEvent as ReactPointer } from 'react';
 import { ASPECT, DEFAULT_PERCHES, HEIGHT, K_RANGE, frameOf, newUid, sizeOf, snapPerch, type Box } from '@/lib/garden';
-import { AIR, LOOK_COLOR, ZOO_BGS, etaText, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
+import { AIR, GLOW, LOOK_COLOR, ZOO_BGS, etaText, sparks, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
 import { useGenImage } from '@/lib/useGenImage';
 import { monsterSpec } from '@/lib/avatarSpec';
 import { Icon } from '@/components/ds/Icon';
@@ -24,6 +24,18 @@ function Air({ bg }: { bg: string }) {
   return (
     <div className={`zv-air ${a.kind} ${a.shape}`} aria-hidden style={{ '--c': a.color, '--g': `${a.glow}px` } as CSSProperties}>
       {list.map((k, i) => <i key={`${bg}${i}`} style={{ left: pc(k.x), '--s': `${k.s}px`, '--dx': `${k.dx}px`, '--r': `${k.rot}deg`, animationDuration: `${k.dur}s`, animationDelay: `${k.delay}s` } as CSSProperties} />)}
+    </div>
+  );
+}
+
+// the fixed lights of the background (lib/zoo.ts GLOW): fireflies and stars that blink, soft blobs that pulse over the lava
+function Glow({ bg }: { bg: string }) {
+  const g = GLOW[bg], list = useMemo(() => sparks(bg), [bg]);
+  if (!g) return null;
+  return (
+    <div className={`zv-glow ${g.kind}`} aria-hidden style={{ '--c': g.color, '--g': `${g.glow}px` } as CSSProperties}>
+      {(g.pulses || []).map((p, i) => <b key={`p${bg}${i}`} style={{ left: pc(p.x), top: pc(p.y), width: pc(p.w), height: pc(p.h), animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }} />)}
+      {list.map((k, i) => <i key={`${bg}${i}`} style={{ left: pc(k.x), top: pc(k.y), '--s': `${k.s}px`, '--dx': `${k.dx}px`, '--dy': `${k.dy}px`, '--t': `${k.dur}s`, '--d': `${k.delay}s` } as CSSProperties} />)}
     </div>
   );
 }
@@ -194,6 +206,7 @@ export function Zoo() {
         <div ref={stage} className="zv-stage" onPointerDown={() => setSel(null)}>
           <img className="zv-bg" src={bgInfo.src} alt="" draggable={false} />
           <Air bg={bg} />
+          <Glow bg={bg} />
           <div className="zv-items">
             {items.map((it) => {
               const b = byId.get(it.beast), pr = perches.find((p) => p.id === it.perch);

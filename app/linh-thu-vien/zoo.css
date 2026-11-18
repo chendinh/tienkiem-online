@@ -23,6 +23,15 @@
 @keyframes zv-rise { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 12% { opacity: 0.85; } 85% { opacity: 0.7; } 100% { transform: translate3d(var(--dx), -105%, 0); opacity: 0; } }
 @keyframes zv-fall { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 10% { opacity: 0.85; } 88% { opacity: 0.75; } 100% { transform: translate3d(var(--dx), 105%, 0); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .zv-air { display: none; } }
+/* fixed lights: they blink in place (fireflies also wander a little) and soft blobs pulse; opacity and transform only */
+.zv-glow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.zv-glow i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); border-radius: 50%; background: var(--c); box-shadow: 0 0 var(--g) calc(var(--s) / 2) var(--c); opacity: 0; will-change: opacity; animation: zv-blink var(--t) ease-in-out var(--d) infinite; }
+.zv-glow.firefly i { will-change: opacity, transform; animation: zv-blink var(--t) ease-in-out var(--d) infinite, zv-wander calc(var(--t) * 3) ease-in-out var(--d) infinite alternate; }
+.zv-glow b { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 110, 30, 0.55), rgba(255, 90, 20, 0.2) 55%, transparent); opacity: 0.2; will-change: opacity; animation: zv-lava ease-in-out infinite alternate; }
+@keyframes zv-blink { 0%, 100% { opacity: 0; } 45%, 55% { opacity: 0.95; } }
+@keyframes zv-wander { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(var(--dx), var(--dy), 0); } }
+@keyframes zv-lava { from { opacity: 0.15; } to { opacity: 0.85; } }
+@media (prefers-reduced-motion: reduce) { .zv-glow { display: none; } }
 .zv-items { position: absolute; inset: 0; isolation: isolate; pointer-events: none; }
 .zs-cr { position: absolute; pointer-events: none; }
 .zs-cr .zl-alpha { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }

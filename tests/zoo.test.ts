@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AIR, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
+import { AIR, GLOW, sparks, ETA_MIN, ZOO_BGS, specks, ZOO_MAX, emptyZoo, etaText, parseZoo, variantOf, zooBgOk } from '../lib/zoo';
 import { MUTATIONS } from '../lib/anim';
 import { DEFAULT_PERCHES } from '../lib/garden';
 
@@ -56,4 +56,16 @@ test('every background has its drifting specks, placed the same way every time a
   }
   assert.notDeepEqual(specks('tinhha').map((k) => k.x), specks('xichviem').map((k) => k.x));
   assert.deepEqual(specks('nowhere'), []);
+});
+
+test('the fixed lights of each background blink at places inside the picture, the same every time', () => {
+  for (const b of ZOO_BGS) {
+    const g = GLOW[b.id], l = sparks(b.id);
+    assert.equal(l.length, g.n);
+    assert.deepEqual(l, sparks(b.id));
+    for (const k of l) { assert.ok(k.x >= 4 && k.x <= 96 && k.y >= g.y[0] && k.y <= g.y[1]); assert.ok(k.delay <= 0 && k.delay >= -k.dur); }
+    for (const p of g.pulses || []) assert.ok(p.x - p.w / 2 > -5 && p.x + p.w / 2 < 105 && p.y - p.h / 2 > -5 && p.y + p.h / 2 < 105);
+  }
+  assert.ok(sparks('thanhvan').some((k) => k.dx !== 0) && sparks('tinhha').every((k) => k.dx === 0 && k.dy === 0));
+  assert.deepEqual(sparks('nowhere'), []);
 });
