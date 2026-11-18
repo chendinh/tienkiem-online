@@ -99,7 +99,7 @@ export function validateCatalog(): string[] {
   need(new Set(C.SPECIES.map((s) => s.id)).size === C.SPECIES.length, 'Có loài trùng id');
   // materials and shop
   need(C.MATERIALS.every((m) => isInt(m.price) && m.price > 0), 'Material thiếu giá bán hoặc giá không phải số nguyên dương');
-  need(C.SHOP.length === 12, 'Phường Thị phải bán đúng mười hai mặt hàng');
+  need(C.SHOP.length === 13, 'Phường Thị phải bán đúng mười ba mặt hàng');
   need(new Set(C.SHOP.map((s) => s.id)).size === C.SHOP.length, 'Phường Thị có mặt hàng trùng id');
   // every fixed picture has a description (shop goods, materials, zones, market)
   for (const x of C.SHOP) need(x.id in C.PROP_EN, `Hàng ${x.id} chưa có mô tả ảnh (PROP_EN)`);

@@ -26,7 +26,7 @@ export const BALANCE = {
   epiphanyMult: 5,
   retreatCultFactor: 2,
   adventureCultFactor: 1,
-  playableLevelCap: 20,
+  playableLevelCap: 24,
   highlightMinTier: 3,
   highlightLimit: 14,
   reportHistory: 20,
@@ -138,12 +138,12 @@ export const BALANCE = {
   baseStatLevelGrowth: 1.1, baseStatRealmGrowth: 1.25,
   baseCrit: 5, baseCritDmg: 150,
   // breakthrough (Requirement 23)
-  breakBase: [0, 0, 0.9, 0.75, 0.6, 0.5], // by target Realm number 1..5 (index 0 and 1 unused)
+  breakBase: [0, 0, 0.9, 0.75, 0.6, 0.5, 0.4], // by target Realm number 1..6 (index 0 and 1 unused)
   breakPurityBonus: 0.1,
   breakPillBonus: 0.15,
   breakMin: 0.05, breakMax: 0.95,
-  tribulationRealms: [3, 4, 5],
-  tribulationWaves: { 3: 3, 4: 4, 5: 5 } as Record<number, number>,
+  tribulationRealms: [3, 4, 5, 6],
+  tribulationWaves: { 3: 3, 4: 4, 5: 5, 6: 6 } as Record<number, number>,
   tribulationReduction: 0.3,
   breakFailureLoss: 0.15,
   heartDemonDuration: 720,
@@ -160,7 +160,7 @@ export const BALANCE = {
   shop: {
     taming: [30, 120, 500, 2200],
     hp: [20, 60, 200],
-    breakthrough: [200, 2000, 15000, 100000], // target Realm 2, 3, 4, 5
+    breakthrough: [200, 2000, 15000, 100000, 600000], // target Realm 2, 3, 4, 5, 6
     tribulation: 2000,
   },
 };
@@ -258,10 +258,10 @@ export function validateBalance(b: Balance = BALANCE): string[] {
     }
   }
   // Requirement 23
-  for (const r of [2, 3, 4, 5]) need(typeof b.breakBase[r] === 'number' && inRange(b.breakBase[r], 0, 1), `Breakthrough_Base_Probability thiếu hoặc ngoài [0,1] ở Realm ${r}`);
+  for (const r of [2, 3, 4, 5, 6]) need(typeof b.breakBase[r] === 'number' && inRange(b.breakBase[r], 0, 1), `Breakthrough_Base_Probability thiếu hoặc ngoài [0,1] ở Realm ${r}`);
   need(inRange(b.breakMin, 0, 1) && inRange(b.breakMax, 0, 1) && b.breakMin <= b.breakMax, 'Breakthrough_Probability_Min/Max không hợp lệ');
   need(b.breakPurityBonus >= 0 && b.breakPillBonus >= 0, 'Breakthrough bonus không được âm');
-  need(b.tribulationRealms.every((r) => inRange(r, 2, 5)), 'Tribulation_Realms phải là tập con của Realm 2 đến 5');
+  need(b.tribulationRealms.every((r) => inRange(r, 2, 6)), 'Tribulation_Realms phải là tập con của Realm 2 đến 6');
   for (const r of b.tribulationRealms) need(isInt(b.tribulationWaves[r]) && b.tribulationWaves[r] >= 1, `Tribulation_Wave_Count thiếu hoặc không hợp lệ ở Realm ${r}`);
   need(b.tribulationWaveStrength > 0 && b.tribulationReduction >= 0 && b.tribulationReduction < 1, 'Tribulation_Wave_Strength/Talisman_Reduction không hợp lệ');
   need(isInt(b.heartDemonDuration) && b.heartDemonDuration >= 1 && b.heartDemonFactor > 0 && b.heartDemonFactor <= 1, 'Heart_Demon không hợp lệ');

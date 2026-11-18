@@ -1130,7 +1130,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
   };
   const st: GameState = {
     v: 2, seed, streams, tick: 0, clock: now, uid: 0, settleSeq: 0, player, bag: [], stash: [], eq: Object.fromEntries(C.SLOTS.map((s) => [s, null])), beasts: [], best: {},
-    stones: 0, inv: { taming: [0, 0, 0, 0], hp: [0, 0, 0], bt: [0, 0, 0, 0], trib: 0, mat: {}, books: {} }, arts: { learned: [], loadout: {}, methods: [A.STARTER_METHOD], method: A.STARTER_METHOD }, pity: { mut: 0, item: 0 }, set: defaultSettings(), recovery: false, zone: C.START_ZONE,
+    stones: 0, inv: { taming: [0, 0, 0, 0], hp: [0, 0, 0], bt: B.shop.breakthrough.map(() => 0), trib: 0, mat: {}, books: {} }, arts: { learned: [], loadout: {}, methods: [A.STARTER_METHOD], method: A.STARTER_METHOD }, pity: { mut: 0, item: 0 }, set: defaultSettings(), recovery: false, zone: C.START_ZONE,
     feed: [], recent: [], kills: 0, pend: {}, ledger: [], ledgerBase: 0, ledgerDaily: [], reqs: {}, reports: [], auditQ: [], decision: null, breakSnooze: 0,
   };
   const origin = C.ORIGINS[player.origin];
