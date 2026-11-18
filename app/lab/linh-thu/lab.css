@@ -76,36 +76,29 @@
 @media (orientation: portrait) { .zl-field { --w: 44cqw; } }
 @media (max-width: 520px) { .zl-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); } }
 
-/* /lab/linh-thu/vien: one background, creatures at fixed spots. Each tile is a square window of the background (the picture and the clip are drawn for that window),
-   laid back where it was cut with soft edges. Held upright, the stage is wider than the screen and scrolls sideways. */
+/* /lab/linh-thu/vien: the garden. One background (a picture and, optionally, its clip), creatures laid over it. Held upright, the stage is wider than the screen and scrolls sideways. */
 .zs-pick { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .zs-scroll { overflow-x: auto; border: 1px solid var(--line-gold); border-radius: var(--r-lg); background: var(--ink-900); }
 .zs-stage { position: relative; width: max(100%, calc(70vh * 1.7778)); }
-.zs-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.zs-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
 .zs-bgvid { position: absolute; inset: 0; pointer-events: none; }
 .zs-bgvid video { display: block; width: 100%; height: 100%; object-fit: cover; }
-.zs-tile { position: absolute; pointer-events: none;
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent), linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent), linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-  mask-composite: intersect; }
-.zs-tile img, .zs-tile video { display: block; width: 100%; height: 100%; object-fit: cover; }
-
-/* a creature cut out of its picture, laid straight over the background's own clip (so there is no tile edge to show) */
+/* the garden: creatures are laid over the background (and its clip); each is a frame (two videos on a WebGL canvas) with a hit box over the creature itself */
+.zs-items { position: absolute; inset: 0; isolation: isolate; pointer-events: none; }
 .zs-cr { position: absolute; pointer-events: none; }
-.zs-cr-still { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .zs-cr .zl-alpha { position: absolute; inset: 0; }
 .zs-shadow { position: absolute; transform: translate(-50%, -50%); pointer-events: none; border-radius: 50%; background: radial-gradient(closest-side, rgba(8, 18, 10, 0.5), rgba(8, 18, 10, 0.24) 58%, transparent); }
-
-/* calibration: the two points of every spot, tapped on the picture. Red = where the feet stand, blue ring = the water (fruit, what it watches), yellow = the room the creature may fill */
-.zs-cal { position: absolute; inset: 0; z-index: 5; cursor: crosshair; }
-.zs-cal-s { display: contents; }
-.zs-cal-s:not(.on) > * { opacity: 0.45; }
-.zs-cal-room { position: absolute; border: 2px dashed rgba(255, 224, 80, 0.95); background: rgba(255, 224, 80, 0.08); pointer-events: none; }
-.zs-cal-stand, .zs-cal-focus { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
-.zs-cal-stand { width: 16px; height: 16px; background: #ff3b3b; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); }
-.zs-cal-focus { width: 24px; height: 24px; border: 3px solid #25e6ff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
-.zs-cal-name { position: absolute; transform: translate(-50%, 8px); padding: 1px 6px; border-radius: 6px; background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; pointer-events: none; }
+.zs-hit { position: absolute; pointer-events: auto; touch-action: none; cursor: grab; border-radius: 8px; }
+.zs-hit.on { outline: 2px dashed rgba(255, 224, 120, 0.9); outline-offset: 2px; }
+.zs-plane { position: absolute; left: 0; right: 0; pointer-events: none; z-index: 3; background: rgba(255, 224, 80, 0.16); border-top: 2px dashed rgba(255, 224, 80, 0.95); border-bottom: 2px dashed rgba(255, 224, 80, 0.95); display: flex; flex-direction: column; justify-content: space-between; }
+.zs-plane b { font-size: 11px; padding: 0 6px; color: #fff; background: rgba(0, 0, 0, 0.55); align-self: flex-start; }
+.zs-tray { display: flex; gap: var(--sp-2); overflow-x: auto; padding: var(--sp-1) 0; width: 100%; }
+.zs-tile-t { flex: 0 0 auto; width: 84px; display: grid; justify-items: center; gap: 2px; padding: 6px; border: 1px solid var(--line-gold); border-radius: var(--r-md); background: rgba(0, 0, 0, 0.25); touch-action: pan-x; user-select: none; -webkit-user-select: none; cursor: grab; }
+.zs-tile-t img, .zs-tile-t i { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: rgba(255, 255, 255, 0.06); pointer-events: none; }
+.zs-tile-t span { font-size: 0.72rem; text-align: center; line-height: 1.15; }
+.zs-tile-t em { font-size: 0.66rem; opacity: 0.7; font-style: normal; text-align: center; }
+.zs-ghost { position: fixed; z-index: 50; width: 72px; height: 72px; transform: translate(-50%, -100%); pointer-events: none; opacity: 0.9; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5)); }
+.zs-ghost img, .zs-ghost i { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; }
 
 /* living details over the Linh Thú Viên background: drawn canvases (components/lab/Ambient.tsx), drifting mist, and light rays from the sun of Thanh Vân */
 .zs-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

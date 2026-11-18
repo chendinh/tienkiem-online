@@ -7,14 +7,13 @@ import { query } from './db';
 import { getImage, hasImage, putImage, claimJob, releaseJobs } from './images';
 import { falModels, falCost, provider, review } from '../imagegen';
 import * as A from '../anim';
-import * as P from '../spots';
-import * as C from '../content';
+import * as G from '../garden';
 import { blobOn, putBlob, readBlob } from './blob';
 
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
 export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
 interface Done {
-  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'spotpic' | 'spotbox' | 'spotclip' | 'spotcut' | 'bgclip'; meta: any;
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'gardenbg' | 'bgclip'; meta: any;
   more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
 }
 
@@ -175,8 +174,8 @@ export async function clip(sp: string, mutId: string, motionId: string, srcId: s
   });
 }
 
-// ---- a clip with its background removed: two videos, the picture (kind 'animcut' or 'spotcut', the id answered) and its alpha matte (kind 'animalpha', the id in `alpha`)
-async function cutVideo(clipId: string, clipKind: 'anim' | 'spotclip', outKind: 'animcut' | 'spotcut', spec: Record<string, unknown>): Promise<Out> {
+// ---- a clip with its background removed: two videos, the picture (kind 'animcut', the id answered) and its alpha matte (kind 'animalpha', the id in `alpha`)
+async function cutVideo(clipId: string, clipKind: 'anim', outKind: 'animcut', spec: Record<string, unknown>): Promise<Out> {
   const head = (await query<{ ext: string; kind: string; seconds: number | null }>(`SELECT ext, kind, (meta->>'seconds')::int AS seconds FROM images WHERE id = $1`, [clipId])).rows[0];
   if (!head || head.kind !== clipKind || head.ext !== 'mp4') return { status: 'invalid' };
   const model = cutModel(), cost = A.cutCost(model, Number(head.seconds) || animSeconds());
@@ -243,155 +242,94 @@ export async function fgsAll() {
   return r.rows.filter((x) => x.zone);
 }
 
-// ---- a creature standing at a spot of the background: its picture (the spot's window of the background with the creature drawn into it) and its clip
-const picInput = (model: string, prompt: string, urls: string[], seed: number, res: string) => ({
-  prompt, image_urls: urls, seed, output_format: 'jpeg', aspect_ratio: '1:1', num_images: 1,
-  ...(/nano-banana-(2|pro)/.test(model) ? { resolution: res } : {}), ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}),
-});
-const okMut = (m: string) => m === A.BASE || !!A.mutationOf(m);
-// The owner's points (tapped on the picture on the lab page) laid over the defaults of lib/spots.ts; they are in the kv table, one row for all spots.
-const POINTS = 'lab.spotpts';
-export async function spotPoints(): Promise<Record<string, { stand: P.Pt; focus: P.Pt }>> {
-  try { return (await query<{ v: any }>(`SELECT value AS v FROM kv WHERE key = $1`, [POINTS])).rows[0]?.v || {}; } catch { return {}; }
-}
-export async function spotList(): Promise<P.Spot[]> { return P.spotsWith(await spotPoints()); }
-export async function savePoints(spotId: string, v: unknown): Promise<boolean> {
-  const s = P.spotOf(spotId), p = s && P.cleanPoints(v, s.kind);
-  if (!s || !p) return false;
-  await query(
-    `INSERT INTO kv (key, value) VALUES ($1, jsonb_build_object($2::text, $3::jsonb))
-     ON CONFLICT (key) DO UPDATE SET value = kv.value || jsonb_build_object($2::text, $3::jsonb)`,
-    [POINTS, s.id, JSON.stringify(p)],
-  );
-  return true;
-}
-
-export async function spotPic(sp: string, mutId: string, spotId: string, srcId: string, origin: string): Promise<Out> {
-  const spot = (await spotList()).find((x) => x.id === spotId);
-  if (!spot || !A.isPictureId(srcId) || !okMut(mutId) || !(await hasImage(srcId))) return { status: 'invalid' };
-  const m = falModels(), model = m.outfit, res = m.outfitRes, cost = falCost(model, 1024, 1024, res);
-  const prompt = P.spotPicPrompt(C.SPECIES_EN[sp] || 'a fantasy creature', spot), crop = P.cropBox(spot);
-  const id = sha('spotpic', sp, mutId, spot.id, srcId, model, res, prompt, `${crop.left},${crop.top},${crop.width}`);
+// ---- backgrounds with a flat ground (kind 'gardenbg'): one picture drawn from text, theme from lib/garden.ts
+export async function plane(themeId: string): Promise<Out> {
+  const t = G.themeOf(themeId);
+  if (!t) return { status: 'invalid' };
+  const m = falModels(), model = m.creature, res = m.creatureRes, cost = falCost(model, 1376, 768, /nano-banana/.test(model) ? res : '');
+  const prompt = G.planePrompt(t), id = sha('plane', t.id, model, res, prompt);
   return launch(id, cost, async (pay) => {
-    const creature = await readImage(srcId);
-    if (!creature) throw new Error('the creature picture is gone');
-    // the window of the background: asked from the site itself (its disk may not hold public/), cut to the square of the spot
-    const r = await fetch(new URL(A.bgPath(P.BG.id), origin), { signal: AbortSignal.timeout(30000) });
-    if (!r.ok) throw new Error(`background ${P.BG.id}: ${r.status}`);
-    const sharp = (await import('sharp')).default;
-    const win = await sharp(Buffer.from(await r.arrayBuffer())).extract(crop).jpeg({ quality: 92 }).toBuffer();
     const { fal } = await import('@fal-ai/client');
-    const urls = [await upload(fal, { data: win, ext: 'jpg' }), await upload(fal, creature)];
-    const seed = seedOf(`${sp}#${mutId}#${spot.id}`);
-    const res2: any = await withTimeout(fal.subscribe(model, { input: picInput(model, prompt, urls, seed, res) }), 150000, 'fal ' + model);
-    const img = res2?.data?.images?.[0];
+    const input = { prompt, aspect_ratio: '16:9', seed: seedOf('plane#' + t.id), num_images: 1, output_format: 'jpeg', ...(/nano-banana/.test(model) ? { resolution: res } : {}), ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}) };
+    const r: any = await withTimeout(fal.subscribe(model, { input }), 150000, 'fal ' + model);
+    const img = r?.data?.images?.[0];
     if (!img?.url) throw new Error('fal: no image in result');
     const buf = await download(img.url);
     await pay(cost);
-    return { buf, ext: 'jpg', kind: 'spotpic', meta: { spec: { kind: 'spotpic', sp, mut: mutId, spot: spot.id, src: srcId }, model, prompt, seed, cost, crop } };
+    return { buf, ext: 'jpg', kind: 'gardenbg', meta: { spec: { kind: 'gardenbg', theme: t.id }, model, prompt, cost } };
   });
 }
-export async function spotClip(sp: string, mutId: string, spotId: string, picId: string): Promise<Out> {
-  const spot = P.spotOf(spotId);
-  if (!spot || !A.isPictureId(picId) || !okMut(mutId) || !(await hasImage(picId))) return { status: 'invalid' };
-  const model = animModel(), seconds = animSeconds(), prompt = P.spotClipPrompt(spot), cost = A.clipCost(model, seconds);
-  const id = sha('spotclip', picId, model, seconds, prompt);
-  return launch(id, cost, async (pay) => {
-    const pic = await readImage(picId);
-    if (!pic) throw new Error('the spot picture is gone');
-    const { fal } = await import('@fal-ai/client');
-    const url = await upload(fal, pic);
-    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
-    const v = res?.data?.video;
-    if (!v?.url) throw new Error('fal: no video in result');
-    const buf = await download(v.url);
-    await pay(cost);
-    if (!isMp4(buf)) throw new Error('not an mp4 file');
-    return { buf, ext: 'mp4', kind: 'spotclip', meta: { spec: { kind: 'spotclip', sp, mut: mutId, spot: spot.id, src: picId }, model, prompt, seconds, cost, requestId: res?.requestId } };
-  });
+export async function planesAll() {
+  const r = await query<{ id: string; theme: string }>(`SELECT id, meta->'spec'->>'theme' AS theme FROM images WHERE kind = 'gardenbg' ORDER BY created`);
+  return r.rows.filter((x) => G.themeOf(x.theme)).map((x) => ({ id: x.id, theme: x.theme }));
 }
-// The creature of a spot picture cut out of the window it was drawn in (kind 'spotbox': a webp with alpha) and MEASURED: `meta.box` holds the box of the creature and its
-// two extremes (lib/spots.ts alphaMetrics). The page puts the creature on the stage from these numbers, so its feet and its mouth land on the spot's two points.
-export const SPOT_CUT_PX = 512;
-export async function spotBox(sp: string, mutId: string, spotId: string, picId: string): Promise<Out> {
-  const spot = P.spotOf(spotId);
-  if (!spot || !A.isPictureId(picId) || !okMut(mutId) || !(await hasImage(picId))) return { status: 'invalid' };
-  const cutM = process.env.FAL_FG_CUT_MODEL || A.DEFAULT_FG_CUT_MODEL, cost = A.FG_CUT_USD;
-  const id = sha('spotbox', picId, cutM);
-  return launch(id, cost, async (pay) => {
-    const pic = await readImage(picId);
-    if (!pic) throw new Error('the spot picture is gone');
-    const { fal } = await import('@fal-ai/client');
-    const c: any = await withTimeout(fal.subscribe(cutM, { input: A.fgCutInput(await upload(fal, pic)) }), 120000, 'fal ' + cutM);
-    const ci = c?.data?.image || c?.data?.images?.[0];
-    if (!ci?.url) throw new Error('fal: no image from the background removal');
-    const png = await download(ci.url);
-    await pay(cost);
-    if (!isPng(png)) throw new Error('the cut-out is not a PNG (no alpha)');
-    const sharp = (await import('sharp')).default;
-    // measured on a small copy (the picture is square, the box is in shares of it); the copy kept is small too: it is a poster that every visit downloads
-    const small = await sharp(png).resize(256, 256, { fit: 'fill' }).ensureAlpha().extractChannel('alpha').raw().toBuffer({ resolveWithObject: true });
-    const box = P.alphaMetrics(small.data, small.info.width, small.info.height);
-    if (!box) throw new Error('no creature found in the cut-out picture');
-    const keep = await sharp(png).resize(SPOT_CUT_PX, SPOT_CUT_PX, { fit: 'fill' }).webp({ quality: 88, alphaQuality: 92 }).toBuffer();
-    return { buf: keep, ext: 'webp', kind: 'spotbox', meta: { spec: { kind: 'spotbox', sp, mut: mutId, spot: spot.id, src: picId }, cutModel: cutM, cost, box } };
-  });
-}
-// The clip of a spot with its background removed (two videos, as for any clip): laid over the background's own clip, so no tile edge shows.
-export async function spotCut(sp: string, mutId: string, spotId: string, clipId: string): Promise<Out> {
-  if (!P.spotOf(spotId) || !A.isPictureId(clipId) || !okMut(mutId)) return { status: 'invalid' };
-  return cutVideo(clipId, 'spotclip', 'spotcut', { kind: 'spotcut', sp, mut: mutId, spot: spotId });
-}
-// The background's own clip (kind 'bgclip'): the whole picture moving, once for all.
-const bgSeconds = () => (process.env.FAL_BG_SECONDS === '5' ? 5 : P.BG_SECONDS);
-const bgClipId = () => sha('bgclip', P.BG.id, animModel(), bgSeconds(), P.bgClipPrompt());
-export async function bgClip(origin: string): Promise<Out> {
-  const model = animModel(), seconds = bgSeconds(), prompt = P.bgClipPrompt(), cost = A.clipCost(model, seconds);
-  const id = bgClipId();
-  return launch(id, cost, async (pay) => {
-    const r = await fetch(new URL(A.bgPath(P.BG.id), origin), { signal: AbortSignal.timeout(30000) });
-    if (!r.ok) throw new Error(`background ${P.BG.id}: ${r.status}`);
-    const { fal } = await import('@fal-ai/client');
-    const url = await upload(fal, { data: Buffer.from(await r.arrayBuffer()), ext: A.bgExt(P.BG.id) });
-    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
-    const v = res?.data?.video;
-    if (!v?.url) throw new Error('fal: no video in result');
-    const buf = await download(v.url);
-    await pay(cost);
-    if (!isMp4(buf)) throw new Error('not an mp4 file');
-    return { buf, ext: 'mp4', kind: 'bgclip', meta: { spec: { kind: 'bgclip', bg: P.BG.id }, model, prompt, seconds, cost, requestId: res?.requestId } };
-  });
-}
-// The clip to show: the one made with today's wording if it exists, else the newest older one (`current: false`, so the page offers to make the new one).
-export async function bgClipOf(): Promise<{ id: string; url?: string; current: boolean } | null> {
-  const cur = bgClipId();
-  const r = (await query<{ id: string; url: string | null }>(`SELECT id, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' AND meta->'spec'->>'bg' = $1 ORDER BY (id = $2) DESC, created DESC LIMIT 1`, [P.BG.id, cur])).rows[0];
-  return r ? { id: r.id, current: r.id === cur, ...(r.url ? { url: r.url } : {}) } : null;
-}
-export interface SpotAsset { id: string; kind: 'spotpic' | 'spotbox' | 'spotclip' | 'spotcut'; sp: string; mut: string; spot: string; src: string; url?: string; alpha?: string; alphaUrl?: string; m?: P.Metrics }
-export async function spotsAll(): Promise<SpotAsset[]> {
-  const r = await query<{ id: string; kind: SpotAsset['kind']; spec: any; url: string | null; box: any; aurl: string | null }>(
-    `SELECT i.id, i.kind, i.meta->'spec' AS spec, i.meta->'blob'->>'url' AS url, i.meta->'box' AS box,
-            (SELECT a.meta->'blob'->>'url' FROM images a WHERE a.id = i.meta->'spec'->>'alpha') AS aurl
-       FROM images i WHERE i.kind IN ('spotpic', 'spotbox', 'spotclip', 'spotcut') ORDER BY i.created`);
-  return r.rows.filter((x) => x.spec?.sp && x.spec?.spot).map((x) => {
-    const m = x.kind === 'spotbox' ? P.metricsOf(x.box) : null;
-    return { id: x.id, kind: x.kind, sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), spot: String(x.spec.spot), src: String(x.spec.src || ''), ...(x.url ? { url: x.url } : {}), ...(x.spec.alpha ? { alpha: String(x.spec.alpha) } : {}), ...(x.aurl ? { alphaUrl: x.aurl } : {}), ...(m ? { m } : {}) };
-  });
-}
-export const spotUsd = () => ({ pic: falCost(falModels().outfit, 1024, 1024, falModels().outfitRes), box: A.FG_CUT_USD, clip: A.clipCost(animModel(), animSeconds()), cut: A.cutCost(cutModel(), animSeconds()), bg: A.clipCost(animModel(), bgSeconds()) });
 
-// ---- what the lab page needs
+// ---- the moving background: one clip of a whole background (a static picture of the site, or a drawn 'gardenbg'), made once and shared by every player
+const bgSeconds = () => (process.env.FAL_BG_SECONDS === '5' ? 5 : G.BG_SECONDS);
+export async function bgClip(bg: string, origin: string): Promise<Out> {
+  if (!G.isBgId(bg)) return { status: 'invalid' };
+  const stat = (SITE_BG as Record<string, string>)[bg];
+  if (!stat && !(await query(`SELECT 1 FROM images WHERE id = $1 AND kind = 'gardenbg'`, [bg])).rows.length) return { status: 'invalid' };
+  const model = animModel(), seconds = bgSeconds(), prompt = G.bgClipPrompt(), cost = A.clipCost(model, seconds);
+  const id = sha('bgclip', bg, model, seconds, prompt);
+  return launch(id, cost, async (pay) => {
+    let img: { data: Buffer; ext: string };
+    if (stat) {
+      // a picture of the site: asked from the site itself (the function's own disk may not hold public/)
+      const r = await fetch(new URL(stat, origin), { signal: AbortSignal.timeout(30000) });
+      if (!r.ok) throw new Error(`background ${bg}: ${r.status}`);
+      img = { data: Buffer.from(await r.arrayBuffer()), ext: stat.endsWith('.webp') ? 'webp' : 'jpg' };
+    } else { const p = await readImage(bg); if (!p) throw new Error('the background is gone'); img = p; }
+    const { fal } = await import('@fal-ai/client');
+    const url = await upload(fal, img);
+    const res: any = await withTimeout(fal.subscribe(model, { input: A.clipInput(model, { prompt, imageUrl: url, seconds }) }), 270000, 'fal ' + model);
+    const v = res?.data?.video;
+    if (!v?.url) throw new Error('fal: no video in result');
+    const buf = await download(v.url);
+    await pay(cost);
+    if (!isMp4(buf)) throw new Error('not an mp4 file');
+    return { buf, ext: 'mp4', kind: 'bgclip', meta: { spec: { kind: 'bgclip', bg }, model, prompt, seconds, cost, requestId: res?.requestId } };
+  });
+}
+const SITE_BG = { thanhvan: '/art/zones/thanhvan.jpg', dawn: '/art/scene/dawn.webp', night: '/art/scene/night.webp' } as const;
+// the newest clip of each background
+export async function bgClipsAll(): Promise<{ bg: string; id: string; url?: string }[]> {
+  const r = await query<{ id: string; bg: string; url: string | null }>(
+    `SELECT DISTINCT ON (meta->'spec'->>'bg') id, meta->'spec'->>'bg' AS bg, meta->'blob'->>'url' AS url FROM images WHERE kind = 'bgclip' ORDER BY meta->'spec'->>'bg', created DESC`);
+  return r.rows.filter((x) => x.bg).map((x) => ({ bg: x.bg, id: x.id, ...(x.url ? { url: x.url } : {}) }));
+}
+
+// ---- what the owner has put on each background (the kv table, one row for all: {bg: {plane, items}})
+const GARDEN = 'lab.garden';
+export async function gardenAll(): Promise<Record<string, G.Layout>> {
+  try { return (await query<{ v: any }>(`SELECT value AS v FROM kv WHERE key = $1`, [GARDEN])).rows[0]?.v || {}; } catch { return {}; }
+}
+export async function saveGarden(bg: string, raw: unknown): Promise<boolean> {
+  if (!G.isBgId(bg)) return false;
+  const l = G.parseLayout(raw);
+  await query(
+    `INSERT INTO kv (key, value) VALUES ($1, jsonb_build_object($2::text, $3::jsonb))
+     ON CONFLICT (key) DO UPDATE SET value = kv.value || jsonb_build_object($2::text, $3::jsonb)`,
+    [GARDEN, bg, JSON.stringify(l)],
+  );
+  return true;
+}
+export const gardenUsd = () => ({ plane: falCost(falModels().creature, 1376, 768, /nano-banana/.test(falModels().creature) ? falModels().creatureRes : ''), edit: editCost(), clip: A.clipCost(animModel(), animSeconds()), cut: A.cutCost(cutModel(), animSeconds()), bg: A.clipCost(animModel(), bgSeconds()) });
+
 export interface Asset { id: string; kind: 'animvar' | 'anim' | 'animcut'; mut?: string; motion?: string; src?: string; alpha?: string }
 export async function assetsOf(sp: string): Promise<Asset[]> {
   const r = await query<{ id: string; kind: 'animvar' | 'anim' | 'animcut'; spec: any }>(
     `SELECT id, kind, meta->'spec' AS spec FROM images WHERE kind IN ('animvar', 'anim', 'animcut') AND meta->'spec'->>'sp' = $1 ORDER BY created`, [sp]);
   return r.rows.map((x) => ({ id: x.id, kind: x.kind, mut: x.spec?.mut, motion: x.spec?.motion, src: x.spec?.src || x.spec?.base, alpha: x.spec?.alpha }));
 }
-// Every cut-out creature of every species, for the scene page.
+// Every cut-out creature of every species: the cut-out, its alpha, the picture the clip was made from (for a thumbnail) and where the videos are kept.
 export async function cutsAll() {
-  const r = await query<{ id: string; spec: any }>(`SELECT id, meta->'spec' AS spec FROM images WHERE kind = 'animcut' ORDER BY created`);
-  return r.rows.filter((x) => x.spec?.alpha && x.spec?.sp).map((x) => ({ id: x.id, alpha: String(x.spec.alpha), sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), motion: String(x.spec.motion || '') }));
+  const r = await query<{ id: string; spec: any; url: string | null; aurl: string | null; pic: string | null }>(
+    `SELECT i.id, i.meta->'spec' AS spec, i.meta->'blob'->>'url' AS url,
+            (SELECT a.meta->'blob'->>'url' FROM images a WHERE a.id = i.meta->'spec'->>'alpha') AS aurl,
+            (SELECT c.meta->'spec'->>'src' FROM images c WHERE c.id = i.meta->'spec'->>'src') AS pic
+       FROM images i WHERE i.kind = 'animcut' ORDER BY i.created`);
+  return r.rows.filter((x) => x.spec?.alpha && x.spec?.sp).map((x) => ({ id: x.id, alpha: String(x.spec.alpha), sp: String(x.spec.sp), mut: String(x.spec.mut || A.BASE), motion: String(x.spec.motion || ''), ...(x.pic ? { pic: x.pic } : {}), ...(x.url ? { url: x.url } : {}), ...(x.aurl ? { alphaUrl: x.aurl } : {}) }));
 }
 // how much of the lab's video is in Blob (the free plan holds 1 GB)
 async function blobMb(): Promise<number> {

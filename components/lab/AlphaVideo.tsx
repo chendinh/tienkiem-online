@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { alphaBox, type Box } from '@/lib/garden';
 
 // How a creature is graded to its picture (lib/scene.ts gradeAt): `v` is bumped by whoever changes it, so a paused video is drawn again.
 export interface Grade { haze: [number, number, number]; amt: number; bright: number; sat: number; v: number }
@@ -29,7 +30,7 @@ function texture(gl: WebGLRenderingContext) {
   return t;
 }
 
-export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFail, onDraw }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade>; onFail?: () => void; onDraw?: () => void }) {
+export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFail, onDraw, onBox }: { rgb: string; alpha: string; playing?: boolean; className?: string; grade?: MutableRefObject<Grade>; onFail?: () => void; onDraw?: () => void; onBox?: (b: Box) => void }) {
   const cv = useRef<HTMLCanvasElement>(null), vc = useRef<HTMLVideoElement>(null), va = useRef<HTMLVideoElement>(null);
   const dirty = useRef(true);   // a picture must be drawn although the video is paused (after a seek, or when a new source has loaded)
   const [plain, setPlain] = useState(false);
@@ -37,6 +38,8 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFai
   fail.current = onFail;
   const drawn = useRef(onDraw);   // told once, when the first picture of the video is on the canvas (the page then hides the still that stood in for it)
   drawn.current = onDraw;
+  const boxed = useRef(onBox), tries = useRef(0);   // onBox: the box of the creature inside the frame, measured once from the first pictures drawn (the page needs it to put the feet on the ground)
+  boxed.current = onBox;
 
   // WebGL is set up once; the loop reads whatever the two videos show now, so changing `rgb` or `alpha` needs nothing here.
   useEffect(() => {
@@ -74,6 +77,14 @@ export function AlphaVideo({ rgb, alpha, playing = true, className, grade, onFai
       seen = gv;
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      if (boxed.current && tries.current < 40) {
+        tries.current++;
+        const W = canvas.width, H = canvas.height, px = new Uint8Array(W * H * 4), st = Math.max(1, Math.floor(Math.min(W, H) / 180)), w2 = Math.floor(W / st), h2 = Math.floor(H / st), a = new Uint8Array(w2 * h2);
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        for (let y = 0; y < h2; y++) for (let x = 0; x < w2; x++) a[y * w2 + x] = px[((H - 1 - y * st) * W + x * st) * 4 + 3];   // readPixels counts rows from the bottom
+        const b = alphaBox(a, w2, h2);
+        if (b) { const f = boxed.current; boxed.current = undefined; f(b); }
+      }
       dirty.current = false;
       if (drawn.current) { const f = drawn.current; drawn.current = undefined; f(); }
     };

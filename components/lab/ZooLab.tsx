@@ -25,8 +25,8 @@ export function ZooLab() {
   const [info, setInfo] = useState<Info | null>(null);
   const [err, setErr] = useState('');
   const [sp, setSp] = useState('');
-  const [muts, setMuts] = useState<string[]>(['ngusac']);
-  const [moves, setMoves] = useState<string[]>(['walk']);
+  const [muts, setMuts] = useState<string[]>([]);
+  const [moves, setMoves] = useState<string[]>(['idle']);
   const [cutOn, setCutOn] = useState(true);
   const [pics, setPics] = useState<Record<string, Cell>>({});
   const [clips, setClips] = useState<Record<string, Cell>>({});
