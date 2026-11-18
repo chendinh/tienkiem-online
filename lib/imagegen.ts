@@ -70,7 +70,7 @@ const FAL_RES: Record<string, Record<string, number>> = {
   'fal-ai/nano-banana-2': { '1K': 0.08, '2K': 0.12, '4K': 0.16 },
   'fal-ai/nano-banana-pro': { '1K': 0.15, '2K': 0.15, '4K': 0.3 },
 };
-const falCost = (m: string, w: number, h: number, res = '') => FAL_RES[m]?.[res] ?? FAL_FLAT[m] ?? Math.ceil((w * h) / 1e6) * (FAL_MP[m] ?? 0.04);
+export const falCost = (m: string, w: number, h: number, res = '') => FAL_RES[m]?.[res] ?? FAL_FLAT[m] ?? Math.ceil((w * h) / 1e6) * (FAL_MP[m] ?? 0.04);
 
 // Rough price of drawing the picture a spec asks for (what the ledger would record), for dry runs.
 export function estimateCost(spec: any): number {
