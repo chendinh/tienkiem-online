@@ -1,0 +1,11 @@
+# Linh Thú Viên (người chơi): `/linh-thu-vien`
+
+Tính năng riêng, tách khỏi "Linh Thú" (chuồng thú, `penCapacity`) của game. Chuồng thú giữ nguyên; trang này chỉ dành cho **Dị Biến**.
+
+- **Vào trang:** nút "Linh Thú Viên" ở header (và trong menu) bấm là tải cả trang mới (`location.assign`), không phải mở cửa sổ trong game. Game (đồng hồ, canvas, nhạc) không còn chạy nên dồn hết sức máy cho các video thú. Nền không phải quản lý gì khác: chỉ có trang này, `/api/zoo`, và video thú.
+- **Nền:** chỉ ba ảnh dọc đã có sẵn của game (Thanh Vân, Tinh Hà, Xích Viêm; `ZOO_BGS` trong `lib/zoo.ts`), bệ đứng đặt sẵn (`DEFAULT_PERCHES`). Không vẽ nền cho người chơi nên không tốn tiền ảnh.
+- **Nhiều phiên bản Dị Thú:** mỗi Dị Thú có một "dáng" trong 10 dáng (`MUTATIONS`: Ngũ Sắc, Hỏa Linh, Hàn Băng, Lôi Điện, Huyết Ma, Hoàng Kim, Tinh Hà, Ngọc Bích, Âm Minh, Thanh Mộc), chọn cố định từ loài và số hiệu con thú (`variantOf`), nên không cần đổi dữ liệu game và con thú luôn giữ một dáng. Chỉ Ngũ Sắc là dáng game đang vẽ ở chuồng thú; chín dáng còn lại chỉ thấy trong Linh Thú Viên.
+- **Gen khi cần:** video chỉ được làm khi có người đặt Dị Thú đó vào nền: ảnh dáng → một clip đứng yên 5 giây → tách nền (≈ 0,41 USD, một lần cho mọi người chơi, tính vào hạn mức `LAB_BUDGET_USD`). Trang gọi `POST /api/zoo {step:'summon', beast}` mỗi 6 giây, máy chủ chạy bước còn thiếu và trả bước hiện tại. Thú đang chờ hiện "Nhập định · khoảng N phút" (`ETA_MIN`: 6, 5, 4, 2 phút theo bước) và đứng sẵn trên bệ dạng vòng tròn. Chỉ đóng trang thì việc dừng ở bước đang làm, mở lại thì tự làm tiếp (mọi bước lưu theo id, không làm hai lần). Dị Thú phải thuộc về người chơi (máy chủ tự suy ra dáng, người chơi không chọn được).
+- **Thao tác:** kéo thú từ khay xuống nền, hoặc chạm một lần (vào bệ đang ít thú nhất); thú tự vào bệ gần nhất; kéo thú trên nền để dời (bệ hiện vạch vàng khi kéo); chọn thú thì thanh trên cùng đổi thành Quay, Nhỏ, To, Gỡ. Tối đa 8 thú mỗi nền. Bấm **Lưu** mới lưu (`kv`, khóa `zoo.<tài khoản>`); rời trang khi chưa lưu thì hỏi lại.
+- **Khổ dọc 9:16:** nền rộng bằng màn hình điện thoại, trang cuộn dọc, bệ ở phần dưới tranh, khay thú dính đáy.
+- **Chưa kiểm chứng:** tốc độ thật của từng bước (con số phút là ước lượng), video từ Blob chạy trong WebGL trên iPhone, chất lượng dáng mới.

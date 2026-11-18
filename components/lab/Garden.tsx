@@ -3,7 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Point
 import { BASE, MUTATIONS } from '@/lib/anim';
 import { ASPECT, DEFAULT_PERCHES, K_RANGE, MAX_ITEMS, MAX_PERCHES, S_RANGE, THEMES, W_RANGE, creatureUsd, frameOf, newUid, parseLayout, perchAt, sizeOf, snapPerch, themeOf, type Box, type Layout, type Perch, type Placed } from '@/lib/garden';
 import { errText } from '@/lib/strings';
-import { AlphaVideo } from './AlphaVideo';
+import { Creature, mediaUrl } from './Creature';
 import { Ambient } from './Ambient';
 
 // The Linh Thú Viên garden: every creature has ONE idle clip with its background cut out. The owner drags creatures from the tray onto a beautiful background; they go to
@@ -26,32 +26,8 @@ const WHY: Record<string, string> = { limited: 'Hết hạn mức của lab', di
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const usd = (x: number) => `$${x.toFixed(2)}`;
 const pc = (n: number) => `${n}%`;
-const mediaUrl = (id: string, url?: string) => url || `/api/lab/media/${id}`;
 const NO_PERCH = 'Nền này chưa có bệ đứng. Bấm "Chỉnh bệ đứng" rồi chạm vào tranh ở chỗ phẳng (đỉnh đá, mỏm đá, phiến đá) để thêm, hoặc nhờ AI gợi ý.';
 const mutName = (m: string) => (m === BASE ? 'Nguyên bản' : MUTATIONS.find((x) => x.id === m)?.name || m);
-
-// One creature on the stage: its cut-out video, played only while it is on the screen. Its box is measured from the first picture, so that its FEET (not the empty
-// margin of its picture) stand on the point it was dropped on; until then it is invisible.
-function Creature({ c, it, size, box, onBox, onFail, z }: { c: Cut; it: Placed; size: number; box?: Box; onBox: (b: Box) => void; onFail: () => void; z: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [seen, setSeen] = useState(true), [ever, setEver] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === 'undefined') { setEver(true); return; }
-    const io = new IntersectionObserver(([e]) => { setSeen(e.isIntersecting); if (e.isIntersecting) setEver(true); }, { rootMargin: '150px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  const f = frameOf(box || { x0: 0.1, y0: 0.05, x1: 0.9, y1: 1 }, it, size, ASPECT);
-  return (
-    <>
-      {box && <div className="zs-shadow" style={{ left: pc(f.shadow.left), top: pc(f.shadow.top), width: pc(f.shadow.width), height: pc(f.shadow.height), zIndex: z }} />}
-      <div ref={ref} className="zs-cr" style={{ left: pc(f.left), top: pc(f.top), width: pc(f.width), height: pc(f.height), zIndex: z + 1, opacity: box ? 1 : 0, transform: it.flip ? 'scaleX(-1)' : undefined, transformOrigin: `${f.pivot}% 50%` }}>
-        {ever && <AlphaVideo rgb={mediaUrl(c.id, c.url)} alpha={mediaUrl(c.alpha, c.alphaUrl)} playing={seen} onBox={box ? undefined : onBox} onFail={onFail} />}
-      </div>
-    </>
-  );
-}
 
 export function Garden() {
   const [key, setKey] = useState<string | null>(null);

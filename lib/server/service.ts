@@ -75,6 +75,11 @@ async function readAcct(id: string): Promise<AccountFile | null> {
   if (a) a.state = upgrade(a.state, a.email);
   return a;
 }
+// The Dị Biến beasts of a player (Linh Thú Viên): read without settling the journey, so a page that asks every few seconds stays cheap.
+export async function mutantsOf(id: string): Promise<G.Beast[] | null> {
+  const a = await readAcct(id);
+  return a?.state ? a.state.beasts.filter((b) => b.mut) : null;
+}
 const AVATAR_URL = /^\/api\/img\/[a-f0-9]{20}$/;
 function cleanAvatar(a: any): G.Avatar | null {
   if (!a || typeof a !== 'object') return null;

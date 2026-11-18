@@ -321,6 +321,8 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
   const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title' | 'purity' | 'alchemy'>(null);
+  // Linh Thú Viên is its own page: a full page load, so the game (its timers, canvases, music) is gone and the zoo has the whole phone to itself
+  const goZoo = () => { cue.open(); window.location.assign('/linh-thu-vien'); };
   const openWin = (w: 'market' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
@@ -616,6 +618,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <button type="button" aria-label="Nhiệm vụ" className="nav pic alt daily quick" data-tone="gold" onClick={() => { cue.open(); setModal('daily'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_quest')})` }} aria-hidden="true" /><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Nhiệm vụ</span></button>
           <button type="button" aria-label="Thần Thông" className="nav pic alt arts" data-tone="violet" onClick={() => openWin('arts')}><span className="navIco"><Icon name="bolt" size={18} /></span><span className="lbl">Thần Thông</span></button>
           <button type="button" aria-label="Linh Thú" className="nav pic alt pen" data-tone="jade" onClick={() => openWin('pen')}><span className="navIco"><Icon name="paw" size={18} /></span><span className="lbl">Linh Thú</span></button>
+          <button type="button" aria-label="Linh Thú Viên" className="nav pic alt zoo" data-tone="jade" onClick={goZoo}><span className="navIco"><Icon name="zoo" size={18} /></span><span className="lbl">Linh Thú Viên</span></button>
           <button type="button" aria-label="Thiên Thư" className="nav pic alt story" data-tone="jade" onClick={() => { cue.open(); setCodex('story'); }}><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Thiên Thư</span></button>
           <button type="button" aria-label="Xác suất" className="nav pic alt odds" data-tone="azure" onClick={() => { cue.open(); setModal('odds'); }}><span className="navIco"><Icon name="luck" size={18} /></span><span className="lbl">Xác suất</span></button>
           <button type="button" aria-label="Cài đặt" className="nav pic alt settings" data-tone="violet" onClick={() => { cue.open(); setModal('settings'); }}><span className="navIco"><Icon name="gear" size={18} /></span><span className="lbl">Cài đặt</span></button>
@@ -626,7 +629,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>{(close) => {
             // every entry closes the menu first, then opens its window
             const go = (fn: () => void) => () => { close(); cue.open(); setSideOpen(false); fn(); };
-            const tile = (icon: 'stone' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear', label: string, fn: () => void, hot?: boolean) => (
+            const tile = (icon: 'stone' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo', label: string, fn: () => void, hot?: boolean) => (
               <button type="button" className={`menuTile ${hot ? 'hot' : ''}`} onClick={go(fn)}><Icon name={icon} size={22} /><span>{label}</span></button>
             );
             return (<>
@@ -639,7 +642,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             {<div className="pop-grid" style={{ marginBottom: 10 }}>{user.passkeys ? <button className="btn sm ghost" onClick={removePk}>Gỡ passkey ({user.passkeys})</button> : <button className="btn sm" disabled={pkBusy} onClick={addPk}>Thêm passkey (vân tay / khuôn mặt)</button>}</div>}
             <div className="popNav">
               <div className="menuGroup"><div className="menuTitle">Tu luyện</div>
-                <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
+                <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('zoo', 'Linh Thú Viên', goZoo)}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Mua bán và nhiệm vụ</div>
                 <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
