@@ -4,7 +4,8 @@
    Only transform and opacity ever animate here.
    ========================================================================== */
 @layer ds-atmosphere {
-  .atmo { position: fixed; inset: 0; z-index: var(--z-atmo); overflow: hidden; pointer-events: none; background: var(--ink-950); --px: 0; --py: 0; contain: strict; }
+  /* Fixed height = the LARGEST viewport (lvh). On a phone the address bar slides away while the page scrolls, and with `inset: 0` the layer was resized with it, so the picture (background-size: cover) shifted and rescaled. 100vh is the fallback for old browsers. */
+  .atmo { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100lvh; z-index: var(--z-atmo); overflow: hidden; pointer-events: none; background: var(--ink-950); --px: 0; --py: 0; contain: strict; }
   .atmo-scene { position: absolute; inset: -4%; background-size: cover; background-position: center 28%; opacity: 0; transform: scale(1.05); transition: opacity var(--dur-ambient) var(--ease-io); will-change: opacity; }
   .atmo-scene.on { opacity: 1; }
   /* the darkening is a plain black layer instead of filter: brightness(), so the moving picture is not re-filtered every frame */
