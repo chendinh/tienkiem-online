@@ -52,6 +52,9 @@ export function openElements(level: number): string[] {
   for (const z of C.ZONES) if (z.minLevel <= level) for (const s of C.SPECIES) if ((z.species[s.id] || 0) > 0) for (const e of s.el) set.add(e);
   return C.EO.filter((e) => set.has(e));
 }
+// An item job saved before jobs named an exact item had a rarity in `arg` and no slot or base: it asked for "any item of that rarity".
+export const isLegacy = (t: Task) => t.kind === 'item' && t.tier === undefined;
+const tierOf = (t: Task) => (t.tier !== undefined ? t.tier : Number(t.arg));
 export const matches = (t: Task, h: Hit): boolean => {
   switch (t.kind) {
     case 'win': return h.kind === 'win';
@@ -62,7 +65,7 @@ export const matches = (t: Task, h: Hit): boolean => {
     case 'tame': return h.kind === 'tame';
     case 'winel': return h.kind === 'win' && !!h.el && h.el.includes(t.arg as string);
     case 'tameel': return h.kind === 'tame' && !!h.el && h.el.includes(t.arg as string);
-    case 'item': return h.kind === 'item' && h.tier === t.tier && (!t.slot || h.slot === t.slot) && (!t.base || h.base === t.base);
+    case 'item': return h.kind === 'item' && h.tier === tierOf(t) && (!t.slot || h.slot === t.slot) && (!t.base || h.base === t.base);
   }
 };
 export const rewardOf = (lv: number, cultNeed: number) => Math.round(cultNeed * B.taskCultPct[lv]);
@@ -77,7 +80,7 @@ export function title(t: Task): string {
     case 'tame': return `Thu phục ${t.need} Linh Thú bất kỳ`;
     case 'winel': return `Hạ ${t.need} yêu thú hệ ${t.arg}`;
     case 'tameel': return `Thu phục ${t.need} Linh Thú hệ ${t.arg}`;
-    case 'item': return t.base ? `Nhặt ${t.need} ${t.base} hạng ${C.RARITY[t.tier!]}` : `Nhặt ${t.need} ${C.SLOT_VI[t.slot!]} hạng ${C.RARITY[t.tier!]}`;
+    case 'item': return t.base ? `Nhặt ${t.need} ${t.base} hạng ${C.RARITY[tierOf(t)]}` : t.slot ? `Nhặt ${t.need} ${C.SLOT_VI[t.slot]} hạng ${C.RARITY[tierOf(t)]}` : `Nhặt ${t.need} pháp khí hạng ${C.RARITY[tierOf(t)]}`;
   }
 }
 export function hint(t: Task): string {

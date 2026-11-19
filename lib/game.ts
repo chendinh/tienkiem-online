@@ -980,8 +980,13 @@ function ensureQuest(st: GameState): DayQuest {
 // The day's three extra jobs (lib/tasks.ts): picked from the day and the world seed alone, so no random number is drawn.
 function ensureTasks(st: GameState): T.DayTasks {
   const day = D.dayKey(st.clock);
-  if (st.tasks && st.tasks.day === day) return st.tasks;
-  return (st.tasks = { day, list: T.pickTasks(day, st.seed, T.openElements(levelOf(st.player))) });
+  const els = () => T.openElements(levelOf(st.player));
+  if (st.tasks && st.tasks.day === day) {
+    // a job saved in the old form ("any item of this rarity", no slot or base) that nobody finished is replaced by today's job of that rank
+    if (st.tasks.list.some((t) => T.isLegacy(t) && !t.done)) { const fresh = T.pickTasks(day, st.seed, els()); st.tasks.list = st.tasks.list.map((t, i) => (T.isLegacy(t) && !t.done ? fresh[t.lv] ?? fresh[i] : t)); }
+    return st.tasks;
+  }
+  return (st.tasks = { day, list: T.pickTasks(day, st.seed, els()) });
 }
 // Something the jobs count has just happened. A finished job pays its Tu Vi at once (the Level may rise from it).
 function taskHit(st: GameState, h: T.Hit, rep?: Report) {

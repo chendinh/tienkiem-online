@@ -1180,3 +1180,13 @@ test('daily tasks: an item job needs that exact item (rarity, slot, base) and no
   assert.ok(TK.matches(s2, { kind: 'item', tier: 1, slot: 'Ring', base: 'Linh Giới' }) && !TK.matches(s2, { kind: 'item', tier: 1, slot: 'Back', base: 'x' }));
   assert.match(TK.title(t), /Vân Hài hạng Hoàng/); assert.match(TK.title(s2), /hạng Hoàng/);
 });
+test('daily tasks: a job saved in the old item form is replaced by a readable one', () => {
+  const st = fresh(8); G.tick(st);
+  const old = { id: 'item:3', kind: 'item', lv: 2, need: 1, n: 0, arg: 3, done: false, reward: 0 } as unknown as TK.Task;
+  assert.equal(TK.title(old), 'Nhặt 1 pháp khí hạng Địa');   // even before it is replaced it reads well
+  st.tasks!.list[2] = old;
+  G.tick(st);
+  const t = st.tasks!.list[2];
+  assert.ok(!TK.isLegacy(t) && t.lv === 2 && !/undefined/.test(TK.title(t)));
+  assert.ok(st.tasks!.list.every((x) => !/undefined/.test(TK.title(x)) && !/undefined/.test(TK.hint(x))));
+});
