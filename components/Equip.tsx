@@ -72,6 +72,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   const takeOff = useCallback(async (slot: string) => go('unequip', { slot }), [go]);
   const moveToBag = useCallback(async (id: number) => go('unstash', { id }), [go]);
   const lock = useCallback(async (id: number) => { go('lock', { id }, true); }, [go]);
+  const frame = useCallback(async (id: number, on: boolean) => { go('showcase', on ? { kind: 'item', id } : { kind: 'none' }, true); }, [go]);
   const dissolve = useCallback(async (id: number) => {
     const st = stRef.current; if (!st) return;
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id);
@@ -88,7 +89,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   }, [act, say, re]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
-  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, dissolve, dissolveMany, cleanBusy, sel, open, close };
+  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close };
 }
 
 const keyAct = (fn: () => void) => (e: RKey) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -157,6 +158,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
   const { it, where } = found, L = levelOf(st.player), rc = C.RCOLOR[it.tier], cur = where === 'eq' ? null : st.eq[it.slot];
   const delta = cur ? it.power - cur.power : null;
   const tooHigh = it.level > L;
+  const framed = !!st.player.showcase && st.player.showcase.kind === 'item' && st.player.showcase.id === it.id;
   return (
     <div className="modal zoom" onClick={eqx.close} role="dialog" aria-modal="true" aria-label={it.name}>
       <ModalClose onClose={eqx.close} />
@@ -188,6 +190,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
             : <button className="btn hot" disabled={tooHigh} onClick={() => eqx.equipItem(it.id)}>Mặc vào ô {C.SLOT_VI[it.slot]}</button>}
           {where === 'stash' && <button className="btn" onClick={() => eqx.moveToBag(it.id)}>Chuyển vào túi</button>}
           <button className="btn" title="Món đã khóa: game không tự thay và không tự phân giải" onClick={() => eqx.lock(it.id)}><Icon name={it.locked ? 'unlock' : 'lock'} size={15} /> {it.locked ? 'Mở khóa' : 'Khóa'}</button>
+          <button className="btn" title={framed ? 'Gỡ món này khỏi khung trưng bày' : 'Treo món này trong khung trên trang nhân vật (món được khóa để không bị tự phân giải)'} onClick={() => eqx.frame(it.id, !framed)}><Icon name="sparkle" size={15} /> {framed ? 'Gỡ khỏi khung' : 'Trưng bày'}</button>
           {where !== 'eq' && <button className="btn" disabled={!!it.locked} title={it.locked ? 'Mở khóa trước khi phân giải' : 'Đổi món này thành Linh Thạch'} onClick={() => eqx.dissolve(it.id)}>Phân giải +{fmt(dissolveValue(it))} <Icon name="stone" size={15} /></button>}
           <button className="btn ghost" onClick={eqx.close}>Đóng</button>
         </div>

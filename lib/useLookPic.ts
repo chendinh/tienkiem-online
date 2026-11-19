@@ -38,7 +38,11 @@ async function order(k: string, beast: number) {
 }
 
 export function useLookPic(b: { sp: string; id: number; mut?: boolean } | null | undefined, mine = false): string | undefined {
-  const look = lookOf(b), key = look && look !== 'ngusac' ? `${b!.sp}:${look}` : '';
+  const look = lookOf(b);
+  return useLookKeyPic(look && look !== 'ngusac' ? `${b!.sp}:${look}` : '', b ? b.id : 0, mine);
+}
+// The same by the look itself (`key` = "species:look", '' for none): the album of Dị Biến asks for the picture of a look the player owns, through one of the beasts that has it.
+export function useLookKeyPic(key: string, beastId: number, mine = false): string | undefined {
   const [, force] = useState(0);
   useEffect(() => {
     if (!key) return;
@@ -47,8 +51,8 @@ export function useLookPic(b: { sp: string; id: number; mut?: boolean } | null |
     const cb = () => force((x) => x + 1);
     e.subs.add(cb);
     if (!e.looked && !e.url) { queue.add(key); if (!timer) timer = setTimeout(flush, 30); }
-    if (e.looked && !e.url && mine) void order(key, b!.id);
-    if (!e.looked && mine) { const t = setInterval(() => { const x = cache.get(key); if (x?.looked) { clearInterval(t); if (!x.url) void order(key, b!.id); } }, 400); return () => { clearInterval(t); e!.subs.delete(cb); }; }
+    if (e.looked && !e.url && mine) void order(key, beastId);
+    if (!e.looked && mine) { const t = setInterval(() => { const x = cache.get(key); if (x?.looked) { clearInterval(t); if (!x.url) void order(key, beastId); } }, 400); return () => { clearInterval(t); e!.subs.delete(cb); }; }
     return () => { e!.subs.delete(cb); };
   }, [key, mine]);   // eslint-disable-line react-hooks/exhaustive-deps
   return key ? cache.get(key)?.url : undefined;

@@ -313,7 +313,7 @@ function runUntilDecision(kind: 'tame' | 'npc', from = 100, tries = 400) {
 test('defaults: items go to the bag, nothing is auto-dissolved or auto-worn (player decision)', () => {
   const st = fresh(61); assert.equal(st.set.autoEquip, false); assert.equal(st.set.dissolveMax, -1); assert.equal(st.set.autoFight, false); assert.equal(st.set.autoBreak, false);
   auto(st, true);
-  const rep = G.settle(st, 3000);
+  const rep = G.settle(st, 1800);   // short enough that the bag and the stash (150 places) do not overflow
   assert.equal(rep.dissolved, 0); assert.equal(rep.equipped, 0);
   assert.ok(st.bag.length > 0);
   assert.equal(st.bag.length + st.stash.length, rep.items.reduce((a, b) => a + b, 0));
@@ -524,6 +524,8 @@ test('combat power counts the player and the Linh Thú in the Party', () => {
 
 // ---------- môn pháp, Bí Công and technique slots (Requirement 18)
 import * as A from '../lib/arts';
+import * as W from '../lib/weekly';
+import * as TK from '../lib/tasks';
 const withWeapon = (st: G.GameState, base: string) => { st.eq.Weapon!.base = base; st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); return st; };
 test('every weapon base belongs to a môn and every môn has a free basic attack and four techniques', () => {
   for (const b of C.SLOT_BASE.Weapon) assert.ok(A.ARTS.some((a) => a.id === C.WEAPON_CLASS[b]), b);
@@ -990,4 +992,181 @@ test('items found are also counted per UTC day, and the days add up to the total
   assert.ok(t.items.reduce((a, b) => a + b, 0) > 0, 'some items dropped');
   for (let i = 0; i < 6; i++) assert.equal(Object.values(days).reduce((a, r) => a + r[i], 0), t.items[i], `rarity ${i}`);
   assert.ok(Object.keys(days).length >= 2, 'more than one day');
+});
+
+// ---------- Sưu Tập: the album of artifacts and Dị Biến looks, and the honours (Ấn)
+import * as X from '../lib/codex';
+test('album: keeps the best rarity of every kind and element, with the picture look', () => {
+  const st = fresh(77);
+  assert.ok(X.ALBUM_TOTAL >= 300 && new Set(X.ALBUM_SLOTS.map((s) => s.key)).size === X.ALBUM_TOTAL, 'every entry has its own key');
+  const a = G.genItem(st, 5, 1, 'Weapon'), key = X.albumKey(a.slot, a.base, a.el)!;
+  st.album = {};
+  assert.equal(X.noteItem(st, a), true);
+  assert.equal(X.noteItem(st, { ...a, id: 9999 }), false, 'the same rarity is not new');
+  const dia = { ...a, id: 9998, tier: 3, art: 4 };
+  assert.equal(X.noteItem(st, dia), true);
+  assert.deepEqual(X.albumUnpack(st.album[key]), { tier: 3, art: 4 });
+  assert.equal(X.noteItem(st, { ...a, id: 9997, tier: 2 }), false, 'a lower rarity never replaces a higher one');
+  const tien = { ...a, id: 9996, tier: 5, art: 987654321 };
+  assert.equal(X.noteItem(st, tien), true);
+  assert.deepEqual(X.albumUnpack(st.album[key]), { tier: 5, art: 987654321 });
+});
+test('honours: earned once from the counts, kept, and a save older than the album is filled from what it holds', () => {
+  const st = fresh(78);
+  st.album = undefined;
+  G.tick(st);   // the first tick builds the album from the held items
+  assert.ok(st.album && Object.keys(st.album).length >= 1, 'the starting weapon is in the album');
+  // pretend the player has met 10 species
+  for (const s of C.SPECIES.slice(0, 10)) st.best[s.id] = { seen: 1, tamed: 0, maxCm: 10, minCm: 10, mutSeen: 0, mutTamed: 0 };
+  assert.ok(X.newHonors(st).some((h) => h.id === 'seen10'));
+  G.noteAlbum(st, { ...G.genItem(st, 5, 3, 'Ring'), id: 5555 });   // any album change runs the check
+  assert.ok((st.player.honors || []).includes('seen10'));
+  assert.equal(X.newHonors(st).some((h) => h.id === 'seen10'), false, 'an honour is not earned twice');
+  assert.ok(st.feed.some((f) => f.kind === 'honor' && f.text.includes('Sơ Nhập Linh Cảnh')));
+  // the element honour needs every species of that element
+  const kim = C.SPECIES.filter((s) => s.el[0] === 'Kim');
+  for (const s of kim) st.best[s.id] = { seen: 1, tamed: 0, maxCm: 10, minCm: 10, mutSeen: 0, mutTamed: 0 };
+  assert.ok(X.newHonors(st).some((h) => h.id === 'elKim'));
+  // every honour has a name, a line, a positive goal and a unique id
+  assert.equal(new Set(X.HONORS.map((h) => h.id)).size, X.HONORS.length);
+  assert.ok(X.HONORS.every((h) => h.name && h.blurb && h.goal >= 1));
+});
+test('album: Dị Biến looks come from the beasts the player owns', () => {
+  const st = fresh(79);
+  const mk = (id: number, sp: string) => ({ id, sp, name: 'x', level: 1, size: 1, cm: 1, cls: 2, mut: true, pers: 0, apt: [1, 1, 1, 1, 1], skills: [], stats: [1, 1, 1, 1, 1], power: 1 });
+  st.beasts = [mk(1, 'ho'), mk(2, 'ho'), mk(3, 'loc')] as any;
+  const have = X.mutLooks(st);
+  assert.ok(have.size >= 2 && [...have].every((k) => /^[a-z]+:[a-z]+$/.test(k)));
+  const c = X.context(st);
+  assert.ok(c.looks >= 1 && c.mutSp === 2);
+});
+
+// ---------- Trưng Bày: one framed item or beast
+import { PURE_INTENTS } from '../lib/intents';
+test('showcase: one item or beast of the player, kept by number, gone when it is gone', () => {
+  const st = fresh(81);
+  assert.equal(G.showcaseOf(st), null);
+  const it = G.genItem(st, 5, 3, 'Ring'); st.bag.push(it);
+  const r = PURE_INTENTS.showcase(st, { kind: 'item', id: it.id });
+  assert.equal(r.ok, true);
+  assert.equal(it.locked, true, 'a framed item is locked so it is not dissolved by itself');
+  const v = G.showcaseOf(st);
+  assert.ok(v && v.kind === 'item' && v.item.id === it.id);
+  // a beast replaces it (only one thing in the frame)
+  const b: any = { id: 777, sp: 'ho', name: 'Xích Viêm Hồ', level: 3, size: 1, cm: 70, cls: 2, mut: false, pers: 0, apt: [1, 1, 1, 1, 1], skills: [], stats: [1, 1, 1, 1, 1], power: 5 };
+  st.beasts.push(b);
+  assert.equal(PURE_INTENTS.showcase(st, { kind: 'beast', id: 777 }).ok, true);
+  const w = G.showcaseOf(st);
+  assert.ok(w && w.kind === 'beast' && w.beast.id === 777);
+  // mass release never sells the framed beast; releasing it by hand empties the frame
+  G.releaseMany(st);
+  assert.ok(st.beasts.some((x) => x.id === 777));
+  assert.equal(G.releaseBeast(st, 777).ok, true);
+  assert.equal(G.showcaseOf(st), null);
+  // refusals: something the player does not own, a bad request; and 'none' empties the frame
+  assert.equal(PURE_INTENTS.showcase(st, { kind: 'item', id: 123456 }).ok, false);
+  assert.equal(PURE_INTENTS.showcase(st, { kind: 'nonsense', id: 1 }).ok, false);
+  assert.equal(PURE_INTENTS.showcase(st, { kind: 'beast', id: 'x' }).ok, false);
+  PURE_INTENTS.showcase(st, { kind: 'item', id: it.id });
+  assert.equal(PURE_INTENTS.showcase(st, { kind: 'none' }).ok, true);
+  assert.equal(G.showcaseOf(st), null);
+  // an item that is dissolved later leaves an empty frame, not a broken page
+  PURE_INTENTS.showcase(st, { kind: 'item', id: it.id });
+  st.bag = st.bag.filter((x) => x.id !== it.id);
+  assert.equal(G.showcaseOf(st), null);
+});
+
+// ---------- Chủ Đề Tuần
+const weekWith = (id: string) => { for (let w = 2900; w < 2960; w++) if (W.themeOfWeek(w).id === id) return W.weekStart(w) + 3600e3; throw new Error(id); };
+test('weekly theme: fixed order of twelve, turns on Monday 00:00 UTC', () => {
+  const mon = Date.parse('2026-11-16T00:00:00Z');   // a Monday
+  assert.equal(W.weekStart(W.weekIndex(mon)), mon);
+  assert.equal(W.weekIndex(mon), W.weekIndex(mon + 7 * 86400e3 - 1));
+  assert.equal(W.weekIndex(mon + 7 * 86400e3), W.weekIndex(mon) + 1);
+  assert.equal(W.weekAt(mon).id, W.weekAt(mon + 5 * 86400e3).id);
+  assert.equal(new Set(W.THEME_LIST.map((t) => t.id)).size, 12);
+  assert.equal(W.themeOfWeek(5).id, W.themeOfWeek(17).id);
+  const v = W.weekView(mon);
+  assert.equal(v.cur.startsAt, mon); assert.equal(v.cur.endsAt, mon + 7 * 86400e3); assert.equal(v.next.length, 2);
+  assert.equal(v.next[0].id, W.themeOfWeek(W.weekIndex(mon) + 1).id);
+});
+test('weekly theme: an element week boosts exactly that element, for every zone', () => {
+  const els = W.THEME_LIST.filter((t) => t.el);
+  assert.equal(els.length, 8);
+  for (const t of els) for (const s of C.SPECIES) assert.equal(!!t.species![s.id], s.el[0] === t.el, `${t.id} ${s.id}`);
+  const ms = weekWith('elhoa');
+  for (const z of C.ZONES) { const ph = G.phenomenonAt(z.id, ms)!; assert.ok(ph.species && Object.keys(ph.species).length > 0); }
+});
+test('weekly theme: laid over a zone Dị Tượng the numbers combine, the original is untouched', () => {
+  const base: C.Phenomenon = { id: 'x', name: 'X', text: 't', cult: 1.5, luck: 10, enc: { event: 2 } };
+  const m = W.merge(base, { id: 't', name: 'T', short: '', text: '', icon: '', cult: 1.25, luck: 5, enc: { event: 2, npc: 0.5 } })!;
+  assert.equal(m.name, 'X'); assert.equal(m.cult, 1.875); assert.equal(m.luck, 15); assert.deepEqual(m.enc, { event: 4, npc: 0.5 });
+  assert.equal(base.cult, 1.5); assert.deepEqual(base.enc, { event: 2 });
+  assert.equal(W.merge(base, { id: 'q', name: 'Q', short: '', text: '', icon: '', tame: 1.2 }), base);   // a taming week changes nothing here
+  assert.equal(W.merge(null, { id: 'q', name: 'Q', short: '', text: '', icon: '', tame: 1.2 }), null);
+});
+test('weekly theme: reaches Tu Vi, encounters and taming in the engine', () => {
+  const z = C.ZONES[0], mon = weekWith('ngodao');
+  assert.ok((G.phenomenonAt(z.id, mon)!.cult || 1) >= 1.25);
+  const kyngo = G.encounterWeights(z, G.phenomenonAt(z.id, weekWith('kyngo')));
+  const plain = G.encounterWeights(z, null);
+  assert.ok(kyngo[3] >= plain[3] * 2 - 1e-9 && kyngo[0] <= plain[0] + 1e-9);
+  const st = fresh(2), sp = C.SPECIES[0], b = { level: 5, pers: 0 } as G.Beast;
+  st.clock = weekWith('quyphuc'); const up = G.tameProb(st, sp, b, 0);
+  st.clock = weekWith('ngodao'); const base = G.tameProb(st, sp, b, 0);
+  assert.ok(up > base && up <= B.tameMax); assert.ok(Math.abs(up / base - 1.2) < 1e-9 || up === B.tameMax);
+  // the same clock gives the same answer, so offline settling and live play agree
+  assert.deepEqual(G.phenomenonAt(z.id, mon), G.phenomenonAt(z.id, mon));
+});
+
+// ---------- Nhiệm vụ phụ trong ngày
+test('daily tasks: one Easy, one Medium, one Hard, fixed by the day and seed, varied across days', () => {
+  const els = TK.openElements(1);
+  assert.ok(els.length > 0);
+  const a = TK.pickTasks('2026-11-19', 7, els), b = TK.pickTasks('2026-11-19', 7, els);
+  assert.deepEqual(a, b);
+  assert.deepEqual(a.map((t) => t.lv), [0, 1, 2]);
+  assert.equal(new Set(a.map((t) => t.kind + (t.arg ?? ''))).size, 3);
+  const kinds = new Set<string>();
+  for (let d = 1; d <= 60; d++) for (const t of TK.pickTasks(`2026-12-${String(d).padStart(2, '0')}`, d, els)) { kinds.add(t.kind); assert.ok(t.need >= 1); if (t.kind === 'winel' || t.kind === 'tameel') assert.ok(els.includes(t.arg as string)); if (t.kind === 'item') assert.ok([0, 1, 3].includes(t.arg as number)); TK.title(t); TK.hint(t); }
+  assert.equal(kinds.size, 9);   // every kind turns up
+  assert.equal(TK.pickTasks('2026-11-19', 7, []).some((t) => t.arg !== undefined && typeof t.arg === 'string'), false);   // no element open: no element job
+  assert.ok(TK.rewardOf(0, 1000) < TK.rewardOf(1, 1000) && TK.rewardOf(1, 1000) < TK.rewardOf(2, 1000));
+});
+test('daily tasks: the engine counts what happens, pays once, and a new day brings new jobs', () => {
+  const st = fresh(5);
+  G.tick(st);
+  const day = D.dayKey(st.clock);
+  assert.equal(st.tasks!.day, day); assert.equal(st.tasks!.list.length, 3);
+  // force a known job set and let the journey run
+  st.tasks!.list = [{ id: 'win:', kind: 'win', lv: 0, need: 3, n: 0, done: false, reward: 0 }, { id: 'item:0', kind: 'item', lv: 0, need: 2, n: 0, arg: 0, done: false, reward: 0 }, { id: 'res:', kind: 'res', lv: 1, need: 2, n: 0, done: false, reward: 0 }];
+  st.set.autoFight = true;
+  for (let i = 0; i < 3000 && st.tasks!.list.some((t) => !t.done); i++) { st.player.hp = 1e9; G.tick(st); }
+  for (const t of st.tasks!.list) { assert.ok(t.n >= 1, t.id); if (t.done) { assert.ok(t.reward > 0); assert.equal(t.n, t.need); } }
+  assert.ok(st.tasks!.list.every((t) => t.n <= t.need));
+  // the next day: new jobs, none done
+  st.clock += 86400e3 * 2;
+  G.tick(st);
+  assert.equal(st.tasks!.day, D.dayKey(st.clock)); assert.ok(st.tasks!.list.every((t) => !t.done && t.n === 0));
+});
+
+test('Thiên/Tiên drop event: Thiên +0.5%, Tiên +0.25% for real, announced as +1%, rarer windows', () => {
+  assert.equal(B.dropEventBonusThien, 0.005); assert.equal(B.dropEventBonusTien, 0.0025); assert.equal(B.dropEventShown, 0.01);
+  assert.ok(B.dropEventP <= 0.15);
+  let slot = 0; while (!G.dropEventZone(slot)) slot++;
+  const zone = G.dropEventZone(slot)!, inMs = slot * B.dropEventSlotSec * 1000 + 1000;
+  let out = slot + 1; while (G.dropEventZone(out) === zone) out++;
+  const outMs = out * B.dropEventSlotSec * 1000 + 1000;
+  const count = (ms: number) => {
+    const st = fresh(77); st.zone = zone; st.clock = ms; const c = [0, 0];
+    for (let i = 0; i < 60000; i++) { const t = G.genItem(st, 1).tier; if (t === 4) c[0]++; if (t === 5) c[1]++; }
+    return c;
+  };
+  const ev = count(inMs), plain = count(outMs);
+  assert.ok(Math.abs(ev[0] / 60000 - (49 / 19451 + 0.005)) < 5 * sigma(60000, 0.0075) / 60000, `thien ${ev[0]}`);
+  assert.ok(ev[1] > 100 && ev[1] < 220, `tien ${ev[1]}`);   // about 0.25% of 60000 = 150
+  assert.ok(plain[1] < 30 && plain[0] < 250, `plain ${plain}`);
+  assert.equal(G.eventsView(inMs, 1)[0].bonus, 0.01);
+  let n = 0; for (let k = 0; k < 4000; k++) if (G.dropEventZone(k)) n++;
+  assert.ok(Math.abs(n / 4000 - B.dropEventP) < 0.03);
 });

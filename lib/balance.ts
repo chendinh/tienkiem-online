@@ -36,11 +36,14 @@ export const BALANCE = {
   phenomenonSlotSec: 10800,
   phenomenonP: 0.35,
   dropEventSlotSec: 900,   // Thiên/Tiên drop event: a window of this length (15 minutes) in ONE zone, announced in the news
-  dropEventP: 0.25,        // chance that a window holds an event
+  dropEventP: 0.15,        // chance that a window holds an event (it was 0.25: too many)
   dropEventMonsterMult: 1.5,   // while the Thiên/Tiên drop event runs in the zone the player is in, the weight of meeting a Linh Thú is raised by 50% (Tu Sĩ and events come less often)
-  dropEventBonus: 0.005,    // added to the chance that a drop is Thiên or Tiên while the event runs in the zone the player is in
+  dropEventBonusThien: 0.005,   // added to the chance that a drop is Thiên while the event runs in the zone the player is in
+  dropEventBonusTien: 0.0025,   // ...and to the chance that it is Tiên
+  dropEventShown: 0.01,         // what the news and the zone tag tell the player ("+1%"); the real numbers are the two above
   questTame: 5,            // the daily quest: tame this many of the day's new creature...
   questCultPct: 0.2,       // ...and receive this share of the Tu Vi needed for the current Level
+  taskCultPct: [0.04, 0.08, 0.16],   // the three extra jobs of the day (Easy, Medium, Hard, lib/tasks.ts): each pays this share of the Tu Vi needed for the current Level
   eventDistinctWindow: 6,
   // combat (Requirement 8, 14)
   maxParty: 3,
@@ -202,7 +205,7 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   need(b.minRetreatPct >= 1 && b.minRetreatPct <= 90 && b.pillMinUse >= 0 && b.pillMinUse <= 1, 'Min_Retreat_Pct/Pill_Min_Use không hợp lệ');
   need(b.defaults.retreatPct >= b.minRetreatPct && b.defaults.retreatPct < b.defaults.resumePct && b.defaults.resumePct <= 100, 'Retreat_Threshold/Resume_Threshold mặc định phải thỏa 0 < R < S <= 100');
   // Requirement 6
-  need(b.dropEventSlotSec > 0 && b.dropEventMonsterMult >= 1 && inRange(b.dropEventP, 0, 1) && inRange(b.dropEventBonus, 0, 1) && isInt(b.questTame) && b.questTame >= 1 && inRange(b.questCultPct, 0, 1), 'Drop_Event hoặc Daily_Quest không hợp lệ');
+  need(b.dropEventSlotSec > 0 && b.dropEventMonsterMult >= 1 && inRange(b.dropEventP, 0, 1) && inRange(b.dropEventBonusThien, 0, 1) && inRange(b.dropEventBonusTien, 0, 1) && inRange(b.dropEventShown, 0, 1) && isInt(b.questTame) && b.questTame >= 1 && b.taskCultPct.length === 3 && b.taskCultPct.every((x) => x > 0 && x <= 1) && inRange(b.questCultPct, 0, 1), 'Drop_Event hoặc Daily_Quest không hợp lệ');
   need(b.phenomenonSlotSec > 0 && inRange(b.phenomenonP, 0, 1), 'Phenomenon_Slot_Duration hoặc Phenomenon_Probability không hợp lệ');
   need(isInt(b.eventDistinctWindow) && b.eventDistinctWindow >= 1, 'Event_Distinct_Window phải là số nguyên >= 1');
   // Requirement 9, 16, 17

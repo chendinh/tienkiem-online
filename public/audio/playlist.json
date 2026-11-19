@@ -2,6 +2,46 @@
   "note": "Add a track: put the file in public/audio and add an entry here. The credit line is shown in the game's Credits window (Creative Commons BY needs it).",
   "tracks": [
     {
+      "id": "van-son",
+      "title": "Vân Sơn Địch",
+      "artist": "Tiên Kiếm",
+      "src": "/audio/van-son.m4a",
+      "mood": "sáo trúc, mây trôi qua núi",
+      "license": "Nguyên tác của dự án",
+      "credit": "\"Vân Sơn Địch\": nhạc đơn âm ngũ cung do dự án tự soạn và tổng hợp bằng mã (scripts/gen-music.py), không dùng mẫu âm thanh của ai, không cần ghi công.",
+      "gain": 1
+    },
+    {
+      "id": "nguyet-ha",
+      "title": "Nguyệt Hạ Cầm",
+      "artist": "Tiên Kiếm",
+      "src": "/audio/nguyet-ha.m4a",
+      "mood": "cổ cầm dưới trăng, từng nốt chậm",
+      "license": "Nguyên tác của dự án",
+      "credit": "\"Nguyệt Hạ Cầm\": nhạc đơn âm ngũ cung do dự án tự soạn và tổng hợp bằng mã (scripts/gen-music.py), không dùng mẫu âm thanh của ai, không cần ghi công.",
+      "gain": 1
+    },
+    {
+      "id": "van-hai",
+      "title": "Vân Hải Hồ Âm",
+      "artist": "Tiên Kiếm",
+      "src": "/audio/van-hai.m4a",
+      "mood": "nhị hồ, sóng mây dập dờn",
+      "license": "Nguyên tác của dự án",
+      "credit": "\"Vân Hải Hồ Âm\": nhạc đơn âm ngũ cung do dự án tự soạn và tổng hợp bằng mã (scripts/gen-music.py), không dùng mẫu âm thanh của ai, không cần ghi công.",
+      "gain": 1
+    },
+    {
+      "id": "phong-linh",
+      "title": "Phong Linh Tranh",
+      "artist": "Tiên Kiếm",
+      "src": "/audio/phong-linh.m4a",
+      "mood": "đàn tranh, gió lay chuông ngọc",
+      "license": "Nguyên tác của dự án",
+      "credit": "\"Phong Linh Tranh\": nhạc đơn âm ngũ cung do dự án tự soạn và tổng hợp bằng mã (scripts/gen-music.py), không dùng mẫu âm thanh của ai, không cần ghi công.",
+      "gain": 1
+    },
+    {
       "id": "ripples",
       "title": "Ripples",
       "artist": "Kevin MacLeod",

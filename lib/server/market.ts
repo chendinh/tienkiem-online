@@ -66,8 +66,8 @@ const isRes = (x: any): x is G.Res => x && typeof x.ok === 'boolean';
 function receive(st: G.GameState, g: Goods): boolean {
   if (isStack(g)) return giveStack(st, g.key, g.qty);
   const mine: G.Item = { ...parcel(g), id: ++st.uid };
-  if (st.bag.length < B.bagCapacity) { st.bag.push(mine); return true; }
-  if (st.stash.length < B.overflowCapacity) { st.stash.push(mine); return true; }
+  if (st.bag.length < B.bagCapacity) { st.bag.push(mine); G.noteAlbum(st, mine); return true; }
+  if (st.stash.length < B.overflowCapacity) { st.stash.push(mine); G.noteAlbum(st, mine); return true; }
   st.uid--;
   return false;
 }

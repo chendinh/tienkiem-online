@@ -1,0 +1,174 @@
+'use client';
+import { useMemo, useState, type CSSProperties } from 'react';
+import * as C from '@/lib/content';
+import * as X from '@/lib/codex';
+import type { GS } from '@/lib/client/types';
+import { itemSpec, monsterSpec } from '@/lib/avatarSpec';
+import { useGenImage } from '@/lib/useGenImage';
+import { useLookKeyPic } from '@/lib/useLookPic';
+import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
+import type { Item } from '@/lib/game';
+import { Icon } from './ds/Icon';
+import { ElIcon, SlotIcon } from './Icons';
+import { GenImg, Img } from './ui';
+
+// Sưu Tập, the three albums beside the Linh Thú Đồ Giám: Dị Biến (every look of every species), Pháp Khí (every kind and element) and the honours (Ấn) earned for them.
+// Everything here is read from the save (lib/codex.ts); nothing is drawn for the player: a picture is shown only for what the player owns.
+
+// ---------------------------------------------------------------- the seal of an honour
+const SEAL_ICON: Record<string, string> = { seen: 'eye', tame: 'contract', look: 'sparkle', mutsp: 'zoo', ent: 'chest', t3: 'stone', t4: 'stone', t5: 'crown', full: 'taiji' };
+const sealIcon = (h: X.Honor) => (h.group === 'he' ? null : SEAL_ICON[h.id.replace(/\d+$|All$|[ab]$/g, '')] || 'lotus');
+const sealTone = (h: X.Honor) => (h.group === 'he' ? C.EL[h.id.slice(2)]?.color || '#e5c07b' : h.group === 'thu' ? '#6fe0b0' : h.group === 'di' ? '#c79bff' : /^t5/.test(h.id) ? '#ff6ea8' : /^t4/.test(h.id) ? '#ffb454' : /^t3/.test(h.id) ? '#c084fc' : '#e5c07b');
+export function Seal({ h, on, size = 62 }: { h: X.Honor; on: boolean; size?: number }) {
+  const ic = sealIcon(h);
+  return (
+    <div className={`seal ${on ? 'on' : 'off'} sg-${h.group}`} style={{ '--c': sealTone(h), '--s': `${size}px` } as CSSProperties} aria-hidden="true">
+      <span className="sealGlyph">{ic ? <Icon name={ic as any} size={Math.round(size * 0.46)} /> : <ElIcon el={h.id.slice(2)} size={Math.round(size * 0.46)} />}</span>
+    </div>
+  );
+}
+
+// the latest seals on a character's page
+export function HonorRow({ ids }: { ids: string[] }) {
+  const list = ids.map((id) => X.honorOf(id)).filter((h): h is X.Honor => !!h);
+  if (!list.length) return null;
+  const shown = list.slice(-8).reverse();
+  return (
+    <div className="hnrRow">
+      {shown.map((h) => <span key={h.id} title={`${h.name}: ${h.blurb}`}><Seal h={h} on size={42} /></span>)}
+      {list.length > shown.length && <small>+{list.length - shown.length}</small>}
+    </div>
+  );
+}
+
+export function HonorBoard({ st }: { st: GS }) {
+  const got = useMemo(() => new Set(st.player.honors || []), [st.player.honors]);
+  const ctx = useMemo(() => X.context(st as any), [st.best, st.beasts, st.album]);
+  const total = X.HONORS.length;
+  return (
+    <div className="hnr">
+      <div className="hnrHead">
+        <div className="hnrCount"><b>{got.size}</b><span>/ {total} ấn</span></div>
+        <div className="hnrBar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={got.size}><i style={{ width: `${(got.size / total) * 100}%` }} /></div>
+        <p>Mỗi ấn đạt một lần và giữ mãi. Ấn đến từ việc gặp loài, thu phục, Dị Biến và pháp khí từng nằm trong tay.</p>
+      </div>
+      {X.GROUPS.map((g) => {
+        const list = X.HONORS.filter((h) => h.group === g.id), n = list.filter((h) => got.has(h.id)).length;
+        const next = list.find((h) => !got.has(h.id));
+        return (
+          <section key={g.id} className="hnrGroup">
+            <h3><span>{g.name}</span><small>{n}/{list.length}</small></h3>
+            <p className="hnrSub">{g.blurb}</p>
+            <div className="hnrGrid">
+              {list.map((h) => {
+                const cur = Math.min(h.goal, h.of(ctx)), done = got.has(h.id);
+                return (
+                  <div key={h.id} className={`hnrCard ${done ? 'done' : ''} ${next === h ? 'next' : ''}`}>
+                    <Seal h={h} on={done} />
+                    <div className="hnrTxt">
+                      <b>{h.name}</b>
+                      <small>{h.blurb}</small>
+                      <div className="hnrProg"><i style={{ width: `${(cur / h.goal) * 100}%` }} /><span>{done ? 'Đã đạt' : `${cur}/${h.goal}`}</span></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Dị Biến
+function MutCell({ sp, look, beastId, seen }: { sp: C.Species; look: string; beastId: number; seen: boolean }) {
+  const own = !!beastId;
+  const pic = useLookKeyPic(own && look !== 'ngusac' ? `${sp.id}:${look}` : '', beastId, true);
+  const g = useGenImage(own && look === 'ngusac' ? monsterSpec(sp.id, true) : null, 4);
+  const src = own ? (pic || g.url || C.monsterArt(sp.id, look === 'ngusac', true)) : C.monsterArt(sp.id, false, true);
+  return (
+    <div className={`mcell ${own ? 'own' : 'lock'}`} style={{ '--hue': LOOK_COLOR[look] } as CSSProperties} title={own ? `${sp.name} · ${variantName(look)}` : seen ? sp.name : 'Chưa gặp'}>
+      <Img src={src} className="fill" fb={<ElIcon el={sp.el[0]} size={26} />} />
+      {!own && <i className="mq">?</i>}
+      <span className="mname">{own || seen ? sp.name : '???'}</span>
+    </div>
+  );
+}
+export function MutAlbum({ st }: { st: GS }) {
+  const owner = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of st.beasts) { const l = lookOf(b); if (l && !m.has(`${b.sp}:${l}`)) m.set(`${b.sp}:${l}`, b.id); }
+    return m;
+  }, [st.beasts]);
+  const per = useMemo(() => { const o: Record<string, number> = {}; for (const k of owner.keys()) { const l = k.slice(k.indexOf(':') + 1); o[l] = (o[l] || 0) + 1; } return o; }, [owner]);
+  const firstOwned = X.MUT_LOOKS.find((l) => per[l.id]);
+  const [look, setLook] = useState<string>(firstOwned ? firstOwned.id : X.MUT_LOOKS[0].id);
+  const kinds = X.MUT_LOOKS.filter((l) => per[l.id]).length;
+  return (
+    <div className="mut">
+      <div className="alHead">
+        <div className="alBig"><b>{owner.size}</b><span>Dị Biến đã có · {kinds}/{X.MUT_LOOKS.length} dạng</span></div>
+        <p>Mỗi Dị Biến mang một trong mười dạng, tùy loài và số hiệu của nó, nên cùng một loài có thể hiện ra nhiều dạng. Chọn một dạng để xem mọi loài.</p>
+      </div>
+      <div className="lookRow" role="tablist" aria-label="Dạng Dị Biến">
+        {X.MUT_LOOKS.map((l) => (
+          <button key={l.id} type="button" role="tab" aria-selected={look === l.id} className={`lookChip ${look === l.id ? 'on' : ''} ${per[l.id] ? '' : 'none'}`} style={{ '--hue': LOOK_COLOR[l.id] } as CSSProperties} onClick={() => setLook(l.id)}>
+            <i /><b>{l.name}</b><small>{per[l.id] || 0}/{C.SPECIES.length}</small>
+          </button>
+        ))}
+      </div>
+      <div className="mgrid">
+        {C.SPECIES.map((s) => <MutCell key={`${look}${s.id}`} sp={s} look={look} beastId={owner.get(`${s.id}:${look}`) || 0} seen={!!(st.best[s.id] && st.best[s.id].seen)} />)}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Pháp Khí
+const TIER_SHORT = ['Phàm', 'Hoàng', 'Huyền', 'Địa', 'Thiên', 'Tiên'];
+function ItemCell({ slot, base, el, packed }: { slot: string; base: string; el: string; packed: number | undefined }) {
+  if (packed === undefined) return <div className="icell empty" style={{ '--el': C.EL[el].color } as CSSProperties} title={`${base} · hệ ${el}: chưa có`}><ElIcon el={el} size={14} /></div>;
+  const { tier, art } = X.albumUnpack(packed);
+  const it = { slot, base, el, tier, art: art || undefined } as unknown as Item;
+  return (
+    <div className="icell own" style={{ '--rar': C.RCOLOR[tier], '--el': C.EL[el].color } as CSSProperties} title={`${base} · hệ ${el} · hạng ${C.RARITY[tier]}`}>
+      <GenImg spec={itemSpec(it)} pri={4} size="sm" fb={<ElIcon el={el} size={22} />} />
+      <em>{TIER_SHORT[tier]}</em>
+    </div>
+  );
+}
+export function ItemAlbum({ st }: { st: GS }) {
+  const album = st.album || {};
+  const [slot, setSlot] = useState<string>('Weapon');
+  const tiers = useMemo(() => { const t = [0, 0, 0, 0, 0, 0]; for (const v of Object.values(album)) t[X.albumUnpack(v).tier]++; return t; }, [album]);
+  const bySlot = useMemo(() => { const o: Record<string, number> = {}; for (const k of Object.keys(album)) { const s = C.SLOTS[Number(k[0])]; if (s) o[s] = (o[s] || 0) + 1; } return o; }, [album]);
+  const entries = Object.keys(album).length;
+  const bases = C.basesOf(slot);
+  return (
+    <div className="itemAl">
+      <div className="alHead">
+        <div className="alBig"><b>{entries}</b><span>/ {X.ALBUM_TOTAL} kiểu pháp khí đã từng cầm</span></div>
+        <div className="alTiers">{C.RARITY.map((r, i) => <span key={r} className="tierPill" style={{ '--rar': C.RCOLOR[i] } as CSSProperties} title={`Hạng cao nhất đã đạt của từng kiểu: ${r}`}><i />{r} <b>{tiers[i]}</b></span>)}</div>
+        <p>Mỗi ô là một loại pháp khí ở một hệ. Ô hiện ảnh của món hạng cao nhất ngươi từng có.</p>
+      </div>
+      <div className="slotRow" role="tablist" aria-label="Loại pháp khí">
+        {C.SLOTS.map((s) => (
+          <button key={s} type="button" role="tab" aria-selected={slot === s} className={`slotTab ${slot === s ? 'on' : ''}`} onClick={() => setSlot(s)} title={C.SLOT_VI[s]}>
+            <SlotIcon slot={s} size={20} /><small>{bySlot[s] || 0}/{C.basesOf(s).length * C.EO.length}</small>
+          </button>
+        ))}
+      </div>
+      <h3 className="alSlot">{C.SLOT_VI[slot]} <small>{C.SLOT_HINT[slot]}</small></h3>
+      {bases.map((b) => {
+        const have = C.EO.filter((e) => album[X.albumKey(slot, b, e) || ''] !== undefined).length;
+        return (
+          <div key={b} className={`baseRow ${have === C.EO.length ? 'full' : ''}`}>
+            <div className="baseHead"><b>{b}</b><small>{have}/{C.EO.length}</small>{have === C.EO.length && <Icon name="check" size={13} />}</div>
+            <div className="baseCells">{C.EO.map((e) => <ItemCell key={e} slot={slot} base={b} el={e} packed={album[X.albumKey(slot, b, e) || '']} />)}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

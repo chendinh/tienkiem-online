@@ -3,6 +3,9 @@ import { type Streams, newStreams, next, int, pick, weighted, truncNormal, shuff
 import * as C from './content';
 import * as A from './arts';
 import * as D from './daily';
+import * as X from './codex';
+import * as W from './weekly';
+import * as T from './tasks';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -11,7 +14,7 @@ export interface Bio { bio: string; motto: string; secret: string }
 // Portrait state: base = plain portrait, pose = the same portrait in a graceful standing pose (an edit of base, drawn right after it),
 // url = what is shown now, sig = equipment that image shows (see avatarSpec), art = art direction version (ART_V).
 export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number; at?: number }
-export interface Player { title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
+export interface Player { honors?: string[]; showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
 export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
@@ -51,9 +54,11 @@ export interface GameState {
   dailySeen?: string;   // the last day whose chronicle chapter was announced in the feed
   relicQ?: D.RelicOp[];   // what the server must do with the shared relic pool for this save: claim a relic that was found, give back one that was dissolved (never sent to the browser)
   relicDay?: { day: string; n: number };
+  album?: X.Album;   // the best rarity of every kind and element of artifact the player has held (lib/codex.ts); built from the held items for a save older than the album
   quest?: DayQuest;   // today's quest: tame the day's creature (new if there is one, otherwise an old one)
   tot?: { items: number[]; byDay?: Record<string, number[]> };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
   questDays?: string[];   // the days (UTC) the daily quest was finished, the latest 30
+  tasks?: T.DayTasks;   // the three extra jobs of today (Easy, Medium, Hard; lib/tasks.ts), made on the first tick of the UTC day
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
@@ -110,7 +115,8 @@ export function phenomenonInSlot(zoneId: string, slot: number, seed = worldSeed(
   for (const x of z.phen) { r -= x.w; if (r < 0) return C.PHEN(x.id); }
   return C.PHEN(z.phen[z.phen.length - 1].id);
 }
-export const phenomenonAt = (zoneId: string, ms: number) => phenomenonInSlot(zoneId, phenSlot(ms));
+// What bends the game in a zone at a moment: the zone's own Dị Tượng with the week's theme laid over it (lib/weekly.ts). The zone list shows the Dị Tượng alone (phenomenonInSlot) and the week next to it.
+export const phenomenonAt = (zoneId: string, ms: number) => W.merge(phenomenonInSlot(zoneId, phenSlot(ms)), W.weekAt(ms));
 // Thiên/Tiên drop event: some 15-minute windows raise the chance of a Thiên or Tiên drop in ONE zone. Like the phenomena it depends only on World_Seed and the window.
 export const dropSlot = (ms: number) => Math.floor(ms / 1000 / B.dropEventSlotSec);
 export function dropEventZone(slot: number, seed = worldSeed()): string | null {
@@ -121,7 +127,7 @@ export const dropEventAt = (zoneId: string, ms: number) => dropEventZone(dropSlo
 // The windows that are running or coming up (what the news announces): `ahead` windows from the current one.
 export function eventsView(nowMs: number, ahead = 12) {
   const s0 = dropSlot(nowMs), ms = B.dropEventSlotSec * 1000, out: { zone: string; name: string; startsAt: number; endsAt: number; active: boolean; bonus: number }[] = [];
-  for (let k = 0; k < ahead; k++) { const z = dropEventZone(s0 + k); if (z) out.push({ zone: z, name: C.ZONE(z).name, startsAt: (s0 + k) * ms, endsAt: (s0 + k + 1) * ms, active: k === 0, bonus: B.dropEventBonus }); }
+  for (let k = 0; k < ahead; k++) { const z = dropEventZone(s0 + k); if (z) out.push({ zone: z, name: C.ZONE(z).name, startsAt: (s0 + k) * ms, endsAt: (s0 + k + 1) * ms, active: k === 0, bonus: B.dropEventShown }); }
   return out;
 }
 // What a phenomenon does, in numbers (the zone list and the news show these, not only the sentence).
@@ -190,8 +196,14 @@ function rollTier(st: GameState, luckBonus = 0): number {
   const R = rates(), luck = effLuck(st, luckBonus);
   const w = B.rarityWeights.map((x, k) => x * Math.pow(1 + B.luckRarityGain * luck, k) * (k >= 2 ? R.boost : 1));
   const tot = w.reduce((a, b) => a + b, 0);
-  const P = pityP((w[4] + w[5]) / tot, st.pity.item, R.itemS, R.itemH) + (dropEventAt(st.zone, st.clock) ? B.dropEventBonus : 0);
-  if (next(st.streams, 'loot') < P) { st.pity.item = 0; return next(st.streams, 'loot') < B.rarityWeights[5] / (B.rarityWeights[4] + B.rarityWeights[5]) ? 5 : 4; }
+  // the Thiên/Tiên drop event adds a little to each of the two (Thiên +0.5%, Tiên +0.25%); the news announces it as "+1%"
+  const ev = dropEventAt(st.zone, st.clock), b4 = ev ? B.dropEventBonusThien : 0, b5 = ev ? B.dropEventBonusTien : 0;
+  const P0 = pityP((w[4] + w[5]) / tot, st.pity.item, R.itemS, R.itemH), P = P0 + b4 + b5;
+  if (next(st.streams, 'loot') < P) {
+    st.pity.item = 0;
+    const tien5 = B.rarityWeights[5] / (B.rarityWeights[4] + B.rarityWeights[5]);
+    return next(st.streams, 'loot') < (P0 * tien5 + b5) / P ? 5 : 4;
+  }
   st.pity.item++;
   return weighted(st.streams, 'loot', w.slice(0, 4));
 }
@@ -283,6 +295,7 @@ function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: numbe
   const e = st.best[sp.id] || (st.best[sp.id] = { seen: 0, tamed: 0, maxCm: 0, minCm: 9999, mutSeen: 0, mutTamed: 0 });
   if (e.seen === 0 && rep) rep.newSpecies.push(sp.name);
   e.seen++; e.maxCm = Math.max(e.maxCm, cm); e.minCm = Math.min(e.minCm, cm); if (mut) e.mutSeen++;
+  if (e.seen === 1) honorCheck(st, rep);
   return { id: ++st.uid, sp: sp.id, name: sp.name, level, size, cm, cls: sizeClass(size), mut, elite: elite || undefined, pers, apt, skills, stats, power: stats[2] + stats[3] + stats[4] + Math.round(stats[0] / 8) };
 }
 
@@ -298,6 +311,18 @@ function dissolveItem(st: GameState, it: Item, rep?: Report, full = false) {
   shareRelic(st, it);
   earn(st, dissolveValue(it), 'dissolve', rep); if (rep) { rep.dissolved++; if (full) rep.dissolvedFull++; } }
 function feed(st: GameState, e: Omit<FeedEntry, 'id' | 'tick'>) { st.feed.unshift({ id: ++st.uid, tick: st.tick, ...e }); if (st.feed.length > B.feedSize) st.feed.length = B.feedSize; for (let i = B.feedLogKeep; i < st.feed.length; i++) if (st.feed[i].log) delete st.feed[i].log; }
+
+// The honours (Ấn) of the album: each is earned once and stays. Called when something that is counted has just happened.
+function honorCheck(st: GameState, rep?: Report) {
+  for (const h of X.newHonors(st)) {
+    (st.player.honors || (st.player.honors = [])).push(h.id);
+    const text = `Đạt ấn «${h.name}»: ${h.blurb}`;
+    feed(st, { kind: 'honor', text });
+    if (rep) rep.highlights.push({ prio: 50, kind: 'honor', text });
+  }
+}
+// An artifact that arrives from outside the journey (bought on the market) goes into the album too.
+export function noteAlbum(st: GameState, it: Item) { if (X.noteItem(st, it)) honorCheck(st); }
 
 // Put an Item_Instance away: auto-dissolve, bag, stash, or the rule for when both are full (Requirement 21.2 to 21.5). `x` is never locked.
 function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissolved' | 'auto' {
@@ -320,6 +345,7 @@ function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissol
 }
 // A new Item_Instance is given to the player: auto-equip first, then the shelving rules.
 function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
+  if (X.noteItem(st, it)) honorCheck(st, rep);
   const L = levelOf(st.player), cur = st.eq[it.slot];
   const tot = st.tot || (st.tot = { items: [0, 0, 0, 0, 0, 0] }); tot.items[it.tier]++;
   // the same count per UTC day (the last 30 days), for the daily chart on the report page; the game itself never reads it
@@ -375,6 +401,34 @@ export function unstash(st: GameState, id: number): Res {
   if (st.bag.length >= B.bagCapacity) return fail('E_BAG_FULL');
   st.bag.push(st.stash.splice(i, 1)[0]);
   return ok('Đã chuyển vào Túi Càn Khôn.');
+}
+// Trưng Bày: one item or one beast of the player's own, shown in a frame on the character's page (what others see when they open the profile from the ranking).
+// It is kept by number; if the item or beast is gone later the frame is simply empty.
+export type ShowView = { kind: 'item'; item: Item } | { kind: 'beast'; beast: Beast } | null;
+export function showcaseOf(st: GameState): ShowView {
+  const s = st.player.showcase;
+  if (!s) return null;
+  if (s.kind === 'item') { const f = findIn(st, s.id); return f ? { kind: 'item', item: f.it } : null; }
+  const b = st.beasts.find((x) => x.id === s.id);
+  return b ? { kind: 'beast', beast: b } : null;
+}
+export function setShowcase(st: GameState, kind: unknown, id: unknown): Res {
+  if (kind === 'none') { delete st.player.showcase; return ok('Đã gỡ vật trưng bày khỏi khung.'); }
+  if (!Number.isInteger(id)) return fail('E_BAD_REQUEST');
+  if (kind === 'item') {
+    const f = findIn(st, id as number);
+    if (!f) return fail('E_NOT_FOUND');
+    f.it.locked = true;   // a framed item must not vanish into the auto-dissolve
+    st.player.showcase = { kind: 'item', id: id as number };
+    return ok(`Đã đặt ${f.it.name} vào khung trưng bày. Món này được khóa để không bị tự phân giải.`);
+  }
+  if (kind === 'beast') {
+    const b = st.beasts.find((x) => x.id === id);
+    if (!b) return fail('E_NOT_FOUND');
+    st.player.showcase = { kind: 'beast', id: id as number };
+    return ok(`Đã đặt ${b.name} vào khung trưng bày.`);
+  }
+  return fail('E_BAD_REQUEST');
 }
 export function toggleLock(st: GameState, id: number): Res {
   const f = findIn(st, id);
@@ -469,6 +523,7 @@ export function releaseBeast(st: GameState, id: number): Res {
   if (i < 0) return fail('E_NOT_FOUND');
   if (st.beasts[i].mut) return fail('E_MUTANT');   // a Dị Biến is never sold or let go: it is too rare and other features use it
   const b = st.beasts.splice(i, 1)[0];
+  if (st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === id) delete st.player.showcase;
   const v = earn(st, releaseValue(b), 'release');
   return ok(`Đã thả ${b.name}, nhận ${v} Linh Thạch.`, { stones: v });
 }
@@ -494,6 +549,7 @@ export function dissolveMany(st: GameState, maxTier: number): Res {
 // Sell every Linh Thú that is not in the Party and not a Dị Biến.
 export function releaseMany(st: GameState): Res {
   const keep = new Set(bestParty(st).map((b) => b.id));
+  if (st.player.showcase && st.player.showcase.kind === 'beast') keep.add(st.player.showcase.id);   // the framed beast stays
   let n = 0, gain = 0;
   st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
   const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '';
@@ -873,7 +929,7 @@ export const bestParty = (st: GameState) => st.beasts.slice().sort((a, b) => b.p
 // ---------- encounters (Requirement 7)
 export const tameProb = (st: GameState, sp: C.Species, m: Beast, grade: number) => {
   const d = levelOf(st.player) - m.level;
-  return clamp(B.tameBase * sp.tame * C.PERS[m.pers].tame * B.tameGradeMult[grade] * Math.max(0, 1 + B.tameLevelStep * d), B.tameMin, B.tameMax);
+  return clamp(B.tameBase * sp.tame * C.PERS[m.pers].tame * B.tameGradeMult[grade] * Math.max(0, 1 + B.tameLevelStep * d) * W.tameMult(st.clock), B.tameMin, B.tameMax);
 };
 export function matchesFilter(st: GameState, m: Beast, sp: C.Species): boolean {
   const f = st.set.tame;
@@ -921,6 +977,25 @@ function ensureQuest(st: GameState): DayQuest {
   const fresh = pack && pack.beast ? pack.beast.id : null;
   return (st.quest = { day, sp: fresh || questPick(st, day), n: 0, need: B.questTame, done: false, reward: 0, ...(fresh ? {} : { old: true }) });
 }
+// The day's three extra jobs (lib/tasks.ts): picked from the day and the world seed alone, so no random number is drawn.
+function ensureTasks(st: GameState): T.DayTasks {
+  const day = D.dayKey(st.clock);
+  if (st.tasks && st.tasks.day === day) return st.tasks;
+  return (st.tasks = { day, list: T.pickTasks(day, st.seed, T.openElements(levelOf(st.player))) });
+}
+// Something the jobs count has just happened. A finished job pays its Tu Vi at once (the Level may rise from it).
+function taskHit(st: GameState, h: T.Hit, rep?: Report) {
+  for (const t of ensureTasks(st).list) {
+    if (t.done || !T.matches(t, h)) continue;
+    if (++t.n < t.need) continue;
+    t.done = true;
+    t.reward = T.rewardOf(t.lv, cultThreshold(levelOf(st.player)));
+    st.player.cp += t.reward; if (rep) rep.cp += t.reward;
+    feed(st, { kind: 'story', text: `Nhiệm vụ phụ (${T.LEVEL_NAME[t.lv]}) hoàn thành: ${T.title(t).toLowerCase()}. Thưởng ${t.reward.toLocaleString('vi-VN')} Tu Vi.` });
+    if (rep) rep.highlights.push({ prio: 40, kind: 'quest', text: `Nhiệm vụ phụ (${T.LEVEL_NAME[t.lv]}): ${T.title(t).toLowerCase()}, +${t.reward} Tu Vi` });
+    advance(st, rep);
+  }
+}
 function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) {
   const q = ensureQuest(st);
   if (q.sp !== spId) return;
@@ -950,9 +1025,11 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
   if (next(st.streams, 'tame') < pt) {
     const e = st.best[sp.id], first = e.tamed === 0;
     st.beasts.push(m); e.tamed++; if (m.mut) e.mutTamed++;
+    if (first || m.mut) honorCheck(st, rep);
     if (rep) { rep.tamed++; if (m.mut) rep.mutTamed++; if (first) rep.highlights.push({ prio: 10, kind: 'species', text: `Lần đầu thu phục ${sp.name}`, beast: m }); }
     chips.push(`Thu phục thành công (${Math.round(pt * 100)}%)`);
     questTamed(st, sp.id, chips, rep);
+    taskHit(st, { kind: 'tame', el: sp.el }, rep);
     if (rep && m.mut) rep.highlights.push({ prio: 95, kind: 'mutation', text: `Thu phục ${m.name} Dị Biến!`, beast: m, log });
     return true;
   }
@@ -984,7 +1061,7 @@ function dropOnce(st: GameState, zone: C.Zone, srcLevel: number, luckBonus: numb
   const g = st.streams, table = zone.drop;
   const e = table[weighted(g, 'loot', table.map((x) => x.w))];
   switch (e.kind) {
-    case 'item': giveItem(st, genItem(st, srcLevel, undefined, undefined, luckBonus), rep, from); break;
+    case 'item': { const it = genItem(st, srcLevel, undefined, undefined, luckBonus); giveItem(st, it, rep, from); taskHit(st, { kind: 'item', tier: it.tier }, rep); break; }
     case 'stones': { const x = earn(st, int(g, 'loot', e.q[0], e.q[1]) * Math.max(1, Math.floor(srcLevel / 2)), 'drop', rep); chips.push(`+${x} Linh Thạch`); break; }
     case 'taming': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.taming[e.grade] += x; if (rep) rep.gain.taming += x; chips.push(`+${x} Khế Ước Phù`); break; }
     case 'pill': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.hp[e.grade] += x; if (rep) rep.gain.hp += x; chips.push(`+${x} Hồi Khí Đan`); break; }
@@ -1011,7 +1088,7 @@ function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: 
   const r = fightCore(st, S, { name: m.name, stats: m.stats, el: sp.el, skills: m.skills, level: m.level }, bestParty(st), 1, arenaFor(zone.id, st.tick));
   const chips: string[] = [];
   let tn: TameNote | null = null;
-  if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1, { el: sp.el[0], boost: m.elite || m.mut ? B.bookEliteMult : 1 }); tn = tryTame(st, m, sp, chips, rep, r.log); }
+  if (r.outcome === 'win') { victory(st, zone, ph, m.level, rep, chips, m.elite ? B.eliteRewardMult : 1, { el: sp.el[0], boost: m.elite || m.mut ? B.bookEliteMult : 1 }); taskHit(st, { kind: 'win', el: sp.el, elite: !!m.elite }, rep); tn = tryTame(st, m, sp, chips, rep, r.log); }
   else if (r.outcome === 'lose') { defeated(st); if (rep) rep.losses++; } else if (rep) rep.draws++;
   feedTame(st, tn);   // the taming result is its own row, just under the fight it came from
   feed(st, { kind: 'monster', text: '', beast: m, outcome: r.outcome, chips, log: r.log });   // always the LAST row of its fight: the client reveals the rows of a fight up to this id
@@ -1035,7 +1112,7 @@ function fightNpc(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, npc: Npc
   if (rep) { rep.encounters++; rep.enc.npc++; }
   const r = fightCore(st, S, { name: npc.name, stats: npc.stats, el: npc.el, level: npc.level, skills: A.npcSkills(npc.name, npc.el) }, bestParty(st), 1, arenaFor(zone.id, st.tick));
   const chips: string[] = [];
-  if (r.outcome === 'win') victory(st, zone, ph, npc.level, rep, chips, B.npcRewardMult * (npc.elite ? 1.3 : 1), { cls: A.npcClass(npc.name), boost: npc.elite ? B.bookEliteMult : 1 });
+  if (r.outcome === 'win') { victory(st, zone, ph, npc.level, rep, chips, B.npcRewardMult * (npc.elite ? 1.3 : 1), { cls: A.npcClass(npc.name), boost: npc.elite ? B.bookEliteMult : 1 }); taskHit(st, { kind: 'npc' }, rep); }
   else if (r.outcome === 'lose') {
     defeated(st); if (rep) rep.losses++;
     const lost = Math.min(st.stones, Math.floor(st.stones * B.robPctOnNpcDefeat));
@@ -1056,6 +1133,7 @@ function runResource(st: GameState, zone: C.Zone, rep?: Report) {
   st.inv.mat[m.id] = (st.inv.mat[m.id] || 0) + q;
   if (rep) { rep.encounters++; rep.enc.resource++; rep.mats[m.id] = (rep.mats[m.id] || 0) + q; }
   feed(st, { kind: 'resource', text: `Hái được ${C.MAT(m.id).name}`, chips: [`+${q} ${C.MAT(m.id).name}`] });
+  taskHit(st, { kind: 'res' }, rep);
 }
 function runEvent(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: Report) {
   const g = st.streams, L = levelOf(st.player), S = pstats(st);
@@ -1079,6 +1157,7 @@ function runEvent(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: Re
   if (o.drops) rollDrops(st, zone, L, o.drops, (ph && ph.luck) || 0, rep, 'Kỳ ngộ: ', chips);
   if (rep && ev.rare) rep.highlights.push({ prio: 40, kind: 'event', text: ev.text });
   else if (rep && !ev.bad) rep.highlights.push({ prio: 10, kind: 'event', text: ev.text });
+  taskHit(st, { kind: 'ev' }, rep);
 }
 export function encounterWeights(zone: C.Zone, ph: C.Phenomenon | null, dropEvent = false): number[] {
   const m: C.Phenomenon['enc'] = (ph && ph.enc) || {};
@@ -1093,9 +1172,10 @@ export function tick(st: GameState, rep?: Report) {
   const startMs = st.clock;
   st.clock += B.tickSec * 1000; st.tick++;
   if (rep) rep.ticks++;
+  if (!st.album) { X.backfill(st); honorCheck(st, rep); }
   const p = st.player, zone = C.ZONE(st.zone), ph = phenomenonAt(zone.id, startMs);
   const S0 = pstats(st), L0 = levelOf(p), mode0 = st.set.mode, demon = p.heartDemon > 0;
-  if (rep && ph) rep.phen[ph.name] = (rep.phen[ph.name] || 0) + 1;
+  if (rep && ph && !ph.id.startsWith('week:')) rep.phen[ph.name] = (rep.phen[ph.name] || 0) + 1;
   if (rep && st.recovery) rep.recoveryTicks++;
   // Dốn Ngộ is decided at the start of the tick, in Retreat_Mode only
   const epi = mode0 === 'retreat' && next(st.streams, 'cult') < B.epiphanyP;
@@ -1110,6 +1190,7 @@ export function tick(st: GameState, rep?: Report) {
     const k = weighted(st.streams, 'enc', encounterWeights(zone, ph, dropEventAt(zone.id, startMs)));
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
+  ensureTasks(st);
   ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
   if (!st.decision) {
@@ -1200,6 +1281,7 @@ export function grantDaoPerks(st: GameState, retro = false) {
   if (k.weaponTier !== undefined) {
     const w = genItem(st, retro ? levelOf(st.player) : 1, k.weaponTier, 'Weapon', 0, !retro);
     if (!retro) st.eq.Weapon = w; else if (st.bag.length < B.bagCapacity) st.bag.push(w);
+    X.noteItem(st, w);
   }
 }
 // An account made before the đạo hiệu followed the e-mail: it takes the one of its address, and the privileges, once.

@@ -1,5 +1,6 @@
 // Game_Server: the only place where Game_State is read, changed and saved. The browser sends intents; every number comes from here (Requirement 2).
 import * as G from '../game';
+import * as W from '../weekly';
 import * as C from '../content';
 import { BALANCE as B } from '../balance';
 import { type ErrCode } from '../strings';
@@ -40,7 +41,7 @@ export function toView(st: G.GameState, now: number) {
     ...rest,
     ledger: ledger.slice(-40), ledgerBalance: G.ledgerSum(st), ledgerDaily,
     pending: reports.filter((r) => !r.seen), decision: decisionView(st, now),
-    now, odds: G.oddsOf(st, now), zones: G.zonesView(st, now), events: G.eventsView(now),
+    now, odds: G.oddsOf(st, now), zones: G.zonesView(st, now), events: G.eventsView(now), week: W.weekView(now),
     shop: C.SHOP.map((s) => ({ ...s, sell: G.sellPrice(s) })), materials: C.MATERIALS,
     caps: { bag: B.bagCapacity, stash: B.overflowCapacity, pen: B.penCapacity, party: B.maxParty, stoneMax: B.stoneMax, stackMax: B.stackMax, maxQty: B.maxPurchaseQty },
     config: { tickSec: B.tickSec, pollSec: B.onlinePollSec, confirmPurchase: B.confirmPurchaseThreshold, offlineCapH: B.offlineCapH, minOfflineSec: B.minOfflineSec },

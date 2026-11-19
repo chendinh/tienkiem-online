@@ -10,6 +10,7 @@ import { allSpecies } from '@/lib/daily';
 import type { Report, Beast } from '@/lib/game';
 import { releaseValue, upkeepDue, SP, heartDemonTicks, tribulationPurityMult } from '@/lib/game';
 import { Icon } from './ds/Icon';
+import * as TK from '@/lib/tasks';
 import { useLookPic } from '@/lib/useLookPic';
 import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
 import { MultiSelect } from './ds/MultiSelect';
@@ -277,10 +278,13 @@ function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
     const n = q ? Math.min(q.n, q.need) : 0, need = q ? q.need : B.questTame;
     tags.push({ key: 'q', cls: q?.done ? 'ok' : 'quest', icon: q?.done ? 'check' : 'scroll', text: q?.done ? `Nhiệm vụ ngày xong · +${fmt(q.reward)} Tu Vi${q.old ? ' · +1 pháp khí Địa' : ''}` : `Nhiệm vụ: thu phục ${qName} ${n}/${need}` });
   } else tags.push({ key: 'q', cls: 'done', icon: 'scroll', text: 'Nhiệm vụ: hôm nay chưa có' });
+  const tk = st.tasks && st.tasks.day === day ? st.tasks.list : [];
+  if (tk.length) { const nd = tk.filter((t) => t.done).length; tags.push({ key: 't', cls: nd === tk.length ? 'ok' : 'quest', icon: nd === tk.length ? 'check' : 'scroll', text: `Nhiệm vụ phụ: ${nd}/${tk.length}${nd < tk.length ? ` · tiếp theo: ${TK.title(tk.find((t) => !t.done)!).toLowerCase()}` : ' · đã xong'}` }); }
   if (ev) {
     const mins = Math.max(0, Math.round(((ev.active ? ev.endsAt : ev.startsAt) - st.now) / 60000));
     tags.push({ key: 'e', cls: ev.active ? 'event on' : 'event', icon: 'luck', text: `${ev.active ? 'Đang diễn ra' : `Sau ${mins} phút`}: rơi Thiên/Tiên +${Math.round(ev.bonus * 100)}% tại ${ev.name}${ev.active ? ` (còn ${mins} phút)` : ''}` });
   } else tags.push({ key: 'e', cls: 'done', icon: 'luck', text: 'Sự kiện rơi Thiên/Tiên: chưa có trong 3 giờ tới' });
+  if (st.week) tags.push({ key: 'w', cls: 'phen', icon: st.week.cur.icon === 'el' ? 'taiji' : st.week.cur.icon, text: `${st.week.cur.name} · ${st.week.cur.effects.join(' · ')}` });
   tags.push(zone?.phen
     ? { key: 'p', cls: 'phen', icon: 'lotus', text: `${zone.name}: ${zone.phen.name}${zone.phen.effects.length ? ` · ${zone.phen.effects.join(' · ')}` : ''}` }
     : { key: 'p', cls: 'done', icon: 'lotus', text: `${zone?.name || 'Vùng này'}: linh khí bình thường` });
@@ -308,7 +312,7 @@ function bookNote(text: string) {
 export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report; title: string; onClose: () => void; st?: GS; onDaily?: () => void }) {
   const [log, setLog] = useState<{ lines: string[]; foe?: string } | null>(null);
   // only what has a picture or matters: items, secret books, beasts, a breakthrough, the daily quest. Plain text lines (a level, a small event) are left out.
-  const shown = rep.highlights.filter((h) => h.item || h.book || h.beast || h.kind === 'break' || h.kind === 'quest');
+  const shown = rep.highlights.filter((h) => h.item || h.book || h.beast || h.kind === 'break' || h.kind === 'quest' || h.kind === 'honor');
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <ModalClose onClose={onClose} />
@@ -582,6 +586,8 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
     if (b.mut) { say(ERR.E_MUTANT, false); return; }
     const r = await act('release', { id: b.id }); say(r.msg, r.ok); if (r.ok) setSel(null);
   };
+  const framed = (id: number) => !!st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === id;
+  const frameOne = async (b: Beast) => { const r = await act('showcase', framed(b.id) ? { kind: 'none' } : { kind: 'beast', id: b.id }); say(r.msg, r.ok); };
   const sellMany = async () => {
     if (!(await askConfirm({ title: 'Bán hàng loạt', body: 'Bán mọi Linh Thú không phải Dị Biến và không nằm trong đội xuất chiến?', ok: 'Bán hết', danger: true }))) return;
     const r = await act('releaseMany'); say(r.msg, r.ok);
@@ -617,6 +623,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
               {cur.mut
                 ? <button className="btn hot" title="Mở Linh Thú Viên với con này đã đứng sẵn trên nền" onClick={() => window.location.assign(`/linh-thu-vien?add=${cur.id}`)}><Icon name="zoo" size={16} /> Đưa vào Linh Thú Viên</button>
                 : <button className="btn hot" onClick={() => sellOne(cur)}>Bán +{fmt(releaseValue(cur))} <Icon name="stone" size={15} /></button>}
+              <button className="btn" title="Treo con này trong khung trên trang nhân vật, ai bấm vào tên ngươi trên bảng xếp hạng cũng thấy" onClick={() => frameOne(cur)}><Icon name="sparkle" size={15} /> {framed(cur.id) ? 'Gỡ khỏi khung' : 'Trưng bày'}</button>
               <button className="btn ghost" onClick={() => setSel(null)}>Đóng</button>
             </div>
           </div>

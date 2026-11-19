@@ -11,6 +11,8 @@ import { Icon } from './ds/Icon';
 import { Seg } from './ds/Seg';
 import { ElIcon } from './Icons';
 import { ElChip, Img, GenImg, fmt, useZoom } from './ui';
+import { WeekCard } from './Week';
+import * as TK from '@/lib/tasks';
 
 // Nhiệm Vụ & Tin Tức: what is worth doing today (the daily quest and its reward) and what is going on in the world (the day's chronicle, the creature and
 // weapon that are new, the Thiên/Tiên drop windows that are coming, and what every zone's phenomenon does in numbers).
@@ -37,7 +39,9 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
   const zones = beast ? beast.zones.map((id) => C.ZONE(id).name) : [];
   const qZones = qsp ? C.ZONES.filter((z) => (z.species[qsp.id] || 0) > 0 && z.minLevel <= levelOf(st.player)).map((z) => z.name) : [];
   const pct = Math.round((n / need) * 100);
-  const claimedCount = done ? 1 : 0, total = 1;
+  const tasks = st.tasks && st.tasks.day === day ? st.tasks.list : [];
+  const need0 = cultThreshold(levelOf(st.player));
+  const claimedCount = (done ? 1 : 0) + tasks.filter((t) => t.done).length, total = 1 + tasks.length, open = total - claimedCount;
 
   const pic = (sp: { id: string; name: string; el: string[] }, art?: string, text?: string) => (
     <button type="button" className="dqPic" title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'prop', src: art || C.monsterArt(sp.id), name: sp.name, text })}>
@@ -53,7 +57,7 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
         <header className="dqHead">
           <div><h2>Nhiệm Vụ &amp; Tin Tức</h2><small>Ngày {day.split('-').reverse().join('/')} · làm mới sau {dur(nextDay(now) - now)}</small></div>
           <Seg<Tab> label="Mục" value={tab} onChange={setTab} options={[
-            { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Nhiệm vụ{!done && qsp ? ' (1)' : ''}</span></>, title: 'Việc cần làm hôm nay' },
+            { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Nhiệm vụ{open > 0 && (qsp || tasks.length) ? ` (${open})` : ''}</span></>, title: 'Việc cần làm hôm nay' },
             { v: 'news' as const, label: <><Icon name="luck" size={15} /><span>Tin tức</span></>, title: 'Yêu thú mới, sự kiện, linh khí từng vùng' },
           ]} />
         </header>
@@ -94,11 +98,43 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
                 {done && <div className="dqDone"><Icon name="check" size={16} /> Hoàn thành. Mai sẽ có nhiệm vụ mới.</div>}
               </article>
             )}
+            {tasks.length > 0 && (
+              <section className="dqSec">
+                <h3>Nhiệm vụ phụ</h3>
+                <p className="dqNote">Mỗi ngày ba việc Dễ, Vừa, Khó. Việc càng khó, Tu Vi thưởng càng nhiều. Chỉ tính khi đang du hành.</p>
+                <div className="tkList">
+                  {tasks.map((t) => {
+                    const pr = Math.min(t.n, t.need), rw = t.done ? t.reward : TK.rewardOf(t.lv, need0);
+                    return (
+                      <article key={t.id + t.lv} className={`tkCard lv${t.lv} ${t.done ? 'done' : ''}`}>
+                        <span className="tkLv">{t.done ? <Icon name="check" size={14} /> : null}{TK.LEVEL_NAME[t.lv]}</span>
+                        <div className="tkMain">
+                          <b>{TK.title(t)}</b>
+                          {!t.done && <small>{TK.hint(t)}</small>}
+                          <div className="dqProg" role="progressbar" aria-valuemin={0} aria-valuemax={t.need} aria-valuenow={pr} aria-label="Tiến độ">
+                            <div className="dqBar"><i style={{ width: `${Math.round(pr / t.need * 100)}%` }} /></div>
+                            <b>{pr}/{t.need}</b>
+                          </div>
+                        </div>
+                        <em className={`chip ${t.done ? 'ok' : 'gold'}`}>{t.done ? `Đã nhận +${fmt(rw)}` : `+${fmt(rw)} Tu Vi`}</em>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
         {tab === 'news' && (
           <div className="dqBody">
+            {st.week && (
+              <section className="dqSec">
+                <h3>Chủ đề tuần</h3>
+                <p className="dqNote">Mỗi tuần (từ thứ Hai) cả thế giới nghiêng về một phía. Thứ tự cố định, nên có thể tính trước tuần sau để dành sức.</p>
+                <WeekCard cur={st.week.cur} next={st.week.next} now={now} />
+              </section>
+            )}
             <section className="dqSec">
               <h3>Hôm nay</h3>
               {pack ? (
@@ -116,7 +152,7 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
 
             <section className="dqSec">
               <h3>Sự kiện rơi pháp khí Thiên / Tiên</h3>
-              <p className="dqNote">Mỗi lần một vùng, kéo dài 15 phút: tỷ lệ mỗi món rơi ra là Thiên hoặc Tiên được <b>cộng thêm {Math.round(B.dropEventBonus * 100)}%</b> (cộng thẳng vào xác suất). Trong vùng đó, tỷ lệ gặp Linh Thú cũng tăng thêm <b>{Math.round((B.dropEventMonsterMult - 1) * 100)}%</b>, gặp Tu Sĩ và kỳ ngộ ít đi. Tin được báo trước ở đây.</p>
+              <p className="dqNote">Mỗi lần một vùng, kéo dài 15 phút: tỷ lệ mỗi món rơi ra là Thiên hoặc Tiên được <b>cộng thêm {Math.round(B.dropEventShown * 100)}%</b> (cộng thẳng vào xác suất). Trong vùng đó, tỷ lệ gặp Linh Thú cũng tăng thêm <b>{Math.round((B.dropEventMonsterMult - 1) * 100)}%</b>, gặp Tu Sĩ và kỳ ngộ ít đi. Tin được báo trước ở đây.</p>
               {st.events.length === 0 && <div className="empty">Hai giờ tới chưa có sự kiện nào. Quay lại sau.</div>}
               <div className="dqEvents">
                 {st.events.map((e) => (
