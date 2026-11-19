@@ -3,24 +3,22 @@ import type { CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import type { ShowView } from '@/lib/game';
 import { SP } from '@/lib/game';
-import { lookOf, variantName } from '@/lib/zoo';
 import { useLookPic } from '@/lib/useLookPic';
 import { ElIcon } from './Icons';
-import { ElChip, Img, ItemIcon } from './ui';
+import { Img, ItemIcon, useZoom } from './ui';
 import type { Beast } from '@/lib/game';
 
 // Trưng Bày: the one item or beast a player hangs on the wall of their page, framed like a painting. Others see it when they open the profile from the ranking.
-// The frame is plain CSS (a gilded wooden frame, a dark mat, a hanging cord and a brass plaque), so nothing is drawn or loaded for it.
+// The frame is plain CSS (a gilded wooden frame, a dark mat and a hanging cord; the item or beast opens its popup on a click), so nothing is drawn or loaded for it.
 // The creature's own picture fills the whole frame (the small cut-out of BeastArt, sized by its body and sitting low, left empty bands around it).
 function BeastPic({ b }: { b: Beast }) {
-  const look = useLookPic(b, false);
-  return <Img src={look || C.monsterArt(b.sp, b.mut, false)} className="fill" fb={<ElIcon el={SP(b.sp).el[0]} size={64} />} />;
+  const look = useLookPic(b, false), zoom = useZoom();
+  return <div className="fill zoomable" title="Bấm để xem chi tiết" onClick={() => zoom({ kind: 'beast', b })}><Img src={look || C.monsterArt(b.sp, b.mut, false)} className="fill" fb={<ElIcon el={SP(b.sp).el[0]} size={64} />} /></div>;
 }
 export function ShowFrame({ show, size = 190 }: { show: ShowView; size?: number }) {
   if (!show) return null;
   const item = show.kind === 'item' ? show.item : null, beast = show.kind === 'beast' ? show.beast : null;
   const rc = item ? C.RCOLOR[item.tier] : beast && beast.mut ? '#ffd36e' : '#e5c07b';
-  const look = beast ? lookOf(beast) : null;
   return (
     <figure className="frame" style={{ '--rc': rc, '--fs': `${size}px` } as CSSProperties}>
       <span className="frCord" aria-hidden="true" />
@@ -33,15 +31,6 @@ export function ShowFrame({ show, size = 190 }: { show: ShowView; size?: number 
           </div>
         </div>
       </div>
-      <figcaption className="frPlaque">
-        <b style={{ color: rc }}>{item ? item.name : `${beast!.mut ? '✦ ' : ''}${beast!.elite ? 'Tinh Anh ' : ''}${beast!.name}`}</b>
-        <span>
-          {item && <>{C.RARITY[item.tier]} · {C.SLOT_VI[item.slot]} · Lv{item.level}</>}
-          {beast && <>Lv{beast.level}{look ? ` · ${variantName(look)}` : ''} · {C.SIZE_CLASS[beast.cls]}</>}
-        </span>
-        {item && <ElChip el={item.el} />}
-        {beast && <ElChip el={SP(beast.sp).el[0]} />}
-      </figcaption>
     </figure>
   );
 }

@@ -99,7 +99,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
     );
   } else if (z.kind === 'beast') {
     const b = z.b, sp = SP(b.sp);
-    pic = <Img src={C.monsterArt(b.sp, b.mut)} className="fill" fb={<ElIcon el={sp.el[0]} size={80} />} />;
+    pic = <ZoomBeastPic b={b} />;
     body = (
       <>
         <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>} {b.name}</h2>
@@ -224,6 +224,12 @@ export function BeastArt({ b, box = 112, onOpen, mine = false }: { b: Beast; box
       </div>
     </div>
   );
+}
+
+// The big picture of a creature: the look it has (a Dị Biến has its own picture once one is drawn), else the species picture.
+function ZoomBeastPic({ b }: { b: Beast }) {
+  const look = useLookPic(b, false);
+  return <Img src={look || C.monsterArt(b.sp, b.mut)} className="fill" fb={<ElIcon el={SP(b.sp).el[0]} size={80} />} />;
 }
 
 export function SizeMeter({ b }: { b: Beast }) {
