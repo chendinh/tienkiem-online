@@ -1061,7 +1061,7 @@ function dropOnce(st: GameState, zone: C.Zone, srcLevel: number, luckBonus: numb
   const g = st.streams, table = zone.drop;
   const e = table[weighted(g, 'loot', table.map((x) => x.w))];
   switch (e.kind) {
-    case 'item': { const it = genItem(st, srcLevel, undefined, undefined, luckBonus); giveItem(st, it, rep, from); taskHit(st, { kind: 'item', tier: it.tier }, rep); break; }
+    case 'item': { const it = genItem(st, srcLevel, undefined, undefined, luckBonus); giveItem(st, it, rep, from); taskHit(st, { kind: 'item', tier: it.tier, slot: it.slot, base: it.base }, rep); break; }
     case 'stones': { const x = earn(st, int(g, 'loot', e.q[0], e.q[1]) * Math.max(1, Math.floor(srcLevel / 2)), 'drop', rep); chips.push(`+${x} Linh Thạch`); break; }
     case 'taming': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.taming[e.grade] += x; if (rep) rep.gain.taming += x; chips.push(`+${x} Khế Ước Phù`); break; }
     case 'pill': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.hp[e.grade] += x; if (rep) rep.gain.hp += x; chips.push(`+${x} Hồi Khí Đan`); break; }

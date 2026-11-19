@@ -1126,11 +1126,11 @@ test('daily tasks: one Easy, one Medium, one Hard, fixed by the day and seed, va
   const a = TK.pickTasks('2026-11-19', 7, els), b = TK.pickTasks('2026-11-19', 7, els);
   assert.deepEqual(a, b);
   assert.deepEqual(a.map((t) => t.lv), [0, 1, 2]);
-  assert.equal(new Set(a.map((t) => t.kind + (t.arg ?? ''))).size, 3);
+  assert.equal(new Set(a.map((t) => t.id)).size, 3);
   const kinds = new Set<string>();
-  for (let d = 1; d <= 60; d++) for (const t of TK.pickTasks(`2026-12-${String(d).padStart(2, '0')}`, d, els)) { kinds.add(t.kind); assert.ok(t.need >= 1); if (t.kind === 'winel' || t.kind === 'tameel') assert.ok(els.includes(t.arg as string)); if (t.kind === 'item') assert.ok([0, 1, 3].includes(t.arg as number)); TK.title(t); TK.hint(t); }
+  for (let d = 1; d <= 120; d++) for (const t of TK.pickTasks(`2027-${String(1 + (d % 12)).padStart(2, '0')}-${String(1 + (d % 28)).padStart(2, '0')}`, d, els)) { kinds.add(t.kind); assert.ok(t.need >= 1); if (t.kind === 'winel' || t.kind === 'tameel') assert.ok(els.includes(t.arg as string)); if (t.kind === 'item') { assert.ok([0, 1, 3].includes(t.tier!)); assert.ok(C.SLOTS.includes(t.slot!)); if (t.base) assert.ok(C.SLOT_BASE[t.slot!].includes(t.base) && t.slot !== 'Weapon'); } TK.title(t); TK.hint(t); }
   assert.equal(kinds.size, 9);   // every kind turns up
-  assert.equal(TK.pickTasks('2026-11-19', 7, []).some((t) => t.arg !== undefined && typeof t.arg === 'string'), false);   // no element open: no element job
+  assert.equal(TK.pickTasks('2026-11-19', 7, []).some((t) => t.arg !== undefined), false);   // no element open: no element job
   assert.ok(TK.rewardOf(0, 1000) < TK.rewardOf(1, 1000) && TK.rewardOf(1, 1000) < TK.rewardOf(2, 1000));
 });
 test('daily tasks: the engine counts what happens, pays once, and a new day brings new jobs', () => {
@@ -1139,7 +1139,7 @@ test('daily tasks: the engine counts what happens, pays once, and a new day brin
   const day = D.dayKey(st.clock);
   assert.equal(st.tasks!.day, day); assert.equal(st.tasks!.list.length, 3);
   // force a known job set and let the journey run
-  st.tasks!.list = [{ id: 'win:', kind: 'win', lv: 0, need: 3, n: 0, done: false, reward: 0 }, { id: 'item:0', kind: 'item', lv: 0, need: 2, n: 0, arg: 0, done: false, reward: 0 }, { id: 'res:', kind: 'res', lv: 1, need: 2, n: 0, done: false, reward: 0 }];
+  st.tasks!.list = [{ id: 'win:', kind: 'win', lv: 0, need: 3, n: 0, done: false, reward: 0 }, { id: 'item:0', kind: 'item', lv: 0, need: 2, n: 0, tier: 0, done: false, reward: 0 }, { id: 'res:', kind: 'res', lv: 1, need: 2, n: 0, done: false, reward: 0 }];
   st.set.autoFight = true;
   for (let i = 0; i < 3000 && st.tasks!.list.some((t) => !t.done); i++) { st.player.hp = 1e9; G.tick(st); }
   for (const t of st.tasks!.list) { assert.ok(t.n >= 1, t.id); if (t.done) { assert.ok(t.reward > 0); assert.equal(t.n, t.need); } }
@@ -1169,4 +1169,14 @@ test('Thiên/Tiên drop event: Thiên +0.5%, Tiên +0.25% for real, announced as
   assert.equal(G.eventsView(inMs, 1)[0].bonus, 0.01);
   let n = 0; for (let k = 0; k < 4000; k++) if (G.dropEventZone(k)) n++;
   assert.ok(Math.abs(n / 4000 - B.dropEventP) < 0.03);
+});
+test('daily tasks: an item job needs that exact item (rarity, slot, base) and nothing else counts', () => {
+  const t = { id: 'x', kind: 'item', lv: 2, need: 1, n: 0, tier: 1, slot: 'Footwear', base: 'Vân Hài', done: false, reward: 0 } as TK.Task;
+  assert.ok(TK.matches(t, { kind: 'item', tier: 1, slot: 'Footwear', base: 'Vân Hài' }));
+  assert.ok(!TK.matches(t, { kind: 'item', tier: 0, slot: 'Footwear', base: 'Vân Hài' }));
+  assert.ok(!TK.matches(t, { kind: 'item', tier: 1, slot: 'Footwear', base: 'Phong Ngoa' }));
+  assert.ok(!TK.matches(t, { kind: 'win' }));
+  const s2 = { ...t, base: undefined, slot: 'Ring' } as TK.Task;
+  assert.ok(TK.matches(s2, { kind: 'item', tier: 1, slot: 'Ring', base: 'Linh Giới' }) && !TK.matches(s2, { kind: 'item', tier: 1, slot: 'Back', base: 'x' }));
+  assert.match(TK.title(t), /Vân Hài hạng Hoàng/); assert.match(TK.title(s2), /hạng Hoàng/);
 });
