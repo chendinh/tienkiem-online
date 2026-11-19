@@ -13,7 +13,7 @@ import { Icon } from './ds/Icon';
 export const GenCtx = createContext(true);
 
 // Click-to-enlarge popup. Any component can call useZoom()(payload) to show a big picture with details.
-export type ZoomItem = { kind: 'item'; it: Item } | { kind: 'beast'; b: Beast } | { kind: 'species'; id: string; mut?: boolean; text?: string }
+export type ZoomItem = { kind: 'item'; it: Item } | { kind: 'beast'; b: Beast } | { kind: 'species'; id: string; mut?: boolean; text?: string; best?: { seen: number; tamed: number; maxCm: number; minCm: number; mutSeen: number; mutTamed: number } }
   | { kind: 'avatar'; src: string; name: string; sub?: string; crop?: number }   // a character's portrait
   | { kind: 'prop'; src: string; name: string; text?: string };   // a shop good or a material
 const ZoomCtx = createContext<(z: ZoomItem) => void>(() => {});
@@ -127,6 +127,13 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
       <>
         <h2>{sp.name}</h2>
         <div className="chips">{sp.el.map((e) => <ElChip key={e} el={e} />)}</div>
+        {z.best && z.best.seen > 0 && (
+          <ul className="itLines big">
+            <li>Đã gặp {z.best.seen} lần · thu phục {z.best.tamed} lần</li>
+            <li>Kích thước {z.best.minCm}–{z.best.maxCm} cm</li>
+            {z.best.mutSeen > 0 && <li>✦ Dị Biến: gặp {z.best.mutSeen} · thu {z.best.mutTamed}</li>}
+          </ul>
+        )}
         {z.text && <p className="zoomText">{z.text}</p>}
       </>
     );

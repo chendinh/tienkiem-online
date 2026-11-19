@@ -332,7 +332,6 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
   const [note, setNote] = useState<{ t: string; ok: boolean } | null>(null);
   const zoomRef = useRef<((z: any) => void) | null>(null);
-  const [dexSel, setDexSel] = useState<string | null>(null);
   const bioBusy = useRef(false), bioFails = useRef(0), chBusy = useRef(false), chFail = useRef<Record<number, number>>({});
   const say = useCallback((t: string, ok = true) => { setNote({ t, ok }); setTimeout(() => setNote((n) => (n && n.t === t ? null : n)), 6000); }, []);
 
@@ -829,19 +828,23 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {modal === 'arts' && <Window title="Thần Thông" icon="bolt" sub="Môn pháp theo pháp khí đang cầm, chiêu đã học, Bí Công và Công Pháp" wide onClose={() => setModal(null)}><ArtsPanel st={st} act={act} /></Window>}
       {modal === 'pen' && <Window title="Linh Thú" icon="paw" sub={`${st.beasts.length}/${st.caps.pen} Linh Thú ngươi đã thu phục`} wide onClose={() => setModal(null)}><PenPanel st={st} act={act} say={say} /></Window>}
       {modal === 'dex' && <Window title="Sưu Tập" icon="book" sub={`Linh Thú Đồ Giám · đã gặp ${seenSpecies}/${speciesAll.length} loài`} wide onClose={() => setModal(null)}>
-            <div className="grid dex">
-              <div className="dexHead"><b>Linh Thú Đồ Giám</b> là sổ sưu tập các loài yêu thú ngươi đã gặp (không phải giám định đồ): số lần gặp, số lần thu phục, kích thước nhỏ nhất đến lớn nhất và số lần gặp Dị Biến. Loài chưa gặp hiện bóng đen. Bấm vào loài đã gặp để đọc truyền thuyết.</div>
+            <div className="dexHead"><b>Linh Thú Đồ Giám</b> là sổ sưu tập các loài yêu thú ngươi đã gặp. Bấm vào một loài đã gặp để xem ảnh lớn, số liệu và truyền thuyết.</div>
+            <div className="dexList">
               {speciesAll.map((s) => {
-                const e = st.best[s.id];
+                const e = st.best[s.id], seen = !!(e && e.seen > 0);
+                const open = () => { if (seen) zoomRef.current?.({ kind: 'species', id: s.id, text: (lore as any).beasts[s.id] || D.legendOf(s.id), best: e }); };
                 return (
-                  <div key={s.id} className={`dexc ${e && e.seen ? '' : 'unseen'} ${dexSel === s.id ? 'sel' : ''}`} onClick={() => { if (e && e.seen) { setDexSel(s.id); zoomRef.current?.({ kind: 'species', id: s.id, text: (lore as any).beasts[s.id] || D.legendOf(s.id) }); } }}>
-                    <Img src={C.monsterArt(s.id, false, true)} className="fill" fb={<ElIcon el={s.el[0]} size={36} />} />
-                    <div className="dinfo"><b>{s.name}</b>{!(e && e.seen) && <small>Chưa gặp</small>}{e && e.seen > 0 && <small>Gặp {e.seen} · Thu {e.tamed} · {e.minCm}–{e.maxCm} cm{e.mutSeen ? ` · ✦${e.mutSeen}` : ''}</small>}</div>
-                  </div>
+                  <button key={s.id} type="button" className={`dexRow ${seen ? '' : 'unseen'}`} disabled={!seen} onClick={open} aria-label={seen ? `Xem ${s.name}` : `${s.name}: chưa gặp`}>
+                    <span className="dexThumb"><Img src={C.monsterArt(s.id, false, true)} className="fill" fb={<ElIcon el={s.el[0]} size={24} />} /></span>
+                    <span className="dexMain">
+                      <b>{seen ? s.name : '???'}</b>
+                      <small>{seen ? `Gặp ${e.seen} · Thu ${e.tamed}${e.mutSeen ? ` · ✦ Dị Biến ${e.mutSeen}` : ''}` : 'Chưa gặp'}</small>
+                    </span>
+                    {seen && <span className="dexEl">{s.el.map((x) => <ElIcon key={x} el={x} size={16} />)}</span>}
+                  </button>
                 );
               })}
             </div>
-        {dexSel && <div className="legend"><b>{SP(dexSel).name}</b><p>{(lore as any).beasts[dexSel] || D.legendOf(dexSel)}</p></div>}
       </Window>}
       {linkOpen && <LinkEmailModal onClose={() => setLinkOpen(false)} onLinked={(em) => { setUser({ ...user, email: em, guest: false }); setLinkOpen(false); toast('Đã liên kết email.', true); }} />}
       {modal === 'dao' && <DaoModal dao={p.dao} email={guest ? 'khách (chưa liên kết email)' : email} onClose={() => setModal(null)} />}
