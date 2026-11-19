@@ -114,8 +114,8 @@ function Intro({ onPick, onCredits }: { onPick: (g?: 'f' | 'm') => void; onCredi
   );
 }
 
-// Temporarily hidden to cut picture costs (demo phase over): the button that redraws the character in the worn equipment. The base picture and the standing pose are still
-// drawn automatically for a new account. Set to true to bring the button (and the "Trang bị đã đổi" tag) back.
+// Temporarily locked to cut picture costs (demo phase over): the button that redraws the character in the worn equipment stays in place but disabled, and the "Trang bị đã đổi"
+// tag is hidden. The base picture and the standing pose are still drawn automatically for a new account. Set to true to bring both back to work.
 const OUTFIT_DRAW = false;
 const WHY: Record<string, string> = { limited: 'Đã chạm giới hạn ảnh AI (ngân sách hoặc số lượt mỗi giờ).', failed: 'Vẽ không thành. Thử lại sau ít phút.', disabled: 'Ảnh AI đang tắt.' };
 
@@ -259,7 +259,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
         </div>
       )}
       <div className="rerow">
-        {OUTFIT_DRAW && <button className={`btn ${changed && canDraw ? 'hot' : ''}`} disabled={!canDraw} onClick={draw} title={tip}><Icon name="brush" size={16} /> {label}</button>}
+        <button className={`btn ${OUTFIT_DRAW && changed && canDraw ? 'hot' : ''}`} disabled={!OUTFIT_DRAW || !canDraw} onClick={draw} title={OUTFIT_DRAW ? tip : 'Tạm khóa'}><Icon name="brush" size={16} /> {label}</button>
         <button className="btn" onClick={onBio}><Icon name="book" size={16} /> Tiểu sử</button>
       </div>
     </>
