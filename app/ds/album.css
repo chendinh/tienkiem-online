@@ -139,4 +139,11 @@
   .wkInfo { position: relative; z-index: 1; }
   .wkImg { position: absolute; inset: 0; z-index: -1; }
   .wkImg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(8 12 16 / 0.88) 0%, rgb(8 12 16 / 0.62) 45%, rgb(8 12 16 / 0.15) 100%); }
+
+  /* popup actions on a phone: two buttons a row (four buttons make two rows of two), a lone last button takes the full row */
+  @media (max-width: 640px) {
+    .eqAct, .zoomBody .eqAct { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+    .eqAct > .btn, .zoomBody .eqAct > .btn { width: 100%; min-width: 0; justify-content: center; white-space: normal; text-align: center; }
+    .eqAct > .btn:last-child:nth-child(odd), .zoomBody .eqAct > .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
 }
