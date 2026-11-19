@@ -102,7 +102,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
     pic = <ZoomBeastPic b={b} />;
     body = (
       <>
-        <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>} {b.name}</h2>
+        <h2>{b.mut && <em className="mutBadge blk">✦ Dị Biến</em>}<span className="zoomName">{b.name}</span></h2>
         <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {b.power}</span>{b.elite && <span className="chip">Tinh Anh</span>}</div>
         <SizeMeter b={b} />
         <ul className="itLines big beastStats">

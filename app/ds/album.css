@@ -113,4 +113,8 @@
   .tkMain { display: grid; gap: 3px; min-width: 0; }
   .tkMain small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.4; }
   @media (max-width: 520px) { .tkCard { grid-template-columns: auto 1fr; } .tkCard > .chip { grid-column: 2; justify-self: start; } }
+
+  /* popup of a creature: the Dị Biến badge sits on its own line above the name, so the name never breaks around it */
+  .mutBadge.blk { display: block; width: fit-content; margin: 0 0 6px; }
+  .zoomName { display: block; overflow-wrap: break-word; text-wrap: balance; }
 }
