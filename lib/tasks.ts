@@ -5,7 +5,7 @@
 import * as C from './content';
 import { BALANCE as B } from './balance';
 
-export type TaskKind = 'win' | 'elite' | 'npc' | 'res' | 'ev' | 'tame' | 'winel' | 'tameel' | 'item';
+export type TaskKind = 'win' | 'elite' | 'npc' | 'res' | 'ev' | 'tame' | 'winel' | 'tameel' | 'item' | 'wpn';
 // `arg` is the element of an element job; an item job names a rarity (`tier`) and then a kind of item: one of the eight slots (`slot`) or one exact base such as "Vân Hài" (`base`).
 export interface Task { id: string; kind: TaskKind; lv: 0 | 1 | 2; need: number; n: number; arg?: string; tier?: number; slot?: string; base?: string; done: boolean; reward: number }
 export interface DayTasks { day: string; list: Task[] }
@@ -65,13 +65,18 @@ export const matches = (t: Task, h: Hit): boolean => {
     case 'tame': return h.kind === 'tame';
     case 'winel': return h.kind === 'win' && !!h.el && h.el.includes(t.arg as string);
     case 'tameel': return h.kind === 'tame' && !!h.el && h.el.includes(t.arg as string);
+    case 'wpn': return h.kind === 'item' && h.base === t.base;
     case 'item': return h.kind === 'item' && h.tier === tierOf(t) && (!t.slot || h.slot === t.slot) && (!t.base || h.base === t.base);
   }
 };
+// The day's new weapon (made by the daily job) is a fourth job: find this many of it, whatever the rarity. It is Hard: a new weapon is 3 times as common on its first day, which is about one weapon in five.
+export const NEW_WEAPON_NEED = 10;
+export const weaponTask = (base: string): Task => ({ id: `wpn:${base}`, kind: 'wpn', lv: 2, need: NEW_WEAPON_NEED, n: 0, slot: 'Weapon', base, done: false, reward: 0 });
 export const rewardOf = (lv: number, cultNeed: number) => Math.round(cultNeed * B.taskCultPct[lv]);
 
 export function title(t: Task): string {
   switch (t.kind) {
+    case 'wpn': return `Nhặt ${t.need} ${t.base} (vũ khí mới hôm nay)`;
     case 'win': return `Hạ ${t.need} yêu thú`;
     case 'elite': return `Hạ ${t.need} yêu thú tinh anh`;
     case 'npc': return `Đánh bại ${t.need} tu sĩ`;
@@ -85,6 +90,7 @@ export function title(t: Task): string {
 }
 export function hint(t: Task): string {
   switch (t.kind) {
+    case 'wpn': return 'Vũ khí mới ra mắt hôm nay: hạng nào cũng được, hệ nào cũng được. Hôm nay nó rơi nhiều gấp ba. Tính cả món máy tự phân giải.';
     case 'win': case 'winel': case 'elite': return 'Đang du hành, thắng trận với yêu thú là tính.' + (t.kind === 'elite' ? ' Khoảng 1 trong 12 yêu thú là tinh anh.' : '');
     case 'npc': return 'Giao chiến và thắng Tu Sĩ gặp trên đường (bật “Tự giao chiến” nếu muốn máy làm thay).';
     case 'res': return 'Gặp điểm tài nguyên khi du hành.';

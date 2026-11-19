@@ -1174,3 +1174,22 @@ test('daily tasks: a job saved in the old item form is replaced by a readable on
   assert.ok(!TK.isLegacy(t) && t.lv === 2 && !/undefined/.test(TK.title(t)));
   assert.ok(st.tasks!.list.every((x) => !/undefined/.test(TK.title(x)) && !/undefined/.test(TK.hint(x))));
 });
+test('daily tasks: the day new weapon is a fourth job, counted by its base whatever the rarity', () => {
+  const t = TK.weaponTask('Kiếm Mới');
+  assert.equal(t.need, 10); assert.equal(t.lv, 2);
+  assert.ok(TK.matches(t, { kind: 'item', tier: 0, slot: 'Weapon', base: 'Kiếm Mới' }) && TK.matches(t, { kind: 'item', tier: 3, slot: 'Weapon', base: 'Kiếm Mới' }));
+  assert.ok(!TK.matches(t, { kind: 'item', tier: 0, slot: 'Weapon', base: 'Khác' }));
+  assert.match(TK.title(t), /Kiếm Mới/); assert.ok(!/undefined/.test(TK.hint(t)));
+});
+test('daily tasks: a new weapon of the day adds the job once, even when it arrives after the first tick', () => {
+  const st = fresh(12); G.tick(st);
+  const day = D.dayKey(st.clock);
+  assert.equal(st.tasks!.list.length, 3);
+  try {
+    D.setDaily([{ day, title: 't', chronicle: 'c', tales: {}, weapon: { base: 'Kiếm Thử', en: 'a test sword', cls: C.WEAPON_CLASS[C.SLOT_BASE.Weapon[0]], tiers: [0, 1], day } }]);
+    G.tick(st); G.tick(st);
+    assert.equal(st.tasks!.list.filter((t) => t.kind === 'wpn').length, 1);
+    assert.equal(st.tasks!.list.length, 4);
+  } finally { D.setDaily([]); }
+});
+
