@@ -17,8 +17,8 @@ export function WeekCard({ cur, next, now }: { cur: WeekV; next: WeekV[]; now: n
   const left = cur.endsAt - now;
   return (
     <div className="wkBox">
-      <article className="wkCur" style={(cur.el ? { '--wk': C.EL[cur.el]?.color || 'var(--gold-300)' } : undefined) as CSSProperties | undefined}>
-        <span className="wkSeal"><WeekIcon w={cur} size={34} /></span>
+      <article className={`wkCur ${cur.el ? `wk-${C.slug(cur.el)}` : `wk-${cur.id}`}`} style={(cur.el ? { '--wk': C.EL[cur.el]?.color || 'var(--gold-300)' } : undefined) as CSSProperties | undefined}>
+        <span className="wkSeal"><WeekIcon w={cur} size={cur.el ? 22 : 28} /></span>
         <div className="wkInfo">
           <small className="wkKicker">Chủ đề tuần này · còn {dur(left)}</small>
           <h4>{cur.name}</h4>
