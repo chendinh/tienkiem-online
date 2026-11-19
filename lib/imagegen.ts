@@ -398,6 +398,8 @@ export async function request(spec: any): Promise<Result> {
   if (f && Date.now() - f < 45 * 1000) return instead('failed');
   // Thiên pictures are shared by every player and no new ones are drawn until DRAW_THIEN_ART=1 is set (the look is noted in image_wanted for later)
   if (spec && spec.kind === 'item' && Number(spec.tier) === 4 && process.env.DRAW_THIEN_ART !== '1') return limited();
+  // Địa too: its looks are reused (a new item only takes looks that exist), nothing new is drawn until DRAW_DIA_ART=1
+  if (spec && spec.kind === 'item' && Number(spec.tier) === 3 && process.env.DRAW_DIA_ART !== '1') return limited();
   // pictures that already exist are always served; only NEW paid drawings stop while the provider is locked or the budget is used up
   if (S.locked && S.locked.until > Date.now()) return limited();
   if (P.paid) { const ib = await imageBudget(); if (ib.spentUsd >= ib.capUsd) return limited(); }

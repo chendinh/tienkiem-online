@@ -85,6 +85,11 @@ export interface ThienLook { slot: string; base: string; el: string; art: number
 let THIEN: ThienLook[] = [];
 export const setThienLooks = (list: ThienLook[]) => { THIEN = list; };
 export const thienLooksFor = (slot: string): ThienLook[] => THIEN.filter((r) => r.slot === slot && C.EO.includes(r.el) && C.basesOf(slot).includes(r.base));
+// Same for Địa: which of its shared looks (1..artVariantsDia) already have a picture, per kind and element. A new Địa item only picks among those, so no new Địa picture is ever needed.
+const DIA = new Map<string, number[]>();
+const diaKey = (slot: string, base: string, el: string) => `${slot}|${base}|${el}`;
+export const setDiaLooks = (list: ThienLook[]) => { DIA.clear(); for (const r of list) { const k = diaKey(r.slot, r.base, r.el), a = DIA.get(k); if (!a) DIA.set(k, [r.art]); else if (!a.includes(r.art)) a.push(r.art); } for (const a of DIA.values()) a.sort((x, y) => x - y); };
+export const diaArtsFor = (slot: string, base: string, el: string): number[] => DIA.get(diaKey(slot, base, el)) || [];
 
 export const setRelics = (list: Relic[]) => { RELICS = list; };
 export const relicsFor = (tier: number, slot: string): Relic[] => (RELICS.length ? RELICS.filter((r) => r.tier === tier && r.slot === slot && (slot !== 'Weapon' || C.basesOf(slot).includes(r.base))) : []);

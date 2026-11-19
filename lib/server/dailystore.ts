@@ -1,8 +1,8 @@
 // Daily packs in Postgres (table kv, key "daily:YYYY-MM-DD") and the in-memory registry the engine reads (lib/daily.ts).
 import { query } from './db';
-import { type DailyPack, type Relic, type ThienLook, relicSig, setDaily, setRelics, setThienLooks } from '../daily';
+import { type DailyPack, type Relic, type ThienLook, relicSig, setDaily, setDiaLooks, setRelics, setThienLooks } from '../daily';
 import { ASSET_KEY_VERSION } from '../assetKey';
-import { thienLookFromKey } from '../assetKeyParse';
+import { diaLookFromKey, thienLookFromKey } from '../assetKeyParse';
 
 const g = globalThis as any;
 const REFRESH_MS = 60_000;
@@ -25,6 +25,17 @@ export async function loadThienLooks(): Promise<ThienLook[]> {
   const r = await query<{ asset_key: string }>(
     `SELECT DISTINCT asset_key FROM image_index WHERE starts_with(asset_key, $1) AND split_part(asset_key, '|', 5) = '4' AND split_part(asset_key, '|', 7) <> '0' LIMIT $2`, [`item|${ASSET_KEY_VERSION}|`, THIEN_KEEP]);
   return r.rows.map((x) => thienLookFromKey(x.asset_key)).filter((x): x is ThienLook => !!x);
+}
+export async function loadDiaLooks(): Promise<ThienLook[]> {
+  const r = await query<{ asset_key: string }>(
+    `SELECT DISTINCT asset_key FROM image_index WHERE starts_with(asset_key, $1) AND split_part(asset_key, '|', 5) = '3' AND split_part(asset_key, '|', 7) <> '0' LIMIT 6000`, [`item|${ASSET_KEY_VERSION}|`]);
+  return r.rows.map((x) => diaLookFromKey(x.asset_key)).filter((x): x is ThienLook => !!x);
+}
+async function diaLooks(): Promise<ThienLook[]> {
+  const now = Date.now(), c = g.__tutienDia as { at: number; list: ThienLook[] } | undefined;
+  if (c && now - c.at < THIEN_TTL) return c.list;
+  try { const list = await loadDiaLooks(); g.__tutienDia = { at: now, list }; return list; }
+  catch (e: any) { console.warn('[daily] could not load Địa looks', String(e?.message || e).slice(0, 120)); return c ? c.list : []; }
 }
 async function thienLooks(): Promise<ThienLook[]> {
   const now = Date.now(), c = g.__tutienThien as { at: number; list: ThienLook[] } | undefined;
@@ -58,7 +69,7 @@ export async function releaseHeld(holder: string) { await query('UPDATE relics S
 export function ensureDaily(force = false): Promise<void> {
   const now = Date.now();
   if (!force && g.__tutienDaily && now - g.__tutienDaily.at < REFRESH_MS) return g.__tutienDaily.p;
-  const p: Promise<void> = Promise.all([loadPacks(), loadRelics(), thienLooks()]).then(([packs, relics, thien]) => { setDaily(packs); setRelics(relics); setThienLooks(thien); }).catch((e) => {
+  const p: Promise<void> = Promise.all([loadPacks(), loadRelics(), thienLooks(), diaLooks()]).then(([packs, relics, thien, dia]) => { setDaily(packs); setRelics(relics); setThienLooks(thien); setDiaLooks(dia); }).catch((e) => {
     console.warn('[daily] could not load', String(e?.message || e).slice(0, 120));
     if (g.__tutienDaily && g.__tutienDaily.p === p) g.__tutienDaily = null;
   });

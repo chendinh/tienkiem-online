@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../lib/content';
 import { assetKeyHash, itemAssetKey } from '../lib/assetKey';
-import { thienLookFromKey } from '../lib/assetKeyParse';
+import { diaLookFromKey, thienLookFromKey } from '../lib/assetKeyParse';
 
 // Every base that was ever published, per slot (as slugs). A base may be ADDED here, but never removed or renamed:
 // saved games and the picture library refer to it for years. If this test fails after you renamed a base, restore the old name.
@@ -58,4 +58,10 @@ test('a Thiên look is read back from its index key, and only Thiên looks', () 
   assert.equal(thienLookFromKey(itemAssetKey({ slot: 'Robe', base: 'Đạo Bào', tier: 4, e: 'Thủy', v: 5 })), null, 'a shared look number');
   assert.equal(thienLookFromKey('item|1|Robe|khong_co|4|thuy|987654'), null, 'a base the game does not have');
   assert.equal(thienLookFromKey(null), null);
+});
+
+test('a Địa look is read back from its index key, and only Địa shared looks', () => {
+  assert.deepEqual(diaLookFromKey(itemAssetKey({ slot: 'Ring', base: 'Giới Chỉ', tier: 3, e: 'Kim', v: 4 })), { slot: 'Ring', base: 'Giới Chỉ', el: 'Kim', art: 4 });
+  assert.equal(diaLookFromKey(itemAssetKey({ slot: 'Ring', base: 'Giới Chỉ', tier: 3, e: 'Kim' })), null, 'the plain look has no number');
+  assert.equal(diaLookFromKey(itemAssetKey({ slot: 'Ring', base: 'Giới Chỉ', tier: 4, e: 'Kim', v: 4 })), null, 'another rarity');
 });

@@ -241,6 +241,10 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
   // only Tiên always gets its own.
   let rel: string | undefined;
   let art = tier >= 5 ? int(g, 'gen', 1000, 2 ** 30) : tier === 3 ? int(g, 'gen', 1, B.artVariantsDia) : undefined;
+  if (tier === 3) {   // only the looks of this kind and element that already have a picture (no extra draw: the rolled number picks among them)
+    const have = D.diaArtsFor(slot, base, el);
+    if (have.length && art !== undefined) art = have[(art - 1) % have.length];
+  }
   if (tier === 4) {   // one draw, only while such pictures exist: the name keeps its two proper words, the kind, element and picture are the existing one's, the numbers stay rolled above
     const pool = D.thienLooksFor(slot);
     if (pool.length) { const l = pool[int(g, 'gen', 0, pool.length - 1)]; name = name.slice(0, name.length - base.length) + l.base; base = l.base; el = l.el; art = l.art; }

@@ -453,6 +453,12 @@ test('picture looks by rarity: shared for Phàm to Huyền, a few for Địa, ex
   const dia = make(3, 300);
   assert.ok(dia.every((it) => it.art! >= 1 && it.art! <= B.artVariantsDia));
   assert.ok(new Set(dia.map((it) => it.art)).size > 1);
+  // Địa: once some looks have a picture, a new item only takes those (of its own kind and element), numbers still rolled per item
+  D.setDiaLooks([{ slot: 'Weapon', base: 'Trường Kiếm', el: 'Hỏa', art: 4 }, { slot: 'Weapon', base: 'Trường Kiếm', el: 'Hỏa', art: 6 }]);
+  try {
+    const d2 = make(3, 400).filter((it) => it.base === 'Trường Kiếm' && it.el === 'Hỏa');
+    assert.ok(d2.length > 0 && d2.every((it) => it.art === 4 || it.art === 6));
+  } finally { D.setDiaLooks([]); }
   // Thiên: with no picture drawn yet it asks for the plain look; with some, it takes one of them (same picture for many items, numbers of its own)
   assert.ok(make(4, 40).every((it) => it.art === undefined));
   D.setThienLooks([{ slot: 'Weapon', base: 'Trường Kiếm', el: 'Hỏa', art: 123456 }, { slot: 'Weapon', base: 'Trường Kiếm', el: 'Kim', art: 777777 }]);

@@ -171,7 +171,7 @@ export function rates(): Rates {
   const demo = typeof process !== 'undefined' && process.env && process.env.TUTIEN_RATES === 'demo';
   return demo
     ? { mutP: 1 / 60, mutS: 200, mutH: 600, itemS: 60, itemH: 150, boost: 6 }
-    : { mutP: 1 / 4096, mutS: 4096, mutH: 12288, itemS: 800, itemH: 1600, boost: 1 };
+    : { mutP: 1 / 5120, mutS: 5120, mutH: 15360, itemS: 800, itemH: 1600, boost: 1 };   // Dị Biến: 20% rarer than the original 1/4096 (base chance and both pity points scaled by 1.25)
 }
 
 // ---- cultivation tables (Appendix B.2): Base_Cultivation_Rate and Cultivation_Threshold by Level

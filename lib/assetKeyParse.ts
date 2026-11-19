@@ -55,12 +55,15 @@ export function itemKeyFromPrompt(prompt: unknown, seed: unknown, attempt: unkno
 
 // The look of a Thiên picture from its index key (item|1|Slot|base_slug|4|el_slug|v). Null for anything else: another rarity, a shared look (v below 1000),
 // or a slot, base or element this version of the game no longer has.
-export function thienLookFromKey(key: unknown): ThienLook | null {
+export function thienLookFromKey(key: unknown): ThienLook | null { return lookFromItemKey(key, '4', 1000, 2 ** 30); }
+// The same for a Địa picture (tier 3, shared look number 1..64).
+export function diaLookFromKey(key: unknown): ThienLook | null { return lookFromItemKey(key, '3', 1, 64); }
+function lookFromItemKey(key: unknown, tier: string, lo: number, hi: number): ThienLook | null {
   if (typeof key !== 'string') return null;
   const p = key.split('|');
-  if (p.length !== 7 || p[0] !== 'item' || p[1] !== String(ASSET_KEY_VERSION) || p[4] !== '4') return null;
+  if (p.length !== 7 || p[0] !== 'item' || p[1] !== String(ASSET_KEY_VERSION) || p[4] !== tier) return null;
   const slot = C.SLOTS.find((s) => s === p[2]), base = slot && C.basesOf(slot).find((b) => C.slug(b) === p[3]), el = C.EO.find((e) => C.slug(e) === p[5]);
   const art = Number(p[6]);
-  if (!slot || !base || !el || !Number.isInteger(art) || art < 1000 || art > 2 ** 30) return null;
+  if (!slot || !base || !el || !Number.isInteger(art) || art < lo || art > hi) return null;
   return { slot, base, el, art };
 }
