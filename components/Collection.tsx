@@ -3,14 +3,13 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as X from '@/lib/codex';
 import type { GS } from '@/lib/client/types';
-import { itemSpec, monsterSpec } from '@/lib/avatarSpec';
+import { monsterSpec } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import { useLookKeyPic } from '@/lib/useLookPic';
 import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
-import type { Item } from '@/lib/game';
 import { Icon } from './ds/Icon';
 import { ElIcon, SlotIcon } from './Icons';
-import { GenImg, Img } from './ui';
+import { Img } from './ui';
 
 // Sưu Tập, the three albums beside the Linh Thú Đồ Giám: Dị Biến (every look of every species), Pháp Khí (every kind and element) and the honours (Ấn) earned for them.
 // Everything here is read from the save (lib/codex.ts); nothing is drawn for the player: a picture is shown only for what the player owns.
@@ -60,15 +59,14 @@ export function MutAlbum({ st }: { st: GS }) {
 }
 
 // ---------------------------------------------------------------- Pháp Khí
-const TIER_SHORT = ['Phàm', 'Hoàng', 'Huyền', 'Địa', 'Thiên', 'Tiên'];
 function ItemCell({ slot, base, el, packed }: { slot: string; base: string; el: string; packed: number | undefined }) {
   if (packed === undefined) return <div className="icell empty" style={{ '--el': C.EL[el].color } as CSSProperties} title={`${base} · hệ ${el}: chưa có`}><ElIcon el={el} size={14} /></div>;
-  const { tier, art } = X.albumUnpack(packed);
-  const it = { slot, base, el, tier, art: art || undefined } as unknown as Item;
+  const { tier } = X.albumUnpack(packed);
+  // no picture: the element of the kind and a small check in the colour of the frame (the best rarity held)
   return (
-    <div className="icell own" style={{ '--rar': C.RCOLOR[tier], '--el': C.EL[el].color } as CSSProperties} title={`${base} · hệ ${el} · hạng ${C.RARITY[tier]}`}>
-      <GenImg spec={itemSpec(it)} pri={4} size="sm" fb={<ElIcon el={el} size={22} />} />
-      <em>{TIER_SHORT[tier]}</em>
+    <div className="icell own" style={{ '--rar': C.RCOLOR[tier], '--el': C.EL[el].color } as CSSProperties} title={`${base} · hệ ${el} · hạng cao nhất: ${C.RARITY[tier]}`}>
+      <ElIcon el={el} size={22} />
+      <i className="ick" aria-hidden="true"><Icon name="check" size={11} /></i>
     </div>
   );
 }
@@ -84,7 +82,7 @@ export function ItemAlbum({ st }: { st: GS }) {
       <div className="alHead">
         <div className="alBig"><b>{entries}</b><span>/ {X.ALBUM_TOTAL} kiểu pháp khí đã từng cầm</span></div>
         <div className="alTiers">{C.RARITY.map((r, i) => <span key={r} className="tierPill" style={{ '--rar': C.RCOLOR[i] } as CSSProperties} title={`Hạng cao nhất đã đạt của từng kiểu: ${r}`}><i />{r} <b>{tiers[i]}</b></span>)}</div>
-        <p>Mỗi ô là một loại pháp khí ở một hệ. Ô hiện ảnh của món hạng cao nhất ngươi từng có.</p>
+        <p>Mỗi ô là một loại pháp khí ở một hệ. Ô có dấu tích là loại ngươi từng cầm; màu khung và dấu tích là hạng cao nhất đã có.</p>
       </div>
       <div className="slotRow" role="tablist" aria-label="Loại pháp khí">
         {C.SLOTS.map((s) => (

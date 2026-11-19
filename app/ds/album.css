@@ -54,10 +54,9 @@
   .baseCells { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
   .icell { position: relative; overflow: hidden; aspect-ratio: 1; border-radius: var(--r-sm); border: 1px solid var(--line); display: grid; place-items: center; }
   .icell.empty { background: rgb(0 0 0 / 0.22); border-style: dashed; color: color-mix(in srgb, var(--el) 55%, transparent); opacity: 0.55; }
-  .icell.own { border-color: color-mix(in srgb, var(--rar) 70%, transparent); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rar) 22%, var(--ink-800)), var(--ink-850)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--rar) 22%, transparent) inset, 0 4px 14px -8px var(--rar); }
+  .icell.own { color: var(--el); border-color: color-mix(in srgb, var(--rar) 70%, transparent); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rar) 22%, var(--ink-800)), var(--ink-850)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--rar) 22%, transparent) inset, 0 4px 14px -8px var(--rar); }
   .icell.own::after { content: ''; position: absolute; inset: auto 0 0; height: 3px; background: var(--el); opacity: 0.85; }
-  .icell em { position: absolute; left: 2px; top: 2px; z-index: 2; padding: 0 4px; border-radius: 4px; font-style: normal; font-size: 0.5625rem; line-height: 1.5; font-weight: 700; color: var(--ink-950); background: var(--rar); }
-  .icell .fill { width: 100%; height: 100%; object-fit: cover; }
+  .icell .ick { position: absolute; right: 2px; top: 2px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; color: var(--ink-950); background: var(--rar); }
 
   @media (max-width: 640px) {
     .mgrid { grid-template-columns: repeat(3, 1fr); max-height: none; overflow: visible; }
