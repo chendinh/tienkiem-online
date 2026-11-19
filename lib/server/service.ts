@@ -12,7 +12,7 @@ import * as M from './market';
 import { PURE_INTENTS } from '../intents';
 import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
 import { dailyVersion, dailyPacks, relicSig } from '../daily';
-const dailyArtCount = () => dailyPacks().filter((p) => p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
+const dailyArtCount = () => dailyPacks().filter((p) => p.beast && p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
 
 const T0 = Date.UTC(2026, 0, 1);
 // The server clock. TUTIEN_TIME_SCALE speeds time up for development only (ignored in production).

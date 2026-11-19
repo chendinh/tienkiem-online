@@ -4,7 +4,7 @@ import * as C from '@/lib/content';
 import * as D from '@/lib/daily';
 import * as A from '@/lib/arts';
 import { BALANCE as B, cultThreshold } from '@/lib/balance';
-import { levelOf } from '@/lib/game';
+import { levelOf, SP } from '@/lib/game';
 import type { GS } from '@/lib/client/types';
 import { ModalClose } from './ds/ModalClose';
 import { Icon } from './ds/Icon';
@@ -30,16 +30,21 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
   const q = st.quest && st.quest.day === day ? st.quest : null;
   const need = q ? q.need : B.questTame, n = q ? Math.min(q.n, need) : 0, done = !!q?.done;
   const reward = q?.done ? q.reward : Math.round(cultThreshold(levelOf(st.player)) * B.questCultPct);
-  const beast = pack?.beast;
+  const beast = pack?.beast;   // the creature that is NEW today (none when the daily job had no picture credit)
+  const qsp = q ? SP(q.sp) : beast || null;   // the creature of today's quest: the new one, or an old one
+  const old = !!q?.old;
+  const isNew = !old && !!beast && !!qsp && qsp.id === beast.id;
   const zones = beast ? beast.zones.map((id) => C.ZONE(id).name) : [];
+  const qZones = qsp ? C.ZONES.filter((z) => (z.species[qsp.id] || 0) > 0 && z.minLevel <= levelOf(st.player)).map((z) => z.name) : [];
   const pct = Math.round((n / need) * 100);
   const claimedCount = done ? 1 : 0, total = 1;
 
-  const beastPic = beast ? (
-    <button type="button" className="dqPic" title="Bấm để xem ảnh lớn" onClick={() => beast.art && zoom({ kind: 'prop', src: beast.art, name: beast.name, text: beast.legend })}>
-      {beast.art ? <Img src={beast.art} className="fill" fb={<ElIcon el={beast.el[0]} size={44} />} /> : <ElIcon el={beast.el[0]} size={44} />}
+  const pic = (sp: { id: string; name: string; el: string[] }, art?: string, text?: string) => (
+    <button type="button" className="dqPic" title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'prop', src: art || C.monsterArt(sp.id), name: sp.name, text })}>
+      <Img src={art || C.monsterArt(sp.id, false, true)} className="fill" fb={<ElIcon el={sp.el[0]} size={44} />} />
     </button>
-  ) : null;
+  );
+  const beastPic = beast ? pic(beast, beast.art, beast.legend) : null;
 
   return (
     <div className="modal dqModal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Nhiệm vụ và tin tức">
@@ -48,7 +53,7 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
         <header className="dqHead">
           <div><h2>Nhiệm Vụ &amp; Tin Tức</h2><small>Ngày {day.split('-').reverse().join('/')} · làm mới sau {dur(nextDay(now) - now)}</small></div>
           <Seg<Tab> label="Mục" value={tab} onChange={setTab} options={[
-            { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Nhiệm vụ{!done && pack ? ' (1)' : ''}</span></>, title: 'Việc cần làm hôm nay' },
+            { v: 'quest' as const, label: <><Icon name="scroll" size={15} /><span>Nhiệm vụ{!done && qsp ? ' (1)' : ''}</span></>, title: 'Việc cần làm hôm nay' },
             { v: 'news' as const, label: <><Icon name="luck" size={15} /><span>Tin tức</span></>, title: 'Yêu thú mới, sự kiện, linh khí từng vùng' },
           ]} />
         </header>
@@ -56,16 +61,16 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
         {tab === 'quest' && (
           <div className="dqBody">
             <div className="dqSum"><span><b>{claimedCount}/{total}</b> nhiệm vụ hoàn thành hôm nay</span><i style={{ '--p': `${claimedCount / total * 100}%` } as CSSProperties} /></div>
-            {!pack && <div className="empty">Thiên Đạo chưa ban nhiệm vụ hôm nay. Quay lại sau ít phút.</div>}
-            {pack && beast && (
+            {!qsp && <div className="empty">Thiên Đạo chưa ban nhiệm vụ hôm nay. Quay lại sau ít phút.</div>}
+            {qsp && (
               <article className={`dqCard ${done ? 'done' : ''}`}>
                 <div className="dqTop">
-                  {beastPic}
+                  {isNew && beast ? beastPic : pic(qsp)}
                   <div className="dqInfo">
-                    <small className="dqKicker">Nhiệm vụ ngày · Yêu thú mới</small>
-                    <h3>Thu phục {need} con {beast.name}</h3>
-                    <div className="chips"><ElChip el={beast.el[0]} />{beast.el.slice(1).map((e) => <ElChip key={e} el={e} />)}</div>
-                    {beast.legend && <p className="dqLegend">{beast.legend}</p>}
+                    <small className="dqKicker">{isNew ? 'Nhiệm vụ ngày · Yêu thú mới' : 'Nhiệm vụ ngày · Linh thú quen'}</small>
+                    <h3>Thu phục {need} con {qsp.name}</h3>
+                    <div className="chips"><ElChip el={qsp.el[0]} />{qsp.el.slice(1).map((e) => <ElChip key={e} el={e} />)}</div>
+                    {isNew && beast && beast.legend && <p className="dqLegend">{beast.legend}</p>}
                   </div>
                 </div>
                 <div className="dqProg" role="progressbar" aria-valuemin={0} aria-valuemax={need} aria-valuenow={n} aria-label="Tiến độ">
@@ -75,14 +80,14 @@ export function DailyModal({ st, onClose, onLore }: { st: GS; onClose: () => voi
                 <div className={`dqReward ${done ? 'got' : ''}`}>
                   <Icon name="lotus" size={22} />
                   <div>
-                    <b>{done ? `Đã nhận +${fmt(reward)} Tu Vi` : `Thưởng: +${fmt(reward)} Tu Vi`}</b>
-                    <small>{done ? 'Phần thưởng đã cộng vào tu vi của ngươi.' : `Bằng ${Math.round(B.questCultPct * 100)}% Tu Vi cần cho cấp hiện tại (Lv${levelOf(st.player)}), cấp càng cao thưởng càng lớn. Nhận ngay khi thu phục con cuối.`}</small>
+                    <b>{done ? `Đã nhận +${fmt(reward)} Tu Vi` : `Thưởng: +${fmt(reward)} Tu Vi`}{old ? (done ? ' và 1 pháp khí hạng Địa' : ' và 1 pháp khí hạng Địa') : ''}</b>
+                    <small>{done ? `Phần thưởng đã cộng vào tu vi của ngươi${old && q?.gift ? `, kèm ${q.gift}` : ''}.` : `Bằng ${Math.round(B.questCultPct * 100)}% Tu Vi cần cho cấp hiện tại (Lv${levelOf(st.player)}), cấp càng cao thưởng càng lớn.${old ? ` Kèm một pháp khí hạng Địa cùng cấp với ngươi (Lv${levelOf(st.player)}), chỉ số ngẫu nhiên.` : ''} Nhận ngay khi thu phục con cuối.`}</small>
                   </div>
                 </div>
                 {!done && (
                   <ul className="dqTips">
-                    <li><Icon name="paw" size={14} /> Gặp ở: <b>{zones.join(', ') || 'mọi vùng'}</b>{D.dailyWeights(st.zone, now).some((w) => w > 0) && beast.zones.includes(st.zone) ? ' (vùng ngươi đang lịch luyện có loài này)' : ''}.</li>
-                    <li><Icon name="stone" size={14} /> Hôm nay loài này xuất hiện nhiều gấp {D.TODAY_BOOST} lần. Cần Khế Ước Phù để thu phục.</li>
+                    <li><Icon name="paw" size={14} /> Gặp ở: <b>{(isNew ? zones : qZones).join(', ') || 'mọi vùng'}</b>{(isNew && beast ? beast.zones.includes(st.zone) : (qsp && (C.ZONES.find((z) => z.id === st.zone)?.species[qsp.id] || 0) > 0)) ? ' (vùng ngươi đang lịch luyện có loài này)' : ''}.</li>
+                    <li><Icon name="stone" size={14} /> {isNew ? `Hôm nay loài này xuất hiện nhiều gấp ${D.TODAY_BOOST} lần. ` : ''}Cần Khế Ước Phù để thu phục.</li>
                     <li><Icon name="gear" size={14} /> Bật “Tự thu phục” trong Cài đặt để máy tự thử khi gặp.</li>
                   </ul>
                 )}

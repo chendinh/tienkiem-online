@@ -1,5 +1,6 @@
 // Daily content: one "pack" per UTC day, written by the daily job (lib/server/dailygen.ts) and kept in the database.
-// A pack holds a new creature, a new kind of weapon, a chapter of the world chronicle and short journey beats for every zone.
+// A pack holds a chapter of the world chronicle and short journey beats for every zone, and (only when the day's picture credit allowed it) a new creature
+// and a new kind of weapon. A story-only pack has neither: the daily quest then uses an old creature (see questFor in lib/game.ts).
 // Next to the packs lives the shared relic pool: Thiên and Tiên items that players dissolved, whose name and picture others can find again.
 // This file is shared by the engine and the browser and has no server imports. The server fills the registry before it settles a save
 // (lib/server/dailystore.ts); the browser fills it from /api/daily. With an empty registry the engine behaves exactly as before.
@@ -12,7 +13,7 @@ export interface DailyPack {
   day: string;                                // YYYY-MM-DD (UTC)
   title: string; chronicle: string;           // the chapter of the chronicle
   tales: Record<string, string[]>;            // zone id -> journey beats shown in the feed
-  beast: DailySpecies;
+  beast?: DailySpecies;
   weapon?: DailyWeapon;
 }
 // A dissolved Thiên or Tiên item. Only its look is kept (never its numbers): whoever finds it again gets freshly rolled stats.
@@ -36,7 +37,7 @@ const freshWeight = (age: number) => (age < 0 ? 0 : age === 0 ? TODAY_BOOST : ag
 let REG: DailyPack[] = [];
 let RELICS: Relic[] = [];
 export const dailyPacks = () => REG;
-export const dailySpecies = () => REG.map((p) => p.beast);
+export const dailySpecies = (): DailySpecies[] => REG.flatMap((p) => (p.beast ? [p.beast] : []));
 export const dailyVersion = () => (REG.length ? REG[REG.length - 1].day : '');
 export const packOn = (day: string) => REG.find((p) => p.day === day) || null;
 
@@ -45,13 +46,13 @@ export function setDaily(packs: DailyPack[]) {
   const base = new Set(C.SPECIES.map((s) => s.id));
   const staticWeapons = new Set(C.SLOT_BASE.Weapon);
   for (const p of REG) {
-    delete C.SPECIES_EN[p.beast.id]; delete C.DAILY_ART[p.beast.id];
+    if (p.beast) { delete C.SPECIES_EN[p.beast.id]; delete C.DAILY_ART[p.beast.id]; }
     if (p.weapon) { delete C.BASE_EN[p.weapon.base]; delete C.PLACE_WEAPON[p.weapon.base]; delete C.WEAPON_CLASS[p.weapon.base]; }
   }
   C.EXTRA_BASE.Weapon = [];
-  REG = [...packs].filter((p) => p && p.beast && !base.has(p.beast.id)).sort((a, b) => (a.day < b.day ? -1 : 1));
+  REG = [...packs].filter((p) => p && typeof p.day === 'string' && !(p.beast && base.has(p.beast.id))).sort((a, b) => (a.day < b.day ? -1 : 1));
   for (const p of REG) {
-    C.SPECIES_EN[p.beast.id] = p.beast.en; if (p.beast.art) C.DAILY_ART[p.beast.id] = p.beast.art;
+    if (p.beast) { C.SPECIES_EN[p.beast.id] = p.beast.en; if (p.beast.art) C.DAILY_ART[p.beast.id] = p.beast.art; }
     const w = p.weapon;
     if (w && !staticWeapons.has(w.base) && !C.EXTRA_BASE.Weapon.includes(w.base)) {
       const twin = C.SLOT_BASE.Weapon.find((b) => C.WEAPON_CLASS[b] === w.cls);   // it is held like the static weapons of its môn
@@ -67,7 +68,7 @@ export const allSpecies = (): C.Species[] => (REG.length ? [...C.SPECIES, ...dai
 // so the weight list of an empty registry is the old list.
 export function dailyWeights(zoneId: string, ms: number): number[] {
   if (!REG.length) return [];
-  return REG.map((p) => (p.beast.zones.includes(zoneId) ? freshWeight(ageDays(p.day, ms)) : 0));
+  return REG.filter((p) => p.beast).map((p) => (p.beast!.zones.includes(zoneId) ? freshWeight(ageDays(p.day, ms)) : 0));   // same order as dailySpecies()
 }
 
 // New weapon bases that can drop at rarity `tier` at time `ms`, with their weights (a static weapon weighs 1).
@@ -77,6 +78,13 @@ export function weaponPool(tier: number, ms: number): { base: string; w: number 
   for (const p of REG) { const w = p.weapon; if (w && w.tiers.includes(tier) && C.EXTRA_BASE.Weapon.includes(w.base)) { const x = freshWeight(ageDays(p.day, ms)); if (x > 0) out.push({ base: w.base, w: x }); } }
   return out;
 }
+
+// The Thiên pictures that already exist (filled by the server from the images table, lib/server/dailystore.ts). A new Thiên item takes the look of one of them, so the same
+// picture is shared by every player and can be met twice; its numbers are still its own. Nothing new is drawn for Thiên (see request() in lib/imagegen.ts).
+export interface ThienLook { slot: string; base: string; el: string; art: number }
+let THIEN: ThienLook[] = [];
+export const setThienLooks = (list: ThienLook[]) => { THIEN = list; };
+export const thienLooksFor = (slot: string): ThienLook[] => THIEN.filter((r) => r.slot === slot && C.EO.includes(r.el) && C.basesOf(slot).includes(r.base));
 
 export const setRelics = (list: Relic[]) => { RELICS = list; };
 export const relicsFor = (tier: number, slot: string): Relic[] => (RELICS.length ? RELICS.filter((r) => r.tier === tier && r.slot === slot && (slot !== 'Weapon' || C.basesOf(slot).includes(r.base))) : []);
@@ -95,12 +103,12 @@ export const newsAt = (ms: number): { day: string; text: string } | null => {
   return p ? { day: p.day, text: `Nhật Ký Thiên Hạ, ngày ${p.day.split('-').reverse().join('/')}: ${p.title}. Mở Thiên Thư để đọc.` } : null;
 };
 
-export const legendOf = (id: string) => REG.find((p) => p.beast.id === id)?.beast.legend || '';
+export const legendOf = (id: string) => REG.find((p) => p.beast && p.beast.id === id)?.beast?.legend || '';
 
-// Marks shown on an item: `isNew` while its weapon kind is still within its first FEATURE_DAYS days, `exclusive` for every Thiên or Tiên item of any slot
-// (each of them has a picture of its own). Read only from the registry and the item, so it needs no saved state.
+// Marks shown on an item: `isNew` while its weapon kind is still within its first FEATURE_DAYS days, `exclusive` for every Tiên item of any slot
+// (each of them has a picture of its own; Thiên items are no longer exclusive: their pictures are shared). Read only from the registry and the item, so it needs no saved state.
 export function itemMarks(it: { slot: string; base: string; tier: number }, nowMs = Date.now()): { isNew: boolean; exclusive: boolean } {
-  const exclusive = it.tier >= 4;
+  const exclusive = it.tier >= 5;
   if (it.slot !== 'Weapon') return { isNew: false, exclusive };
   const p = REG.find((x) => x.weapon && x.weapon.base === it.base);
   return { isNew: !!p && ageDays(p.day, nowMs) < FEATURE_DAYS, exclusive };

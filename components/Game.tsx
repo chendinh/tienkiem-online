@@ -114,6 +114,9 @@ function Intro({ onPick, onCredits }: { onPick: (g?: 'f' | 'm') => void; onCredi
   );
 }
 
+// Temporarily hidden to cut picture costs (demo phase over): the button that redraws the character in the worn equipment. The base picture and the standing pose are still
+// drawn automatically for a new account. Set to true to bring the button (and the "Trang bị đã đổi" tag) back.
+const OUTFIT_DRAW = false;
 const WHY: Record<string, string> = { limited: 'Đã chạm giới hạn ảnh AI (ngân sách hoặc số lượt mỗi giờ).', failed: 'Vẽ không thành. Thử lại sau ít phút.', disabled: 'Ảnh AI đang tắt.' };
 
 // Portrait, for looking at only (the equipment slots live in the Trang bị tab, not on the picture). The base picture (plain robe, empty hands)
@@ -239,7 +242,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
           : <div className="heroPh"><Logo size={72} /><span>{!on ? offWhy : baseWhy || 'AI đang vẽ nhân vật…'}</span>{on && base.status === 'failed' && <button className="btn" onClick={() => setBaseTry((n) => n + 1)}>Thử lại</button>}</div>}
         {drawing && <div className="aiTag busy">{restyle ? (restyle.stage === 'base' ? 'AI đang vẽ lại nhân vật (ảnh gốc mới)…' : 'AI đang vẽ tư thế đứng…') : posing || roll ? 'AI đang vẽ tư thế đứng…' : 'AI đang vẽ theo trang bị…'}</div>}
         {!drawing && !hasPic && on && base.status === 'pending' && <div className="aiTag busy">AI đang vẽ nhân vật…</div>}
-        {!drawing && hasPic && <div className={`aiTag ${changed ? 'stale' : ''}`}>{changed ? '✦ Trang bị đã đổi' : '✦ Khớp trang bị'}</div>}
+        {OUTFIT_DRAW && !drawing && hasPic && <div className={`aiTag ${changed ? 'stale' : ''}`}>{changed ? '✦ Trang bị đã đổi' : '✦ Khớp trang bị'}</div>}
         <div className="sparkle">{tier >= 3 && Array.from({ length: 12 }, (_, i) => <b key={i} style={{ left: `${(i * 37) % 90 + 5}%`, animationDelay: `${(i % 6) * 0.8}s` }} />)}</div>
       </div>
       {msg && <div className="hint warn">{msg}</div>}
@@ -256,7 +259,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
         </div>
       )}
       <div className="rerow">
-        <button className={`btn ${changed && canDraw ? 'hot' : ''}`} disabled={!canDraw} onClick={draw} title={tip}><Icon name="brush" size={16} /> {label}</button>
+        {OUTFIT_DRAW && <button className={`btn ${changed && canDraw ? 'hot' : ''}`} disabled={!canDraw} onClick={draw} title={tip}><Icon name="brush" size={16} /> {label}</button>}
         <button className="btn" onClick={onBio}><Icon name="book" size={16} /> Tiểu sử</button>
       </div>
     </>
@@ -760,11 +763,12 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             <Tabs<'bio' | 'story' | 'world' | 'daily'> label="Thiên Thư" value={codex} onChange={setCodex} options={[{ v: 'bio' as const, label: 'Tiểu sử' }, { v: 'story' as const, label: 'Cốt truyện' }, { v: 'daily' as const, label: 'Nhật ký thiên hạ' }, { v: 'world' as const, label: 'Thế giới' }]} />
             {codex === 'daily' && (
               <div>
-                <h2>Nhật Ký Thiên Hạ</h2><p className="tag">Mỗi ngày một chương mới, mỗi ngày một loài yêu thú mới.</p>
+                <h2>Nhật Ký Thiên Hạ</h2><p className="tag">Mỗi ngày một chương mới; có ngày kèm một loài yêu thú mới.</p>
                 {D.dailyPacks().filter((x) => x.chronicle).slice().reverse().slice(0, 14).map((x) => (
                   <div key={x.day} className="chap">
                     <h3>{x.day.split('-').reverse().join('/')} · {x.title}</h3>
                     {x.chronicle.split(/\n\s*\n/).map((t, i) => <p key={i}>{t}</p>)}
+                    {x.beast && (
                     <div className="dailyNew">
                       <div className="dailyArt">{x.beast.art ? <Img src={x.beast.art} className="fill" fb={<ElIcon el={x.beast.el[0]} size={40} />} /> : <ElIcon el={x.beast.el[0]} size={40} />}</div>
                       <div className="dailyTxt">
@@ -773,6 +777,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
                         {!x.beast.art && <small className="wait">Ảnh đang được vẽ, quay lại sau ít phút.</small>}
                       </div>
                     </div>
+                    )}
                     {x.weapon && (
                       <div className="dailyNew">
                         <div className="dailyArt"><GenImg spec={{ kind: 'item', slot: 'Weapon', base: x.weapon.base, tier: Math.min(1, ...x.weapon.tiers), e: '' }} pri={3} fb={<Icon name="atk" size={32} />} /></div>

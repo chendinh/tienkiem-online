@@ -277,7 +277,7 @@ export async function buildReport(now = Date.now()): Promise<Report> {
       species: [...bt.sp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([id, n]) => ({ id, name: G.SP(id).name, n })),
     },
     quest: {
-      day: today, creature: pack ? pack.beast.name : null, need: B.questTame, activeToday: q.activeToday, done: q.done, inProgress: q.inProgress,
+      day: today, creature: pack && pack.beast ? pack.beast.name : null, need: B.questTame, activeToday: q.activeToday, done: q.done, inProgress: q.inProgress,
       notStarted: Math.max(0, q.activeToday - q.done - q.inProgress), everDone: q.everDone, byDay: d14.map((day) => ({ day, done: q.byDay.get(day) || 0 })),
     },
   };

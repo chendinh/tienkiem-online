@@ -5,6 +5,7 @@ import * as C from './content';
 import { ask, llmEnabled, parseJson, imageBudget, addImageCost } from './llm';
 import { hasImage, getImage, putImage, claimJob, releaseJobs } from './server/images';
 import { keyOfSpec, indexImage, lookupKey, wantImage, dropWanted } from './server/imageindex';
+import { falBalance } from './server/falbalance';
 
 // Server-side image service: one art direction, a shared picture cache, a small priority queue, spend caps.
 // Subjects that must stay identical (outfit changes, mutated monsters) are drawn by EDITING a reference image.
@@ -393,6 +394,8 @@ export async function request(spec: any): Promise<Result> {
   if (S.inflight.has(id)) { const q = S.queue.find((x) => x.id === id); if (q) q.seen = Date.now(); return { status: 'pending' }; }
   const f = S.failed.get(id);
   if (f && Date.now() - f < 45 * 1000) return { status: 'failed' };
+  // Thiên pictures are shared by every player and no new ones are drawn until DRAW_THIEN_ART=1 is set (the look is noted in image_wanted for later)
+  if (spec && spec.kind === 'item' && Number(spec.tier) === 4 && process.env.DRAW_THIEN_ART !== '1') return limited();
   // pictures that already exist are always served; only NEW paid drawings stop while the provider is locked or the budget is used up
   if (S.locked && S.locked.until > Date.now()) return limited();
   if (P.paid) { const ib = await imageBudget(); if (ib.spentUsd >= ib.capUsd) return limited(); }
@@ -411,6 +414,18 @@ export async function request(spec: any): Promise<Result> {
   S.queue.push({ ...plan, id, t: Date.now(), seen: Date.now(), attempt: 0, refIds: refIds.length ? refIds : undefined, spec });
   pump();
   return { status: 'pending' };
+}
+// Is there credit to draw NEW pictures right now? The daily job asks before it invents a new creature and weapon: without credit it writes the story only (the daily quest then uses
+// an old creature). False when drawing is off or locked, when the spend cap leaves less than DAILY_MIN_USD, or (when fal's balance can be read, see FAL_BILLING_KEY) when the account is below it.
+export async function canDraw(): Promise<boolean> {
+  const P = provider();
+  if (!P.enabled || (S.locked && S.locked.until > Date.now())) return false;
+  if (!P.paid) return true;
+  const need = Number(process.env.DAILY_MIN_USD || 0.5);
+  const ib = await imageBudget();
+  if (ib.capUsd - ib.spentUsd < need) return false;
+  if (P.name === 'fal') { const b = await falBalance().catch(() => null); if (b && b.balance !== null && b.balance < need) return false; }
+  return true;
 }
 export async function info() {
   const P = provider();

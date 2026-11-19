@@ -1,4 +1,5 @@
-// The daily job: writes one pack per UTC day with Claude (a chronicle chapter, journey beats for every zone, a new creature) and draws the creature.
+// The daily job: writes one pack per UTC day with Claude (a chronicle chapter, journey beats for every zone and, only while there is credit to draw pictures, a new creature and weapon)
+// and draws the creature. Without picture credit the pack is the story only, and the daily quest uses an old creature (lib/game.ts, ensureQuest).
 // Everything that touches game balance (element, size, stats, rarity, zones) is chosen by this code from the day, never by the model.
 // The model only writes names and words, and its output is checked before it is saved.
 import { ask, llmEnabled, parseJson } from '../llm';
@@ -63,7 +64,7 @@ export function planFor(day: string): Plan {
 const loreText = () => { const l: any = lore; return `Thế giới: ${l.worldName}. ${l.tagline}\nMối họa: ${l.threat || ''}\nPhe phái: ${(l.factions || []).map((f: any) => `${f.name}: ${f.text}`).join(' | ')}`; };
 const system = () => `Bạn là người viết truyện tiên hiệp bằng tiếng Việt cho một game treo máy, mỗi ngày viết một chương mới của biên niên sử thế giới. Văn phong mơ mộng, giàu hình ảnh, dùng từ Hán-Việt vừa phải, dễ đọc. Chỉ viết bằng tiếng Việt với chữ Latinh: tuyệt đối không dùng chữ Hán, chữ Trung Quốc hay phiên âm tiếng Trung. Không bạo lực quá mức, không nội dung nhạy cảm, không lấy nhân vật hay tình tiết từ tác phẩm có bản quyền. Mỗi ngày một chủ đề khác, không lặp lại tình tiết các ngày trước.\n\nBỐI CẢNH CHUNG:\n${loreText()}\n\nChỉ trả về JSON hợp lệ, không thêm lời dẫn.`;
 
-function userPrompt(plan: Plan, past: DailyPack[], names: string[], weaponNames: string[]): string {
+function userPrompt(plan: Plan, past: DailyPack[], names: string[], weaponNames: string[], fresh: boolean): string {
   const zones = C.ZONES.map((z) => `- ${z.id}: ${z.name}. ${z.blurb}`).join('\n');
   const prev = past.slice(-5).map((p) => `${p.day}: ${p.title}`).join('\n') || '(chưa có chương nào)';
   const last = past.length ? past[past.length - 1].chronicle.slice(0, 500) : '';
@@ -75,20 +76,20 @@ ${last ? `Chương gần nhất bắt đầu như sau (hãy nối tiếp mạch 
 CÁC KHU VỰC (id: tên. mô tả):
 ${zones}
 
-LOÀI YÊU THÚ MỚI hôm nay (đã định sẵn, chỉ cần đặt tên và miêu tả): hệ ${plan.el}, độ hiếm ${plan.rarityVi}, dài khoảng ${plan.cm} cm, vai trò ${plan.archVi}. Xuất hiện ở: ${plan.zones.map((z) => C.ZONE(z).name).join(', ')}.
+${fresh ? `LOÀI YÊU THÚ MỚI hôm nay (đã định sẵn, chỉ cần đặt tên và miêu tả): hệ ${plan.el}, độ hiếm ${plan.rarityVi}, dài khoảng ${plan.cm} cm, vai trò ${plan.archVi}. Xuất hiện ở: ${plan.zones.map((z) => C.ZONE(z).name).join(', ')}.
 Tên các loài đã có, không được trùng: ${names.join(', ')}.
 
-PHÁP KHÍ MỚI hôm nay (một loại vũ khí mới, không phải món đồ riêng lẻ): thuộc môn "${plan.weaponCls}", cùng nhóm với ${C.SLOT_BASE.Weapon.filter((b) => C.WEAPON_CLASS[b] === plan.weaponCls).join(', ')} nhưng có hình dáng khác hẳn. Tên các pháp khí đã có, không được trùng: ${weaponNames.join(', ')}.
+PHÁP KHÍ MỚI hôm nay (một loại vũ khí mới, không phải món đồ riêng lẻ): thuộc môn "${plan.weaponCls}", cùng nhóm với ${C.SLOT_BASE.Weapon.filter((b) => C.WEAPON_CLASS[b] === plan.weaponCls).join(', ')} nhưng có hình dáng khác hẳn. Tên các pháp khí đã có, không được trùng: ${weaponNames.join(', ')}.` : 'Hôm nay KHÔNG có loài yêu thú mới hay pháp khí mới: chỉ viết truyện, không bịa ra loài hay pháp khí mới, không nhắc đến chúng.'}
 
 Trả về JSON đúng dạng:
 {"title":"tiêu đề chương, tối đa 60 ký tự",
-"chronicle":"ba đoạn cách nhau bằng hai dấu xuống dòng, tổng 150-220 từ, kể một sự kiện của ngày hôm nay trong thế giới, có nhắc đến loài yêu thú mới",
-"tales":{${C.ZONES.map((z) => `"${z.id}":["4 câu ngắn, mỗi câu 1-2 vế, tối đa 160 ký tự, tả cảnh hoặc chuyện nhỏ trên đường tu hành ở khu vực này hôm nay, có thể nhắc sự kiện trong chương"]`).join(',')}},
+"chronicle":"ba đoạn cách nhau bằng hai dấu xuống dòng, tổng 150-220 từ, kể một sự kiện của ngày hôm nay trong thế giới${fresh ? ', có nhắc đến loài yêu thú mới' : ''}",
+"tales":{${C.ZONES.map((z) => `"${z.id}":["4 câu ngắn, mỗi câu 1-2 vế, tối đa 160 ký tự, tả cảnh hoặc chuyện nhỏ trên đường tu hành ở khu vực này hôm nay, có thể nhắc sự kiện trong chương"]`).join(',')}}${fresh ? `,
 "beast":{"name":"tên Hán-Việt 2 đến 4 chữ, có hệ ${plan.el} trong ý nghĩa tên",
 "en":"mô tả hình dáng bằng TIẾNG ANH, 20-45 từ, một con vật duy nhất, kiểu thần thú phương Đông, nêu màu sắc, vật liệu cơ thể và hiệu ứng ${plan.el}, không có người, không có chữ",
 "legend":"truyền thuyết về loài này bằng tiếng Việt, 50-80 từ"},
 "weapon":{"name":"tên Hán-Việt 2 đến 3 chữ, là tên một loại pháp khí (như Trường Kiếm, Phất Trần), không phải tên riêng",
-"en":"mô tả bằng TIẾNG ANH đúng một món vũ khí kiểu Trung Hoa cổ, 15-40 từ, chỉ tả hình dạng, chất liệu và chi tiết; không có người, không có chữ, không có ánh sáng phép thuật"}}`;
+"en":"mô tả bằng TIẾNG ANH đúng một món vũ khí kiểu Trung Hoa cổ, 15-40 từ, chỉ tả hình dạng, chất liệu và chi tiết; không có người, không có chữ, không có ánh sáng phép thuật"}` : ''}}`;
 }
 
 function buildWeapon(plan: Plan, raw: any, weaponNames: Set<string>): DailyWeapon {
@@ -99,7 +100,7 @@ function buildWeapon(plan: Plan, raw: any, weaponNames: Set<string>): DailyWeapo
   if (!/^[A-Za-z0-9 ,.'\-]+$/.test(en)) throw new Error('weapon en');
   return { base, en, cls: plan.weaponCls, tiers: plan.weaponTiers, day: plan.day };
 }
-function build(plan: Plan, raw: any, names: Set<string>, weaponNames: Set<string>): DailyPack {
+function build(plan: Plan, raw: any, names: Set<string>, weaponNames: Set<string>, fresh: boolean): DailyPack {
   const title = TEXT(raw.title, 3, 80);
   const chronicle = TEXT(raw.chronicle, 400, 2400);
   const tales: Record<string, string[]> = {};
@@ -108,6 +109,7 @@ function build(plan: Plan, raw: any, names: Set<string>, weaponNames: Set<string
     if (!Array.isArray(a) || a.length < 3 || a.length > 6) throw new Error('tales ' + z.id);
     tales[z.id] = a.map((t: unknown) => TEXT(t, 12, 200));
   }
+  if (!fresh) return { day: plan.day, title, chronicle, tales };   // story only: no new creature, no new weapon
   const b = raw.beast || {};
   const name = TEXT(b.name, 3, 32);
   if (!/^[\p{L} ]+$/u.test(name) || names.has(name.toLowerCase())) throw new Error('name');
@@ -118,27 +120,30 @@ function build(plan: Plan, raw: any, names: Set<string>, weaponNames: Set<string
   return { day: plan.day, title, chronicle, tales, beast, weapon: buildWeapon(plan, raw.weapon, weaponNames) };
 }
 
-export type DailyResult = { day: string; story: 'created' | 'exists' | 'disabled' | 'failed'; art: 'ready' | 'pending' | 'skipped' | 'none'; error?: string };
+export type DailyResult = { day: string; story: 'created' | 'exists' | 'disabled' | 'failed'; art: 'ready' | 'pending' | 'skipped' | 'none'; fresh?: boolean; error?: string };
 
 // Idempotent: a second run on the same day only tries to finish the picture.
-export async function runDaily(day: string, o: { art?: boolean; force?: boolean } = {}): Promise<DailyResult> {
+// `fresh` forces (true) or forbids (false) a new creature and weapon; left out, the job decides by whether there is credit to draw them (canDraw in lib/imagegen.ts).
+export async function runDaily(day: string, o: { art?: boolean; force?: boolean; fresh?: boolean } = {}): Promise<DailyResult> {
   if (!DAY.test(day) || Number.isNaN(Date.parse(day))) throw new Error('bad day');
   const res: DailyResult = { day, story: 'exists', art: 'none' };
   await ensureDaily(true);
   if (!dailyPacks().some((p) => p.day === day) || o.force) {
     if (!llmEnabled()) return { ...res, story: 'disabled' };
+    const fresh = o.fresh ?? await (await import('../imagegen')).canDraw().catch(() => false);
+    res.fresh = fresh;
     try {
       await withLock(`daily:${day}`, async () => {
         const past = await loadPacks();
         if (past.some((p) => p.day === day) && !o.force) return;
         const plan = planFor(day);
-        const names = new Set([...C.SPECIES.map((s) => s.name), ...past.map((p) => p.beast.name)].map((n) => n.toLowerCase()));
+        const names = new Set([...C.SPECIES.map((s) => s.name), ...past.map((p) => p.beast?.name || '')].filter(Boolean).map((n) => n.toLowerCase()));
         const weaponNames = new Set([...C.SLOT_BASE.Weapon, ...past.map((p) => p.weapon?.base || '')].filter(Boolean).map((n) => n.toLowerCase()));
         let pack: DailyPack | null = null, err = '';
         for (let i = 0; i < 3 && !pack; i++) {
           try {
-            const text = await ask({ model: MODEL(), system: system(), content: userPrompt(plan, past.filter((p) => p.day < day), [...names], [...weaponNames]), maxTokens: 4500, tag: 'daily', maxPerHour: 8 });
-            pack = build(plan, parseJson(text), names, weaponNames);
+            const text = await ask({ model: MODEL(), system: system(), content: userPrompt(plan, past.filter((p) => p.day < day), [...names], [...weaponNames], fresh), maxTokens: fresh ? 4500 : 3500, tag: 'daily', maxPerHour: 8 });
+            pack = build(plan, parseJson(text), names, weaponNames, fresh);
           } catch (e: any) { err = String(e?.message || e); if (err === 'budget' || err === 'rate' || err === 'no-key') break; }
         }
         if (!pack) throw new Error(err || 'invalid');
@@ -163,11 +168,13 @@ async function drawArt(day: string): Promise<DailyResult['art']> {
     for (const t of pack.weapon.tiers.filter((x) => x <= 1)) { const r = await request({ kind: 'item', slot: 'Weapon', base: pack.weapon.base, tier: t, e: '', pri: 3 }); if (r.status === 'pending') waiting = true; }
     if (waiting) await idle(120000);
   }
-  if (pack.beast.art) return 'ready';
-  let r = await request({ kind: 'monster', sp: pack.beast.id });
-  if (r.status === 'pending') { await idle(240000); r = await request({ kind: 'monster', sp: pack.beast.id }); }
+  const beast = pack.beast;
+  if (!beast) return 'none';   // story-only day: nothing to draw
+  if (beast.art) return 'ready';
+  let r = await request({ kind: 'monster', sp: beast.id });
+  if (r.status === 'pending') { await idle(240000); r = await request({ kind: 'monster', sp: beast.id }); }
   if (r.status !== 'ready' || !r.url) return r.status === 'pending' ? 'pending' : 'skipped';
-  await savePack({ ...pack, beast: { ...pack.beast, art: r.url } }, true);
+  await savePack({ ...pack, beast: { ...beast, art: r.url } }, true);
   await ensureDaily(true);
   return 'ready';
 }

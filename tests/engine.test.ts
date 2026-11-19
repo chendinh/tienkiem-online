@@ -443,19 +443,29 @@ test('elite monsters are stronger and pay more', () => {
   assert.ok(B.eliteStatMult > 1 && B.eliteRewardMult > 1);
 });
 
-// ---------- item pictures: common items share one picture, Địa has a few looks, Thiên and Tiên always get their own
+// ---------- item pictures: common items share one picture, Địa has a few looks, Thiên reuses existing pictures, only Tiên always gets its own
 import { itemSpec, propSpec, placeSpec, equipSpec } from '../lib/avatarSpec';
 import { buildPlan } from '../lib/imageprompt';
-test('picture looks by rarity: shared for Phàm to Huyền, a few for Địa, unique for Thiên and Tiên', () => {
+test('picture looks by rarity: shared for Phàm to Huyền, a few for Địa, existing shared pictures for Thiên, unique for Tiên', () => {
   const st = fresh(90);
   const make = (tier: number, n: number) => Array.from({ length: n }, () => G.genItem(st, 5, tier, 'Weapon'));
   for (const it of [...make(0, 40), ...make(1, 40), ...make(2, 40)]) assert.equal(it.art, undefined);
   const dia = make(3, 300);
   assert.ok(dia.every((it) => it.art! >= 1 && it.art! <= B.artVariantsDia));
   assert.ok(new Set(dia.map((it) => it.art)).size > 1);
-  const top = [...make(4, 300), ...make(5, 100)];
+  // Thiên: with no picture drawn yet it asks for the plain look; with some, it takes one of them (same picture for many items, numbers of its own)
+  assert.ok(make(4, 40).every((it) => it.art === undefined));
+  D.setThienLooks([{ slot: 'Weapon', base: 'Trường Kiếm', el: 'Hỏa', art: 123456 }, { slot: 'Weapon', base: 'Trường Kiếm', el: 'Kim', art: 777777 }]);
+  try {
+    const thien = make(4, 80);
+    assert.ok(thien.every((it) => (it.art === 123456 && it.el === 'Hỏa') || (it.art === 777777 && it.el === 'Kim')));
+    assert.ok(thien.every((it) => it.base === 'Trường Kiếm' && it.name.endsWith(' Trường Kiếm')));
+    assert.ok(thien.filter((it) => it.art === 123456).length > 1, 'the same picture is shared');
+    assert.ok(new Set(thien.map((it) => it.power)).size > 1, 'numbers are rolled per item');
+  } finally { D.setThienLooks([]); }
+  const top = make(5, 100);
   assert.equal(new Set(top.map((it) => it.art)).size, top.length);
-  // two common items of the same kind ask for the very same picture; two Thiên items never do
+  // two common items of the same kind ask for the very same picture; two Tiên items never do
   const a = G.genItem(st, 5, 1, 'Weapon'); a.base = 'Trường Kiếm'; const b = { ...a, id: 999, impl: { ...a.impl, value: a.impl.value + 3 } };
   assert.equal(JSON.stringify(itemSpec(a)), JSON.stringify(itemSpec(b)));
   const t1 = { ...top[0] }, t2 = { ...top[0], art: top[1].art };
@@ -896,6 +906,35 @@ test('finishing the daily quest is counted for good (not only the latest 30 days
   old.questDays = Array.from({ length: 30 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`);
   assert.equal(G.questCount(old), 30);
   old.questDone = 41; assert.equal(G.questCount(old), 41);
+});
+
+test('daily quest on a day with no new creature: an old creature, Tu Vi, and one Địa item of the player\'s Level with its own numbers', () => {
+  D.setDaily([]);   // the daily job made nothing today (no picture credit)
+  const st = fresh(992); st.set.autoTame = true; st.set.tame.grade = 0; st.set.dissolveMax = -1;
+  for (const x of C.SPECIES) st.best[x.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 };
+  G.settle(st, 2);   // the quest is made on the first tick of the day
+  const q = st.quest!;
+  assert.ok(q && q.old === true && q.need === B.questTame && !q.done, 'an old creature quest');
+  assert.ok(C.SPECIES.some((x) => x.id === q.sp), 'it is a creature the game already has');
+  const sp = C.SPECIES.find((x) => x.id === q.sp)!;
+  assert.ok(C.ZONES.some((z) => z.minLevel <= G.levelOf(st.player) && (z.species[sp.id] || 0) > 0), 'one the player can meet in a zone it has opened');
+  const cp0 = st.player.cp, items0 = st.tot?.items[3] || 0;
+  for (let i = 0; i < 500 && !q.done; i++) { st.beasts = []; st.inv.taming = [5, 0, 0, 0]; G.tryTame(st, { ...beastP(i + 2, 10), sp: sp.id } as G.Beast, sp, []); }
+  assert.ok(q.done && q.reward > 0 && q.gift, 'finished, with a gift');
+  assert.ok(st.player.cp > cp0 || G.levelOf(st.player) > 1, 'Tu Vi was paid');
+  const all = [...st.bag, ...st.stash, ...Object.values(st.eq).filter((x): x is G.Item => !!x)];
+  const gift = all.find((x) => x.name === q.gift)!;
+  assert.ok(gift, 'the item is with the player');
+  assert.equal(gift.tier, 3); assert.equal(gift.level, G.levelOf(st.player));
+  assert.equal(st.tot!.items[3], items0 + 1, 'exactly one Địa item');
+  // the same quest is not made again the same day, and a new creature that arrives before any progress replaces an old quest
+  assert.equal(st.quest, q);
+  const day = new Date(T0).toISOString().slice(0, 10), fr = fresh(993);
+  G.settle(fr, 2);
+  const q0 = fr.quest!; assert.ok(q0.old && q0.n === 0);
+  const nsp = { ...C.SPECIES[1], id: 'dailytest2', day, zones: [], legend: '', en: 'Daily Test 2' } as any;
+  D.setDaily([{ day, title: 't', chronicle: 'c', tales: {}, beast: nsp }]);
+  try { G.settle(fr, 2); assert.equal(fr.quest!.sp, 'dailytest2'); assert.ok(!fr.quest!.old); } finally { D.setDaily([]); }
 });
 
 test('a Dị Biến is never sold or let go: not by hand, not by the quick sale', () => {

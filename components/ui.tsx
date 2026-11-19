@@ -176,7 +176,7 @@ export function ItemIcon({ it, equipped = false, size = 46, zoom = false }: { it
     <div className={`itIcon ${size === 'fit' ? 'fit' : ''} ${zoom ? 'zoomable' : ''}`} title={zoom ? 'Bấm để xem ảnh lớn' : undefined} onClick={zoom ? (e) => { e.stopPropagation(); open({ kind: 'item', it }); } : undefined} style={{ ...box, borderColor: C.RCOLOR[it.tier], boxShadow: `inset 0 0 ${8 + it.tier * 2}px ${col}77, 0 0 ${2 + it.tier * 3}px ${col}66` }}>
       <GenImg spec={itemSpec(it)} pri={equipped ? 1 : 3} size={size === 'fit' || size <= 72 ? 'sm' : undefined} fb={<ElIcon el={it.el} size={22} />} />
       {mk.isNew && <i className="itMark isNew" title="Loại pháp khí mới ra mắt"><Icon name="sparkle" size={11} /></i>}
-      {mk.exclusive && <i className={`itMark excl t${it.tier}`} title="Pháp khí Thiên/Tiên: mỗi món một dáng riêng"><Icon name="crown" size={11} /></i>}
+      {mk.exclusive && <i className={`itMark excl t${it.tier}`} title="Pháp khí Tiên: mỗi món một dáng riêng"><Icon name="crown" size={11} /></i>}
     </div>
   );
 }

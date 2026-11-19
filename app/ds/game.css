@@ -588,7 +588,7 @@
   .dailyTxt .wait { color: var(--gold-300); }
 }
 @layer game {
-  /* marks on an item picture: a new kind of weapon (top left) and an exclusive Thiên or Tiên weapon (bottom left) */
+  /* marks on an item picture: a new kind of weapon (top left) and an exclusive Tiên item (bottom left) */
   .itMark { position: absolute; left: 2px; z-index: 4; display: grid; place-items: center; min-width: 15px; height: 15px; padding: 0 2px; border-radius: 8px; font-style: normal; font-size: 9px; line-height: 1; font-weight: 700; letter-spacing: 0.02em; background: rgb(0 0 0 / 0.72); border: 1px solid currentColor; pointer-events: none; }
   .itMark.isNew { top: 2px; color: var(--jade-300); }
   .itMark.excl { bottom: 2px; color: var(--gold-300); box-shadow: 0 0 8px -1px currentColor; }

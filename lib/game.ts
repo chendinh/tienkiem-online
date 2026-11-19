@@ -51,7 +51,7 @@ export interface GameState {
   dailySeen?: string;   // the last day whose chronicle chapter was announced in the feed
   relicQ?: D.RelicOp[];   // what the server must do with the shared relic pool for this save: claim a relic that was found, give back one that was dissolved (never sent to the browser)
   relicDay?: { day: string; n: number };
-  quest?: DayQuest;   // today's quest: tame the day's new creature   // how many shared items this save found today
+  quest?: DayQuest;   // today's quest: tame the day's creature (new if there is one, otherwise an old one)
   tot?: { items: number[]; byDay?: Record<string, number[]> };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
   questDays?: string[];   // the days (UTC) the daily quest was finished, the latest 30
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
@@ -59,8 +59,9 @@ export interface GameState {
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
 export type Decision = { id: number; kind: 'tame'; beast: Beast; log: string[]; until?: number } | { id: number; kind: 'npc'; npc: NpcFoe } | { id: number; kind: 'break' };
-// Daily quest: tame `need` of the creature that is new today. The reward (a share of the Tu Vi of this Level) is paid once, when the last one is tamed.
-export interface DayQuest { day: string; sp: string; n: number; need: number; done: boolean; reward: number }
+// Daily quest: tame `need` of today's creature: the creature that is new today when the daily job made one, otherwise (`old`) a creature the player already knows how to meet.
+// The reward (a share of the Tu Vi of this Level) is paid once, when the last one is tamed; an `old` quest also gives one Địa item of the player's Level with random numbers (`gift` = its name).
+export interface DayQuest { day: string; sp: string; n: number; need: number; done: boolean; reward: number; old?: boolean; gift?: string }
 export interface Res { ok: boolean; code?: ErrCode; msg: string; data?: any }
 export type InvResult = Res;
 
@@ -236,11 +237,16 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
   }
   let power = implV * C.PW[im.stat];
   for (const a of affixes) power += a.value * C.PW[a.stat];
-  // Picture look: common items share one picture per kind; Địa has a few looks; Thiên and Tiên always get their own.
+  // Picture look: common items share one picture per kind; Địa has a few looks; Thiên takes the look of a Thiên picture that already exists (shared by all players);
+  // only Tiên always gets its own.
   let rel: string | undefined;
-  let art = tier >= 4 ? int(g, 'gen', 1000, 2 ** 30) : tier === 3 ? int(g, 'gen', 1, B.artVariantsDia) : undefined;
-  // A Thiên or Tiên item may be a dissolved one found again: it takes that item's name and picture (already drawn), never its numbers.
-  if (tier >= 4) {
+  let art = tier >= 5 ? int(g, 'gen', 1000, 2 ** 30) : tier === 3 ? int(g, 'gen', 1, B.artVariantsDia) : undefined;
+  if (tier === 4) {   // one draw, only while such pictures exist: the name keeps its two proper words, the kind, element and picture are the existing one's, the numbers stay rolled above
+    const pool = D.thienLooksFor(slot);
+    if (pool.length) { const l = pool[int(g, 'gen', 0, pool.length - 1)]; name = name.slice(0, name.length - base.length) + l.base; base = l.base; el = l.el; art = l.art; }
+  }
+  // A Tiên item may be a dissolved one found again: it takes that item's name and picture (already drawn), never its numbers.
+  if (tier >= 5) {
     const today = D.dayKey(st.clock), pool = D.relicsFor(tier, slot);
     if (pool.length && (!st.relicDay || st.relicDay.day !== today || st.relicDay.n < D.RELIC_PER_DAY) && next(g, 'gen') < D.RELIC_P) {
       const r = pool[int(g, 'gen', 0, pool.length - 1)];
@@ -282,7 +288,7 @@ export const dissolveValue = (it: Item) => B.dissolveValueByTier[it.tier] * it.l
 export const releaseValue = (b: Beast) => Math.floor(B.releaseBase * b.level * aptTotal(b) * B.releaseSizeFactors[b.cls] * (b.mut ? B.releaseMutationFactor : 1));
 // A dissolved Thiên or Tiên item goes to the shared relic pool (the server stores it): only its look, not its numbers.
 function shareRelic(st: GameState, it: Item) {
-  if (it.tier >= 4 && it.art) { const q = st.relicQ || (st.relicQ = []); if (q.length < 50) q.push({ op: 'give', tier: it.tier, slot: it.slot, base: it.base, el: it.el, art: it.art, name: it.name, ...(it.tien ? { tien: it.tien } : {}) }); }
+  if (it.tier >= 5 && it.art) { const q = st.relicQ || (st.relicQ = []); if (q.length < 50) q.push({ op: 'give', tier: it.tier, slot: it.slot, base: it.base, el: it.el, art: it.art, name: it.name, ...(it.tien ? { tien: it.tien } : {}) }); }
 }
 function dissolveItem(st: GameState, it: Item, rep?: Report, full = false) {
   shareRelic(st, it);
@@ -892,22 +898,46 @@ const missed = (m: Beast, why: 'pen' | 'tal', chips: string[], rep?: Report, log
 // The daily quest: today's new creature, tamed `questTame` times. Counts every successful taming (by hand or automatic) on the day the creature is new.
 // Times the daily quest was finished. Saves from before the counter existed count at least the days they still remember.
 export const questCount = (st: Pick<GameState, 'questDone' | 'questDays'>) => Math.max(st.questDone || 0, (st.questDays || []).length);
+// The old creature of the day for this player: one it can meet in a zone it has already opened, picked by a hash of the day and the save (no random numbers are drawn),
+// more likely for a creature that is common there. The pick is stored in the quest on the first tick of the day, so it never changes later.
+const hash32 = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+function questPick(st: GameState, day: string): string {
+  const L = levelOf(st.player), open = C.ZONES.filter((z) => z.minLevel <= L);
+  const cand = C.SPECIES.map((s) => ({ id: s.id, w: Math.max(0, ...open.map((z) => z.species[s.id] || 0)) })).filter((x) => x.w > 0);
+  if (!cand.length) return C.SPECIES[0].id;
+  let x = (hash32(`quest|${day}|${st.seed}`) / 4294967296) * cand.reduce((a, c) => a + c.w, 0);
+  for (const c of cand) { if (x < c.w) return c.id; x -= c.w; }
+  return cand[cand.length - 1].id;
+}
+// Today's quest, made on the first tick of the UTC day. When the daily job has not made a new creature (no picture credit, or it has not run yet) the quest uses an old one.
+// An old quest nobody has started is swapped for the new creature if that arrives later in the day.
+function ensureQuest(st: GameState): DayQuest {
+  const day = D.dayKey(st.clock), pack = D.packOn(day), q = st.quest;
+  if (q && q.day === day && !(q.old && q.n === 0 && pack && pack.beast)) return q;
+  const fresh = pack && pack.beast ? pack.beast.id : null;
+  return (st.quest = { day, sp: fresh || questPick(st, day), n: 0, need: B.questTame, done: false, reward: 0, ...(fresh ? {} : { old: true }) });
+}
 function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) {
-  const day = D.dayKey(st.clock), pack = D.packOn(day);
-  if (!pack || pack.beast.id !== spId) return;
-  if (!st.quest || st.quest.day !== day) st.quest = { day, sp: spId, n: 0, need: B.questTame, done: false, reward: 0 };
-  const q = st.quest;
+  const q = ensureQuest(st);
+  if (q.sp !== spId) return;
   q.n++;
   if (q.done || q.n < q.need) return;
+  const day = q.day;
   q.done = true;
   st.questDone = questCount(st) + 1;
   st.questDays = [...(st.questDays || []).filter((d) => d !== day), day].slice(-30);
   q.reward = Math.round(cultThreshold(levelOf(st.player)) * B.questCultPct);
   st.player.cp += q.reward; if (rep) rep.cp += q.reward;
   chips.push(`Nhiệm vụ ngày xong: +${q.reward} Tu Vi`);
-  feed(st, { kind: 'story', text: `Nhiệm vụ hôm nay hoàn thành: thu phục ${q.need} ${pack.beast.name}. Thưởng ${q.reward.toLocaleString('vi-VN')} Tu Vi.` });
-  if (rep) rep.highlights.push({ prio: 70, kind: 'quest', text: `Hoàn thành nhiệm vụ ngày: +${q.reward} Tu Vi` });
+  feed(st, { kind: 'story', text: `Nhiệm vụ hôm nay hoàn thành: thu phục ${q.need} ${SP(spId).name}. Thưởng ${q.reward.toLocaleString('vi-VN')} Tu Vi${q.old ? ' và một pháp khí hạng Địa' : ''}.` });
+  if (rep) rep.highlights.push({ prio: 70, kind: 'quest', text: `Hoàn thành nhiệm vụ ngày: +${q.reward} Tu Vi${q.old ? ', +1 pháp khí Địa' : ''}` });
   advance(st, rep);
+  if (q.old) {   // the gift is made after the Level may have risen, so it matches the Level the player has now
+    const it = genItem(st, levelOf(st.player), 3, undefined, 0, true);
+    q.gift = it.name;
+    chips.push(`Nhiệm vụ ngày: +1 pháp khí hạng Địa`);
+    giveItem(st, it, rep, 'Thưởng nhiệm vụ: ');
+  }
 }
 function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: string[], rep?: Report, log?: string[]): boolean {
   st.inv.taming[grade]--;
@@ -1076,6 +1106,7 @@ export function tick(st: GameState, rep?: Report) {
     const k = weighted(st.streams, 'enc', encounterWeights(zone, ph, dropEventAt(zone.id, startMs)));
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
+  ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
   if (!st.decision) {
     const news = D.newsAt(st.clock);

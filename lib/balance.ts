@@ -94,7 +94,7 @@ export const BALANCE = {
   luckRarityGain: 0.005,
   luckCap: 100,
   itemLevelSpread: 2,
-  artVariantsDia: 6,   // Địa items are drawn in this many different looks per kind; Thiên and Tiên items always get a picture of their own
+  artVariantsDia: 6,   // Địa items are drawn in this many different looks per kind; Thiên items reuse a picture that already exists (lib/daily.ts, thienLooksFor); only Tiên items always get a picture of their own
   dropRollCount: 1,
   // prototype balancing that Appendix B does not fix
   monsterLevelGrowth: 0.04,   // extra monster strength per Level

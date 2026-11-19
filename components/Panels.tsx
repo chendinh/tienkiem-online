@@ -272,9 +272,10 @@ function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
   const day = D.dayKey(st.now), pack = D.packOn(day), q = st.quest && st.quest.day === day ? st.quest : null;
   const ev = st.events.find((e) => e.active) || st.events[0], zone = st.zones.find((z) => z.id === st.zone);
   const tags: { key: string; cls: string; icon: string; text: string }[] = [];
-  if (pack) {
+  const qName = q ? SP(q.sp).name : pack?.beast?.name;
+  if (qName) {
     const n = q ? Math.min(q.n, q.need) : 0, need = q ? q.need : B.questTame;
-    tags.push({ key: 'q', cls: q?.done ? 'ok' : 'quest', icon: q?.done ? 'check' : 'scroll', text: q?.done ? `Nhiệm vụ ngày xong · +${fmt(q.reward)} Tu Vi` : `Nhiệm vụ: thu phục ${pack.beast.name} ${n}/${need}` });
+    tags.push({ key: 'q', cls: q?.done ? 'ok' : 'quest', icon: q?.done ? 'check' : 'scroll', text: q?.done ? `Nhiệm vụ ngày xong · +${fmt(q.reward)} Tu Vi${q.old ? ' · +1 pháp khí Địa' : ''}` : `Nhiệm vụ: thu phục ${qName} ${n}/${need}` });
   } else tags.push({ key: 'q', cls: 'done', icon: 'scroll', text: 'Nhiệm vụ: hôm nay chưa có' });
   if (ev) {
     const mins = Math.max(0, Math.round(((ev.active ? ev.endsAt : ev.startsAt) - st.now) / 60000));
@@ -283,7 +284,7 @@ function ReportTags({ st, onOpen }: { st: GS; onOpen: () => void }) {
   tags.push(zone?.phen
     ? { key: 'p', cls: 'phen', icon: 'lotus', text: `${zone.name}: ${zone.phen.name}${zone.phen.effects.length ? ` · ${zone.phen.effects.join(' · ')}` : ''}` }
     : { key: 'p', cls: 'done', icon: 'lotus', text: `${zone?.name || 'Vùng này'}: linh khí bình thường` });
-  const beast = pack?.beast;
+  const beast = pack?.beast;   // may be missing: a story-only day
   return (
     <div className="repNew">
       {beast && (

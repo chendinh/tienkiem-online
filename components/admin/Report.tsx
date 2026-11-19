@@ -284,7 +284,7 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
           </div>
         </Card>
 
-        <Card id="quest" title="Nhiệm vụ hằng ngày" sub={q.creature ? `hôm nay: thu phục ${q.need} ${q.creature}` : 'hôm nay chưa có linh thú mới'}>
+        <Card id="quest" title="Nhiệm vụ hằng ngày" sub={q.creature ? `hôm nay: thu phục ${q.need} ${q.creature}` : 'hôm nay không có linh thú mới: mỗi người làm với một linh thú cũ'}>
           <div className="rp-kpis">
             <Kpi label="Đã làm xong hôm nay" value={num(q.done)} tone="gold" sub={q.activeToday ? `${rate}% số người hoạt động` : undefined} />
             <Kpi label="Đang làm dở" value={num(q.inProgress)} />
