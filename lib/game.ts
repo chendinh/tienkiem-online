@@ -963,7 +963,10 @@ function questPick(st: GameState, day: string): string {
 // An old quest nobody has started is swapped for the new creature if that arrives later in the day.
 function ensureQuest(st: GameState): DayQuest {
   const day = D.dayKey(st.clock), pack = D.packOn(day), q = st.quest;
-  if (q && q.day === day && !(q.old && q.n === 0 && pack && pack.beast)) return q;
+  if (q && q.day === day && !(q.old && q.n === 0 && pack && pack.beast)) {
+    if (!q.done && q.need !== B.questTame) q.need = B.questTame;   // a change of the target (BALANCE.questTame) reaches today's quest too, unless it is already done
+    return q;
+  }
   const fresh = pack && pack.beast ? pack.beast.id : null;
   return (st.quest = { day, sp: fresh || questPick(st, day), n: 0, need: B.questTame, done: false, reward: 0, ...(fresh ? {} : { old: true }) });
 }

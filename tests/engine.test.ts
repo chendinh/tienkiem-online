@@ -1192,4 +1192,13 @@ test('daily tasks: a new weapon of the day adds the job once, even when it arriv
     assert.equal(st.tasks!.list.length, 4);
   } finally { D.setDaily([]); }
 });
+test('daily quest: a new target reaches today quest if it is not done yet', () => {
+  const st = fresh(14); G.tick(st);
+  st.quest!.need = 5; st.quest!.n = 2;
+  G.tick(st);
+  assert.equal(st.quest!.need, B.questTame); assert.equal(st.quest!.n, 2);
+  st.quest!.need = 5; st.quest!.done = true;
+  G.tick(st);
+  assert.equal(st.quest!.need, 5);   // a finished quest keeps what it was paid for
+});
 
