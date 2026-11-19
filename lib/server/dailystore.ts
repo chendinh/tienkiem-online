@@ -1,6 +1,8 @@
 // Daily packs in Postgres (table kv, key "daily:YYYY-MM-DD") and the in-memory registry the engine reads (lib/daily.ts).
 import { query } from './db';
 import { type DailyPack, type Relic, type ThienLook, relicSig, setDaily, setRelics, setThienLooks } from '../daily';
+import { ASSET_KEY_VERSION } from '../assetKey';
+import { thienLookFromKey } from '../assetKeyParse';
 
 const g = globalThis as any;
 const REFRESH_MS = 60_000;
@@ -16,21 +18,13 @@ export async function savePack(p: DailyPack, replace = false) {
   await query(sql, [`daily:${p.day}`, JSON.stringify(p)]);
 }
 
-// The Thiên pictures already drawn (any style), read from the images table without touching the picture data. Read at most every 30 minutes and capped, so it stays cheap on the database.
+// The Thiên pictures already drawn (any style), read from image_index (the stable lookup by look, also filled for old pictures by scripts/index-images.ts) without touching the picture data.
+// Read at most every 30 minutes and capped, so it stays cheap on the database.
 const THIEN_TTL = 30 * 60_000, THIEN_KEEP = 4000;
 export async function loadThienLooks(): Promise<ThienLook[]> {
-  const r = await query<{ spec: any }>(
-    `SELECT meta->'spec' AS spec FROM images WHERE kind = 'item' AND meta->'spec'->>'tier' = '4' AND (meta->'spec'->>'v') ~ '^[0-9]{1,10}$' ORDER BY created DESC LIMIT $1`, [THIEN_KEEP]);
-  const seen = new Set<string>(), out: ThienLook[] = [];
-  for (const x of r.rows) {
-    const s = x.spec;
-    if (!s || typeof s.slot !== 'string' || typeof s.base !== 'string' || typeof s.e !== 'string') continue;
-    const art = Number(s.v);
-    if (!Number.isInteger(art) || art < 1000) continue;   // a look number below 1000 is a shared look of a lower rarity
-    const k = `${s.slot}|${s.base}|${s.e}|${art}`;
-    if (!seen.has(k)) { seen.add(k); out.push({ slot: s.slot, base: s.base, el: s.e, art }); }
-  }
-  return out;
+  const r = await query<{ asset_key: string }>(
+    `SELECT DISTINCT asset_key FROM image_index WHERE starts_with(asset_key, $1) AND split_part(asset_key, '|', 5) = '4' AND split_part(asset_key, '|', 7) <> '0' LIMIT $2`, [`item|${ASSET_KEY_VERSION}|`, THIEN_KEEP]);
+  return r.rows.map((x) => thienLookFromKey(x.asset_key)).filter((x): x is ThienLook => !!x);
 }
 async function thienLooks(): Promise<ThienLook[]> {
   const now = Date.now(), c = g.__tutienThien as { at: number; list: ThienLook[] } | undefined;

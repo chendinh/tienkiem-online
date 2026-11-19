@@ -1,6 +1,7 @@
 import * as C from './content';
 import { itemObject } from './imageprompt';
-import type { ItemKeyInput } from './assetKey';
+import { ASSET_KEY_VERSION, type ItemKeyInput } from './assetKey';
+import type { ThienLook } from './daily';
 
 // Pictures drawn before the spec was stored in their meta only have a prompt and a seed. This turns them back into a stable key.
 // It reads only the parts of the prompt that identify the item (object, tier word, accent colour, one-of-a-kind marker), so rewordings of the
@@ -50,4 +51,16 @@ export function itemKeyFromPrompt(prompt: unknown, seed: unknown, attempt: unkno
     if (v < 1 || v > 2 ** 30 || (4242 + v * 7919) % 2147483647 !== base) return null;
   }
   return { slot: obj.slot, base: obj.base, tier, e, v };
+}
+
+// The look of a Thiên picture from its index key (item|1|Slot|base_slug|4|el_slug|v). Null for anything else: another rarity, a shared look (v below 1000),
+// or a slot, base or element this version of the game no longer has.
+export function thienLookFromKey(key: unknown): ThienLook | null {
+  if (typeof key !== 'string') return null;
+  const p = key.split('|');
+  if (p.length !== 7 || p[0] !== 'item' || p[1] !== String(ASSET_KEY_VERSION) || p[4] !== '4') return null;
+  const slot = C.SLOTS.find((s) => s === p[2]), base = slot && C.basesOf(slot).find((b) => C.slug(b) === p[3]), el = C.EO.find((e) => C.slug(e) === p[5]);
+  const art = Number(p[6]);
+  if (!slot || !base || !el || !Number.isInteger(art) || art < 1000 || art > 2 ** 30) return null;
+  return { slot, base, el, art };
 }

@@ -18,6 +18,28 @@ export async function lookupKey(key: string): Promise<{ id: string; ext: string;
     `SELECT i.id, i.ext, (i.meta->>'crop')::float8 AS crop, x.style FROM image_index x JOIN images i ON i.id = x.image_id WHERE x.asset_key = $1 ORDER BY x.style DESC, x.created DESC LIMIT 1`, [key])).rows[0];
   return r ? { id: r.id, ext: r.ext, crop: typeof r.crop === 'number' && isFinite(r.crop) ? r.crop : 0, style: r.style } : null;
 }
+// A look that has no picture and will not get one now (no credit, a locked provider, Thiên pictures frozen): the closest picture that already exists, so the item still shows
+// something. Same slot and base, never a Tiên picture (those are exclusive) and never more than two rarities away; the same rarity wins over the same element, then the newest style.
+// Remembered for ten minutes, also when there is none, so a list of icons does not ask the database again and again.
+export type Found = { id: string; ext: string; crop: number; style: number };
+const NEAR = new Map<string, { at: number; v: Found | null }>();
+export async function nearestLook(spec: any): Promise<Found | null> {
+  const key = keyOfSpec(spec);
+  const p = key ? key.split('|') : [];   // item | version | slot | base | tier | element | look
+  const tier = Number(p[4]);
+  if (p.length !== 7 || !(tier >= 0 && tier <= 4)) return null;
+  const ck = p.slice(0, 6).join('|'), now = Date.now(), c = NEAR.get(ck);
+  if (c && now - c.at < 600_000) return c.v;
+  const r = (await query<{ id: string; ext: string; crop: number | null; style: number }>(
+    `SELECT i.id, i.ext, (i.meta->>'crop')::float8 AS crop, x.style FROM image_index x JOIN images i ON i.id = x.image_id
+      WHERE starts_with(x.asset_key, $1) AND split_part(x.asset_key, '|', 5)::int <= 4 AND abs(split_part(x.asset_key, '|', 5)::int - $2::int) <= 2
+      ORDER BY abs(split_part(x.asset_key, '|', 5)::int - $2::int), (split_part(x.asset_key, '|', 6) = $3) DESC, x.style DESC, x.created DESC LIMIT 1`,
+    [p.slice(0, 4).join('|') + '|', tier, p[5]])).rows[0];
+  const v = r ? { id: r.id, ext: r.ext, crop: typeof r.crop === 'number' && isFinite(r.crop) ? r.crop : 0, style: r.style } : null;
+  if (NEAR.size > 2000) NEAR.clear();
+  NEAR.set(ck, { at: now, v });
+  return v;
+}
 export async function wantImage(key: string, spec: any) {
   try {
     const s: ItemKeyInput = { slot: spec.slot, base: spec.base || '', tier: Number(spec.tier) | 0, e: spec.e || '', v: Number(spec.v) | 0 };

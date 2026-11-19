@@ -4,7 +4,7 @@ import { buildPlan, itemObject, STYLE_VERSION, type Plan } from './imageprompt';
 import * as C from './content';
 import { ask, llmEnabled, parseJson, imageBudget, addImageCost } from './llm';
 import { hasImage, getImage, putImage, claimJob, releaseJobs } from './server/images';
-import { keyOfSpec, indexImage, lookupKey, wantImage, dropWanted } from './server/imageindex';
+import { keyOfSpec, indexImage, lookupKey, nearestLook, wantImage, dropWanted } from './server/imageindex';
 import { falBalance } from './server/falbalance';
 
 // Server-side image service: one art direction, a shared picture cache, a small priority queue, spend caps.
@@ -368,10 +368,12 @@ export async function request(spec: any): Promise<Result> {
   // A look that has no picture yet is noted in image_wanted and drawn later.
   const key = keyOfSpec(spec);
   const found = (f: { id: string; crop: number }): Result => ({ status: 'ready', url: `/api/img/${f.id}`, crop: f.crop });
-  const limited = async (): Promise<Result> => { if (key) await wantImage(key, spec); return { status: 'limited' }; };
+  // No picture for this exact look and none will be drawn now: show the closest one that exists (same kind of item, nearest rarity) instead of an empty tile.
+  const instead = async (status: Result['status']): Promise<Result> => { if (key) { const n = await nearestLook(spec).catch(() => null); if (n) return found(n); } return { status }; };
+  const limited = async (): Promise<Result> => { if (key) await wantImage(key, spec); return instead('limited'); };
   if (!P.enabled) {
     if (key) { const f = await lookupKey(key); if (f) return found(f); await wantImage(key, spec); }
-    return { status: 'disabled' };
+    return instead('disabled');
   }
   // An edit needs all its reference pictures first (only the fal provider can edit; others redraw from the full text).
   // Every reference is requested before answering, so the missing ones are drawn one after another without extra round trips.
@@ -393,7 +395,7 @@ export async function request(spec: any): Promise<Result> {
   if (key) { const f = await lookupKey(key); if (f) return found(f); }
   if (S.inflight.has(id)) { const q = S.queue.find((x) => x.id === id); if (q) q.seen = Date.now(); return { status: 'pending' }; }
   const f = S.failed.get(id);
-  if (f && Date.now() - f < 45 * 1000) return { status: 'failed' };
+  if (f && Date.now() - f < 45 * 1000) return instead('failed');
   // Thiên pictures are shared by every player and no new ones are drawn until DRAW_THIEN_ART=1 is set (the look is noted in image_wanted for later)
   if (spec && spec.kind === 'item' && Number(spec.tier) === 4 && process.env.DRAW_THIEN_ART !== '1') return limited();
   // pictures that already exist are always served; only NEW paid drawings stop while the provider is locked or the budget is used up

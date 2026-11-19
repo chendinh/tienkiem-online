@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../lib/content';
 import { assetKeyHash, itemAssetKey } from '../lib/assetKey';
+import { thienLookFromKey } from '../lib/assetKeyParse';
 
 // Every base that was ever published, per slot (as slugs). A base may be ADDED here, but never removed or renamed:
 // saved games and the picture library refer to it for years. If this test fails after you renamed a base, restore the old name.
@@ -47,4 +48,14 @@ test('asset key ignores everything but the stable fields', () => {
   const a = itemAssetKey({ slot: 'Weapon', base: 'Trường Kiếm', tier: 3, e: 'Mộc', v: 2 });
   assert.equal(a, itemAssetKey({ slot: 'Weapon', base: 'Trường Kiếm', tier: 3, e: 'Mộc', v: 2, ...({ prompt: 'x', seed: 9 } as object) }));
   assert.notEqual(a, itemAssetKey({ slot: 'Weapon', base: 'Trường Kiếm', tier: 3, e: 'Mộc', v: 3 }));
+});
+
+test('a Thiên look is read back from its index key, and only Thiên looks', () => {
+  assert.deepEqual(thienLookFromKey(itemAssetKey({ slot: 'Robe', base: 'Đạo Bào', tier: 4, e: 'Thủy', v: 987654 })), { slot: 'Robe', base: 'Đạo Bào', el: 'Thủy', art: 987654 });
+  assert.equal(thienLookFromKey(itemAssetKey({ slot: 'Robe', base: 'Đạo Bào', tier: 3, e: 'Thủy', v: 987654 })), null, 'another rarity');
+  assert.equal(thienLookFromKey(itemAssetKey({ slot: 'Robe', base: 'Đạo Bào', tier: 5, e: 'Thủy', v: 987654 })), null, 'Tiên is exclusive');
+  assert.equal(thienLookFromKey(itemAssetKey({ slot: 'Robe', base: 'Đạo Bào', tier: 4, e: 'Thủy' })), null, 'the plain look has no number');
+  assert.equal(thienLookFromKey(itemAssetKey({ slot: 'Robe', base: 'Đạo Bào', tier: 4, e: 'Thủy', v: 5 })), null, 'a shared look number');
+  assert.equal(thienLookFromKey('item|1|Robe|khong_co|4|thuy|987654'), null, 'a base the game does not have');
+  assert.equal(thienLookFromKey(null), null);
 });
