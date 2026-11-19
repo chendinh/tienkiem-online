@@ -14,7 +14,7 @@ export interface Bio { bio: string; motto: string; secret: string }
 // Portrait state: base = plain portrait, pose = the same portrait in a graceful standing pose (an edit of base, drawn right after it),
 // url = what is shown now, sig = equipment that image shows (see avatarSpec), art = art direction version (ART_V).
 export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number; at?: number }
-export interface Player { honors?: string[]; showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
+export interface Player { showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
 export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
@@ -295,7 +295,6 @@ function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: numbe
   const e = st.best[sp.id] || (st.best[sp.id] = { seen: 0, tamed: 0, maxCm: 0, minCm: 9999, mutSeen: 0, mutTamed: 0 });
   if (e.seen === 0 && rep) rep.newSpecies.push(sp.name);
   e.seen++; e.maxCm = Math.max(e.maxCm, cm); e.minCm = Math.min(e.minCm, cm); if (mut) e.mutSeen++;
-  if (e.seen === 1) honorCheck(st, rep);
   return { id: ++st.uid, sp: sp.id, name: sp.name, level, size, cm, cls: sizeClass(size), mut, elite: elite || undefined, pers, apt, skills, stats, power: stats[2] + stats[3] + stats[4] + Math.round(stats[0] / 8) };
 }
 
@@ -312,17 +311,8 @@ function dissolveItem(st: GameState, it: Item, rep?: Report, full = false) {
   earn(st, dissolveValue(it), 'dissolve', rep); if (rep) { rep.dissolved++; if (full) rep.dissolvedFull++; } }
 function feed(st: GameState, e: Omit<FeedEntry, 'id' | 'tick'>) { st.feed.unshift({ id: ++st.uid, tick: st.tick, ...e }); if (st.feed.length > B.feedSize) st.feed.length = B.feedSize; for (let i = B.feedLogKeep; i < st.feed.length; i++) if (st.feed[i].log) delete st.feed[i].log; }
 
-// The honours (Ấn) of the album: each is earned once and stays. Called when something that is counted has just happened.
-function honorCheck(st: GameState, rep?: Report) {
-  for (const h of X.newHonors(st)) {
-    (st.player.honors || (st.player.honors = [])).push(h.id);
-    const text = `Đạt ấn «${h.name}»: ${h.blurb}`;
-    feed(st, { kind: 'honor', text });
-    if (rep) rep.highlights.push({ prio: 50, kind: 'honor', text });
-  }
-}
 // An artifact that arrives from outside the journey (bought on the market) goes into the album too.
-export function noteAlbum(st: GameState, it: Item) { if (X.noteItem(st, it)) honorCheck(st); }
+export function noteAlbum(st: GameState, it: Item) { X.noteItem(st, it); }
 
 // Put an Item_Instance away: auto-dissolve, bag, stash, or the rule for when both are full (Requirement 21.2 to 21.5). `x` is never locked.
 function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissolved' | 'auto' {
@@ -345,7 +335,7 @@ function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissol
 }
 // A new Item_Instance is given to the player: auto-equip first, then the shelving rules.
 function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
-  if (X.noteItem(st, it)) honorCheck(st, rep);
+  X.noteItem(st, it);
   const L = levelOf(st.player), cur = st.eq[it.slot];
   const tot = st.tot || (st.tot = { items: [0, 0, 0, 0, 0, 0] }); tot.items[it.tier]++;
   // the same count per UTC day (the last 30 days), for the daily chart on the report page; the game itself never reads it
@@ -1030,7 +1020,6 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
   if (next(st.streams, 'tame') < pt) {
     const e = st.best[sp.id], first = e.tamed === 0;
     st.beasts.push(m); e.tamed++; if (m.mut) e.mutTamed++;
-    if (first || m.mut) honorCheck(st, rep);
     if (rep) { rep.tamed++; if (m.mut) rep.mutTamed++; if (first) rep.highlights.push({ prio: 10, kind: 'species', text: `Lần đầu thu phục ${sp.name}`, beast: m }); }
     chips.push(`Thu phục thành công (${Math.round(pt * 100)}%)`);
     questTamed(st, sp.id, chips, rep);
@@ -1177,7 +1166,7 @@ export function tick(st: GameState, rep?: Report) {
   const startMs = st.clock;
   st.clock += B.tickSec * 1000; st.tick++;
   if (rep) rep.ticks++;
-  if (!st.album) { X.backfill(st); honorCheck(st, rep); }
+  if (!st.album) X.backfill(st);
   const p = st.player, zone = C.ZONE(st.zone), ph = phenomenonAt(zone.id, startMs);
   const S0 = pstats(st), L0 = levelOf(p), mode0 = st.set.mode, demon = p.heartDemon > 0;
   if (rep && ph && !ph.id.startsWith('week:')) rep.phen[ph.name] = (rep.phen[ph.name] || 0) + 1;

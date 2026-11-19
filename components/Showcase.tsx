@@ -4,10 +4,18 @@ import * as C from '@/lib/content';
 import type { ShowView } from '@/lib/game';
 import { SP } from '@/lib/game';
 import { lookOf, variantName } from '@/lib/zoo';
-import { BeastArt, ElChip, ItemIcon } from './ui';
+import { useLookPic } from '@/lib/useLookPic';
+import { ElIcon } from './Icons';
+import { ElChip, Img, ItemIcon } from './ui';
+import type { Beast } from '@/lib/game';
 
 // Trưng Bày: the one item or beast a player hangs on the wall of their page, framed like a painting. Others see it when they open the profile from the ranking.
 // The frame is plain CSS (a gilded wooden frame, a dark mat, a hanging cord and a brass plaque), so nothing is drawn or loaded for it.
+// The creature's own picture fills the whole frame (the small cut-out of BeastArt, sized by its body and sitting low, left empty bands around it).
+function BeastPic({ b }: { b: Beast }) {
+  const look = useLookPic(b, false);
+  return <Img src={look || C.monsterArt(b.sp, b.mut, false)} className="fill" fb={<ElIcon el={SP(b.sp).el[0]} size={64} />} />;
+}
 export function ShowFrame({ show, size = 190 }: { show: ShowView; size?: number }) {
   if (!show) return null;
   const item = show.kind === 'item' ? show.item : null, beast = show.kind === 'beast' ? show.beast : null;
@@ -21,7 +29,7 @@ export function ShowFrame({ show, size = 190 }: { show: ShowView; size?: number 
         <div className="frMat">
           <div className="frPic">
             {item && <ItemIcon it={item} size="fit" zoom />}
-            {beast && <BeastArt b={beast} box={size} />}
+            {beast && <BeastPic b={beast} />}
           </div>
         </div>
       </div>

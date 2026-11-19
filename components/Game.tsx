@@ -31,7 +31,7 @@ import { LoadingNote } from './LoadingNote';
 import { BattleStage } from './BattleStage';
 import { Icon } from './ds/Icon';
 import { Seg, Tabs } from './ds/Seg';
-import { HonorBoard, ItemAlbum, MutAlbum } from './Collection';
+import { ItemAlbum, MutAlbum } from './Collection';
 import { Popover } from './ds/Popover';
 import { Atmosphere } from './fx/Atmosphere';
 import { QiWidget } from './fx/QiWidget';
@@ -74,7 +74,7 @@ function FeedRowInner({ e }: { e: FeedEntry }) {
       </div>
     );
   }
-  const icon: Record<string, string> = { story: 'book', level: 'rise', break: 'bolt', event: 'sparkle', resource: 'lotus', book: 'book', item: 'stone', equip: 'robe', system: 'taiji', honor: 'crown' };
+  const icon: Record<string, string> = { story: 'book', level: 'rise', break: 'bolt', event: 'sparkle', resource: 'lotus', book: 'book', item: 'stone', equip: 'robe', system: 'taiji' };
   return (
     <div className={`feedRow plain ${e.kind}`} style={e.item ? ({ '--rail': C.RCOLOR[e.item.tier] } as CSSProperties) : undefined}>
       <div className="ficon"><Icon name={icon[e.kind] || 'sparkle'} size={19} /></div>
@@ -333,7 +333,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
   const [note, setNote] = useState<{ t: string; ok: boolean } | null>(null);
   const zoomRef = useRef<((z: any) => void) | null>(null);
-  const [dexTab, setDexTab] = useState<'thu' | 'di' | 'khi' | 'an'>('thu');
+  const [dexTab, setDexTab] = useState<'thu' | 'di' | 'khi'>('thu');
   const bioBusy = useRef(false), bioFails = useRef(0), chBusy = useRef(false), chFail = useRef<Record<number, number>>({});
   const say = useCallback((t: string, ok = true) => { setNote({ t, ok }); setTimeout(() => setNote((n) => (n && n.t === t ? null : n)), 6000); }, []);
 
@@ -829,11 +829,10 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {st.decision && !rep && !stage && p.prologueSeen && <DecisionBar st={st} act={act} onOpenBreak={() => setBreakOpen(true)} />}
       {modal === 'arts' && <Window title="Thần Thông" icon="bolt" sub="Môn pháp theo pháp khí đang cầm, chiêu đã học, Bí Công và Công Pháp" wide onClose={() => setModal(null)}><ArtsPanel st={st} act={act} /></Window>}
       {modal === 'pen' && <Window title="Linh Thú" icon="paw" sub={`${st.beasts.length}/${st.caps.pen} Linh Thú ngươi đã thu phục`} wide onClose={() => setModal(null)}><PenPanel st={st} act={act} say={say} /></Window>}
-      {modal === 'dex' && <Window title="Sưu Tập" icon="book" sub={dexTab === 'thu' ? `Linh Thú Đồ Giám · đã gặp ${seenSpecies}/${speciesAll.length} loài` : dexTab === 'di' ? 'Album Dị Biến' : dexTab === 'khi' ? 'Album Pháp Khí' : 'Ấn danh hiệu sưu tập'} wide onClose={() => setModal(null)}>
-        <div className="dexTabs"><Seg<'thu' | 'di' | 'khi' | 'an'> label="Sưu Tập" value={dexTab} onChange={setDexTab} options={[{ v: 'thu', label: 'Linh Thú' }, { v: 'di', label: 'Dị Biến' }, { v: 'khi', label: 'Pháp Khí' }, { v: 'an', label: <>Ấn<b>{(p.honors || []).length}</b></> }]} /></div>
+      {modal === 'dex' && <Window title="Sưu Tập" icon="book" sub={dexTab === 'thu' ? `Linh Thú Đồ Giám · đã gặp ${seenSpecies}/${speciesAll.length} loài` : dexTab === 'di' ? 'Album Dị Biến' : 'Album Pháp Khí'} wide onClose={() => setModal(null)}>
+        <div className="dexTabs"><Seg<'thu' | 'di' | 'khi'> label="Sưu Tập" value={dexTab} onChange={setDexTab} options={[{ v: 'thu', label: 'Linh Thú' }, { v: 'di', label: 'Dị Biến' }, { v: 'khi', label: 'Pháp Khí' }]} /></div>
         {dexTab === 'di' && <MutAlbum st={st} />}
         {dexTab === 'khi' && <ItemAlbum st={st} />}
-        {dexTab === 'an' && <HonorBoard st={st} />}
         {dexTab === 'thu' && <>
             <div className="dexHead"><b>Linh Thú Đồ Giám</b> là sổ sưu tập các loài yêu thú ngươi đã gặp. Bấm vào một loài đã gặp để xem ảnh lớn, số liệu và truyền thuyết.</div>
             <div className="dexList">

@@ -13,7 +13,6 @@ import { Logo } from './Logo';
 import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
 import { LotusLoad } from './LoadingNote';
 import { ShowFrame } from './Showcase';
-import { HonorRow } from './Collection';
 
 type Board = 'cult' | 'power' | 'quest' | 'mut' | 'tien';
 interface Row { rank: number; pid: string; name: string; dao: string; g: 'f' | 'm'; realm: number; sub: number; level: number; power: number; el: string[]; me: boolean; t: number; qd?: number; mu?: number; av?: string }
@@ -22,7 +21,7 @@ interface Profile {
   pid: string; name: string; dao: string; title?: string; g: 'f' | 'm'; avatar?: string; realm: number; sub: number; level: number; linh: string[]; purity: number; pers: number; origin: number;
   stats: Record<string, number>; power: number; equipment: Record<string, Item | null>; party: Beast[]; mutants: Beast[]; beasts: number; species: number; tamedSpecies: number; kills: number; quests?: number;
   rank: { cult: number; power: number }; active: number;
-  showcase?: ShowView; honors?: string[]; album?: number;
+  showcase?: ShowView;
 }
 const ago = (t: number) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 2 ? 'đang chơi' : m < 60 ? `${m} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
 const STATS: [string, string, string][] = [['maxHp', 'Sinh Lực', 'hp'], ['atk', 'Công Kích', 'atk'], ['def', 'Phòng Ngự', 'def'], ['spd', 'Thân Pháp', 'spd'], ['crit', 'Bạo Kích %', 'crit'], ['critdmg', 'Bạo Thương %', 'crit'], ['luck', 'May Mắn', 'luck'], ['cult', 'Tu Luyện %', 'cult']];
@@ -206,7 +205,6 @@ function ProfileView({ pid, onBack, focusMut = false }: { pid: string; onBack: (
       </div>
 
       {p.showcase && <><h3>Trưng Bày</h3><ShowFrame show={p.showcase} /></>}
-      {p.honors && p.honors.length > 0 && <><h3>Ấn Sưu Tập ({p.honors.length}){p.album ? <small className="rkAlbumN"> · {p.album} kiểu pháp khí</small> : null}</h3><HonorRow ids={p.honors} /></>}
 
       {focusMut && mutants}
 

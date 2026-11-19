@@ -312,7 +312,7 @@ function bookNote(text: string) {
 export function ReportModal({ rep, title, onClose, st, onDaily }: { rep: Report; title: string; onClose: () => void; st?: GS; onDaily?: () => void }) {
   const [log, setLog] = useState<{ lines: string[]; foe?: string } | null>(null);
   // only what has a picture or matters: items, secret books, beasts, a breakthrough, the daily quest. Plain text lines (a level, a small event) are left out.
-  const shown = rep.highlights.filter((h) => h.item || h.book || h.beast || h.kind === 'break' || h.kind === 'quest' || h.kind === 'honor');
+  const shown = rep.highlights.filter((h) => h.item || h.book || h.beast || h.kind === 'break' || h.kind === 'quest');
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <ModalClose onClose={onClose} />

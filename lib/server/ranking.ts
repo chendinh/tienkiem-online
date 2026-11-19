@@ -161,7 +161,7 @@ async function buildProfile(pid: string, now: number) {
   const S_ = G.pstats(st), p = st.player;
   const rankOf = async (b: Board) => (await sortedBoard(b, now)).findIndex((x) => x.pid === pid) + 1;
   return {
-    showcase: G.showcaseOf(st), honors: p.honors || [], album: Object.keys(st.album || {}).length,
+    showcase: G.showcaseOf(st),
     pid, name: p.name, dao: p.dao, title: C.titleOf(p.title)?.name || '', g: p.look.g, avatar: p.avatar && p.avatar.url, realm: p.realm, sub: p.sub, level: G.levelOf(p), linh: p.linh, purity: p.purity, pers: p.pers, origin: p.origin,
     stats: S_, power: G.combatPower(st), equipment: Object.fromEntries(C.SLOTS.map((s) => [s, st.eq[s] || null])), party: G.bestParty(st), mutants: mutantsOf(st),
     beasts: st.beasts.length, species: Object.values(st.best).filter((b) => b.seen > 0).length, tamedSpecies: Object.values(st.best).filter((b) => b.tamed > 0).length, kills: st.kills, quests: G.questCount(st),

@@ -994,7 +994,7 @@ test('items found are also counted per UTC day, and the days add up to the total
   assert.ok(Object.keys(days).length >= 2, 'more than one day');
 });
 
-// ---------- Sưu Tập: the album of artifacts and Dị Biến looks, and the honours (Ấn)
+// ---------- Sưu Tập: the album of artifacts and Dị Biến looks, 
 import * as X from '../lib/codex';
 test('album: keeps the best rarity of every kind and element, with the picture look', () => {
   const st = fresh(77);
@@ -1011,25 +1011,11 @@ test('album: keeps the best rarity of every kind and element, with the picture l
   assert.equal(X.noteItem(st, tien), true);
   assert.deepEqual(X.albumUnpack(st.album[key]), { tier: 5, art: 987654321 });
 });
-test('honours: earned once from the counts, kept, and a save older than the album is filled from what it holds', () => {
+test('album: a save older than the album is filled from the held items on the first tick', () => {
   const st = fresh(78);
   st.album = undefined;
-  G.tick(st);   // the first tick builds the album from the held items
+  G.tick(st);
   assert.ok(st.album && Object.keys(st.album).length >= 1, 'the starting weapon is in the album');
-  // pretend the player has met 10 species
-  for (const s of C.SPECIES.slice(0, 10)) st.best[s.id] = { seen: 1, tamed: 0, maxCm: 10, minCm: 10, mutSeen: 0, mutTamed: 0 };
-  assert.ok(X.newHonors(st).some((h) => h.id === 'seen10'));
-  G.noteAlbum(st, { ...G.genItem(st, 5, 3, 'Ring'), id: 5555 });   // any album change runs the check
-  assert.ok((st.player.honors || []).includes('seen10'));
-  assert.equal(X.newHonors(st).some((h) => h.id === 'seen10'), false, 'an honour is not earned twice');
-  assert.ok(st.feed.some((f) => f.kind === 'honor' && f.text.includes('Sơ Nhập Linh Cảnh')));
-  // the element honour needs every species of that element
-  const kim = C.SPECIES.filter((s) => s.el[0] === 'Kim');
-  for (const s of kim) st.best[s.id] = { seen: 1, tamed: 0, maxCm: 10, minCm: 10, mutSeen: 0, mutTamed: 0 };
-  assert.ok(X.newHonors(st).some((h) => h.id === 'elKim'));
-  // every honour has a name, a line, a positive goal and a unique id
-  assert.equal(new Set(X.HONORS.map((h) => h.id)).size, X.HONORS.length);
-  assert.ok(X.HONORS.every((h) => h.name && h.blurb && h.goal >= 1));
 });
 test('album: Dị Biến looks come from the beasts the player owns', () => {
   const st = fresh(79);
@@ -1037,8 +1023,6 @@ test('album: Dị Biến looks come from the beasts the player owns', () => {
   st.beasts = [mk(1, 'ho'), mk(2, 'ho'), mk(3, 'loc')] as any;
   const have = X.mutLooks(st);
   assert.ok(have.size >= 2 && [...have].every((k) => /^[a-z]+:[a-z]+$/.test(k)));
-  const c = X.context(st);
-  assert.ok(c.looks >= 1 && c.mutSp === 2);
 });
 
 // ---------- Trưng Bày: one framed item or beast
