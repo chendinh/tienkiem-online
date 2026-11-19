@@ -43,7 +43,7 @@ export const BALANCE = {
   dropEventShown: 0.01,         // what the news and the zone tag tell the player ("+1%"); the real numbers are the two above
   questTame: 5,            // the daily quest: tame this many of the day's new creature...
   questCultPct: 0.2,       // ...and receive this share of the Tu Vi needed for the current Level
-  taskCultPct: [0.04, 0.08, 0.16],   // the three extra jobs of the day (Easy, Medium, Hard, lib/tasks.ts): each pays this share of the Tu Vi needed for the current Level
+  taskCultPct: [0.02, 0.04, 0.06],   // the three extra jobs of the day (Easy, Medium, Hard, lib/tasks.ts): each pays this share of the Tu Vi needed for the current Level
   eventDistinctWindow: 6,
   // combat (Requirement 8, 14)
   maxParty: 3,
