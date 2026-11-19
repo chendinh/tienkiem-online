@@ -110,7 +110,7 @@ export async function picsFor(keys: { sp: string; look: string }[]): Promise<Map
   const r = await query<{ id: string; sp: string; mut: string }>(
     `SELECT id, meta->'spec'->>'sp' AS sp, meta->'spec'->>'mut' AS mut FROM images
       WHERE kind = 'animvar' AND meta->'spec'->>'kind' = 'variant' AND meta->'spec'->>'plain' IS NULL AND meta->'spec'->>'sp' = ANY($1::text[]) ORDER BY created`, [sps]);
-  for (const x of r.rows) out.set(`${x.sp}:${x.mut}`, `/api/lab/media/${x.id}`);
+  for (const x of r.rows) out.set(`${x.sp}:${x.mut}`, `/api/img/${x.id}`);
   return out;
 }
 export interface Portrait { status: 'ready' | 'making' | 'failed' | 'limited' | 'disabled' | 'invalid'; url?: string; started?: boolean }
@@ -125,5 +125,5 @@ export async function portrait(sp: string, look: string): Promise<Portrait> {
   const v: Out = await variant(sp, look, idFromUrl(base.url));
   if (v.status === 'pending') return { status: 'making', started: !!v.started };
   if (v.status !== 'ready' || !v.id) return { status: why(v).status as Portrait['status'] };
-  return { status: 'ready', url: `/api/lab/media/${v.id}` };
+  return { status: 'ready', url: `/api/img/${v.id}` };
 }

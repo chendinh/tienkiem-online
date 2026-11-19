@@ -55,7 +55,7 @@ function Glow({ bg }: { bg: string }) {
 // the picture of the beast's own look (Ngọc Bích ...); until it is drawn, the game's picture of the species
 function Pic({ b }: { b: { id: number; sp: string; look: string } }) {
   const own = useLookPic({ sp: b.sp, id: b.id, mut: true }, true), g = useGenImage(monsterSpec(b.sp, b.look === 'ngusac'), 3);
-  return own ? <img src={own} alt="" draggable={false} /> : g.url ? <img src={`${g.url}?s=sm`} alt="" draggable={false} /> : <i />;
+  return own ? <img src={`${own}?s=sm`} alt="" draggable={false} /> : g.url ? <img src={`${g.url}?s=sm`} alt="" draggable={false} /> : <i />;
 }
 
 export function Zoo() {

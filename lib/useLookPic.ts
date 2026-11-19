@@ -9,13 +9,15 @@ const cache = new Map<string, Entry>();
 const queue = new Set<string>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 const note = (e: Entry) => e.subs.forEach((f) => f());
+// A picture is used only once it has really loaded; otherwise the game's own picture stays (a broken address must never blank a beast).
+const verify = (u: string) => new Promise<boolean>((res) => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = u; });
 
 function flush() {
   timer = null;
   const keys = [...queue].slice(0, 60); keys.forEach((k) => queue.delete(k));
   if (queue.size) timer = setTimeout(flush, 30);
   fetch(`/api/zoo?pics=${encodeURIComponent(keys.join(','))}`, { cache: 'no-store' }).then((r) => r.json()).then((j) => {
-    for (const k of keys) { const e = cache.get(k); if (!e) continue; if (j?.ok && j.pics?.[k]) e.url = j.pics[k]; e.looked = true; note(e); }
+    return Promise.all(keys.map(async (k) => { const e = cache.get(k); if (!e) return; const u = j?.ok && j.pics?.[k]; if (u && (await verify(u))) e.url = u; e.looked = true; note(e); }));
   }).catch(() => keys.forEach((k) => { const e = cache.get(k); if (e) { e.looked = true; note(e); } }));
 }
 
@@ -27,7 +29,7 @@ async function order(k: string, beast: number) {
     while (!e.url && e.tries++ < 60 && e.subs.size > 0) {
       const r = await fetch('/api/zoo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'portrait', beast }) });
       const j = await r.json().catch(() => ({}));
-      if (j.status === 'ready') { if (j.url) { e.url = j.url; note(e); } break; }
+      if (j.status === 'ready') { if (j.url && (await verify(j.url))) { e.url = j.url; note(e); } break; }
       if (j.status !== 'making') break;   // failed, limited, disabled: the game's own picture stays
       await new Promise((res) => setTimeout(res, 6000));
     }
