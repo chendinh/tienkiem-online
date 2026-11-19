@@ -90,7 +90,6 @@
   /* Chủ Đề Tuần */
   .wkBox { display: grid; gap: var(--sp-2); }
   .wkCur { --wk: var(--gold-300); display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-3); border-radius: var(--r-md); border: 1px solid color-mix(in srgb, var(--wk) 60%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--wk) 16%, transparent), rgb(0 0 0 / 0.22)); box-shadow: 0 0 24px -12px var(--wk); }
-  .wkSeal { flex: none; display: grid; place-items: center; width: 56px; height: 56px; clip-path: polygon(14% 0, 86% 0, 100% 14%, 100% 86%, 86% 100%, 14% 100%, 0 86%, 0 14%); background: color-mix(in srgb, var(--wk) 28%, #14100a); border: 1px solid var(--wk); color: var(--wk); }
   .wkInfo { display: grid; gap: 4px; min-width: 0; }
   .wkInfo h4 { margin: 0; color: var(--wk); font-family: var(--font-display); letter-spacing: 0.04em; }
   .wkInfo p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
@@ -121,7 +120,6 @@
   /* Chủ đề tuần: each element has its own backdrop (plain CSS, nothing to load) */
   .wkCur { position: relative; overflow: hidden; isolation: isolate; }
   .wkCur::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0.9; background: var(--wk-bg, none); }
-  .wkSeal { width: 48px; height: 48px; }
   .wk-hoa  { --wk-bg: radial-gradient(120% 90% at 100% 100%, rgb(255 110 40 / 0.38), transparent 60%), radial-gradient(60% 50% at 85% 85%, rgb(255 200 90 / 0.3), transparent 70%), repeating-linear-gradient(115deg, transparent 0 14px, rgb(255 120 60 / 0.07) 14px 15px); }
   .wk-thuy { --wk-bg: radial-gradient(130% 80% at 50% 120%, rgb(60 150 255 / 0.4), transparent 62%), repeating-radial-gradient(circle at 80% 130%, transparent 0 16px, rgb(120 200 255 / 0.1) 16px 18px); }
   .wk-moc  { --wk-bg: radial-gradient(110% 90% at 0% 100%, rgb(70 190 110 / 0.4), transparent 60%), repeating-linear-gradient(75deg, transparent 0 12px, rgb(120 220 140 / 0.08) 12px 13px, transparent 13px 26px); }
@@ -134,4 +132,11 @@
   .wk-kyngo { --wk-bg: radial-gradient(80% 90% at 90% 20%, rgb(255 200 120 / 0.28), transparent 65%); }
   .wk-bachthao { --wk-bg: radial-gradient(100% 90% at 10% 100%, rgb(110 200 130 / 0.3), transparent 62%); }
   .wk-quyphuc { --wk-bg: radial-gradient(90% 90% at 90% 100%, rgb(255 190 130 / 0.28), transparent 65%); }
+
+  .wkInfo h4 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .wkInfo h4 .chip { font-family: var(--font-text); letter-spacing: 0; font-weight: 500; }
+  .wkCur { min-height: 120px; }
+  .wkInfo { position: relative; z-index: 1; }
+  .wkImg { position: absolute; inset: 0; z-index: -1; }
+  .wkImg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(8 12 16 / 0.88) 0%, rgb(8 12 16 / 0.62) 45%, rgb(8 12 16 / 0.15) 100%); }
 }

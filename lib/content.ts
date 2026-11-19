@@ -678,3 +678,17 @@ export const RECIPES: Recipe[] = [
 
 // A tall (portrait) version of each zone scene for phones: drawn at 9:16, shown instead of the wide one when the screen is taller than it is wide.
 for (const z of ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu', 'tinhha']) PLACE_EN[`${z}_v`] = PLACE_EN[z];
+// The banner behind each element's Chủ Đề Tuần (the weekly theme in Nhiệm Vụ & Tin Tức): one wide scene per element, drawn once by `npm run pregen -- --only zones` into public/art/zones/week_<el>.jpg.
+// A wide, low strip is what is shown, so the interesting part sits in the middle and the sides are calm (the text lies over the left).
+export const WEEK_EN: Record<string, string> = {
+  hoa: 'a sea of drifting flame and glowing embers rising from a cracked volcanic plain, rivers of molten gold, a vermilion phoenix-like fire spirit made only of flames far away, deep crimson and orange light',
+  thuy: 'a vast moonlit ocean of luminous blue waves under a swirling sky, a mighty tide rolling toward ancient stone steps, foam of glowing jade and sapphire, drifting water spirits made of mist',
+  moc: 'an ancient colossal spirit tree forest with glowing green leaves, thick hanging vines and blossoms, shafts of soft golden light, floating pollen of qi, deep emerald tones',
+  kim: 'a mountain of gleaming white-gold metal peaks and sword-like crystalline spires catching sharp sunlight, falling silver sparks, a cold polished steel sky, radiant platinum and pale gold',
+  tho: 'rolling ochre highlands and monumental carved stone terraces with towering earthen pillars, a great yellow dust-wind, warm amber light, quiet and heavy atmosphere',
+  loi: 'a violent storm sky over jagged black peaks, forks of violet and white lightning striking down, glowing purple storm clouds, crackling electric arcs, dramatic and powerful',
+  am: 'a midnight valley under a dim half-hidden moon, thick indigo mist and pale ghostly lanterns, silent black pines, wisps of purple shadow, cold and mysterious',
+  duong: 'a radiant golden sunrise over a sea of clouds, huge rays of warm light fanning out, shining jade-gold temple roofs far away, glowing white and gold, majestic and warm',
+};
+for (const [el, d] of Object.entries(WEEK_EN)) PLACE_EN[`week_${el}`] = d;
+export const weekArt = (el: string) => zoneArt(`week_${slug(el)}`);

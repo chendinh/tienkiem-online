@@ -1,7 +1,8 @@
 'use client';
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Icon } from './ds/Icon';
 import { ElIcon } from './Icons';
+import { ElChip, Img } from './ui';
 import * as C from '@/lib/content';
 
 // Chủ Đề Tuần (lib/weekly.ts): what this week favours, how long is left, and the two weeks that follow.
@@ -14,14 +15,14 @@ export function WeekIcon({ w, size = 28 }: { w: Pick<WeekV, 'icon' | 'el'>; size
 }
 
 export function WeekCard({ cur, next, now }: { cur: WeekV; next: WeekV[]; now: number }) {
-  const left = cur.endsAt - now;
+  const left = cur.endsAt - now, [pic, setPic] = useState(true);   // the banner is drawn once and shipped; until then (or if it is missing) the CSS backdrop alone is shown
   return (
     <div className="wkBox">
       <article className={`wkCur ${cur.el ? `wk-${C.slug(cur.el)}` : `wk-${cur.id}`}`} style={(cur.el ? { '--wk': C.EL[cur.el]?.color || 'var(--gold-300)' } : undefined) as CSSProperties | undefined}>
-        <span className="wkSeal"><WeekIcon w={cur} size={cur.el ? 22 : 28} /></span>
+        {cur.el && pic && <span className="wkImg" aria-hidden="true"><Img src={C.weekArt(cur.el)} className="fill" onBad={() => setPic(false)} /></span>}
         <div className="wkInfo">
           <small className="wkKicker">Chủ đề tuần này · còn {dur(left)}</small>
-          <h4>{cur.name}</h4>
+          <h4>{cur.name} {cur.el ? <ElChip el={cur.el} /> : <span className="chip"><Icon name={cur.icon} size={13} /> {cur.short}</span>}</h4>
           <p>{cur.text}</p>
           <div className="chips">{cur.effects.map((e) => <span key={e} className="chip gold">{e}</span>)}</div>
         </div>
