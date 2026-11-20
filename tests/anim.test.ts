@@ -102,3 +102,12 @@ test('the Linh Thú Viên motion asks for big movement and its picture has a fla
   assert.equal(plainBg('hanbang'), 'deep charcoal grey');
   assert.equal(plainBg('thanhmoc'), 'pure white');
 });
+
+test('Thiên and Tiên item icons are drawn large by the finer model, the rest stay small', async () => {
+  const { buildPlan } = await import('../lib/imageprompt');
+  const low = buildPlan({ kind: 'item', slot: 'Weapon', base: '', tier: 3, e: 'Kim', v: 0 });
+  const thien = buildPlan({ kind: 'item', slot: 'Weapon', base: '', tier: 4, e: 'Kim', v: 5 });
+  const tien = buildPlan({ kind: 'item', slot: 'Weapon', base: '', tier: 5, e: 'Kim', v: 5 });
+  assert.equal(low.hq, undefined); assert.equal(low.width, 512);
+  for (const p of [thien, tien]) { assert.equal(p.hq, true); assert.equal(p.width, 1024); assert.equal(p.height, 1024); }
+});

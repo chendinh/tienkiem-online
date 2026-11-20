@@ -145,20 +145,21 @@ const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người ch
 // creature of that look needs it. Two taps: the first asks, the second does it.
 interface LookStat { id: string; name: string; pictures: number; stills: number }
 function Redraw({ adminKey }: { adminKey: string }) {
-  const [looks, setLooks] = useState<LookStat[] | null>(null);
+  const [looks, setLooks] = useState<LookStat[] | null>(null), [items, setItems] = useState<{ tier: number; name: string; pictures: number }[]>([]);
   const [sure, setSure] = useState(''), [busy, setBusy] = useState(false), [msg, setMsg] = useState(''), [err, setErr] = useState('');
   const hdr = { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
   const load = useCallback(async () => {
-    try { const r = await fetch('/api/admin/variants', { headers: hdr, cache: 'no-store' }); const j = await r.json().catch(() => ({})); if (r.ok && j.ok) { setLooks(j.looks); setErr(''); } else setErr('Không đọc được danh sách ảnh.'); } catch { setErr('Không đọc được danh sách ảnh.'); }
+    try { const r = await fetch('/api/admin/variants', { headers: hdr, cache: 'no-store' }); const j = await r.json().catch(() => ({})); if (r.ok && j.ok) { setLooks(j.looks); setItems(j.items || []); setErr(''); } else setErr('Không đọc được danh sách ảnh.'); } catch { setErr('Không đọc được danh sách ảnh.'); }
   }, [adminKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [load]);
   async function go(look: string) {
     if (sure !== look) { setSure(look); setMsg(''); return; }
+    const tier = look.startsWith('item') ? Number(look.slice(4)) : 0;
     setBusy(true); setSure(''); setErr('');
     try {
-      const r = await fetch('/api/admin/variants', { method: 'POST', headers: hdr, body: JSON.stringify({ look }) });
+      const r = await fetch('/api/admin/variants', { method: 'POST', headers: hdr, body: JSON.stringify(tier ? { items: tier } : { look }) });
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) setMsg(`Đã xóa ${j.removed} ảnh. Ảnh được vẽ lại khi người chơi cần tới (vào Linh Thú Viên hoặc trang chi tiết thú).`); else setErr('Không làm được. Thử lại.');
+      if (r.ok && j.ok) setMsg(`Đã xóa ${j.removed} ảnh. Ảnh được vẽ lại khi người chơi cần tới (thú: vào Linh Thú Viên hoặc trang chi tiết; đồ: khi đồ hiện ra trong túi).`); else setErr('Không làm được. Thử lại.');
     } catch { setErr('Không làm được. Thử lại.'); }
     setBusy(false); void load();
   }
@@ -171,8 +172,10 @@ function Redraw({ adminKey }: { adminKey: string }) {
         <>
           <Table head={['Kiểu', 'Ảnh thú', 'Ảnh tách nền', '']} rows={looks.map((l) => [l.name, num(l.pictures), num(l.stills),
             <button key={l.id} className="btn" disabled={busy || (l.pictures + l.stills === 0)} onClick={() => go(l.id)}>{sure === l.id ? 'Bấm lần nữa để vẽ lại' : 'Vẽ lại'}</button>])} />
+          <h4>Biểu tượng đồ</h4>
+          <Table head={['Hạng', 'Ảnh', '']} rows={items.map((x) => [x.name, num(x.pictures), <button key={x.tier} className="btn" disabled={busy || x.pictures === 0} onClick={() => go(`item${x.tier}`)}>{sure === `item${x.tier}` ? 'Bấm lần nữa để vẽ lại' : 'Vẽ lại'}</button>])} />
           <p><button className="btn big" disabled={busy || total === 0} onClick={() => go('all')}>{sure === 'all' ? `Bấm lần nữa: vẽ lại cả ${num(total)} ảnh` : 'Vẽ lại tất cả'}</button></p>
-          <small className="muted">Mỗi ảnh thú vẽ lại tốn khoảng 0.07 USD, mỗi ảnh tách nền thêm 0.02 USD, tính vào ngân sách phòng thí nghiệm (LAB_BUDGET_USD).</small>
+          <small className="muted">Mỗi ảnh thú vẽ lại tốn khoảng 0.07 USD, mỗi ảnh tách nền thêm 0.02 USD, tính vào ngân sách phòng thí nghiệm (LAB_BUDGET_USD). Mỗi biểu tượng đồ khoảng 0.05 USD, tính vào ngân sách ảnh (IMAGE_BUDGET_USD); hạng Thiên chỉ được vẽ khi bật DRAW_THIEN_ART=1.</small>
         </>
       )}
     </Card>

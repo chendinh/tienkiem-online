@@ -54,7 +54,7 @@ export function provider(): { name: Provider; enabled: boolean; concurrency: num
 }
 // t2i draws new pictures, edit changes ONE picture (monster variants), item draws the small icons, outfit redraws the character
 // from its base picture plus the icon of every worn item (needs a model that accepts several pictures: `image_urls`).
-export const falModels = () => ({ t2i: process.env.FAL_MODEL || 'fal-ai/flux/dev', edit: process.env.FAL_EDIT_MODEL || 'fal-ai/flux-pro/kontext', item: process.env.FAL_ITEM_MODEL || 'fal-ai/flux/schnell', outfit: process.env.FAL_OUTFIT_MODEL || 'google/nano-banana-2.1/edit', outfitRes: process.env.FAL_OUTFIT_RES || '1K', avatar: process.env.FAL_AVATAR_MODEL || 'google/nano-banana-2.1', avatarRes: process.env.FAL_AVATAR_RES || '1K', creature: process.env.FAL_CREATURE_MODEL || 'google/nano-banana-2.1', creatureRes: process.env.FAL_CREATURE_RES || '1K' });
+export const falModels = () => ({ t2i: process.env.FAL_MODEL || 'fal-ai/flux/dev', edit: process.env.FAL_EDIT_MODEL || 'fal-ai/flux-pro/kontext', item: process.env.FAL_ITEM_MODEL || 'fal-ai/flux/schnell', itemHq: process.env.FAL_ITEM_HQ_MODEL || 'google/nano-banana-2.1', outfit: process.env.FAL_OUTFIT_MODEL || 'google/nano-banana-2.1/edit', outfitRes: process.env.FAL_OUTFIT_RES || '1K', avatar: process.env.FAL_AVATAR_MODEL || 'google/nano-banana-2.1', avatarRes: process.env.FAL_AVATAR_RES || '1K', creature: process.env.FAL_CREATURE_MODEL || 'google/nano-banana-2.1', creatureRes: process.env.FAL_CREATURE_RES || '1K' });
 // Cache key part: item icons depend only on the icon model, outfits and standing poses (both edits of the character's picture) only on the outfit model, everything else on the t2i and edit models.
 const modelTag = (kind: string) => { const m = falModels(); return JSON.stringify(kind === 'item' ? { item: m.item } : kind === 'outfit' || kind === 'pose' ? { outfit: m.outfit, res: m.outfitRes } : kind === 'avatar' ? { avatar: m.avatar, res: m.avatarRes } : kind === 'monster' || kind === 'place' || kind === 'label' ? { creature: m.creature, res: m.creatureRes, edit: m.edit } : { t2i: m.t2i, edit: m.edit }); };
 // Prices as published on fal.ai (USD). Per-megapixel prices are rounded up to whole megapixels, so the ledger errs high.
@@ -77,7 +77,7 @@ export const falCost = (m: string, w: number, h: number, res = '') => FAL_RES[m]
 export function estimateCost(spec: any): number {
   const plan = buildPlan(spec), m = falModels();
   if (plan.refs && plan.refs.length) return plan.editor === 'multi' ? falCost(m.outfit, plan.width, plan.height, m.outfitRes) : falCost(m.edit, plan.width, plan.height);
-  if (plan.kind === 'item') return falCost(m.item, plan.width, plan.height);
+  if (plan.kind === 'item') return plan.hq ? falCost(m.itemHq, plan.width, plan.height, /nano-banana/.test(m.itemHq) ? '1K' : '') : falCost(m.item, plan.width, plan.height);
   if (plan.kind === 'monster' || plan.kind === 'place' || plan.kind === 'label') return falCost(m.creature, plan.width, plan.height, /nano-banana/.test(m.creature) ? m.creatureRes : '');
   return plan.kind === 'avatar' ? falCost(m.avatar, plan.width, plan.height, /nano-banana/.test(m.avatar) ? m.avatarRes : '') : falCost(m.t2i, plan.width, plan.height);
 }
@@ -141,7 +141,7 @@ async function generate(name: Provider, j: Job, refs: Pic[]): Promise<Gen> {
       // official client, server side only (FAL_KEY comes from the environment); subscribe() handles queue + polling
       const { fal } = await import('@fal-ai/client');
       const m = falModels();
-      let model = j.kind === 'item' ? m.item : j.kind === 'avatar' ? m.avatar : j.kind === 'monster' || j.kind === 'place' || j.kind === 'label' ? m.creature : m.t2i, input: any, qual = '';
+      let model = j.kind === 'item' ? (j.hq ? m.itemHq : m.item) : j.kind === 'avatar' ? m.avatar : j.kind === 'monster' || j.kind === 'place' || j.kind === 'label' ? m.creature : m.t2i, input: any, qual = '';
       if (refs.length && j.editPrompt) {
         // every reference picture goes up first, all at once
         const urls = await withTimeout(Promise.all(refs.map(async (p) => {

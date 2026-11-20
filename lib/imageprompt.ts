@@ -25,6 +25,7 @@ const ITEM_CORE = CORE.replace('Chinese Xianxia', 'Eastern');
 const NOWRITE = 'Ornament is only abstract (clouds, lotus petals, knots, gems, smooth filigree) and the surface has no writing of any kind: no characters, letters, runes or engraved marks.';
 const TIER_ADJ = ['plain', 'neat jade-green trimmed', 'refined silver-trimmed', 'ornate gold-engraved', 'legendary radiant', 'divine immortal'];
 
+export const HQ_TIER = 4;   // from Thiên up an item icon is drawn by the finer model
 export interface Plan {
   kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'item' | 'place' | 'label';
   prompt: string;       // full text-to-image description (no reference, or a provider that cannot edit)
@@ -33,6 +34,7 @@ export interface Plan {
   editor?: 'single' | 'multi'; // single: edit one picture (monster variant). multi: edit one picture using other pictures as references (outfit)
   refLabels?: string[]; // what refs[1..] show, in English, for the reviewer
   width: number; height: number; seed: number; pri: number;
+  hq?: boolean;         // a Thiên or Tiên item icon: drawn larger by a finer model (falModels().itemHq), because there are few of them and they are the ones players look at
 }
 
 const bad = (): never => { throw new Error('bad spec'); };
@@ -229,7 +231,7 @@ export function buildPlan(spec: any): Plan {
     const it = readItem(spec);
     const accent = (it.e ? `, with ${C.EL_ACCENT[it.e]} accents in the trim, gems and tassels` : '') + (it.v ? `, ${C.ITEM_DESIGNS[it.v % C.ITEM_DESIGNS.length]}, a one-of-a-kind design` : '');
     const label = it.slot === 'Weapon' ? 'realistic 3D magical artifact with a glowing ethereal aura' : 'premium 3D RPG item render with magical glowing details';
-    return { kind: 'item', prompt: `${ITEM_CORE}. ${label[0].toUpperCase()}${label.slice(1)}, an inventory icon of a single ${itemObject(it.slot, it.base)}, ${C.TIER_EN[it.tier]}${accent}, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: (4242 + it.v * 7919) % 2147483647, pri: Number.isInteger(spec.pri) ? pri : 3 };
+    return { kind: 'item', prompt: `${ITEM_CORE}. ${label[0].toUpperCase()}${label.slice(1)}, an inventory icon of a single ${itemObject(it.slot, it.base)}, ${C.TIER_EN[it.tier]}${accent}, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: it.tier >= HQ_TIER ? 1024 : 512, height: it.tier >= HQ_TIER ? 1024 : 512, seed: (4242 + it.v * 7919) % 2147483647, pri: Number.isInteger(spec.pri) ? pri : 3, ...(it.tier >= HQ_TIER ? { hq: true } : {}) };
   }
   // Fixed pictures of goods and materials (inventory icons) and of places (wide scenes), drawn once and shipped in public/art.
   if (spec.kind === 'prop') {

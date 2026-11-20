@@ -37,3 +37,17 @@ export async function resetVariants(looks: string[]): Promise<{ rev: number; rem
   memo = { t: Date.now(), n: rev };
   return { rev, removed: r.rows.length };
 }
+
+// ---- item icons of the highest rarities (Thiên = 4, Tiên = 5). An item look is found by its key (lib/assetKey.ts), never by prompt, so an icon drawn long ago keeps showing for ever;
+// to have it drawn again (with the current model) it is forgotten here, and the next time a player's item of that look is shown it is drawn.
+export async function itemStats(): Promise<{ tier: number; name: string; pictures: number }[]> {
+  const r = await query<{ t: string; n: string }>(`SELECT split_part(asset_key, '|', 5) AS t, count(*) AS n FROM image_index WHERE split_part(asset_key, '|', 5) IN ('4','5') GROUP BY 1`);
+  return [{ tier: 4, name: 'Thiên phẩm' }, { tier: 5, name: 'Tiên phẩm' }].map((x) => ({ ...x, pictures: Number(r.rows.find((y) => Number(y.t) === x.tier)?.n || 0) }));
+}
+export async function resetItems(tier: number): Promise<{ removed: number }> {
+  if (tier !== 4 && tier !== 5) return { removed: 0 };
+  const ids = (await query<{ image_id: string }>(`SELECT image_id FROM image_index WHERE split_part(asset_key, '|', 5) = $1`, [String(tier)])).rows.map((x) => x.image_id);
+  await query(`DELETE FROM image_index WHERE split_part(asset_key, '|', 5) = $1`, [String(tier)]);
+  if (ids.length) await query(`DELETE FROM images WHERE id = ANY($1::text[])`, [ids]);
+  return { removed: ids.length };
+}
