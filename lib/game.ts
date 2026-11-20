@@ -486,7 +486,7 @@ const autoPrice = (s: C.ShopItem) => Math.ceil(s.price * B.autoBuy.markup);
 function autoBuyPill(st: GameState, missing: number, amt: (i: number) => number, bought: { n: number; cost: number }): number {
   const L = levelOf(st.player);
   let g = -1;
-  for (let i = 0; i < 3; i++) if (L >= B.autoBuy.pillFromLevel[i]) g = i;
+  for (let i = 0; i <= B.autoBuy.pillMaxGrade; i++) if (L >= B.autoBuy.pillFromLevel[i]) g = i;
   if (g < 0) g = 0;
   while (g > 0 && (missing < B.pillMinUse * amt(g) || autoPrice(C.SHOP_ITEM(`hp${g}`)!) > st.stones)) g--;   // a smaller pill when that is all that is missing or all the player can pay
   const s = C.SHOP_ITEM(`hp${g}`)!, cost = autoPrice(s);

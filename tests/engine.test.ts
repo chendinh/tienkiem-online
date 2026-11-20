@@ -825,6 +825,12 @@ test('auto-buy: a missing Khế Ước Phù is bought at 1.5 times the price whe
   const poor = mk(903, true, cost - 1), miss2 = G.tryTame(poor, beastP(3, 10), sp, [])!;
   assert.ok(miss2 && !miss2.won && /Khế Ước Phù/.test(miss2.text)); assert.equal(poor.stones, cost - 1);
 });
+test('auto-buy never buys a grade 3 pill, even at a high Level with plenty of stones', () => {
+  const st = fresh(722);
+  st.player.realm = 6; st.inv.hp = [0, 0, 0]; st.stones = 1e9; st.player.hp = 1;
+  G.autoHeal(st);
+  assert.equal(st.inv.hp[2], 0, 'no grade 3 pill is left in the bag'); assert.ok(st.stones < 1e9, 'something was bought');
+});
 test('Luyện Đan: materials become pills for free, and a refusal changes nothing', () => {
   const st = fresh(730);
   st.inv.mat = { linhthao: 20, truc: 5 };

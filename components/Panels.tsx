@@ -165,7 +165,7 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           </div>
           <div className="row">
             <label className="tg"><input type="checkbox" checked={d.autoPill} onChange={(e) => up({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan ngay sau mỗi trận, chọn loại vừa đủ cho đến khi đầy sinh lực</label>
-            <label className="tg"><input type="checkbox" checked={d.autoBuyPill} onChange={(e) => up({ autoBuyPill: e.target.checked })} /> Tự mua Hồi Khí Đan khi hết, hạng theo cấp độ, giá ×{B.autoBuy.markup} giá Phường Thị (cần bật mục trên)</label>
+            <label className="tg"><input type="checkbox" checked={d.autoBuyPill} onChange={(e) => up({ autoBuyPill: e.target.checked })} /> Tự mua Hồi Khí Đan khi hết (chỉ hạng 1 và 2, theo cấp độ), giá ×{B.autoBuy.markup} giá Phường Thị (cần bật mục trên)</label>
           </div>
           <h3>Tự động</h3>
           <div className="row">

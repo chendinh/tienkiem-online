@@ -162,7 +162,7 @@ export const BALANCE = {
   defaults: { retreatPct: 30, resumePct: 80, autoPill: true, autoTame: false, autoBreak: false, autoEquip: false, autoFight: false, autoLearn: true, autoBuyPill: true, autoBuyTal: true, dissolveMax: -1 },
   // Auto-buy (a setting, on by default): when the pills or the Khế Ước Phù run out, the game buys one for the player at `markup` times the shop price.
   // The pill grade follows the Level: pillFromLevel[i] is the first Level that buys grade i + 1 (it steps down to a smaller pill when that is all that is missing or all the player can pay).
-  autoBuy: { markup: 1.5, pillFromLevel: [1, 9, 17] },
+  autoBuy: { markup: 1.5, pillFromLevel: [1, 9, 17], pillMaxGrade: 1 },   // pillMaxGrade: the biggest pill grade (0 = grade 1) auto-buy may buy; the grade 3 pill is dear and drained the stones
   // shop (Requirement 24)
   shop: {
     taming: [30, 120, 500, 2200],
