@@ -77,7 +77,6 @@ export function Galaxy() {
   const [have, setHave] = useState<string[]>([]); // close-ups that are mounted (the one shown and the ones preloaded)
   const [info, setInfo] = useState<'story' | 'facts' | null>(null);   // the text panel is closed until the visitor asks for it
   const [intro, setIntro] = useState(false);
-  const [pull, setPull] = useState(false);       // the last move was from one galaxy to another (it passes over the whole chart)
   const [port, setPort] = useState(false);
   const stage = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null), anim = useRef<Animation | null>(null);
   const dim = useRef({ vw: 0, vh: 0, ww: 0, wh: 0, port: false });
@@ -126,11 +125,12 @@ export function Galaxy() {
     const from = readCam(), to = camFor(id);
     anim.current?.cancel();
     if (reduced() || ms <= 0) { el.style.transform = css(to); setFlying(false); return; }
-    // from one galaxy to another the camera first rises to show the whole chart, then dives into the new one
-    const mid = camFor(null);
-    const ease = 'cubic-bezier(0.45, 0, 0.25, 1)';
-    const kf: Keyframe[] = pull ? [{ transform: css(from), easing: ease }, { transform: css(mid), offset: 0.5, easing: ease }, { transform: css(to) }] : [{ transform: css(from) }, { transform: css(to) }];
-    const a = el.animate(kf, { duration: ms, easing: pull ? 'linear' : 'cubic-bezier(0.55, 0, 0.2, 1)', fill: 'forwards' });
+    // from one galaxy to another the camera pulls back a little in the middle, but never so far that the edge of the chart shows
+    const mz = Math.max(1, Math.min(from.z, to.z) * (pull ? 0.6 : 1) + (pull ? 0.4 : 0));
+    const clampX = (v: number) => Math.min(0, Math.max(dim.current.vw - dim.current.ww * mz, v)), clampY = (v: number) => Math.min(0, Math.max(dim.current.vh - dim.current.wh * mz, v));
+    const mid: Cam = { tx: clampX((from.tx + to.tx) / 2), ty: clampY((from.ty + to.ty) / 2), z: mz };
+    const kf: Keyframe[] = [{ transform: css(from) }, ...(pull ? [{ transform: css(mid), offset: 0.5 }] : []), { transform: css(to) }];
+    const a = el.animate(kf, { duration: ms, easing: 'cubic-bezier(0.55, 0, 0.2, 1)', fill: 'forwards' });
     anim.current = a;
     setFlying(true);
     const done = () => { if (anim.current !== a) return; el.style.transform = css(to); a.cancel(); setFlying(false); };
@@ -148,10 +148,9 @@ export function Galaxy() {
     if (id) ensure(id);
     setInstant(false);
     setFly((n) => n + 1);
-    setPull(!!(cur && id));
     setSel(id);
     setInfo(null);
-    const ms = cur && id ? 1500 : 1350;
+    const ms = cur && id ? 1100 : 1350;
     flyTo(id, ms, !!(cur && id));
     try { const u = new URL(window.location.href); id ? u.searchParams.set('g', id) : u.searchParams.delete('g'); window.history.replaceState(null, '', u); } catch { /* ignore */ }
   }, [ensure, flyTo]);
@@ -208,7 +207,7 @@ export function Galaxy() {
   const ringD = (x: G) => `${x.size * (port ? 3.1 : 2.3)}`;
 
   return (
-    <div ref={stage} className="gx" data-mode={mode} data-fly={flying ? '1' : '0'} data-instant={instant ? '1' : '0'} data-pull={pull ? '1' : '0'} data-port={port ? '1' : '0'} onPointerDown={down} onPointerUp={up} onPointerMove={move}>
+    <div ref={stage} className="gx" data-mode={mode} data-fly={flying ? '1' : '0'} data-instant={instant ? '1' : '0'} data-port={port ? '1' : '0'} onPointerDown={down} onPointerUp={up} onPointerMove={move}>
       {/* the star chart; the camera is its transform */}
       <div ref={world} className="gx-world">
         <Pic name="map" className="gx-mapimg" eager />
