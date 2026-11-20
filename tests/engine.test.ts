@@ -1202,3 +1202,18 @@ test('daily quest: a new target reaches today quest if it is not done yet', () =
   assert.equal(st.quest!.need, 5);   // a finished quest keeps what it was paid for
 });
 
+test('a Thiên Bí Công the player already knows is kept in the bag (to trade), not turned into Linh Thạch', () => {
+  const saved = B.bookDropP, savedW = [...B.bookTierWeights]; (B as any).bookDropP = 1; (B as any).bookTierWeights = [1e-9, 1e-9, 1e-9, 1];   // every drop is a Thiên one
+  try {
+    const kept: string[] = [], sold: string[] = [];
+    for (let seed = 1; seed <= 6; seed++) {
+      const st = fresh(seed); Object.assign(st.set, { autoFight: true, autoLearn: true, autoBreak: false }); st.inv.trib = 10; st.player.realm = 6; st.player.hp = 1e9; st.zone = 'cuuu';
+      for (const t of Object.values(A.TECHS)) if (!t.basic && !st.arts.learned.includes(t.name)) st.arts.learned.push(t.name);   // knows everything: every drop is a duplicate
+      const seen = new Set<number>();
+      for (let k = 0; k < 60; k++) { G.settle(st, 10); for (const e of st.feed) if (e.kind === 'book' && !seen.has(e.id)) { seen.add(e.id); if (/đổi lấy/.test(e.text)) sold.push(e.text); else if (/giữ lại/.test(e.text)) kept.push(e.text); } }
+    }
+    assert.ok(kept.length > 0, 'some duplicate Thiên book was kept');
+    for (const t of Object.values(A.TECHS)) if (t.tier >= B.keepDupBookTier) assert.ok(!sold.some((x) => x.includes(`«${t.name}»`)), `${t.name} was sold`);
+    assert.ok(Object.values(A.TECHS).some((t) => t.tier >= B.keepDupBookTier));
+  } finally { (B as any).bookDropP = saved; (B as any).bookTierWeights = savedW; }
+});

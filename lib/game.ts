@@ -715,9 +715,10 @@ function rollBook(st: GameState, src: { el?: string; cls?: string; boost: number
   const pool = A.techsOf(cls).filter((t) => t.minLevel <= level + 2);
   const t = pool[weighted(g, 'loot', pool.map((x) => B.bookTierWeights[x.tier]))];   // the higher the tier, the rarer
   let line = `Nhặt được Bí Công «${t.name}» (${A.ART(t.cls).name})`;
-  const learned = st.set.autoLearn ? learnTech(st, t.name, rep) : null;
+  const keep = st.arts.learned.includes(t.name) && t.tier >= B.keepDupBookTier;   // a rare duplicate is kept, to trade at Chợ Đêm
+  const learned = st.set.autoLearn && !keep ? learnTech(st, t.name, rep) : null;
   if (learned) line += learned.known ? `, đã biết chiêu này nên đổi lấy ${learned.stones} Linh Thạch` : ', đã học ngay';
-  else { st.inv.books[t.name] = (st.inv.books[t.name] || 0) + 1; line += ', cất vào túi'; }
+  else { st.inv.books[t.name] = (st.inv.books[t.name] || 0) + 1; line += keep ? ', đã biết chiêu này nên giữ lại trong túi để đem đi trao đổi' : ', cất vào túi'; }
   chips.push(`Bí Công: ${t.name}`);
   feed(st, { kind: 'book', text: line, chips: [] });
   if (rep) rep.highlights.push({ prio: 55 + t.tier * 10, kind: 'book', text: line, book: { name: t.name } });
@@ -753,9 +754,10 @@ function rollMethod(st: GameState, level: number, rep: Report | undefined, chips
   const pool = A.METHODS.filter((x) => x.minLevel <= level + 2);
   const x = pool[weighted(g, 'loot', pool.map((y) => B.bookTierWeights[y.tier]))];
   let line = `Nhặt được cuốn kinh Công Pháp «${x.name}» (${A.METHOD_TIER[x.tier]})`;
-  const learned = st.set.autoLearn ? learnMethod(st, x.name, rep) : null;
+  const keep = st.arts.methods.includes(x.name) && x.tier >= B.keepDupBookTier;
+  const learned = st.set.autoLearn && !keep ? learnMethod(st, x.name, rep) : null;
   if (learned) line += learned.known ? `, đã biết nên đổi lấy ${learned.stones} Linh Thạch` : ', đã học ngay';
-  else { st.inv.books[x.name] = (st.inv.books[x.name] || 0) + 1; line += ', cất vào túi'; }
+  else { st.inv.books[x.name] = (st.inv.books[x.name] || 0) + 1; line += keep ? ', đã biết nên giữ lại trong túi để đem đi trao đổi' : ', cất vào túi'; }
   chips.push(`Công Pháp: ${x.name}`);
   feed(st, { kind: 'book', text: line, chips: [] });
   if (rep) rep.highlights.push({ prio: 60 + x.tier * 10, kind: 'book', text: line, book: { name: x.name, method: true } });
