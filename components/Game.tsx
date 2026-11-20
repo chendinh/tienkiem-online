@@ -115,9 +115,9 @@ function Intro({ onPick, onCredits }: { onPick: (g?: 'f' | 'm') => void; onCredi
   );
 }
 
-// Temporarily locked to cut picture costs (demo phase over): the button that redraws the character in the worn equipment stays in place but disabled, and the "Trang bị đã đổi"
-// tag is hidden. The base picture and the standing pose are still drawn automatically for a new account. Set to true to bring both back to work.
-const OUTFIT_DRAW = false;
+// The switch for the button that redraws the character in the worn equipment and the "Trang bị đã đổi" tag (true: both work; false: the button stays in place but disabled, to cut picture costs).
+// The base picture and the standing pose are drawn automatically for a new account whatever this is set to.
+const OUTFIT_DRAW = true;
 const WHY: Record<string, string> = { limited: 'Đã chạm giới hạn ảnh AI (ngân sách hoặc số lượt mỗi giờ).', failed: 'Vẽ không thành. Thử lại sau ít phút.', disabled: 'Ảnh AI đang tắt.' };
 
 // Portrait, for looking at only (the equipment slots live in the Trang bị tab, not on the picture). The base picture (plain robe, empty hands)
