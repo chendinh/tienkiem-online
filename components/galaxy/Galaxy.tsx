@@ -43,6 +43,23 @@ function Air({ g }: { g: G }) {
   );
 }
 
+// twinkling stars, glints and slow-pulsing galaxy cores for the chart (CSS only; positions are fixed so it does not jump when it re-renders)
+const SPARK_COLORS = ['#ffffff', '#ffe9a8', '#bfe3ff', '#d9c4ff'];
+function MapSparkle() {
+  const bits = useMemo(() => {
+    const r = rng(20261120);
+    const stars = Array.from({ length: 44 }, () => ({ x: r() * 100, y: r() * 100, s: 1.5 + r() * 2.5, c: SPARK_COLORS[Math.floor(r() * SPARK_COLORS.length)], t: 2.2 + r() * 4, d: -r() * 7 }));
+    const glints = Array.from({ length: 10 }, () => ({ x: 4 + r() * 92, y: 4 + r() * 92, g: 16 + r() * 22, t: 4 + r() * 5, d: -r() * 9 }));
+    return { stars, glints };
+  }, []);
+  return (
+    <div className="gx-sparkle" aria-hidden>
+      {bits.stars.map((k, i) => <i key={i} style={{ left: `${k.x}%`, top: `${k.y}%`, '--s': `${k.s}px`, '--c': k.c, '--t': `${k.t}s`, '--d': `${k.d}s` } as CSSProperties} />)}
+      {bits.glints.map((k, i) => <b key={i} style={{ left: `${k.x}%`, top: `${k.y}%`, '--g': `${k.g}px`, '--t': `${k.t}s`, '--d': `${k.d}s` } as CSSProperties} />)}
+    </div>
+  );
+}
+
 function Pic({ name, className, eager }: { name: string; className?: string; eager?: boolean }) {
   return (
     <picture>
@@ -191,12 +208,13 @@ export function Galaxy() {
       {/* the star chart; the camera is its transform */}
       <div ref={world} className="gx-world">
         <Pic name="map" className="gx-mapimg" eager />
+        <MapSparkle />
         {GALAXIES.map((x) => {
           const [px, py] = port ? x.posM : x.pos;
           return (
             <button key={x.id} type="button" className={`gx-node ${x.status}`} data-on={sel === x.id} style={{ left: `${px * 100}%`, top: `${py * 100}%`, '--d': ringD(x), '--a': x.accent } as CSSProperties}
               onClick={() => go(x.id)} onPointerEnter={() => ensure(x.id)} onFocus={() => ensure(x.id)} aria-label={`${x.name}${x.status === 'open' ? '' : ', sắp mở'}`}>
-              <span className="gx-ring" /><span className="gx-ring r2" />
+              <span className="gx-core" /><span className="gx-ring" /><span className="gx-ring r2" />
               <span className="gx-lab"><b>{x.name}</b>{x.status === 'open' ? <small>Ngươi đang ở đây</small> : null}</span>
             </button>
           );

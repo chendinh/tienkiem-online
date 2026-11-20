@@ -9,6 +9,19 @@
 .gx[data-mode='galaxy'][data-fly='1'] .gx-world, .gx[data-mode='map'] .gx-world { visibility: visible; transition: none; }
 .gx-mapimg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; pointer-events: none; }
 
+/* the chart sparkles: stars that twinkle, four-point glints, and the heart of each galaxy breathing */
+.gx-sparkle { position: absolute; inset: 0; pointer-events: none; }
+.gx-sparkle i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; background: var(--c); box-shadow: 0 0 calc(var(--s) * 3) var(--c); opacity: 0; animation: gx-tw var(--t) ease-in-out var(--d) infinite; will-change: transform, opacity; }
+@keyframes gx-tw { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 0.95; transform: scale(1); } }
+.gx-sparkle b { position: absolute; width: var(--g); height: var(--g); margin: calc(var(--g) / -2) 0 0 calc(var(--g) / -2); opacity: 0; background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 1.5px, transparent 4px); animation: gx-glint var(--t) ease-in-out var(--d) infinite; will-change: transform, opacity; }
+.gx-sparkle b::before, .gx-sparkle b::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; margin-top: -0.75px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent); }
+.gx-sparkle b::after { transform: rotate(90deg); }
+@keyframes gx-glint { 0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+.gx-core { position: absolute; inset: 28%; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, color-mix(in srgb, var(--a) 60%, transparent), transparent 70%); opacity: 0.2; animation: gx-core 4.2s ease-in-out infinite alternate; will-change: transform, opacity; }
+.gx-node:nth-of-type(even) .gx-core { animation-delay: -2.1s; animation-duration: 5.3s; }
+@keyframes gx-core { from { opacity: 0.15; transform: scale(0.8); } to { opacity: 0.75; transform: scale(1.25); } }
+.gx[data-mode='galaxy'] .gx-sparkle { display: none; }
+
 /* a galaxy on the chart: a thin ring that breathes, and its name */
 .gx-node { position: absolute; width: calc(var(--m) * var(--d)); aspect-ratio: 1; transform: translate(-50%, -50%); padding: 0; border: 0; background: none; border-radius: 50%; }
 .gx-node:focus-visible { outline: 2px solid var(--a); outline-offset: 4px; }
@@ -158,9 +171,9 @@
 @keyframes gx-up-sheet { from { opacity: 0; transform: translate3d(0, 30px, 0); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .gx-pic, .gx-ring, .gx-air *, .gx-warp { animation: none !important; }
+  .gx-pic, .gx-ring, .gx-air *, .gx-warp, .gx-sparkle *, .gx-core { animation: none !important; }
   .gx-close, .gx-close[data-on='true'] { transition: opacity 0.2s !important; }
   .gx-panel { animation: none; }
 }
-:root[data-fx='low'] .gx-air, :root[data-fx='off'] .gx-air { display: none; }
+:root[data-fx='low'] .gx-air, :root[data-fx='off'] .gx-air, :root[data-fx='low'] .gx-sparkle, :root[data-fx='off'] .gx-sparkle { display: none; }
 :root[data-fx='low'] .gx-pic, :root[data-fx='off'] .gx-pic { animation: none; }
