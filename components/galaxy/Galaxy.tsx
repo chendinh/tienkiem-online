@@ -256,24 +256,14 @@ export function Galaxy() {
               </div>}
         </aside>
       ) : null}
-      {!g ? (
-        <div className="gx-cap gx-home" style={{ '--a': '#eed08a' } as CSSProperties}>
-          <p className="gx-tag">{FEATURE.tagline}</p>
-          <div className="gx-capbtns">
-            <button type="button" className="gx-main" onClick={() => go('thienhuyen')}>Vào Thiên Huyền</button>
-            <button type="button" className="gx-ghost" onClick={() => setIntro(true)}>Đọc giới thiệu</button>
-          </div>
-        </div>
-      ) : null}
-
       {intro ? (
-        <div className="gx-intro" role="dialog" aria-modal="true" aria-label="Giới thiệu Tinh Đồ" onClick={() => setIntro(false)}>
-          <div className="gx-card" onClick={(e) => e.stopPropagation()}>
+        <div className="gx-intro" onClick={() => setIntro(false)}>
+          <div className="gx-card" role="dialog" aria-label="Giới thiệu Tinh Đồ" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="gx-x" onClick={() => setIntro(false)} aria-label="Đóng" autoFocus><Icon name="close" size={18} /></button>
             <h2>{FEATURE.name}</h2>
             <p className="gx-tag">{FEATURE.tagline}</p>
             {FEATURE.intro.map((t, i) => <p key={i}>{t}</p>)}
             <p className="gx-rule"><Icon name="sparkle" size={16} /> {FEATURE.rule}</p>
-            <button type="button" className="gx-main" onClick={() => setIntro(false)} autoFocus>Đã hiểu</button>
           </div>
         </div>
       ) : null}
