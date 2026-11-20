@@ -114,10 +114,12 @@
 
 /* ---- phone held upright: the panel is a sheet at the bottom, the dock sits under the top bar */
 @media (max-aspect-ratio: 1/1), (max-width: 900px) {
-  .gx-dock { top: calc(58px + env(safe-area-inset-top, 0px)); bottom: auto; right: auto; left: 50%; transform: translateX(-50%); padding: 5px 8px; gap: 8px; }
+  /* upright phone: on the chart the galaxies themselves are the buttons, so the dock only serves hopping between close-ups; it is small and clear so the picture shows */
+  .gx-dock { top: calc(54px + env(safe-area-inset-top, 0px)); bottom: auto; right: auto; left: 50%; transform: translateX(-50%); padding: 3px 6px; gap: 6px; background: rgba(4, 10, 20, 0.35); border-color: rgba(238, 208, 138, 0.18); }
+  .gx[data-mode='map'] .gx-dock { display: none; }
   .gx-cap { left: 10px; right: 10px; width: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding: 10px 12px; }
   .gx-cap h2 { font-size: 1.2rem; }
-  .gx-chip { width: 40px; height: 40px; }
+  .gx-chip { width: 30px; height: 30px; border-width: 1.5px; }
   .gx-panel { left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 62dvh; border-radius: 18px 18px 0 0; border-width: 1px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); animation-name: gx-up-sheet; }
     .gx-panel h2 { font-size: 1.4rem; }
   .gx-tag { font-size: 0.92rem; margin-bottom: 8px; }
