@@ -264,8 +264,9 @@ test('settings validation (Requirement 3.15)', () => {
   assert.equal(G.setSettings(st, { retreatPct: 0 }).code, 'E_BAD_THRESHOLDS');
   assert.equal(G.setSettings(st, { resumePct: 101 }).code, 'E_BAD_THRESHOLDS');
   assert.equal(st.set.retreatPct, B.defaults.retreatPct); assert.equal(st.set.resumePct, B.defaults.resumePct);
-  assert.ok(G.setSettings(st, { retreatPct: 35, resumePct: 60, dissolveMax: -1, tame: { grade: 2, sizes: [1, 2] } }).ok);
-  assert.equal(st.set.retreatPct, 35); assert.deepEqual(st.set.tame.sizes, [1, 2]);
+  assert.ok(G.setSettings(st, { retreatPct: 35, resumePct: 60, dissolveMax: -1, tame: { grade: 2, mode: 'pick' } }).ok);
+  assert.equal(st.set.retreatPct, 35); assert.equal(st.set.tame.mode, 'pick');
+  assert.equal(G.setSettings(st, { tame: { mode: 'bogus' } }).code, 'E_BAD_SETTING');
   assert.equal(G.setSettings(st, { autoTame: 'yes' }).code, 'E_BAD_SETTING');
   assert.equal(G.setSettings(st, { tame: { species: ['nope'] } }).code, 'E_BAD_SETTING');
 });
@@ -738,7 +739,7 @@ test('chức vụ changes come out the same however the ticks are split, and nev
 const beastP = (id: number, power: number, mut = false) => ({ id, power, level: 5, apt: [1, 1, 1, 1, 1], cls: 2, mut, sp: 'ho', name: 'x', stats: [1, 1, 1, 1, 1], skills: [], size: 1, cm: 1, pers: 0 }) as unknown as G.Beast;
 test('"strong creatures only": any creature while the Party is not full, then only one stronger than the weakest of the Party', () => {
   const st = fresh(700), sp = C.SPECIES[0];
-  st.set.tame.strong = true; st.set.tame.alwaysMut = false;
+  st.set.tame.mode = 'strong';
   st.beasts = [beastP(1, 100), beastP(2, 90)];
   assert.equal(G.matchesFilter(st, beastP(9, 10), sp), true, 'the Party has room');
   st.beasts.push(beastP(3, 80));
@@ -746,11 +747,32 @@ test('"strong creatures only": any creature while the Party is not full, then on
   assert.equal(G.matchesFilter(st, beastP(9, 81), sp), true);
   st.beasts.push(beastP(4, 500));   // only the three strongest go into battle: the weakest of those is 90 now
   assert.equal(G.matchesFilter(st, beastP(9, 85), sp), false); assert.equal(G.matchesFilter(st, beastP(9, 95), sp), true);
-  st.set.tame.strong = false; st.set.tame.sizes = [0, 1, 2, 3, 4];
-  assert.equal(G.matchesFilter(st, beastP(9, 1), sp), true, 'off: the old filter applies');
+  st.set.tame.mode = 'all';
+  assert.equal(G.matchesFilter(st, beastP(9, 1), sp), true, 'all: every creature');
+});
+test('the four auto-tame modes: Dị Biến only, stronger, chosen species, all; a Dị Biến passes in every mode', () => {
+  const st = fresh(701), sp = C.SPECIES[0], other = C.SPECIES[1];
+  st.set.tame.mode = 'mut';
+  assert.equal(G.matchesFilter(st, beastP(9, 10), sp), false); assert.equal(G.matchesFilter(st, beastP(9, 10, true), sp), true);
+  st.set.tame.mode = 'pick'; st.set.tame.species = [sp.id];
+  assert.equal(G.matchesFilter(st, beastP(9, 10), sp), true); assert.equal(G.matchesFilter(st, beastP(9, 10), other), false); assert.equal(G.matchesFilter(st, beastP(9, 10, true), other), true);
+  st.set.tame.species = [];
+  assert.equal(G.matchesFilter(st, beastP(9, 10), sp), false, 'no species chosen: only Dị Biến');
+  st.set.tame.mode = 'all';
+  assert.equal(G.matchesFilter(st, beastP(9, 10), other), true);
+});
+test('auto tame uses the chosen grade or a lower one the player owns, never skips while any allowed talisman is left', () => {
+  const sp = C.SPECIES[0], mk = (taming: number[], grade: number) => { const st = fresh(802); st.set.autoTame = true; st.set.autoBuyTal = false; st.set.tame.mode = 'all'; st.set.tame.grade = grade; st.inv.taming = taming; st.beasts = []; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; return st; };
+  const lower = mk([3, 2, 0, 0], 2); G.tryTame(lower, beastP(1, 10), sp, []);
+  assert.equal(lower.inv.taming[0] + lower.inv.taming[1], 4, 'no Địa talisman: the Huyền one is used');
+  assert.equal(lower.inv.taming[1], 1);
+  const higherOnly = mk([0, 0, 0, 4], 0), n = G.tryTame(higherOnly, beastP(2, 10), sp, [])!;
+  assert.ok(n && !n.won && /đã hết Khế Ước Phù/.test(n.text), 'only a higher grade than chosen: not used for an ordinary creature'); assert.deepEqual(higherOnly.inv.taming, [0, 0, 0, 4]);
+  const mut = mk([0, 0, 0, 4], 0); G.tryTame(mut, beastP(3, 10, true), sp, []);
+  assert.equal(mut.inv.taming[3], 3, 'a Dị Biến takes the best grade');
 });
 test('an auto tame of a Dị Biến always uses the best Khế Ước Phù the player has; an ordinary creature uses the chosen grade', () => {
-  const sp = C.SPECIES[0], mk = (mut: boolean) => { const st = fresh(800); st.set.autoTame = true; st.set.tame.grade = 0; st.set.tame.alwaysMut = true; st.inv.taming = [5, 0, 5, 0]; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; G.tryTame(st, beastP(77, 10, mut), sp, []); return st; };
+  const sp = C.SPECIES[0], mk = (mut: boolean) => { const st = fresh(800); st.set.autoTame = true; st.set.tame.grade = 0; st.set.tame.mode = 'all'; st.inv.taming = [5, 0, 5, 0]; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; G.tryTame(st, beastP(77, 10, mut), sp, []); return st; };
   const mut = mk(true), plain = mk(false);
   assert.deepEqual(mut.inv.taming, [5, 0, 4, 0], 'Dị Biến: the Địa talisman');
   assert.deepEqual(plain.inv.taming, [4, 0, 5, 0], 'ordinary: the Hoàng one chosen in the settings');

@@ -32,8 +32,12 @@ export interface Report {
   bt: { ok: number; fail: number; lostCp: number }; phen: Record<string, number>; highlights: Highlight[]; blockedTicks: number; robbed: number; upkeep: number;
   fromLevel: number; toLevel: number; beforeTier: number; afterTier: number;
 }
-// strong: tame only a creature stronger than the weakest of the Party, or any creature while the Party is not full (it replaces the species and size filters)
-export interface TameFilter { species: string[]; newOnly: boolean; alwaysMut: boolean; sizes: number[]; grade: number; strong: boolean }
+// Auto tame picks ONE mode. mut: only Dị Biến. strong: a creature stronger than the weakest of the Party, or any creature while the Party is not full.
+// pick: only the chosen species. all: every creature. A Dị Biến is always tried, in every mode, with the best Khế Ước Phù the player has.
+// grade: the highest talisman grade an ordinary creature may use; when none of it is left the next lower grade the player owns is used.
+export type TameMode = 'mut' | 'strong' | 'pick' | 'all';
+export const TAME_MODES: TameMode[] = ['mut', 'strong', 'pick', 'all'];
+export interface TameFilter { mode: TameMode; species: string[]; grade: number }
 export interface Settings {
   mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; autoLearn: boolean; autoBuyPill: boolean; autoBuyTal: boolean;
   retreatPct: number; resumePct: number; dissolveMax: number; tame: TameFilter;
@@ -501,6 +505,14 @@ function autoBuyTal(st: GameState, g: number, chips: string[]): boolean {
   chips.push(`Hết Khế Ước Phù, tự mua hạng ${C.GRADES[g]} (-${cost} Linh Thạch)`);
   return true;
 }
+// The Khế Ước Phù an automatic taming uses: a Dị Biến takes the best grade, any other creature the chosen grade or a lower one.
+// The grade the player owns is used first (the highest allowed one); with none left, one is bought (the chosen grade, or a lower one the player can pay). -1: nothing to use.
+function autoTalisman(st: GameState, m: Beast, chips: string[]): number {
+  const top = m.mut ? st.inv.taming.length - 1 : st.set.tame.grade;
+  for (let i = top; i >= 0; i--) if (st.inv.taming[i] > 0) return i;
+  for (let i = top; i >= 0; i--) if (autoBuyTal(st, i, chips)) return i;
+  return -1;
+}
 export function autoHeal(st: GameState, rep?: Report) {
   const S = pstats(st), p = st.player, used: number[] = [0, 0, 0], bought = { n: 0, cost: 0 };
   for (let n = 0; n < 12 && p.hp < S.maxHp; n++) {
@@ -626,11 +638,8 @@ export function setSettings(st: GameState, patch: any): Res {
   if (patch.tame !== undefined) {
     const t = patch.tame;
     if (!t || typeof t !== 'object') return fail('E_BAD_SETTING');
+    if ('mode' in t) { if (!TAME_MODES.includes(t.mode)) return fail('E_BAD_SETTING'); next_.tame.mode = t.mode; }
     if ('species' in t) { if (!Array.isArray(t.species) || t.species.some((s: any) => !D.allSpecies().some((x) => x.id === s))) return fail('E_BAD_SETTING'); next_.tame.species = [...new Set<string>(t.species)]; }
-    if ('newOnly' in t) { if (!isBool(t.newOnly)) return fail('E_BAD_SETTING'); next_.tame.newOnly = t.newOnly; }
-    if ('strong' in t) { if (!isBool(t.strong)) return fail('E_BAD_SETTING'); next_.tame.strong = t.strong; }
-    if ('alwaysMut' in t) { if (!isBool(t.alwaysMut)) return fail('E_BAD_SETTING'); next_.tame.alwaysMut = t.alwaysMut; }
-    if ('sizes' in t) { if (!Array.isArray(t.sizes) || t.sizes.some((s: any) => !Number.isInteger(s) || s < 0 || s > 4)) return fail('E_BAD_SETTING'); next_.tame.sizes = [...new Set<number>(t.sizes)].sort(); }
     if ('grade' in t) { if (!Number.isInteger(t.grade) || t.grade < 0 || t.grade > 3) return fail('E_BAD_SETTING'); next_.tame.grade = t.grade; }
   }
   st.set = next_;
@@ -950,12 +959,13 @@ export const tameProb = (st: GameState, sp: C.Species, m: Beast, grade: number) 
 };
 export function matchesFilter(st: GameState, m: Beast, sp: C.Species): boolean {
   const f = st.set.tame;
-  if (m.mut && f.alwaysMut) return true;
-  if (f.strong) { const party = bestParty(st); return party.length < B.maxParty || m.power > Math.min(...party.map((b) => b.power)); }
-  if (f.species.length > 0 && !f.species.includes(sp.id)) return false;
-  if (!f.sizes.includes(m.cls)) return false;
-  if (f.newOnly && (st.best[sp.id]?.tamed || 0) > 0) return false;
-  return true;
+  if (m.mut) return true;   // a Dị Biến is tried in every mode
+  switch (f.mode) {
+    case 'mut': return false;
+    case 'strong': { const party = bestParty(st); return party.length < B.maxParty || m.power > Math.min(...party.map((b) => b.power)); }
+    case 'pick': return f.species.includes(sp.id);
+    default: return true;
+  }
 }
 const notable = (st: GameState, m: Beast) => m.mut || !!m.elite || m.cls === 0 || m.cls === 4 || (st.best[m.sp]?.tamed || 0) === 0;
 // What a taming attempt (or a creature that could not be tried) writes into the journey, so the player always sees the result: success, failure or a miss.
@@ -1073,12 +1083,9 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
 export function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[], rep?: Report, log?: string[]): TameNote | null {
   if (st.set.autoTame) {
     if (!matchesFilter(st, m, sp)) return null;
-    // a Dị Biến always gets the best Khế Ước Phù the player has
-    let g = st.set.tame.grade;
-    if (m.mut) for (let i = st.inv.taming.length - 1; i >= 0; i--) if (st.inv.taming[i] > 0) { g = i; break; }
     if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
-    if (st.inv.taming[g] <= 0) autoBuyTal(st, g, chips);
-    if (st.inv.taming[g] <= 0) return missed(m, 'tal', chips, rep, log);
+    const g = autoTalisman(st, m, chips);
+    if (g < 0) return missed(m, 'tal', chips, rep, log);
     const pct = tamePct(st, m, sp, g);
     return tameNote(m, g, rollTame(st, m, sp, g, chips, rep, log), pct);
   }
@@ -1266,7 +1273,7 @@ export function tick(st: GameState, rep?: Report) {
 // ---------- state
 export function defaultSettings(): Settings {
   const d = B.defaults;
-  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, autoBuyPill: d.autoBuyPill, autoBuyTal: d.autoBuyTal, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0, strong: false } };
+  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, autoBuyPill: d.autoBuyPill, autoBuyTal: d.autoBuyTal, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { mode: 'all', species: [], grade: 0 } };
 }
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string): GameState {
   const streams = newStreams(seed);

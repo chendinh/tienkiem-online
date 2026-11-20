@@ -65,7 +65,11 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (!st.inv.books) st.inv.books = {};
   while (st.inv.bt.length < B.shop.breakthrough.length) st.inv.bt.push(0);   // one Phá Cảnh Đan slot per realm that can be entered
   if (st.feed.length > B.feedSize) st.feed.length = B.feedSize;   // an older save kept more journey entries
-  if (st.set.tame.strong === undefined) st.set.tame.strong = false;
+  if (!G.TAME_MODES.includes(st.set.tame.mode)) {   // before the single-choice taming mode: the old filters decide which mode the save starts in
+    const t = st.set.tame as any;
+    t.mode = t.strong ? 'strong' : t.species && t.species.length > 0 ? 'pick' : 'all';
+    delete t.strong; delete t.alwaysMut; delete t.newOnly; delete t.sizes;
+  }
   if (st.set.retreatPct < B.minRetreatPct) st.set.retreatPct = B.minRetreatPct;   // below 30% of health the character never goes out to fight
   if (st.set.resumePct <= st.set.retreatPct) st.set.resumePct = Math.min(100, st.set.retreatPct + 1);
   if (!st.arts) { st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); }   // an old save starts with the Hoàng technique of the môn of its weapon

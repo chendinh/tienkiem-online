@@ -7,7 +7,7 @@ import * as C from '@/lib/content';
 import type { GS } from '@/lib/client/types';
 import * as D from '@/lib/daily';
 import { allSpecies } from '@/lib/daily';
-import type { Report, Beast } from '@/lib/game';
+import type { Report, Beast, TameMode } from '@/lib/game';
 import { releaseValue, upkeepDue, SP, heartDemonTicks, tribulationPurityMult } from '@/lib/game';
 import { Icon } from './ds/Icon';
 import * as TK from '@/lib/tasks';
@@ -123,15 +123,21 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
 
 // ---------- Settings (Requirement 3, 9, 21, 23, 31.5)
 const RET_PCTS = [30, 50, 70, 90], RES_PCTS = [50, 70, 90, 100];
+const TAME_MODE_OPTS: { v: TameMode; n: string; t: string }[] = [
+  { v: 'mut', n: 'Chỉ Dị Thú', t: 'Chỉ thu phục Dị Biến, luôn dùng phù cao nhất.' },
+  { v: 'strong', n: 'Thú mạnh hơn', t: '' },
+  { v: 'pick', n: 'Thú theo lựa chọn', t: 'Chỉ thu phục các loài ngươi chọn.' },
+  { v: 'all', n: 'Tất cả thú', t: 'Thu phục mọi con vừa thắng.' },
+];
 const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
 export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
   const s = st.set;
   // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
   const known = new Set(allSpecies().map((x) => x.id));   // a saved species that no longer exists would show as a phantom "chosen" one the player cannot see or remove
   const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoBuyPill: s.autoBuyPill, autoBuyTal: s.autoBuyTal, autoFight: s.autoFight, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
-    tame: { strong: s.tame.strong, grade: s.tame.grade, alwaysMut: s.tame.alwaysMut, newOnly: s.tame.newOnly, species: s.tame.species.filter((id) => known.has(id)), sizes: [...s.tame.sizes] } });
+    tame: { mode: s.tame.mode, grade: s.tame.grade, species: s.tame.species.filter((id) => known.has(id)) } });
   const [d, setD] = useState(fromSet);
-  const norm = (x: ReturnType<typeof fromSet>) => JSON.stringify({ ...x, tame: { ...x.tame, species: [...x.tame.species].sort(), sizes: [...x.tame.sizes].sort() } });
+  const norm = (x: ReturnType<typeof fromSet>) => JSON.stringify({ ...x, tame: { ...x.tame, species: [...x.tame.species].sort() } });
   const dirty = norm(d) !== norm(fromSet());
   const up = (p: Partial<ReturnType<typeof fromSet>>) => setD((x) => ({ ...x, ...p }));
   const upTame = (p: Partial<ReturnType<typeof fromSet>['tame']>) => setD((x) => ({ ...x, tame: { ...x.tame, ...p } }));
@@ -139,7 +145,6 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
   const [saving, setSaving] = useState(false);
   const save = async () => { setSaving(true); const r = await act('settings', { patch: d }); setSaving(false); setMsg({ t: r.msg, ok: r.ok }); };
   const close = async () => { if (dirty && !(await askConfirm({ title: 'Chưa lưu thay đổi', body: 'Ngươi đã đổi cài đặt nhưng chưa bấm “Lưu thay đổi”. Đóng và bỏ các thay đổi này?', ok: 'Bỏ thay đổi', danger: true }))) return; onClose(); };
-  const toggleIn = (arr: number[], v: number) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   return (
     <div className="modal" onClick={close} role="dialog" aria-modal="true" aria-label="Cài đặt">
       <ModalClose onClose={close} />
@@ -161,7 +166,6 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           <div className="row">
             <label className="tg"><input type="checkbox" checked={d.autoPill} onChange={(e) => up({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan ngay sau mỗi trận, chọn loại vừa đủ cho đến khi đầy sinh lực</label>
             <label className="tg"><input type="checkbox" checked={d.autoBuyPill} onChange={(e) => up({ autoBuyPill: e.target.checked })} /> Tự mua Hồi Khí Đan khi hết, hạng theo cấp độ, giá ×{B.autoBuy.markup} giá Phường Thị (cần bật mục trên)</label>
-            <label className="tg"><input type="checkbox" checked={d.autoBuyTal} onChange={(e) => up({ autoBuyTal: e.target.checked })} /> Tự mua Khế Ước Phù khi hết (đúng hạng đã chọn để thu phục), giá ×{B.autoBuy.markup} giá Phường Thị</label>
           </div>
           <h3>Tự động</h3>
           <div className="row">
@@ -179,31 +183,33 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           </label>
           <div className="hint">Mặc định tắt: đồ nhặt được vào túi để ngươi tự quyết định. Khi bật, chỉ phân giải món không khóa khi ô trang bị tương ứng đang có đồ khác.</div>
           <h3>Tự thu phục</h3>
-          <label className="tg"><input type="checkbox" checked={d.autoTame} onChange={(e) => up({ autoTame: e.target.checked })} /> Bật tự thu phục sau khi thắng</label>
-          {!d.autoTame && <div className="hint tameOffNote">Đang tắt tự thu phục: sau mỗi trận thắng, game dừng lại hỏi ngươi với quái đáng chú ý (Dị Biến, Tinh Anh, loài mới, rất nhỏ hoặc rất lớn). Các bộ lọc dưới đây chỉ có tác dụng khi bật tự thu phục.</div>}
-          <fieldset className={`tameFilters ${d.autoTame ? '' : 'off'}`} disabled={!d.autoTame} aria-label="Bộ lọc tự thu phục">
-          <label className="tg"><input type="checkbox" checked={d.tame.strong} onChange={(e) => upTame({ strong: e.target.checked })} /> Chỉ bắt quái mạnh: mạnh hơn con yếu nhất trong đội xuất chiến, hoặc khi đội chưa đủ {st.caps.party} con (thay cho bộ lọc loài và kích cỡ)</label>
-          <label className="field">Hạng Khế Ước Phù sẽ dùng
-            <select value={d.tame.grade} onChange={(e) => upTame({ grade: Number(e.target.value) })}>
-              {C.GRADES.map((g, i) => <option key={g} value={i}>{g} (đang có {st.inv.taming[i]})</option>)}
-            </select>
-          </label>
-          <div className="row">
-            <label className="tg"><input type="checkbox" checked={d.tame.alwaysMut} onChange={(e) => upTame({ alwaysMut: e.target.checked })} /> Luôn thử với Dị Biến (luôn dùng phù cao nhất đang có)</label>
-            <label className="tg"><input type="checkbox" checked={d.tame.newOnly} onChange={(e) => upTame({ newOnly: e.target.checked })} /> Chỉ loài chưa từng thu phục</label>
-          </div>
-          <div className="field">
-            <span className="fieldLbl">Chỉ thu phục các loài này</span>
-            <MultiSelect label="Loài yêu thú muốn thu phục" allText="Tất cả các loài (không lọc)" placeholder="Tìm loài theo tên hoặc hệ…" value={d.tame.species}
-              options={allSpecies().slice().sort((a, b) => a.name.localeCompare(b.name, 'vi')).map((sp) => ({ value: sp.id, label: sp.name, hint: sp.el.join('/') }))}
-              onChange={(v) => upTame({ species: v })} />
-            <small className="hint">Không chọn loài nào nghĩa là thu phục mọi loài. Chọn vài loài thì chỉ thu phục đúng những loài đó.</small>
-          </div>
-          <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend>Kích thước được phép</legend>
-            <div className="chipPick">{C.SIZE_CLASS.map((n, i) => <label key={n}><input type="checkbox" checked={d.tame.sizes.includes(i)} onChange={() => upTame({ sizes: toggleIn(d.tame.sizes, i) })} />{n}</label>)}</div>
-          </fieldset>
-          </fieldset>
+          <label className="tg"><input type="checkbox" checked={d.autoTame} onChange={(e) => up({ autoTame: e.target.checked })} /> Tự thu phục sau khi thắng</label>
+          {!d.autoTame && <div className="hint tameOffNote">Đang tắt: sau mỗi trận thắng, game dừng lại hỏi ngươi với quái đáng chú ý (Dị Biến, Tinh Anh, loài mới, rất nhỏ hoặc rất lớn).</div>}
+          {d.autoTame && <div className="tameModes">
+            <div role="radiogroup" aria-label="Thu phục loại nào" className="tameModeList">
+              {TAME_MODE_OPTS.map((o) => (
+                <label key={o.v} className={'tameMode' + (d.tame.mode === o.v ? ' on' : '')}>
+                  <input type="radio" name="tameMode" checked={d.tame.mode === o.v} onChange={() => upTame({ mode: o.v })} />
+                  <span><b>{o.n}</b><small>{o.v === 'strong' ? `Mạnh hơn con yếu nhất trong đội xuất chiến, hoặc khi đội chưa đủ ${st.caps.party} con.` : o.t}</small></span>
+                </label>
+              ))}
+            </div>
+            {d.tame.mode === 'pick' && <div className="field">
+              <MultiSelect label="Loài yêu thú muốn thu phục" allText="Chưa chọn loài nào" placeholder="Tìm loài theo tên hoặc hệ…" value={d.tame.species}
+                options={allSpecies().slice().sort((a, b) => a.name.localeCompare(b.name, 'vi')).map((sp) => ({ value: sp.id, label: sp.name, hint: sp.el.join('/') }))}
+                onChange={(v) => upTame({ species: v })} />
+              {d.tame.species.length === 0 && <small className="hint">Chưa chọn loài nào thì chỉ thu phục Dị Biến.</small>}
+            </div>}
+            {d.tame.mode === 'mut'
+              ? <div className="hint">Luôn dùng Khế Ước Phù cao nhất đang có.</div>
+              : <label className="field">Dùng Khế Ước Phù từ hạng này trở xuống
+                  <select value={d.tame.grade} onChange={(e) => upTame({ grade: Number(e.target.value) })}>
+                    {C.GRADES.map((g, i) => <option key={g} value={i}>{g} (đang có {st.inv.taming[i]})</option>)}
+                  </select>
+                  <small className="hint">Hết hạng này thì dùng hạng thấp hơn đang có. Gặp Dị Biến luôn dùng phù cao nhất.</small>
+                </label>}
+            <label className="tg"><input type="checkbox" checked={d.autoBuyTal} onChange={(e) => up({ autoBuyTal: e.target.checked })} /> Tự mua Khế Ước Phù khi hết, giá ×{B.autoBuy.markup} giá Phường Thị</label>
+          </div>}
         </div>
         <div className="setBar">
           <small className={dirty ? 'dirty' : ''}>{dirty ? 'Có thay đổi chưa lưu' : msg && !msg.ok ? msg.t : msg ? 'Đã lưu cài đặt.' : 'Chưa có thay đổi'}</small>

@@ -170,6 +170,14 @@
   .tameFilters { display: grid; gap: var(--sp-3); min-width: 0; margin: 0; padding: 0; border: 0; transition: opacity var(--dur-base); }
   .tameFilters.off { opacity: 0.45; filter: grayscale(0.5); }
   .tameFilters.off * { cursor: not-allowed; }
+  .tameModes { display: grid; gap: var(--sp-3); min-width: 0; }
+  .tameModeList { display: grid; gap: 6px; }
+  .tameMode { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md, 10px); cursor: pointer; min-height: 44px; }
+  .tameMode input { margin-top: 3px; flex: none; }
+  .tameMode span { display: grid; gap: 2px; min-width: 0; }
+  .tameMode small { opacity: 0.75; }
+  .tameMode.on { border-color: var(--jade-300); background: color-mix(in srgb, var(--jade-400) 18%, transparent); }
+  .tameMode:has(input:focus-visible) { outline: 2px solid var(--jade-400); }
   .tameOffNote { margin: 0; }
 }
 
