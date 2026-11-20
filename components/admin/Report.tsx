@@ -139,7 +139,7 @@ export function ReportPage() {
   return <ReportView r={data} busy={busy} auto={auto} setAuto={setAuto} reload={() => load(key!, true)} out={() => { try { sessionStorage.removeItem(KEY); } catch {} setData(null); setKey(''); }} adminKey={key!} />;
 }
 
-const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ'], ['dibien', 'Ảnh Dị Biến']];
+const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ'], ['dibien', 'Ảnh Dị Biến'], ['tinhha', 'Ảnh Tinh Hà']];
 
 // The owner's button to draw the Dị Biến pictures again: it makes the game forget the saved pictures of a look, and each is drawn again (with the current model) the next time a
 // creature of that look needs it. Two taps: the first asks, the second does it.
@@ -178,6 +178,52 @@ function Redraw({ adminKey }: { adminKey: string }) {
           <small className="muted">Mỗi ảnh thú vẽ lại tốn khoảng 0.07 USD, mỗi ảnh tách nền thêm 0.02 USD, tính vào ngân sách phòng thí nghiệm (LAB_BUDGET_USD). Mỗi biểu tượng đồ khoảng 0.05 USD, tính vào ngân sách ảnh (IMAGE_BUDGET_USD); hạng Thiên chỉ được vẽ khi bật DRAW_THIEN_ART=1.</small>
         </>
       )}
+    </Card>
+  );
+}
+
+// Ảnh Tinh Hà: the owner's button to draw the pictures of Vạn Giới Tinh Đồ again with the image model. Big for PC (2560 wide) and a smaller tall one for phones (1080x1920).
+// Drawing takes up to two minutes and costs money, so every button asks twice. The star chart is repainted from the bundled chart (so the galaxies stay where the buttons are).
+function GalaxyArt({ adminKey }: { adminKey: string }) {
+  const [art, setArt] = useState<Record<string, string>>({}), [names, setNames] = useState<[string, string][]>([]);
+  const [sure, setSure] = useState(''), [busy, setBusy] = useState(''), [msg, setMsg] = useState(''), [err, setErr] = useState('');
+  const hdr = { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
+  const load = useCallback(async () => {
+    try {
+      const [a, g] = await Promise.all([fetch('/api/admin/galaxy', { headers: hdr, cache: 'no-store' }).then((r) => r.json()), import('@/lib/galaxyArt')]);
+      if (a?.ok) { setArt(a.art || {}); setNames((a.names as string[]).map((n) => [n, g.GX_ART_LABEL[n] || n])); setErr(''); } else setErr('Không đọc được danh sách ảnh.');
+    } catch { setErr('Không đọc được danh sách ảnh.'); }
+  }, [adminKey]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [load]);
+  const ERR: Record<string, string> = { E_NO_FAL: 'Chưa có FAL_KEY trong môi trường.', E_NO_BLOB: 'Chưa nối Vercel Blob (BLOB_READ_WRITE_TOKEN), nên chưa lưu được ảnh vẽ lại.' };
+  async function go(name: string, what: '2k' | '1k' | 'reset') {
+    const id = `${name}:${what}`;
+    if (sure !== id) { setSure(id); setMsg(''); return; }
+    setSure(''); setBusy(id); setErr(''); setMsg(what === 'reset' ? '' : 'Đang vẽ, mất khoảng 30 đến 120 giây. Đừng đóng trang.');
+    try {
+      const r = await fetch('/api/admin/galaxy', { method: 'POST', headers: hdr, body: JSON.stringify(what === 'reset' ? { name, reset: true } : { name, size: what }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) { setArt(j.art || {}); setMsg(what === 'reset' ? 'Đã quay về ảnh gốc của game.' : `Đã vẽ xong${j.cost ? ` (khoảng ${j.cost} USD)` : ''}. Trang Tinh Đồ tự lấy ảnh mới trong vòng một phút.`); }
+      else { setMsg(''); setErr(ERR[j?.code] || 'Không vẽ được. Thử lại.'); }
+    } catch { setMsg(''); setErr('Không vẽ được (quá thời gian?). Thử lại.'); }
+    setBusy('');
+  }
+  const cell = (name: string, size: '2k' | '1k') => {
+    const url = art[`${name}_${size}`], id = `${name}:${size}`;
+    return (
+      <div key={id} className="rp-gx">
+        {url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" loading="lazy" width={size === '2k' ? 120 : 52} height={size === '2k' ? 68 : 92} style={{ objectFit: 'cover', borderRadius: 6 }} /></a> : <small className="muted">ảnh gốc</small>}
+        <button className="btn sm" disabled={!!busy} onClick={() => go(name, size)}>{busy === id ? 'Đang vẽ…' : sure === id ? `Bấm lần nữa (~${size === '2k' ? '0.17' : '0.09'} USD)` : 'Vẽ lại'}</button>
+      </div>
+    );
+  };
+  return (
+    <Card id="tinhha" title="Ảnh Tinh Hà" sub="vẽ lại bằng AI, bản lớn cho máy tính và bản nhỏ cho điện thoại; ảnh mới thay ngay trên trang Tinh Đồ">
+      {err && <p className="formErr" role="alert">{err}</p>}
+      {msg && <p className="muted" role="status">{msg}</p>}
+      <Table head={['Ảnh', 'Máy tính (2560×1440)', 'Điện thoại (1080×1920)', '']} rows={names.map(([n, label]) => [label, cell(n, '2k'), cell(n, '1k'),
+        <button key={n} className="btn sm ghost" disabled={!!busy || !Object.keys(art).some((k) => k.startsWith(`${n}_`))} onClick={() => go(n, 'reset')}>{sure === `${n}:reset` ? 'Bấm lần nữa' : 'Về ảnh gốc'}</button>])} />
+      <small className="muted">Bản đồ tổng được vẽ lại từ bản đồ gốc nên các tinh hà giữ nguyên vị trí. Cần FAL_KEY và Vercel Blob. Đổi mô hình bằng FAL_GALAXY_MODEL, độ phân giải bằng FAL_GALAXY_RES (mặc định 4K cho máy tính, 2K cho điện thoại). Ảnh vẽ lại nào chưa ưng thì bấm "Về ảnh gốc".</small>
     </Card>
   );
 }
@@ -339,6 +385,7 @@ export function ReportView({ r, busy, auto, setAuto, reload, out, adminKey }: { 
 
 
         {adminKey && <Redraw adminKey={adminKey} />}
+        {adminKey && <GalaxyArt adminKey={adminKey} />}
 
         <footer className="rp-note"><h4>Cách đọc số liệu</h4><ul>{r.note.map((n) => <li key={n}>{n}</li>)}</ul></footer>
       </main>
