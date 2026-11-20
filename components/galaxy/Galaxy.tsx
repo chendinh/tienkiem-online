@@ -197,7 +197,7 @@ export function Galaxy() {
             <button key={x.id} type="button" className={`gx-node ${x.status}`} data-on={sel === x.id} style={{ left: `${px * 100}%`, top: `${py * 100}%`, '--d': ringD(x), '--a': x.accent } as CSSProperties}
               onClick={() => go(x.id)} onPointerEnter={() => ensure(x.id)} onFocus={() => ensure(x.id)} aria-label={`${x.name}${x.status === 'open' ? '' : ', sắp mở'}`}>
               <span className="gx-ring" /><span className="gx-ring r2" />
-              <span className="gx-lab"><b>{x.name}</b><small>{x.status === 'open' ? 'Ngươi đang ở đây' : 'Sắp mở'}</small></span>
+              <span className="gx-lab"><b>{x.name}</b>{x.status === 'open' ? <small>Ngươi đang ở đây</small> : null}</span>
             </button>
           );
         })}
