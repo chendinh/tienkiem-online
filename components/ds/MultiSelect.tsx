@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import { Icon } from './Icon';
 // Choose several of many (the creatures to tame, ...). A bar shows what is chosen; pressing it opens a panel in the flow of the page (not a floating layer, so a
 // scrolling window never clips it) with a search box, a checklist and quick actions. Empty selection means "all", said in `allText`.
@@ -11,6 +11,13 @@ export function MultiSelect({ options, value, onChange, label, allText, placehol
   const shown = useMemo(() => { const k = norm(q.trim()); return k ? options.filter((o) => norm(o.label).includes(k) || (o.hint && norm(o.hint).includes(k))) : options; }, [options, q]);
   const set = new Set(value), chosen = options.filter((o) => set.has(o.value));
   const toggle = (v: string) => onChange(set.has(v) ? value.filter((x) => x !== v) : [...value, v]);
+  // Escape in the search box first clears it, then closes the panel; it must not also close the window the panel is in. Enter must not submit anything.
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); return; }
+    if (e.key !== 'Escape') return;
+    e.stopPropagation(); e.nativeEvent.stopImmediatePropagation();
+    if (q) setQ(''); else setOpen(false);
+  };
   return (
     <div className={`msel ${open ? 'open' : ''}`}>
       <button type="button" className="mselBar" aria-expanded={open} aria-label={label} onClick={() => setOpen((o) => !o)}>
@@ -25,7 +32,7 @@ export function MultiSelect({ options, value, onChange, label, allText, placehol
       )}
       {open && (
         <div className="mselPanel">
-          <input className="inp mselSearch" type="search" value={q} placeholder={placeholder} aria-label={`Tìm trong ${label}`} onChange={(e) => setQ(e.target.value)} />
+          <input className="inp mselSearch" type="search" value={q} placeholder={placeholder} aria-label={`Tìm trong ${label}`} autoComplete="off" enterKeyHint="search" onKeyDown={onKey} onChange={(e) => setQ(e.target.value)} />
           <div className="mselActs">
             <button type="button" className="btn sm ghost" onClick={() => onChange([...new Set([...value, ...shown.map((o) => o.value)])])}>Chọn {q ? 'các kết quả' : 'tất cả'}</button>
             <button type="button" className="btn sm ghost" disabled={value.length === 0} onClick={() => onChange([])}>Bỏ chọn hết</button>

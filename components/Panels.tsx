@@ -127,8 +127,9 @@ const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
 export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
   const s = st.set;
   // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
+  const known = new Set(allSpecies().map((x) => x.id));   // a saved species that no longer exists would show as a phantom "chosen" one the player cannot see or remove
   const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoFight: s.autoFight, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
-    tame: { strong: s.tame.strong, grade: s.tame.grade, alwaysMut: s.tame.alwaysMut, newOnly: s.tame.newOnly, species: [...s.tame.species], sizes: [...s.tame.sizes] } });
+    tame: { strong: s.tame.strong, grade: s.tame.grade, alwaysMut: s.tame.alwaysMut, newOnly: s.tame.newOnly, species: s.tame.species.filter((id) => known.has(id)), sizes: [...s.tame.sizes] } });
   const [d, setD] = useState(fromSet);
   const norm = (x: ReturnType<typeof fromSet>) => JSON.stringify({ ...x, tame: { ...x.tame, species: [...x.tame.species].sort(), sizes: [...x.tame.sizes].sort() } });
   const dirty = norm(d) !== norm(fromSet());
