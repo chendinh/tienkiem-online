@@ -11,7 +11,6 @@ import { sfx } from '@/lib/audio';
 interface Cam { tx: number; ty: number; z: number }
 const FACT_ICON: Record<string, string> = { rank: 'rise', beast: 'paw', weapon: 'atk', board: 'crown', rule: 'taiji' };
 const ZOOM = { land: 2.7, port: 3.1 };
-const PANEL_W = 420;
 
 function rng(seed: number) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const hashOf = (s: string) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
@@ -55,13 +54,15 @@ export function Galaxy() {
   const [fly, setFly] = useState(0);              // counts the flights; `flying` is true while one is under way
   const [flying, setFlying] = useState(false);
   const [have, setHave] = useState<string[]>([]); // close-ups that are mounted (the one shown and the ones preloaded)
-  const [tab, setTab] = useState<'story' | 'facts'>('story');
+  const [info, setInfo] = useState<'story' | 'facts' | null>(null);   // the text panel is closed until the visitor asks for it
   const [intro, setIntro] = useState(false);
   const [port, setPort] = useState(false);
   const stage = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null), anim = useRef<Animation | null>(null);
   const dim = useRef({ vw: 0, vh: 0, ww: 0, wh: 0, port: false });
   const selRef = useRef<string | null>(null);
   selRef.current = sel;
+  const infoRef = useRef<string | null>(null);
+  infoRef.current = info;
   const g = galaxyOf(sel);
 
   // ---- camera
@@ -71,7 +72,7 @@ export function Galaxy() {
     if (!gx) return { tx: (vw - ww) / 2, ty: (vh - wh) / 2, z: 1 };
     const [fx, fy] = p ? gx.posM : gx.pos;
     const z = p ? ZOOM.port : ZOOM.land;
-    const cx = p ? vw / 2 : (vw - (vw > 900 ? PANEL_W : 0)) / 2, cy = p ? vh * 0.3 : vh * 0.47;
+    const cx = vw / 2, cy = p ? vh * 0.42 : vh * 0.47;
     return { tx: cx - fx * ww * z, ty: cy - fy * wh * z, z };
   }, []);
   const css = (c: Cam) => `translate3d(${c.tx.toFixed(1)}px, ${c.ty.toFixed(1)}px, 0) scale(${c.z.toFixed(4)})`;
@@ -124,7 +125,7 @@ export function Galaxy() {
     setInstant(false);
     setFly((n) => n + 1);
     setSel(id);
-    setTab('story');
+    setInfo(null);
     const ms = cur && id ? 1100 : 1350;
     flyTo(id, ms, !!(cur && id));
     try { const u = new URL(window.location.href); id ? u.searchParams.set('g', id) : u.searchParams.delete('g'); window.history.replaceState(null, '', u); } catch { /* ignore */ }
@@ -148,7 +149,7 @@ export function Galaxy() {
   }, [go]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { if (intro) setIntro(false); else if (selRef.current) go(null); else window.location.assign('/'); }
+      if (e.key === 'Escape') { if (intro) setIntro(false); else if (infoRef.current) setInfo(null); else if (selRef.current) go(null); else window.location.assign('/'); }
       else if (e.key === 'ArrowRight') step(1);
       else if (e.key === 'ArrowLeft') step(-1);
     };
@@ -157,7 +158,7 @@ export function Galaxy() {
   }, [go, step, intro]);
   const sw = useRef<{ x: number; y: number; id: number } | null>(null);
   const par = useRef({ x: 0, y: 0, tx: 0, ty: 0, raf: 0 });
-  const down = (e: ReactPointer<HTMLDivElement>) => { if ((e.target as HTMLElement).closest('button, a, .gx-panel, .gx-intro')) return; sw.current = { x: e.clientX, y: e.clientY, id: e.pointerId }; };
+  const down = (e: ReactPointer<HTMLDivElement>) => { if ((e.target as HTMLElement).closest('button, a, .gx-panel, .gx-cap, .gx-intro')) return; sw.current = { x: e.clientX, y: e.clientY, id: e.pointerId }; };
   const up = (e: ReactPointer<HTMLDivElement>) => {
     const s = sw.current; sw.current = null; if (!s || s.id !== e.pointerId) return;
     const dx = e.clientX - s.x, dy = e.clientY - s.y;
@@ -224,34 +225,46 @@ export function Galaxy() {
         ))}
       </nav>
 
-      {g ? (
+      {/* a small caption keeps the picture free; the long text opens only when asked for */}
+      {g && !info ? (
+        <div className="gx-cap" key={g.id} style={{ '--a': g.accent, '--g': g.glow } as CSSProperties}>
+          <div className="gx-badge" data-open={open ? '1' : '0'}>{open ? 'Đang mở · ngươi đang ở đây' : 'Sắp mở · ý tưởng dự kiến'}</div>
+          <h2>{g.name}</h2>
+          <p className="gx-epi">{g.epithet} · {g.element}</p>
+          <div className="gx-capbtns">
+            <button type="button" className="gx-ghost" onClick={() => setInfo('story')}>Câu chuyện</button>
+            <button type="button" className="gx-ghost" onClick={() => setInfo('facts')}>Điểm đặc biệt</button>
+          </div>
+        </div>
+      ) : null}
+      {g && info ? (
         <aside className="gx-panel" key={g.id} style={{ '--a': g.accent, '--g': g.glow } as CSSProperties}>
+          <button type="button" className="gx-x" onClick={() => setInfo(null)} aria-label="Đóng"><Icon name="close" size={18} /></button>
           <div className="gx-badge" data-open={open ? '1' : '0'}>{open ? 'Đang mở · ngươi đang ở đây' : 'Sắp mở · ý tưởng dự kiến'}</div>
           <h2>{g.name}</h2>
           <p className="gx-epi">{g.epithet} · {g.element}</p>
           <p className="gx-tag">{g.tagline}</p>
           <div className="gx-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === 'story'} onClick={() => setTab('story')}>Câu chuyện</button>
-            <button type="button" role="tab" aria-selected={tab === 'facts'} onClick={() => setTab('facts')}>Điểm đặc biệt</button>
+            <button type="button" role="tab" aria-selected={info === 'story'} onClick={() => setInfo('story')}>Câu chuyện</button>
+            <button type="button" role="tab" aria-selected={info === 'facts'} onClick={() => setInfo('facts')}>Điểm đặc biệt</button>
           </div>
-          {tab === 'story'
+          {info === 'story'
             ? <div className="gx-body">{g.story.map((t, i) => <p key={i}>{t}</p>)}</div>
             : <div className="gx-body">
                 <ul className="gx-facts">{g.facts.map((f) => <li key={f.k}><span className="gx-fi"><Icon name={FACT_ICON[f.k]} size={18} /></span><div><b>{f.title}</b><p>{f.text}</p></div></li>)}</ul>
                 {open ? null : <p className="gx-note">Đây là ý tưởng thiết kế, chưa chốt. Khi làm thật, hệ thống có thể khác.</p>}
               </div>}
         </aside>
-      ) : (
-        <aside className="gx-panel gx-home">
-          <h2>{FEATURE.name}</h2>
+      ) : null}
+      {!g ? (
+        <div className="gx-cap gx-home" style={{ '--a': '#eed08a' } as CSSProperties}>
           <p className="gx-tag">{FEATURE.tagline}</p>
-          <p className="gx-body-s">{FEATURE.rule}</p>
-          <div className="gx-cta">
-            <button type="button" className="gx-main" onClick={() => go('thienhuyen')}>Vào Thiên Huyền Tinh Hà</button>
+          <div className="gx-capbtns">
+            <button type="button" className="gx-main" onClick={() => go('thienhuyen')}>Vào Thiên Huyền</button>
             <button type="button" className="gx-ghost" onClick={() => setIntro(true)}>Đọc giới thiệu</button>
           </div>
-        </aside>
-      )}
+        </div>
+      ) : null}
 
       {intro ? (
         <div className="gx-intro" role="dialog" aria-modal="true" aria-label="Giới thiệu Tinh Đồ" onClick={() => setIntro(false)}>

@@ -48,7 +48,7 @@
 .gx-warp { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(70% 70% at 50% 50%, rgba(255, 244, 214, 0.35), rgba(120, 160, 255, 0.12) 45%, transparent 75%); }
 .gx-warp[data-on='1'] { animation: gx-warp 1.3s ease-in-out; }
 @keyframes gx-warp { 0% { opacity: 0; transform: scale(0.8); } 45% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: scale(1.4); } }
-.gx-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(2, 5, 12, 0.62), transparent 16%, transparent 66%, rgba(2, 5, 12, 0.55)); }
+.gx-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(2, 5, 12, 0.62), transparent 16%, transparent 74%, rgba(2, 5, 12, 0.4)); }
 
 /* ---- top bar and dock */
 .gx-top { position: absolute; left: 0; right: 0; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px; }
@@ -59,7 +59,7 @@
 .gx-btn:hover { transform: translateY(-1px); border-color: var(--gold); }
 .gx-btn:active { transform: scale(0.93); }
 
-.gx-dock { position: absolute; z-index: 5; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 10px; padding: 8px 12px; border-radius: 999px; background: rgba(4, 10, 20, 0.7); border: 1px solid rgba(238, 208, 138, 0.3); }
+.gx-dock { position: absolute; z-index: 5; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; padding: 8px 12px; border-radius: 999px; background: rgba(4, 10, 20, 0.7); border: 1px solid rgba(238, 208, 138, 0.3); }
 .gx-chip { position: relative; width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--a) 40%, transparent); background-size: cover; background-position: center; display: grid; place-items: center; color: #fff; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
 .gx-chip.soon::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(2, 5, 12, 0.45); }
 .gx-chip .ico { position: relative; z-index: 1; filter: drop-shadow(0 1px 2px #000); }
@@ -68,7 +68,18 @@
 
 /* ---- information panel */
 .gx-panel { position: absolute; z-index: 4; right: 16px; top: 66px; bottom: 90px; width: min(400px, calc(100vw - 32px)); display: flex; flex-direction: column; padding: 18px 20px; border-radius: 16px; background: linear-gradient(180deg, rgba(6, 14, 26, 0.9), rgba(4, 9, 18, 0.93)); border: 1px solid color-mix(in srgb, var(--a, #eed08a) 45%, transparent); box-shadow: 0 18px 50px -20px #000; animation: gx-in 0.55s cubic-bezier(0.2, 0.7, 0.1, 1) 0.5s both; overflow: hidden; }
-.gx-panel.gx-home { bottom: auto; animation-delay: 0.1s; --a: #eed08a; }
+/* the caption: small, at the corner, so the picture stays free */
+.gx-cap { position: absolute; z-index: 4; left: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(340px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px; background: linear-gradient(180deg, rgba(6, 14, 26, 0.55), rgba(4, 9, 18, 0.7)); border: 1px solid color-mix(in srgb, var(--a, #eed08a) 35%, transparent); animation: gx-cap 0.5s cubic-bezier(0.2, 0.7, 0.1, 1) 0.7s both; }
+.gx-cap.gx-home { animation-delay: 0.15s; }
+@keyframes gx-cap { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: none; } }
+.gx-cap h2 { margin: 4px 0 0; font-family: var(--font-display, serif); font-size: 1.35rem; line-height: 1.1; letter-spacing: 0.03em; color: #fbf1d3; text-shadow: 0 1px 4px #000; }
+.gx-cap .gx-epi { margin: 2px 0 8px; font-size: 0.82rem; }
+.gx-cap .gx-tag { margin: 0 0 8px; font-size: 0.86rem; line-height: 1.45; }
+.gx-capbtns { display: flex; gap: 8px; }
+.gx-capbtns > button { flex: 1; min-height: 38px; padding: 0 12px; font-size: 0.86rem; white-space: nowrap; }
+.gx-home .gx-capbtns > .gx-main { flex: 1.8; }
+.gx-x { position: absolute; right: 10px; top: 10px; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(238, 208, 138, 0.45); background: rgba(4, 10, 20, 0.6); color: var(--gold); }
+.gx-panel h2 { padding-right: 40px; }
 @keyframes gx-in { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: none; } }
 .gx-panel h2 { margin: 6px 0 2px; font-family: var(--font-display, serif); font-size: 1.7rem; line-height: 1.1; letter-spacing: 0.03em; color: #fbf1d3; }
 .gx-badge { align-self: flex-start; padding: 3px 11px; border-radius: 999px; font-size: 0.74rem; letter-spacing: 0.05em; border: 1px solid color-mix(in srgb, var(--a) 60%, transparent); color: color-mix(in srgb, var(--a) 80%, #fff); background: rgba(255, 255, 255, 0.04); }
@@ -105,14 +116,12 @@
 
 /* ---- phone held upright: the panel is a sheet at the bottom, the dock sits under the top bar */
 @media (max-aspect-ratio: 1/1), (max-width: 900px) {
-  .gx-dock { top: calc(58px + env(safe-area-inset-top, 0px)); bottom: auto; padding: 5px 8px; gap: 8px; }
+  .gx-dock { top: calc(58px + env(safe-area-inset-top, 0px)); bottom: auto; right: auto; left: 50%; transform: translateX(-50%); padding: 5px 8px; gap: 8px; }
+  .gx-cap { left: 10px; right: 10px; width: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding: 10px 12px; }
+  .gx-cap h2 { font-size: 1.2rem; }
   .gx-chip { width: 40px; height: 40px; }
-  .gx-panel { left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 46dvh; border-radius: 18px 18px 0 0; border-width: 1px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); animation-name: gx-up-sheet; }
-  .gx-panel.gx-home { top: auto; bottom: 0; max-height: none; padding-top: 12px; }
-  .gx-home h2, .gx-home .gx-body-s { display: none; }
-  .gx-home .gx-tag { margin-bottom: 10px; }
-  .gx-home .gx-cta { grid-template-columns: 1.6fr 1fr; }
-  .gx-home .gx-main, .gx-home .gx-ghost { font-size: 0.86rem; padding: 0 10px; }
+  .gx-panel { left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 62dvh; border-radius: 18px 18px 0 0; border-width: 1px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); animation-name: gx-up-sheet; }
+  .gx-home .gx-capbtns > button { font-size: 0.84rem; padding: 0 8px; } .gx-home .gx-capbtns > .gx-main { flex: 1.6; }
   .gx-panel h2 { font-size: 1.4rem; }
   .gx-tag { font-size: 0.92rem; margin-bottom: 8px; }
   .gx-title small { display: none; }
