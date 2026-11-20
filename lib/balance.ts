@@ -42,8 +42,8 @@ export const BALANCE = {
   dropEventBonusTien: 0.0025,   // ...and to the chance that it is Tiên
   dropEventShown: 0.01,         // what the news and the zone tag tell the player ("+1%"); the real numbers are the two above
   questTame: 10,           // the daily quest: tame this many of the day's new creature...
-  questCultPct: 0.1,       // ...and receive this share of the Tu Vi needed for the current Level
-  taskCultPct: [0.02, 0.04, 0.06],   // the three extra jobs of the day (Easy, Medium, Hard, lib/tasks.ts): each pays this share of the Tu Vi needed for the current Level
+  questCultPct: 0.05,      // ...and receive this share of the Tu Vi needed for the current Level
+  taskCultPct: [0.01, 0.02, 0.03],   // the three extra jobs of the day (Easy, Medium, Hard, lib/tasks.ts): each pays this share of the Tu Vi needed for the current Level
   eventDistinctWindow: 6,
   // combat (Requirement 8, 14)
   maxParty: 3,
