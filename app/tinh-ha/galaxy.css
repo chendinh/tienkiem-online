@@ -40,7 +40,7 @@
 /* ---- close-ups */
 .gx-close { position: absolute; inset: 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity 0.45s ease; }
 .gx-close[data-on='true'] { opacity: 1; transition: opacity 0.85s ease 0.7s; }
-.gx[data-pull='1'] .gx-close[data-on='true'] { transition: opacity 0.9s ease 1.25s; }   /* from galaxy to galaxy: the new picture waits until the camera has dived in */
+.gx[data-pull='1'] .gx-close[data-on='true'] { transition: opacity 0.7s ease 0.9s; }   /* from galaxy to galaxy: the new picture waits until the camera has dived in */
 .gx[data-instant='1'] .gx-close { transition: none !important; }
 .gx-par, .gx-air > div { position: absolute; inset: -2%; will-change: transform; }
 .gx-par picture, .gx-par img { display: block; width: 100%; height: 100%; }
@@ -91,7 +91,7 @@
 /* the flash of the jump: a soft light that opens at the middle of a flight */
 .gx-warp { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(70% 70% at 50% 50%, rgba(255, 244, 214, 0.35), rgba(120, 160, 255, 0.12) 45%, transparent 75%); }
 .gx-warp[data-on='1'] { animation: gx-warp 1.3s ease-in-out; }
-.gx[data-pull='1'] .gx-warp[data-on='1'] { animation-duration: 2.1s; }
+.gx[data-pull='1'] .gx-warp[data-on='1'] { animation-duration: 1.5s; }
 @keyframes gx-warp { 0% { opacity: 0; transform: scale(0.8); } 45% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: scale(1.4); } }
 .gx-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(2, 5, 12, 0.62), transparent 16%, transparent 74%, rgba(2, 5, 12, 0.4)); }
 

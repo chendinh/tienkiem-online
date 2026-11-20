@@ -151,7 +151,7 @@ export function Galaxy() {
     setPull(!!(cur && id));
     setSel(id);
     setInfo(null);
-    const ms = cur && id ? 2100 : 1350;
+    const ms = cur && id ? 1500 : 1350;
     flyTo(id, ms, !!(cur && id));
     try { const u = new URL(window.location.href); id ? u.searchParams.set('g', id) : u.searchParams.delete('g'); window.history.replaceState(null, '', u); } catch { /* ignore */ }
   }, [ensure, flyTo]);

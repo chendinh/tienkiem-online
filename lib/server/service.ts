@@ -60,6 +60,8 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (st.breakSnooze === undefined) st.breakSnooze = 0;
   if (st.set.autoFight === undefined) st.set.autoFight = B.defaults.autoFight;
   if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
+  if (st.set.autoBuyPill === undefined) st.set.autoBuyPill = B.defaults.autoBuyPill;
+  if (st.set.autoBuyTal === undefined) st.set.autoBuyTal = B.defaults.autoBuyTal;
   if (!st.inv.books) st.inv.books = {};
   while (st.inv.bt.length < B.shop.breakthrough.length) st.inv.bt.push(0);   // one Phá Cảnh Đan slot per realm that can be entered
   if (st.feed.length > B.feedSize) st.feed.length = B.feedSize;   // an older save kept more journey entries

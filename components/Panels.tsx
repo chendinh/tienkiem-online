@@ -128,7 +128,7 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
   const s = st.set;
   // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
   const known = new Set(allSpecies().map((x) => x.id));   // a saved species that no longer exists would show as a phantom "chosen" one the player cannot see or remove
-  const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoFight: s.autoFight, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
+  const fromSet = () => ({ autoPill: s.autoPill, autoEquip: s.autoEquip, autoBreak: s.autoBreak, autoLearn: s.autoLearn, autoBuyPill: s.autoBuyPill, autoBuyTal: s.autoBuyTal, autoFight: s.autoFight, autoTame: s.autoTame, dissolveMax: s.dissolveMax, retreatPct: s.retreatPct, resumePct: s.resumePct,
     tame: { strong: s.tame.strong, grade: s.tame.grade, alwaysMut: s.tame.alwaysMut, newOnly: s.tame.newOnly, species: s.tame.species.filter((id) => known.has(id)), sizes: [...s.tame.sizes] } });
   const [d, setD] = useState(fromSet);
   const norm = (x: ReturnType<typeof fromSet>) => JSON.stringify({ ...x, tame: { ...x.tame, species: [...x.tame.species].sort(), sizes: [...x.tame.sizes].sort() } });
@@ -160,6 +160,8 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
           </div>
           <div className="row">
             <label className="tg"><input type="checkbox" checked={d.autoPill} onChange={(e) => up({ autoPill: e.target.checked })} /> Tự dùng Hồi Khí Đan ngay sau mỗi trận, chọn loại vừa đủ cho đến khi đầy sinh lực</label>
+            <label className="tg"><input type="checkbox" checked={d.autoBuyPill} onChange={(e) => up({ autoBuyPill: e.target.checked })} /> Tự mua Hồi Khí Đan khi hết, hạng theo cấp độ, giá ×{B.autoBuy.markup} giá Phường Thị (cần bật mục trên)</label>
+            <label className="tg"><input type="checkbox" checked={d.autoBuyTal} onChange={(e) => up({ autoBuyTal: e.target.checked })} /> Tự mua Khế Ước Phù khi hết (đúng hạng đã chọn để thu phục), giá ×{B.autoBuy.markup} giá Phường Thị</label>
           </div>
           <h3>Tự động</h3>
           <div className="row">

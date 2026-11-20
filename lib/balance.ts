@@ -159,7 +159,10 @@ export const BALANCE = {
   autoBreakMinProb: 0.5,
   // player settings defaults (Requirement 1.8)
   // Items go to the bag and the player decides (autoEquip off, no auto-dissolve). Tu Sĩ fights and Linh Thú taming ask the player unless an auto setting is on.
-  defaults: { retreatPct: 30, resumePct: 80, autoPill: true, autoTame: false, autoBreak: false, autoEquip: false, autoFight: false, autoLearn: true, dissolveMax: -1 },
+  defaults: { retreatPct: 30, resumePct: 80, autoPill: true, autoTame: false, autoBreak: false, autoEquip: false, autoFight: false, autoLearn: true, autoBuyPill: true, autoBuyTal: true, dissolveMax: -1 },
+  // Auto-buy (a setting, on by default): when the pills or the Khế Ước Phù run out, the game buys one for the player at `markup` times the shop price.
+  // The pill grade follows the Level: pillFromLevel[i] is the first Level that buys grade i + 1 (it steps down to a smaller pill when that is all that is missing or all the player can pay).
+  autoBuy: { markup: 1.5, pillFromLevel: [1, 9, 17] },
   // shop (Requirement 24)
   shop: {
     taming: [30, 120, 500, 2200],
@@ -283,6 +286,7 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   need(b.dissolveValueByTier.length === 6 && posInts(b.dissolveValueByTier) && nonDecreasing(b.dissolveValueByTier), 'Dissolve_Value_By_Tier không hợp lệ');
   need(isInt(b.victoryRewardPerLevel) && b.victoryRewardPerLevel >= 1, 'Victory_Reward_Per_Level không hợp lệ');
   need(b.victoryCultTicks >= 0 && b.victoryCultPerLevel >= 0 && b.victoryCultGap >= 0 && inRange(b.victoryCultGapMax, 0, 0.9), 'Victory_Cult_* không hợp lệ');
+  need(b.autoBuy.markup >= 1 && b.autoBuy.markup <= 10 && b.autoBuy.pillFromLevel.length === 3 && strictlyIncreasing(b.autoBuy.pillFromLevel) && b.autoBuy.pillFromLevel[0] >= 1, 'Auto_Buy không hợp lệ');
   need(b.pillRestore.length === 3 && strictlyIncreasing(b.pillRestore) && b.pillRestore.every((x) => x > 0 && x <= 1), 'Pill_HP_Restore_By_Grade không hợp lệ');
   need(b.releaseBase > 0 && b.releaseSizeFactors.length === 5 && b.releaseSizeFactors.every((x) => x > 0) && nonDecreasing(b.releaseSizeFactors) && b.releaseMutationFactor >= 1, 'Release_* không hợp lệ');
   need(isInt(b.stoneMax) && b.stoneMax >= 1 && b.stoneMax < Number.MAX_SAFE_INTEGER, 'Spirit_Stone_Max không hợp lệ');

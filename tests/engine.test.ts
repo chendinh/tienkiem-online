@@ -373,7 +373,7 @@ test('Tu Sĩ: the player chooses to fight or avoid when Auto Fight is off', () =
   assert.ok(fightSt.feed[0].kind === 'npc' && fightSt.feed[0].outcome);
 });
 test('Tu Sĩ with Auto Fight on never asks', () => {
-  const st = fresh(70); auto(st, true); G.settle(st, 6000);
+  const st = fresh(70); auto(st, true); Object.assign(st.set, { autoBuyPill: false, autoBuyTal: false }); G.settle(st, 6000);   // auto-buy writes a journey line per fight and would push the Tu Sĩ line out of the short feed
   assert.equal(st.decision, null); assert.ok(st.feed.some((e) => e.kind === 'npc'));
 });
 test('Breakthrough question appears at the bottleneck when Auto Breakthrough is off, and "later" snoozes it', () => {
@@ -776,7 +776,32 @@ test('auto pills are used right after a fight: the smallest pill that fills what
   G.autoHeal(st); assert.deepEqual(st.inv.hp, [4, 4, 5]);
   st.inv.hp = [0, 3, 0]; st.player.hp = 1;               // only a 60% pill: used again until full
   G.autoHeal(st); assert.equal(st.player.hp, S.maxHp); assert.equal(st.inv.hp[1], 1);
-  st.inv.hp = [0, 0, 0]; st.player.hp = 1; G.autoHeal(st); assert.equal(st.player.hp, 1);
+  st.set.autoBuyPill = false; st.inv.hp = [0, 0, 0]; st.player.hp = 1; G.autoHeal(st); assert.equal(st.player.hp, 1);   // none left and auto-buy off: nothing happens
+});
+test('auto-buy: with no pill left a pill is bought at 1.5 times the price, the grade follows the Level, and nothing is bought without the setting or the stones', () => {
+  const st = fresh(721), S = G.pstats(st), L = G.levelOf(st.player);
+  const price = (g: number) => Math.ceil(B.shop.hp[g] * B.autoBuy.markup);
+  st.inv.hp = [0, 0, 0]; st.stones = 10000; st.player.hp = 1;
+  const before = st.stones; G.autoHeal(st);
+  assert.ok(st.player.hp > 1, 'healed with a bought pill');
+  const paid = before - st.stones; assert.ok(paid > 0 && [0, 1, 2].some((g) => paid % price(g) === 0), 'paid 1.5 times a shop price');
+  assert.equal(st.inv.hp.reduce((a, b) => a + b, 0), 0, 'the bought pill was used');
+  assert.ok(L >= 1);
+  st.player.hp = 1; st.stones = 3; G.autoHeal(st); assert.equal(st.player.hp, 1); assert.equal(st.stones, 3, 'cannot pay: no purchase');
+  st.stones = 10000; st.set.autoBuyPill = false; G.autoHeal(st); assert.equal(st.stones, 10000, 'setting off: no purchase');
+});
+test('auto-buy: a missing Khế Ước Phù is bought at 1.5 times the price when taming, and only with the setting on and the stones to pay', () => {
+  const sp = C.SPECIES[0];
+  const mk = (seed: number, on: boolean, stones: number) => { const st = fresh(seed); Object.assign(st.set, { autoTame: true, autoBuyTal: on }); st.set.tame.grade = 0; st.inv.taming = [0, 0, 0, 0]; st.stones = stones; st.beasts = []; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; return st; };
+  const cost = Math.ceil(B.shop.taming[0] * B.autoBuy.markup);
+  const on = mk(901, true, 5000), chips: string[] = [], n = G.tryTame(on, beastP(1, 10), sp, chips)!;
+  assert.ok(n && n.text && !/hết|không có/i.test(String(chips.join(' ')).slice(0, 0)));
+  assert.equal(on.stones, 5000 - cost, 'paid 1.5 times the shop price');
+  assert.ok(chips.some((c) => /tự mua/.test(c)), 'the purchase is told');
+  const off = mk(902, false, 5000), miss = G.tryTame(off, beastP(2, 10), sp, [])!;
+  assert.ok(miss && !miss.won && /Khế Ước Phù/.test(miss.text)); assert.equal(off.stones, 5000);
+  const poor = mk(903, true, cost - 1), miss2 = G.tryTame(poor, beastP(3, 10), sp, [])!;
+  assert.ok(miss2 && !miss2.won && /Khế Ước Phù/.test(miss2.text)); assert.equal(poor.stones, cost - 1);
 });
 test('Luyện Đan: materials become pills for free, and a refusal changes nothing', () => {
   const st = fresh(730);
@@ -844,7 +869,7 @@ test('every taming attempt writes its own journey row: success, failure and a mi
   const sp = C.SPECIES[0];
   const mk = (seed: number) => { const st = fresh(seed); st.set.autoTame = true; st.set.tame.grade = 0; st.best[sp.id] = { seen: 1, tamed: 0, maxCm: 1, minCm: 1, mutSeen: 0, mutTamed: 0 }; return st; };
   // no Khế Ước Phù: the miss is told
-  const none = mk(900); none.inv.taming = [0, 0, 0, 0];
+  const none = mk(900); none.inv.taming = [0, 0, 0, 0]; none.set.autoBuyTal = false;
   const missNote = G.tryTame(none, beastP(1, 10), sp, []);
   assert.ok(missNote && !missNote.won && /Khế Ước Phù/.test(missNote.text));
   // many tries: both outcomes happen, and the note always says which one it was

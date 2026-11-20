@@ -35,7 +35,7 @@ export interface Report {
 // strong: tame only a creature stronger than the weakest of the Party, or any creature while the Party is not full (it replaces the species and size filters)
 export interface TameFilter { species: string[]; newOnly: boolean; alwaysMut: boolean; sizes: number[]; grade: number; strong: boolean }
 export interface Settings {
-  mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; autoLearn: boolean;
+  mode: 'adventure' | 'retreat'; autoTame: boolean; autoEquip: boolean; autoBreak: boolean; autoPill: boolean; autoFight: boolean; autoLearn: boolean; autoBuyPill: boolean; autoBuyTal: boolean;
   retreatPct: number; resumePct: number; dissolveMax: number; tame: TameFilter;
 }
 export interface Stacks { taming: number[]; hp: number[]; bt: number[]; trib: number; mat: Record<string, number>; books: Record<string, number> }
@@ -477,18 +477,43 @@ function applyHpPill(st: GameState, grade: number) {
 }
 // Auto pills: as soon as health is missing (right after a fight) the pills are used so that the next fight starts full. The smallest pill that fills what
 // is missing; if none does, the biggest one, again and again. A pill is not wasted on a scratch: it must make up at least `pillMinUse` of what it can restore.
+// Auto-buy: the price is the shop price times B.autoBuy.markup (rounded up). Returns the grade bought, or -1 when nothing was bought.
+const autoPrice = (s: C.ShopItem) => Math.ceil(s.price * B.autoBuy.markup);
+function autoBuyPill(st: GameState, missing: number, amt: (i: number) => number, bought: { n: number; cost: number }): number {
+  const L = levelOf(st.player);
+  let g = -1;
+  for (let i = 0; i < 3; i++) if (L >= B.autoBuy.pillFromLevel[i]) g = i;
+  if (g < 0) g = 0;
+  while (g > 0 && (missing < B.pillMinUse * amt(g) || autoPrice(C.SHOP_ITEM(`hp${g}`)!) > st.stones)) g--;   // a smaller pill when that is all that is missing or all the player can pay
+  const s = C.SHOP_ITEM(`hp${g}`)!, cost = autoPrice(s);
+  if (cost > st.stones || missing < B.pillMinUse * amt(g) || st.inv.hp[g] + 1 > B.stackMax) return -1;
+  spend(st, cost, 'auto_buy'); st.inv.hp[g]++; bought.n++; bought.cost += cost;
+  return g;
+}
+// The same for a Khế Ước Phù of the grade the player chose to tame with: bought when it is missing and the player can pay.
+function autoBuyTal(st: GameState, g: number, chips: string[]): boolean {
+  if (!st.set.autoBuyTal || st.inv.taming[g] > 0) return false;
+  const s = C.SHOP_ITEM(`taming${g}`);
+  if (!s) return false;
+  const cost = autoPrice(s);
+  if (cost > st.stones) return false;
+  spend(st, cost, 'auto_buy'); st.inv.taming[g]++;
+  chips.push(`Hết Khế Ước Phù, tự mua hạng ${C.GRADES[g]} (-${cost} Linh Thạch)`);
+  return true;
+}
 export function autoHeal(st: GameState, rep?: Report) {
-  const S = pstats(st), p = st.player, used: number[] = [0, 0, 0];
+  const S = pstats(st), p = st.player, used: number[] = [0, 0, 0], bought = { n: 0, cost: 0 };
   for (let n = 0; n < 12 && p.hp < S.maxHp; n++) {
     const missing = S.maxHp - p.hp, amt = (i: number) => Math.floor(B.pillRestore[i] * S.maxHp);
     let g = -1;
     for (let i = 0; i < 3; i++) if (st.inv.hp[i] > 0 && amt(i) >= missing) { g = i; break; }
     if (g < 0) for (let i = 2; i >= 0; i--) if (st.inv.hp[i] > 0) { g = i; break; }
+    if (g < 0 && st.set.autoBuyPill) g = autoBuyPill(st, missing, amt, bought);   // no pill left: buy the one that fits this Level
     if (g < 0 || missing < B.pillMinUse * amt(g)) break;
     st.inv.hp[g]--; applyHpPill(st, g); used[g]++; if (rep) rep.used.hp++;
   }
   const parts = used.map((n, i) => (n ? `hạng ${i + 1} ×${n}` : '')).filter(Boolean);
-  if (parts.length) feed(st, { kind: 'system', text: `Tự dùng Hồi Khí Đan ${parts.join(', ')} cho đầy sinh lực.` });
+  if (parts.length) feed(st, { kind: 'system', text: `Tự dùng Hồi Khí Đan ${parts.join(', ')} cho đầy sinh lực.${bought.n ? ` Hết đan nên tự mua ${bought.n} viên, tốn ${bought.cost} Linh Thạch (giá ×${B.autoBuy.markup}).` : ''}` });
 }
 // ---------- Luyện Đan: herbs and minerals become Hồi Khí Đan, free of charge (the Alchemy window)
 export function craft(st: GameState, id: any, qty: any): Res {
@@ -594,7 +619,7 @@ const isBool = (x: any) => typeof x === 'boolean';
 export function setSettings(st: GameState, patch: any): Res {
   if (!patch || typeof patch !== 'object') return fail('E_BAD_REQUEST');
   const cur = st.set, next_: Settings = { ...cur, tame: { ...cur.tame } };
-  for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'autoLearn'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
+  for (const k of ['autoTame', 'autoEquip', 'autoBreak', 'autoPill', 'autoFight', 'autoLearn', 'autoBuyPill', 'autoBuyTal'] as const) if (k in patch) { if (!isBool(patch[k])) return fail('E_BAD_SETTING'); next_[k] = patch[k]; }
   for (const k of ['retreatPct', 'resumePct'] as const) if (k in patch) { if (!Number.isInteger(patch[k])) return fail('E_BAD_THRESHOLDS'); next_[k] = patch[k]; }
   if (!(next_.retreatPct >= B.minRetreatPct && next_.retreatPct < next_.resumePct && next_.resumePct <= 100)) return fail('E_BAD_THRESHOLDS');
   if ('dissolveMax' in patch) { if (!Number.isInteger(patch.dissolveMax) || patch.dissolveMax < -1 || patch.dissolveMax > 5) return fail('E_BAD_SETTING'); next_.dissolveMax = patch.dissolveMax; }
@@ -1052,12 +1077,14 @@ export function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[],
     let g = st.set.tame.grade;
     if (m.mut) for (let i = st.inv.taming.length - 1; i >= 0; i--) if (st.inv.taming[i] > 0) { g = i; break; }
     if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
+    if (st.inv.taming[g] <= 0) autoBuyTal(st, g, chips);
     if (st.inv.taming[g] <= 0) return missed(m, 'tal', chips, rep, log);
     const pct = tamePct(st, m, sp, g);
     return tameNote(m, g, rollTame(st, m, sp, g, chips, rep, log), pct);
   }
   if (!notable(st, m)) return null;
   if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
+  if (st.inv.taming.every((n) => n <= 0)) autoBuyTal(st, st.set.tame.grade, chips);
   if (st.inv.taming.every((n) => n <= 0)) return missed(m, 'tal', chips, rep, log);
   st.decision = { id: ++st.uid, kind: 'tame', beast: m, log: log || [], until: st.clock + B.tameDecisionSec * 1000 };
   chips.push('Chờ ngươi quyết định thu phục');
@@ -1239,7 +1266,7 @@ export function tick(st: GameState, rep?: Report) {
 // ---------- state
 export function defaultSettings(): Settings {
   const d = B.defaults;
-  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0, strong: false } };
+  return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, autoBuyPill: d.autoBuyPill, autoBuyTal: d.autoBuyTal, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { species: [], newOnly: false, alwaysMut: true, sizes: [0, 1, 2, 3, 4], grade: 0, strong: false } };
 }
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string): GameState {
   const streams = newStreams(seed);
