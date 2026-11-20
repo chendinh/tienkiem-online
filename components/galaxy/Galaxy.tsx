@@ -10,7 +10,8 @@ import { sfx } from '@/lib/audio';
 // Only transform and opacity are animated anywhere on this page, so it stays smooth on a phone.
 interface Cam { tx: number; ty: number; z: number }
 const FACT_ICON: Record<string, string> = { rank: 'rise', beast: 'paw', weapon: 'atk', board: 'crown', rule: 'taiji' };
-const ZOOM = { land: 2.7, port: 3.1 };
+// phones draw the chart at their full pixel density, so a big zoom makes a huge layer that the GPU fills late (a dark flash while flying); keep the zoom there smaller
+const ZOOM = { land: 2.7, port: 2.3 };
 
 function rng(seed: number) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const hashOf = (s: string) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };

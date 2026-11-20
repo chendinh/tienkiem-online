@@ -4,7 +4,7 @@
 .gx button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 /* ---- the chart and its camera */
-.gx-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; --m: 900px; }
+.gx-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; --m: 900px; background: #14102a; }   /* a tile the GPU has not drawn yet shows this dusk colour, not black */
 .gx[data-mode='galaxy'] .gx-world { visibility: hidden; transition: visibility 0s linear 1.5s; }
 .gx[data-mode='galaxy'][data-fly='1'] .gx-world, .gx[data-mode='map'] .gx-world { visibility: visible; transition: none; }
 .gx-mapimg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; pointer-events: none; }
