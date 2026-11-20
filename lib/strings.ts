@@ -4,6 +4,8 @@ export const ERR = {
   E_GUEST_LOCKED: 'Tài khoản khách chưa vẽ được nhân vật theo trang bị. Hãy liên kết email.',
   E_AUTH: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Hãy đăng nhập lại.',
   E_BAD_REQUEST: 'Yêu cầu không hợp lệ.',
+  E_NO_FAL: 'Chưa cấu hình FAL_KEY để vẽ ảnh.',
+  E_READONLY: 'Máy chủ này không ghi được vào thư mục ảnh.',
   E_NO_CRON_SECRET: 'Chưa đặt CRON_SECRET nên việc chạy hằng ngày bị đóng.',
   E_SERVER: 'Máy chủ gặp lỗi. Hãy thử lại sau ít phút.',
   E_RATE_LIMIT: 'Thử quá nhiều lần. Hãy đợi vài phút rồi thử lại.',
