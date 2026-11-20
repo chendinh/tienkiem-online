@@ -136,12 +136,50 @@ export function ReportPage() {
       </div>
     );
   }
-  return <ReportView r={data} busy={busy} auto={auto} setAuto={setAuto} reload={() => load(key!, true)} out={() => { try { sessionStorage.removeItem(KEY); } catch {} setData(null); setKey(''); }} />;
+  return <ReportView r={data} busy={busy} auto={auto} setAuto={setAuto} reload={() => load(key!, true)} out={() => { try { sessionStorage.removeItem(KEY); } catch {} setData(null); setKey(''); }} adminKey={key!} />;
 }
 
-const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ']];
+const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ'], ['dibien', 'Ảnh Dị Biến']];
 
-export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report; busy: boolean; auto: boolean; setAuto: (b: boolean) => void; reload: () => void; out: () => void }) {
+// The owner's button to draw the Dị Biến pictures again: it makes the game forget the saved pictures of a look, and each is drawn again (with the current model) the next time a
+// creature of that look needs it. Two taps: the first asks, the second does it.
+interface LookStat { id: string; name: string; pictures: number; stills: number }
+function Redraw({ adminKey }: { adminKey: string }) {
+  const [looks, setLooks] = useState<LookStat[] | null>(null);
+  const [sure, setSure] = useState(''), [busy, setBusy] = useState(false), [msg, setMsg] = useState(''), [err, setErr] = useState('');
+  const hdr = { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
+  const load = useCallback(async () => {
+    try { const r = await fetch('/api/admin/variants', { headers: hdr, cache: 'no-store' }); const j = await r.json().catch(() => ({})); if (r.ok && j.ok) { setLooks(j.looks); setErr(''); } else setErr('Không đọc được danh sách ảnh.'); } catch { setErr('Không đọc được danh sách ảnh.'); }
+  }, [adminKey]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [load]);
+  async function go(look: string) {
+    if (sure !== look) { setSure(look); setMsg(''); return; }
+    setBusy(true); setSure(''); setErr('');
+    try {
+      const r = await fetch('/api/admin/variants', { method: 'POST', headers: hdr, body: JSON.stringify({ look }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) setMsg(`Đã xóa ${j.removed} ảnh. Ảnh được vẽ lại khi người chơi cần tới (vào Linh Thú Viên hoặc trang chi tiết thú).`); else setErr('Không làm được. Thử lại.');
+    } catch { setErr('Không làm được. Thử lại.'); }
+    setBusy(false); void load();
+  }
+  const total = (looks || []).reduce((a, l) => a + l.pictures + l.stills, 0);
+  return (
+    <Card id="dibien" title="Ảnh thú Dị Biến" sub="bấm để vẽ lại; ảnh chỉ được vẽ lại khi có người cần, nên chỉ tốn tiền cho thú đang có người nuôi">
+      {err && <p className="formErr" role="alert">{err}</p>}
+      {msg && <p className="muted" role="status">{msg}</p>}
+      {!looks ? <p className="rp-empty">Đang đọc…</p> : (
+        <>
+          <Table head={['Kiểu', 'Ảnh thú', 'Ảnh tách nền', '']} rows={looks.map((l) => [l.name, num(l.pictures), num(l.stills),
+            <button key={l.id} className="btn" disabled={busy || (l.pictures + l.stills === 0)} onClick={() => go(l.id)}>{sure === l.id ? 'Bấm lần nữa để vẽ lại' : 'Vẽ lại'}</button>])} />
+          <p><button className="btn big" disabled={busy || total === 0} onClick={() => go('all')}>{sure === 'all' ? `Bấm lần nữa: vẽ lại cả ${num(total)} ảnh` : 'Vẽ lại tất cả'}</button></p>
+          <small className="muted">Mỗi ảnh thú vẽ lại tốn khoảng 0.07 USD, mỗi ảnh tách nền thêm 0.02 USD, tính vào ngân sách phòng thí nghiệm (LAB_BUDGET_USD).</small>
+        </>
+      )}
+    </Card>
+  );
+}
+
+export function ReportView({ r, busy, auto, setAuto, reload, out, adminKey }: { r: Report; busy: boolean; auto: boolean; setAuto: (b: boolean) => void; reload: () => void; out: () => void; adminKey?: string }) {
   const a = r.ai, p = r.players, o = r.online, it = r.items, b = r.beasts, q = r.quest;
   const imgTone = a.image.pct >= 90 ? 'bad' : a.image.pct >= 65 ? 'warn' : 'jade';
   const totDrop = it.dropped.reduce((x, y) => x + y, 0), totHeld = it.held.reduce((x, y) => x + y, 0);
@@ -296,6 +334,8 @@ export function ReportView({ r, busy, auto, setAuto, reload, out }: { r: Report;
           <Columns h={140} color="var(--gold-400)" data={q.byDay.map((d) => ({ label: dm(d.day), v: d.done, tip: `${dm(d.day)}: ${d.done} người` }))} fmt={(n) => String(Math.round(n))} />
         </Card>
 
+
+        {adminKey && <Redraw adminKey={adminKey} />}
 
         <footer className="rp-note"><h4>Cách đọc số liệu</h4><ul>{r.note.map((n) => <li key={n}>{n}</li>)}</ul></footer>
       </main>

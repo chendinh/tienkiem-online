@@ -8,6 +8,7 @@ import { getImage, hasImage, putImage, claimJob, releaseJobs } from './images';
 import { falModels, falCost, provider, review } from '../imagegen';
 import * as A from '../anim';
 import * as G from '../garden';
+import { variantRev } from './variants';
 import { ask, llmEnabled, parseJson } from '../llm';
 import { blobOn, putBlob, readBlob } from './blob';
 
@@ -142,13 +143,14 @@ export async function variant(sp: string, mutId: string, baseId: string, plain =
   const m = A.mutationOf(mutId);
   if (!m || !A.isPictureId(baseId)) return { status: 'invalid' };
   const model = variantModel(), prompt = plain ? A.posePrompt(m, m.id === 'ngusac', pose) : A.variantPrompt(m), cost = variantCost();
-  const id = sha('variant', sp, m.id, baseId, model, prompt);
+  const rev = await variantRev();   // the owner's "draw again" (lib/server/variants.ts) raises it: new picture ids and a new draw
+  const id = sha('variant', sp, m.id, baseId, model, prompt, ...(rev ? [rev] : []));
   return launch(id, cost, async (pay) => {
     const base = await readImage(baseId);
     if (!base) throw new Error('the base picture is gone');
     const { fal } = await import('@fal-ai/client');
     const url = await upload(fal, base);
-    let seed = seedOf(`${sp}#${m.id}`), out: Buffer | null = null, why = '', spent = 0;
+    let seed = seedOf(`${sp}#${m.id}${rev ? '#' + rev : ''}`), out: Buffer | null = null, why = '', spent = 0;
     // The reviewer (Claude, when its key is set) checks it is still the same creature; one redraw with another seed, then the picture is refused.
     for (let n = 0; n < 2 && !out; n++) {
       const res: any = await withTimeout(fal.subscribe(model, { input: variantInput(model, prompt, url, seed) }), 150000, 'fal ' + model);
