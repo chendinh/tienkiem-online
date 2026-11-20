@@ -117,7 +117,7 @@
     .top .nav.pic.quick .navArt { display: block; width: 44px; height: 44px; border-radius: 50%; background-size: 128%; background-position: center; border: 1.5px solid var(--gold-300); box-shadow: 0 0 14px -4px var(--gold-400), inset 0 0 8px rgb(0 0 0 / 0.5); transition: transform var(--dur-base) var(--ease-spring); }
     .top .nav.pic.quick:active .navArt { transform: scale(0.92); }
     /* Linh Thú Viên: its picture is already cut round with its own gold rim (nav/zoo.png), so it is shown whole, with no extra ring and no zoom */
-    .app .top .nav.pic.zoo .navArt { width: 100%; height: 100%; border: 0; background-size: 100% 100%; background-repeat: no-repeat; box-shadow: none; filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.55)); }
+    .app .top .nav.pic.zoo .navArt, .app .top .nav.pic.galaxy .navArt { width: 100%; height: 100%; border: 0; background-size: 100% 100%; background-repeat: no-repeat; box-shadow: none; filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.55)); }
     .top .nav.pic.quick.on .navArt { box-shadow: 0 0 0 2px var(--jade-300), 0 0 16px -2px var(--jade-300); }
     .top .nav.pic.quick .navIco { display: none; }
     .top .nav.pic.quick::before, .top .nav.pic.quick::after { display: none; }

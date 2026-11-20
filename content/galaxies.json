@@ -1,0 +1,160 @@
+{
+  "feature": {
+    "name": "Vạn Giới Tinh Đồ",
+    "short": "Tinh Đồ",
+    "tagline": "Bản đồ các tinh hà. Mỗi tinh hà là một thế giới tu tiên trọn vẹn.",
+    "intro": [
+      "Tu tiên là con đường đi lên: từ một hạt bụi linh khí, tu sĩ luyện thành Kim Đan, hóa Nguyên Anh, rồi một ngày bước qua Thiên Kiếp để đứng ngang hàng với trời đất. Nhưng trời đất không chỉ có một mảnh đại lục.",
+      "Ngước nhìn lên, dải sao kia là những Tinh Hà: mỗi dải là một thế giới có luật tu luyện riêng, linh thú riêng, pháp khí riêng. Kẻ tu đủ cao có thể rời tinh hà mình đang đứng, vượt hư không sang một tinh hà khác, bắt đầu lại ở một con đường khác.",
+      "Tinh Đồ là tấm bản đồ ấy. Hiện tại ngươi đang đứng ở Thiên Huyền Tinh Hà. Những tinh hà còn lại đang ở xa, mờ như sương, và sẽ lần lượt mở ra."
+    ],
+    "rule": "Một tinh hà mới không chỉ là một tấm nền khác. Nó có hệ cảnh giới riêng, linh thú riêng, pháp khí riêng, bảng xếp hạng riêng, tỷ lệ và cơ chế riêng. Vì vậy mỗi lần mở một tinh hà là một lần làm lại cả hệ thống, không phải đổi màu giao diện."
+  },
+  "galaxies": [
+    {
+      "id": "thienhuyen",
+      "name": "Thiên Huyền Tinh Hà",
+      "epithet": "Khởi Nguyên",
+      "status": "open",
+      "element": "Bát hệ",
+      "accent": "#8ee6c8",
+      "glow": "#eed08a",
+      "pos": [0.21, 0.64],
+      "posM": [0.38, 0.68],
+      "size": 0.115,
+      "tagline": "Nơi mọi đạo đồ bắt đầu. Kẻ chậm nhất cũng được trời đất mỉm cười.",
+      "story": [
+        "Trước khi có núi sông, chỉ có một tiếng thở dài của hư không. Tiếng thở ấy ngưng thành Linh Khí, rơi xuống Thiên Huyền Đại Lục, và từ đó đất có hoa, đá biết nghe, người nghe được tiếng nói của trời.",
+        "Đây là tinh hà đầu tiên, hiền hòa nhất, nơi tám hệ đạo vận cùng thức tỉnh. Chín ngọn Thanh Vân treo lơ lửng giữa biển mây, và ở rìa xa nhất, dòng Tinh Hà Hư Cảnh vỡ thành vạn mảnh sao trôi.",
+        "Linh khí đang rối loạn, thú lạ đổi sắc, sương xám Hư Vô lan thêm mỗi mùa trăng. Chính vì thế, đây vẫn là nơi mầm đạo nhỏ bé nhất có cơ hội lớn lên."
+      ],
+      "facts": [
+        { "k": "rank", "title": "Cảnh giới", "text": "Chín đại cảnh giới từ Luyện Khí đến Độ Kiếp, mỗi cảnh chia Sơ, Trung, Hậu Kỳ và Đỉnh Phong. Qua Kim Đan, mỗi lần đột phá phải đối diện Thiên Kiếp." },
+        { "k": "beast", "title": "Linh thú", "text": "Tám hệ Kim, Mộc, Thủy, Hỏa, Thổ, Lôi, Âm, Dương. Hiếm nhất là Dị Biến, những linh thú đổi sắc mang dáng vẻ riêng, có thể đưa vào Linh Thú Viên." },
+        { "k": "weapon", "title": "Pháp khí", "text": "Sáu phẩm Phàm, Hoàng, Huyền, Địa, Thiên, Tiên. Phẩm càng cao, vật liệu càng quý, hào quang càng rực." },
+        { "k": "board", "title": "Bảng xếp hạng", "text": "Phong Thần Bảng xếp tu sĩ theo đạo hạnh, kèm bảng Dị Thú cho những ai sưu tầm được nhiều Dị Biến." },
+        { "k": "rule", "title": "Điểm đặc biệt", "text": "Trời đất thương kẻ vấp ngã: người thất bại càng nhiều, sợi dây cơ duyên càng ngắn lại. Tinh hà dành cho người chơi thong thả và người ưa sưu tầm." }
+      ]
+    },
+    {
+      "id": "huyenminh",
+      "name": "Huyền Minh Tinh Hà",
+      "epithet": "Dạ Hà Vô Thường",
+      "status": "soon",
+      "element": "Âm",
+      "accent": "#b9a2ff",
+      "glow": "#7fd8ff",
+      "pos": [0.10, 0.27],
+      "posM": [0.70, 0.54],
+      "size": 0.082,
+      "tagline": "Nơi trăng không bao giờ lặn, và những linh hồn chưa kịp quên đường về.",
+      "story": [
+        "Có tinh hà không có mặt trời. Huyền Minh chỉ có một vầng trăng lạnh quấn vành đai tro, soi xuống con sông Vong Xuyên chảy ngược lên trời.",
+        "Cổng Minh Môn đổ nát lơ lửng giữa khoảng không. Đèn hồn lặng lẽ nở trên những nhánh cây khô, dẫn đường cho kẻ lạc. Người sống đến đây phải học cách đi cùng bóng của mình."
+      ],
+      "facts": [
+        { "k": "rank", "title": "Cảnh giới", "text": "Không tính bằng Tu Vi mà bằng Minh Giai: càng đi sâu vào sông Vong Xuyên, giai vị càng cao, nhưng mỗi bước phải để lại một mảnh ký ức." },
+        { "k": "beast", "title": "Linh thú", "text": "Hồn thú và ma linh hệ Âm. Chúng có hai dạng, ngày và đêm, mỗi dạng một chiêu thức." },
+        { "k": "weapon", "title": "Pháp khí", "text": "Phướn hồn, đèn xương, kiếm bóng. Pháp khí lớn lên theo số linh hồn nó đã dẫn đường." },
+        { "k": "board", "title": "Bảng xếp hạng", "text": "Minh Bảng, tính theo độ sâu đã xuống Vong Xuyên và số hồn đã tiễn." },
+        { "k": "rule", "title": "Điểm đặc biệt", "text": "Chết rồi vẫn được quay lại, nhưng mang theo dấu ấn. Tỷ lệ thu phục cao hơn ban đêm, giảm vào ban ngày." }
+      ]
+    },
+    {
+      "id": "xichdiem",
+      "name": "Xích Diễm Tinh Hà",
+      "epithet": "Đỉnh Lô Bất Diệt",
+      "status": "soon",
+      "element": "Hỏa · Kim",
+      "accent": "#ff8a5c",
+      "glow": "#ffd27a",
+      "pos": [0.37, 0.27],
+      "posM": [0.68, 0.32],
+      "size": 0.088,
+      "tagline": "Một chiếc đỉnh khổng lồ chưa bao giờ nguội, nấu chảy cả sao trời.",
+      "story": [
+        "Giữa Xích Diễm có một chiếc đỉnh lớn bằng cả đảo núi lửa, lửa trong đỉnh đã cháy từ trước khi có tên gọi cho thời gian. Sao rơi vào đó hóa thành kim loại, kim loại hóa thành kiếm.",
+        "Mưa tàn lửa rơi quanh năm trên các đảo nổi. Tu sĩ nơi đây không ngồi thiền mà đứng bên lò rèn, và tin rằng một thanh kiếm đủ tốt có thể cắt ngang cả Thiên Kiếp."
+      ],
+      "facts": [
+        { "k": "rank", "title": "Cảnh giới", "text": "Luyện Hỏa Chín Trùng: mỗi trùng là một lần nấu lại bản thân trong đỉnh, bỏ tạp chất, giữ tinh hoa." },
+        { "k": "beast", "title": "Linh thú", "text": "Phượng, long, kỳ lân hệ Hỏa và Kim. Thú không thu phục bằng khế ước mà được ấp trong đỉnh lô." },
+        { "k": "weapon", "title": "Pháp khí", "text": "Tinh hà của kiếm. Pháp khí có thể rèn lại, nung chảy, ghép hai thành một, chứ không chỉ nhặt về." },
+        { "k": "board", "title": "Bảng xếp hạng", "text": "Bảo Khí Bảng, xếp theo phẩm chất những pháp khí do chính tu sĩ rèn nên." },
+        { "k": "rule", "title": "Điểm đặc biệt", "text": "Cơ chế rèn có may rủi lớn: tỷ lệ ra phẩm cao thấp hơn hẳn các tinh hà khác, đổi lại phần thưởng cao hơn." }
+      ]
+    },
+    {
+      "id": "thanhde",
+      "name": "Thanh Đế Tinh Hà",
+      "epithet": "Thế Giới Thụ",
+      "status": "soon",
+      "element": "Mộc · Thủy",
+      "accent": "#7df0a0",
+      "glow": "#9be8ff",
+      "pos": [0.40, 0.77],
+      "posM": [0.30, 0.42],
+      "size": 0.088,
+      "tagline": "Một cái cây mọc xuyên qua bầu trời, trái của nó là những thế giới nhỏ.",
+      "story": [
+        "Thanh Đế là tinh hà của một cái cây duy nhất. Rễ nó cắm xuống biển sao, tán nó che cả một góc trời, và trên từng cành treo lơ lửng những quả cầu sáng, mỗi quả là một hòn đảo nhỏ có người sống.",
+        "Đom đóm ở đây là linh hồn của những tu sĩ đã hóa đạo. Hoa sen nở trên lá, nước chảy ngược từ gốc lên ngọn."
+      ],
+      "facts": [
+        { "k": "rank", "title": "Cảnh giới", "text": "Leo cây: từ Rễ, Thân, Cành, Tán đến Ngọn. Mỗi tầng mở thêm một vùng đất và một loại linh thú." },
+        { "k": "beast", "title": "Linh thú", "text": "Linh thú cộng sinh, sống trên cây cùng chủ, ít đánh nhau, nhiều biến hình. Hợp cho người thích nuôi và sưu tầm." },
+        { "k": "weapon", "title": "Pháp khí", "text": "Gỗ thiêng, hạt giống, cành khô. Pháp khí mọc lên theo thời gian thay vì rèn." },
+        { "k": "board", "title": "Bảng xếp hạng", "text": "Hoa Bảng, xếp theo vườn thú và vườn hoa đẹp nhất." },
+        { "k": "rule", "title": "Điểm đặc biệt", "text": "Chơi chậm được thưởng nhiều. Phần thưởng phụ thuộc thời gian chờ đợi hơn là số trận thắng." }
+      ]
+    },
+    {
+      "id": "tutieu",
+      "name": "Tử Tiêu Tinh Hà",
+      "epithet": "Kiếm Trận Lôi Đình",
+      "status": "soon",
+      "element": "Lôi · Kim",
+      "accent": "#c9b8ff",
+      "glow": "#9fe0ff",
+      "pos": [0.58, 0.30],
+      "posM": [0.30, 0.22],
+      "size": 0.088,
+      "tagline": "Một cơn bão không bao giờ tan, và một trăm thanh kiếm xoay quanh nó.",
+      "story": [
+        "Tử Tiêu là tinh hà của sấm sét. Mây tím cuộn quanh một ngọn tháp xuyên qua tâm bão, và hàng trăm thanh kiếm lơ lửng xoay thành vòng tròn quanh tháp, đã xoay như thế từ khi có tiếng sấm đầu tiên.",
+        "Người ta nói ai phá được Kiếm Trận sẽ nghe được lời của Lôi Đế. Cũng có người nói chẳng ai từng phá được, họ chỉ học cách xoay cùng nó."
+      ],
+      "facts": [
+        { "k": "rank", "title": "Cảnh giới", "text": "Lôi Kiếp Cửu Trọng: mỗi trọng là một đợt sấm giáng. Càng cao, sấm càng đẹp và càng khó đỡ." },
+        { "k": "beast", "title": "Linh thú", "text": "Lôi thú và kiếm linh. Thú nhanh, dữ, sống ngắn nhưng bùng nổ, thích hợp cho trận đấu." },
+        { "k": "weapon", "title": "Pháp khí", "text": "Kiếm là chủ đạo. Mỗi thanh có tên và có thể xếp vào Kiếm Trận cùng nhau." },
+        { "k": "board", "title": "Bảng xếp hạng", "text": "Lôi Đài Bảng, xếp theo trận đấu giữa các tu sĩ." },
+        { "k": "rule", "title": "Điểm đặc biệt", "text": "Thiên về đối kháng: nhịp độ nhanh, tỷ lệ bạo kích cao, nhưng một đòn sai là mất rất nhiều." }
+      ]
+    },
+    {
+      "id": "hondon",
+      "name": "Hỗn Độn Tinh Hà",
+      "epithet": "Âm Dương Sơ Phân",
+      "status": "soon",
+      "element": "Âm · Dương",
+      "accent": "#f6e2a8",
+      "glow": "#ffffff",
+      "pos": [0.62, 0.72],
+      "posM": [0.68, 0.13],
+      "size": 0.095,
+      "tagline": "Nơi trời đất chưa tách đôi, và cũng là nơi tiên cảnh bắt đầu.",
+      "story": [
+        "Ở rìa xa nhất của mọi tinh hà, Âm và Dương vẫn còn quấn lấy nhau chưa tách. Một vòng xoáy vàng đen xoay chậm, quanh nó là những mảnh thiên cầu vỡ trôi thành vành đai.",
+        "Chỉ những ai đã đi hết các tinh hà khác mới thấy được đường tới đây. Truyền thuyết kể rằng phẩm Tiên không rơi ở đâu khác ngoài Hỗn Độn."
+      ],
+      "facts": [
+        { "k": "rank", "title": "Cảnh giới", "text": "Không có thang bậc cố định. Cảnh giới là hình dáng riêng mỗi người tự nhào nặn từ Âm Dương trong mình." },
+        { "k": "beast", "title": "Linh thú", "text": "Thú lưỡng nghi: mỗi con mang cả Âm lẫn Dương, hình dạng đổi theo người nuôi." },
+        { "k": "weapon", "title": "Pháp khí", "text": "Chỉ có phẩm Tiên. Mỗi món độc nhất, không trùng với người khác." },
+        { "k": "board", "title": "Bảng xếp hạng", "text": "Hỗn Nguyên Bảng, nơi những kẻ đã đi qua mọi tinh hà để lại tên." },
+        { "k": "rule", "title": "Điểm đặc biệt", "text": "Tinh hà cuối cùng. Cơ chế khó, tỷ lệ thấp, phần thưởng cho người kiên trì nhất." }
+      ]
+    }
+  ]
+}
