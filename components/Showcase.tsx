@@ -26,7 +26,7 @@ export function ShowFrame({ show, size = 190 }: { show: ShowView; size?: number 
         <i className="frCorner tl" aria-hidden="true" /><i className="frCorner tr" aria-hidden="true" /><i className="frCorner bl" aria-hidden="true" /><i className="frCorner br" aria-hidden="true" />
         <div className="frMat">
           <div className="frPic">
-            {item && <ItemIcon it={item} size="fit" zoom />}
+            {item && <ItemIcon it={item} size="fit" zoom full />}
             {beast && <BeastPic b={beast} />}
           </div>
         </div>
