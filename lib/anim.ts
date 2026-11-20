@@ -59,6 +59,18 @@ const PLAIN_DARK = new Set(['ngusac', 'hanbang', 'tinhha']);
 export const plainBg = (look: string) => (PLAIN_DARK.has(look) ? 'deep charcoal grey' : 'pure white');
 // keep: the picture already has the look (the game's own Ngũ Sắc picture), only its ground is changed; otherwise the look is drawn at the same time.
 export const plainPrompt = (m: Mutation, keep: boolean) => `Edit this image. ${keep ? 'Keep the creature exactly as it is, with its colors and glow.' : `Transform the creature into a rare mutated variant with ${m.en}.`} Keep exactly the same creature design, body shape, pose, framing and painting style. Replace the entire background with one perfectly flat, uniform ${plainBg(m.id)} that fills the whole picture, with nothing else in it: no landscape, no mountains, no mist, no clouds, no ground, no floor, no cast shadow, no gradient, no vignette. Any glow, aura or particles stay close to the creature's body, and its outline stays sharp against the plain background. ${NEG}`;
+// ---- poses: a creature of the pen takes the pose that fits the perch it stands on (on a rock it watches the distance, at the water it drinks, ...). 'stand' is the picture
+// the creature already has (plainPrompt); every other pose is the same creature redrawn in that pose on the same flat ground, then cut out.
+export const POSES: Record<string, { name: string; en: string }> = {
+  stand: { name: 'Đứng', en: '' },
+  watch: { name: 'Ngắm xa', en: 'sitting or standing tall and proud with its chest out and its head raised high, gazing far into the distance, seen from the side' },
+  drink: { name: 'Uống nước', en: 'standing with its head lowered right down to the ground, its mouth reaching down as if drinking from the water at its feet, seen from the side' },
+  rest: { name: 'Nghỉ ngơi', en: 'lying down peacefully on the ground, curled up and relaxed with its eyes half closed, seen from the side' },
+  walk: { name: 'Dạo bước', en: 'walking calmly forward in mid-stride, one front limb lifted, its head level and its eyes ahead, seen from the side' },
+};
+export const poseOk = (id: unknown): id is string => typeof id === 'string' && Object.prototype.hasOwnProperty.call(POSES, id);
+export const posePrompt = (m: Mutation, keep: boolean, pose: string) => pose === 'stand' || !poseOk(pose) ? plainPrompt(m, keep)
+  : plainPrompt(m, keep).replace('Keep exactly the same creature design, body shape, pose, framing and painting style.', `Keep exactly the same creature design, body shape, colors and painting style, but redraw the creature in a new pose: ${POSES[pose].en}. Adapt the pose to its anatomy and keep the whole creature, including its tail and limbs, inside the picture with some space around it.`);
 const CLIP_NEG = 'blur, distortion, low quality, text, watermark, camera movement, zoom, scene change, extra limbs, morphing into another creature';
 const CLIP_NEG_BOLD = 'static, frozen, still image, motionless, ' + CLIP_NEG;
 

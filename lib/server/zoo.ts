@@ -2,17 +2,20 @@
 // (once for everybody: the picture and the clip depend only on the species and the look), and the player's own layout.
 import { query } from './db';
 import { mutantsOf } from './service';
-import { clip, cut, idle, variant, type Out } from './anim';
+import { clip, cut, idle, still, variant, type Out } from './anim';
 import { request, idFromUrl, idle as imageIdle } from '../imagegen';
 import * as C from '../content';
 import * as D from '../daily';
 import * as A from '../anim';
-import { ETA_MIN, ZOO_MOTION, parseZoo, variantOf, type Stage, type ZooLayout } from '../zoo';
+import { boxOk } from '../garden';
+import { ETA_MIN, ZOO_MOTION, parseZoo, variantOf, type Stage, type ZooLayout, type ZooMode } from '../zoo';
 
 export interface ZooBeast { id: number; sp: string; name: string; level: number; look: string }
 export interface ZooCut { id: string; alpha: string; url?: string; alphaUrl?: string }
+// a still cut-out picture and where the creature is inside it (shares of the picture)
+export interface ZooStill { id: string; url: string; box: { x0: number; y0: number; x1: number; y1: number } }
 export type SummonStatus = 'ready' | 'making' | 'failed' | 'limited' | 'disabled' | 'invalid';
-export interface Summon { status: SummonStatus; stage?: Stage; eta?: number; cut?: ZooCut; why?: string; started?: boolean; imgStarted?: boolean }
+export interface Summon { status: SummonStatus; stage?: Stage; eta?: number; cut?: ZooCut; still?: ZooStill; why?: string; started?: boolean; imgStarted?: boolean }
 
 // the player's Dị Biến beasts, each with its look; kept for a few seconds because the page asks again and again while a clip is being made
 const mem = new Map<string, { t: number; beasts: ZooBeast[] }>();
@@ -39,15 +42,29 @@ export async function cutsFor(keys: { sp: string; look: string }[]): Promise<Map
   return out;
 }
 
+// the newest finished still cut-out of each (species, look, pose) among those asked for; the key is `species:look:pose`, and a picture made before poses existed is the 'stand' one
+export async function stillsFor(keys: { sp: string; look: string }[]): Promise<Map<string, ZooStill>> {
+  const out = new Map<string, ZooStill>();
+  const sps = [...new Set(keys.map((k) => k.sp))];
+  if (!sps.length) return out;
+  const r = await query<{ id: string; spec: any; box: any }>(
+    `SELECT id, meta->'spec' AS spec, meta->'box' AS box FROM images WHERE kind = 'animstill' AND meta->'spec'->>'sp' = ANY($1::text[]) ORDER BY created`, [sps]);
+  for (const x of r.rows) if (x.spec?.sp && x.spec?.mut && boxOk(x.box)) out.set(`${x.spec.sp}:${x.spec.mut}:${x.spec.pose || 'stand'}`, { id: x.id, url: `/api/img/${x.id}`, box: x.box });
+  return out;
+}
+// The pen makes only still cut-outs (cheap) unless ZOO_VIDEO=1 turns the video clips back on as an option
+export const stillOnly = () => process.env.ZOO_VIDEO !== '1';
+export const modeOf = (asked: unknown): ZooMode => (stillOnly() || asked === 'still' ? 'still' : 'video');
+
 const speciesOk = (sp: string) => D.allSpecies().some((s) => s.id === sp) && !!C.SPECIES_EN[sp];
 const why = (o: { status: string; why?: string }): Summon => (o.status === 'limited' ? { status: 'limited' } : o.status === 'disabled' ? { status: 'disabled' } : { status: 'failed', why: o.why });
 
 // One step forward for a creature that has no cut-out yet: whichever step is missing is started (or found already running) and its stage is answered.
 // The page asks again every few seconds until the answer is 'ready'; every step is saved under an id made from what went into it, so nothing is made or paid for twice.
-export async function summon(sp: string, look: string): Promise<Summon> {
-  if (!speciesOk(sp) || !A.mutationOf(look)) return { status: 'invalid' };
-  const known = (await cutsFor([{ sp, look }])).get(`${sp}:${look}`);
-  if (known) return { status: 'ready', cut: known };
+export async function summon(sp: string, look: string, mode: ZooMode = 'video', pose = 'stand'): Promise<Summon> {
+  if (!speciesOk(sp) || !A.mutationOf(look) || !A.poseOk(pose)) return { status: 'invalid' };
+  if (mode === 'still') { const k = (await stillsFor([{ sp, look }])).get(`${sp}:${look}:${pose}`); if (k) return { status: 'ready', still: k }; }
+  else { const known = (await cutsFor([{ sp, look }])).get(`${sp}:${look}`); if (known) return { status: 'ready', cut: known }; }
   const base = await request({ kind: 'monster', sp });
   if (base.status === 'pending') return { status: 'making', stage: 'base', eta: ETA_MIN.base, imgStarted: true };
   if (base.status !== 'ready' || !base.url) return why(base);
@@ -61,10 +78,17 @@ export async function summon(sp: string, look: string): Promise<Summon> {
     if (r.status !== 'ready' || !r.url) return why(r);
     from = idFromUrl(r.url);
   }
-  const v: Out = await variant(sp, look, from, true);
+  const v: Out = await variant(sp, look, from, true, mode === 'still' ? pose : 'stand');
   if (v.status === 'pending') return { status: 'making', stage: 'variant', eta: ETA_MIN.variant, started: !!v.started };
   if (v.status !== 'ready' || !v.id) return why(v);
   const src = v.id;
+  if (mode === 'still') {   // no video: the flat-ground picture with its background removed
+    const x: Out = await still(sp, look, src, pose);
+    if (x.status === 'pending') return { status: 'making', stage: 'cut', eta: ETA_MIN.cut, started: !!x.started };
+    if (x.status !== 'ready' || !x.id) return why(x);
+    const k = (await stillsFor([{ sp, look }])).get(`${sp}:${look}:${pose}`);
+    return k ? { status: 'ready', still: k } : { status: 'making', stage: 'cut', eta: 1 };
+  }
   const c: Out = await clip(sp, look, ZOO_MOTION, src);
   if (c.status === 'pending') return { status: 'making', stage: 'clip', eta: ETA_MIN.clip, started: !!c.started };
   if (c.status !== 'ready' || !c.id) return why(c);
@@ -90,11 +114,11 @@ export async function saveZoo(acc: string, raw: unknown, own: ReadonlySet<number
 
 // Run in the background after the answer is sent, by the call that started a step: when the step is done, start the next one at once, in the same function, instead of
 // waiting for the page to ask again (the page asks every few seconds, and may be closed). It stops when something is not ours to wait for or the function's time is up.
-export async function carryOn(sp: string, look: string): Promise<void> {
+export async function carryOn(sp: string, look: string, mode: ZooMode = 'video', pose = 'stand'): Promise<void> {
   for (let i = 0; i < 5; i++) {
     await imageIdle();
     await idle();
-    const o = await summon(sp, look);
+    const o = await summon(sp, look, mode, pose);
     if (o.status !== 'making') return;
     if (!o.started && !o.imgStarted) return;   // another function is making it: it will carry on itself, or the page's next question will
   }

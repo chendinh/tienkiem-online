@@ -1,18 +1,21 @@
 'use client';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouse, type PointerEvent as ReactPointer } from 'react';
 import { ASPECT, DEFAULT_PERCHES, HEIGHT, K_RANGE, frameOf, newUid, sizeOf, snapPerch, type Box } from '@/lib/garden';
-import { AIR, GLOW, LIGHT, LOOK_COLOR, ZOO_BGS, etaText, sparks, specks, variantName, type Stage, type ZooItem } from '@/lib/zoo';
+import { AIR, GLOW, LIGHT, LOOK_COLOR, ZOO_BGS, etaText, poseOf, sparks, specks, variantName, type Stage, type ZooItem, type ZooMode } from '@/lib/zoo';
 import { useGenImage } from '@/lib/useGenImage';
 import { useLookPic } from '@/lib/useLookPic';
 import { monsterSpec } from '@/lib/avatarSpec';
 import { Icon } from '@/components/ds/Icon';
+import { POSES } from '@/lib/anim';
 import { Creature } from '@/components/lab/Creature';
+import { StillCreature, type StillPic } from './Still';
 
 // Linh Thú Viên of a player: the Dị Biến beasts they have tamed, put on one of the game's tall pictures. Drag a beast from the tray (or tap it) and it stands on the nearest
 // perch; drag it again to move it; "Lưu" keeps the layout. A beast that has no clip yet is "nhập định" (being made, once for everybody) and shows how long that takes.
 interface Cut { id: string; alpha: string; url?: string; alphaUrl?: string }
-interface Beast { id: number; sp: string; name: string; level: number; look: string; cut: Cut | null }
+interface Beast { id: number; sp: string; name: string; level: number; look: string; cut: Cut | null; still?: StillPic | null }
 interface Making { status: 'making' | 'failed' | 'limited' | 'disabled' | 'wait'; stage?: Stage; eta?: number; why?: string }
+const POSE_NAMES = POSES;
 const keyOf = (b: { sp: string; look: string }) => `${b.sp}:${b.look}`;
 const pc = (n: number) => `${n}%`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -63,6 +66,10 @@ export function Zoo() {
   const [bg, setBg] = useState(ZOO_BGS[0].id);
   const [lay, setLay] = useState<Record<string, ZooItem[]>>({});
   const [cuts, setCuts] = useState<Record<string, Cut>>({});
+  const [stills, setStills] = useState<Record<string, StillPic>>({});
+  // how the creatures are shown: a looping clip (made once for everybody, costs more) or one still cut-out picture (cheap). The server can force 'still' (ZOO_STILL_ONLY).
+  const [mode, setModeState] = useState<ZooMode>('video'), [stillOnly, setStillOnly] = useState(false);
+  const modeRef = useRef<ZooMode>('video'); modeRef.current = stillOnly ? 'still' : mode;
   const [making, setMaking] = useState<Record<string, Making>>({});
   const [boxes, setBoxes] = useState<Record<string, Box>>({});
   const [sel, setSel] = useState<string | null>(null);
@@ -75,6 +82,9 @@ export function Zoo() {
   const stage = useRef<HTMLDivElement>(null), drag = useRef<string | null>(null), alive = useRef(true), loops = useRef(new Set<string>());
   const want = useRef(0);   // a beast asked for in the address (?add=), still to be put on the picture
   const cutsRef = useRef(cuts); cutsRef.current = cuts;
+  const stillsRef = useRef(stills); stillsRef.current = stills;
+  // a still picture is made for each pose (the pose follows the perch, see poseOf); a clip has no poses
+  const have = (k: string, m: ZooMode, pose = 'stand') => (m === 'still' ? !!stillsRef.current[`${k}:${pose}`] : !!cutsRef.current[k]);
   const saved = useRef<{ bg: string; lay: Record<string, ZooItem[]> }>({ bg: ZOO_BGS[0].id, lay: {} });
   const bgInfo = ZOO_BGS.find((x) => x.id === bg) || ZOO_BGS[0];
   const perches = DEFAULT_PERCHES[bg] || [];
@@ -82,22 +92,22 @@ export function Zoo() {
   const byId = useMemo(() => new Map((beasts || []).map((b) => [b.id, b])), [beasts]);
 
   // ---- making what is missing: ask the server every few seconds; it starts the next step and says which one it is at
-  const run = useCallback(async (b: Beast) => {
-    const k = keyOf(b);
-    if (loops.current.has(k) || cutsRef.current[k]) return;
-    loops.current.add(k);
+  const run = useCallback(async (b: Beast, m0?: ZooMode, pose = 'stand') => {
+    const md = m0 || modeRef.current, k = md === 'still' ? `${keyOf(b)}:${pose}` : keyOf(b), lk = `${k}|${md}`;
+    if (loops.current.has(lk) || have(keyOf(b), md, pose)) return;
+    loops.current.add(lk);
     try {
       while (alive.current) {
         let r: Response, j: any;
-        try { r = await post({ step: 'summon', beast: b.id }); j = await r.json().catch(() => ({})); } catch { setMaking((m) => ({ ...m, [k]: { status: 'wait' } })); await sleep(8000); continue; }
+        try { r = await post({ step: 'summon', beast: b.id, mode: md, pose }); j = await r.json().catch(() => ({})); } catch { setMaking((m) => ({ ...m, [k]: { status: 'wait' } })); await sleep(8000); continue; }
         if (r.status === 401) { window.location.assign('/'); return; }
-        if (j.status === 'ready' && j.cut) { setCuts((c) => ({ ...c, [k]: j.cut })); setMaking((m) => { const n = { ...m }; delete n[k]; return n; }); return; }
+        if (j.status === 'ready' && (md === 'still' ? j.still : j.cut)) { if (md === 'still') setStills((c) => ({ ...c, [`${keyOf(b)}:${pose}`]: j.still })); else setCuts((c) => ({ ...c, [k]: j.cut })); setMaking((m) => { const n = { ...m }; delete n[k]; return n; }); return; }
         if (j.status === 'making') setMaking((m) => ({ ...m, [k]: { status: 'making', stage: j.stage, eta: j.eta } }));
         else { setMaking((m) => ({ ...m, [k]: { status: j.status === 'limited' || j.status === 'disabled' ? j.status : 'failed', why: j.why } })); return; }
         await sleep(4000);
       }
-    } finally { loops.current.delete(k); }
-  }, []);
+    } finally { loops.current.delete(lk); }
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- loading, leaving, visibility
   useEffect(() => {
@@ -113,12 +123,18 @@ export function Zoo() {
         const c: Record<string, Cut> = {};
         for (const b of list) if (b.cut) c[keyOf(b)] = b.cut;
         setCuts(c); cutsRef.current = c;
+        const sc: Record<string, StillPic> = (j.stills && typeof j.stills === 'object' ? j.stills : {}) as Record<string, StillPic>;
+        setStills(sc); stillsRef.current = sc;
+        const so = !!j.stillOnly;
+        setStillOnly(so);
+        let pm: ZooMode = 'video'; try { if (window.localStorage.getItem('zoo.mode') === 'still') pm = 'still'; } catch { /* the default stays */ }
+        const md: ZooMode = so ? 'still' : pm; setModeState(md); modeRef.current = md;
         saved.current = { bg: j.zoo.bg, lay: j.zoo.lay || {} };
         // "Đưa vào Linh Thú Viên" in the pen opens this page with ?add=<beast id>: that beast is put on the picture as soon as it is shown
         const w = Number(new URLSearchParams(window.location.search).get('add'));
         if (Number.isInteger(w) && w > 0) { want.current = w; window.history.replaceState(null, '', window.location.pathname); }
         // a beast that was put down earlier and has no clip yet carries on being made
-        for (const it of (j.zoo.lay?.[j.zoo.bg] || []) as ZooItem[]) { const b = list.find((x) => x.id === it.beast); if (b && !c[keyOf(b)]) void run(b); }
+        for (const it of (j.zoo.lay?.[j.zoo.bg] || []) as ZooItem[]) { const b = list.find((x) => x.id === it.beast); if (b && !(md === 'still' ? sc[`${keyOf(b)}:${poseOf(it.perch)}`] : c[keyOf(b)])) void run(b, md, poseOf(it.perch)); }
       } catch { setErr('Không gọi được máy chủ.'); setBeasts([]); }
     })();
     const onVis = () => setVis(document.visibilityState === 'visible');
@@ -131,7 +147,7 @@ export function Zoo() {
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
-  useEffect(() => { if (!beasts) return; for (const it of items) { const b = byId.get(it.beast); if (b && !cuts[keyOf(b)]) void run(b); } }, [bg, beasts]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!beasts) return; for (const it of items) { const b = byId.get(it.beast), pose = poseOf(it.perch); if (b && !have(keyOf(b), modeRef.current, pose)) void run(b, undefined, pose); } }, [bg, beasts, mode, stillOnly, items.map((i) => `${i.beast}.${i.perch}`).join()]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the layout
   const edit = (fn: (l: ZooItem[]) => ZooItem[]) => { setLay((l) => ({ ...l, [bg]: fn(l[bg] || []) })); setDirty(true); setSavedAt(0); };
@@ -146,7 +162,7 @@ export function Zoo() {
     const uid = newUid();
     edit((l) => [...l, { uid, beast: b.id, perch: s.perch.id, x: s.x, y: s.y, flip: false, k: 1 }]);
     setSel(uid);
-    if (!cutsRef.current[keyOf(b)]) void run(b);
+    if (modeRef.current === 'video' && !have(keyOf(b), 'video')) void run(b);   // a still is made for the pose of the perch it is on, by the effect above
   }
   // the beast asked for in the address goes onto the perch with the fewest creatures, and the page opens ready to save
   useEffect(() => {
@@ -200,9 +216,10 @@ export function Zoo() {
   useEffect(() => { if (editing) requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight })); }, [editing]);   // the perches are in the lower part of the picture
   const leave = (e: ReactMouse) => { if (dirty && !window.confirm('Chưa lưu thay đổi. Rời đi vẫn bỏ chúng?')) e.preventDefault(); };
 
+  const setMode = (m: ZooMode) => { setModeState(m); try { window.localStorage.setItem('zoo.mode', m); } catch { /* not kept */ } };
   const selItem = items.find((i) => i.uid === sel);
   const placed = new Set(items.map((i) => i.beast));
-  const eta = (b: Beast) => { const m = making[keyOf(b)]; return etaText(m?.stage); };
+  const eta = (b: Beast) => { const m = making[keyOf(b)] || Object.entries(making).find(([k]) => k.startsWith(`${keyOf(b)}:`))?.[1]; return etaText(m?.stage); };
 
   if (beasts === null) return <main className="zv"><p className="zv-note">Đang mở Linh Thú Viên…</p></main>;
   return (
@@ -225,6 +242,13 @@ export function Zoo() {
           ? <button type="button" className={`zv-btn ${dirty ? 'hot' : ''}`} disabled={!dirty || saving} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu'}</button>
           : <button type="button" className="zv-btn" onClick={() => setEditing(true)} aria-label="Bày trí"><Icon name="brush" size={17} /> Bày trí</button>}
       </header>
+      {!stillOnly && beasts.length > 0 && (
+        <div className="zv-mode" role="group" aria-label="Cách hiển thị thú">
+          <button type="button" aria-pressed={mode === 'video'} onClick={() => setMode('video')}>Hoạt động</button>
+          <button type="button" aria-pressed={mode === 'still'} onClick={() => setMode('still')}>Ảnh tĩnh</button>
+          <small>{mode === 'still' ? 'Một ảnh tách nền, nhẹ máy và nhanh vẽ hơn.' : 'Thú cử động như video, vẽ lâu hơn.'}</small>
+        </div>
+      )}
       {editing && <nav className="zv-bgs" aria-label="Chọn nền">
         {ZOO_BGS.map((x) => <button key={x.id} type="button" className="zv-chip" aria-pressed={x.id === bg} onClick={() => { setBg(x.id); setSel(null); setDirty(true); }}>{x.name}</button>)}
       </nav>}
@@ -240,7 +264,23 @@ export function Zoo() {
             {items.map((it) => {
               const b = byId.get(it.beast), pr = perches.find((p) => p.id === it.perch);
               if (!b || !pr) return null;
-              const k = keyOf(b), c = cuts[k], z = 10 + Math.round(it.y * 1000) * 2, size = sizeOf(pr, it.k), m = making[k];
+              const k = keyOf(b), cm = modeRef.current, pose = poseOf(it.perch), c = cm === 'video' ? cuts[k] : undefined, z = 10 + Math.round(it.y * 1000) * 2, size = sizeOf(pr, it.k), m = making[cm === 'still' ? `${k}:${pose}` : k];
+              // the picture of the pose that fits the perch; until it is made, the creature shows in the pose it already has
+              const sp0 = stills[`${k}:${pose}`] || stills[`${k}:stand`] || stills[`${k}:${Object.keys(POSE_NAMES).find((x) => stills[`${k}:${x}`])}`];
+              // a clip is shown only in the clip option; a still picture is shown in its own option, and also while the clip of a creature is still being made
+              const sPic = !c ? sp0 : undefined;
+              if (sPic) {
+                const f = frameOf(sPic.box, it, size, ASPECT);
+                return (
+                  <Fragment key={it.uid}>
+                    <StillCreature s={sPic} it={it} size={size} z={z} paused={!vis} />
+                    {editing && (
+                      <div className={`zv-hit${sel === it.uid ? ' on' : ''}`} style={{ left: pc(f.left + sPic.box.x0 * f.width), top: pc(f.top + sPic.box.y0 * f.height), width: pc((sPic.box.x1 - sPic.box.x0) * f.width), height: pc((sPic.box.y1 - sPic.box.y0) * f.height), zIndex: z + 2 }}
+                        onPointerDown={(e) => grab(it.uid, e)} onPointerMove={carry} onPointerUp={drop} onPointerCancel={drop} />
+                    )}
+                  </Fragment>
+                );
+              }
               if (c) {
                 const box = boxes[c.id], f = box ? frameOf(box, it, size, ASPECT) : null;
                 return (
@@ -275,7 +315,7 @@ export function Zoo() {
           ? <p className="zv-note">Bạn chưa có Linh Thú Dị Biến nào. Dị Biến hiếm gặp khi đi Lịch Luyện; thu phục được là đưa vào đây được.</p>
           : <div className="zv-tray">
               {beasts.map((b) => {
-                const k = keyOf(b), ready = !!cuts[k], on = placed.has(b.id);
+                const k = keyOf(b), ready = modeRef.current === 'still' ? Object.keys(POSE_NAMES).some((x) => !!stills[`${k}:${x}`]) : have(k, 'video'), on = placed.has(b.id);
                 return (
                   <div key={b.id} className={`zv-tile${on ? ' on' : ''}`} style={{ ['--hue' as string]: LOOK_COLOR[b.look] }} onPointerDown={(e) => pull(b, e)}>
                     <Pic b={b} />

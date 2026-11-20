@@ -86,3 +86,24 @@ test('every Dị Biến beast has one of the ten looks, an ordinary beast has no
   assert.equal(seen.size, MUTATIONS.length);
   for (const m of MUTATIONS) { assert.ok(LOOK_COLOR[m.id]); assert.equal(variantName(m.id), m.name); }
 });
+
+test('poses: a perch decides the pose, and a new pose rewrites only the pose of the plain picture prompt', async () => {
+  const Z = await import('../lib/zoo');
+  const A = await import('../lib/anim');
+  const G = await import('../lib/garden');
+  assert.equal(Z.poseOf('da1'), 'watch');
+  assert.equal(Z.poseOf('suoi2'), 'drink');
+  assert.equal(Z.poseOf('bo'), 'rest');
+  assert.equal(Z.poseOf('trai'), 'walk');
+  assert.equal(Z.poseOf('gan'), 'stand');
+  assert.equal(Z.poseOf('whatever'), 'stand');
+  // every default perch gets a pose that exists
+  for (const ps of Object.values(G.DEFAULT_PERCHES)) for (const p of ps) assert.ok(A.poseOk(Z.poseOf(p.id)), p.id);
+  const m = A.MUTATIONS[0];
+  assert.equal(A.posePrompt(m, false, 'stand'), A.plainPrompt(m, false));
+  const d = A.posePrompt(m, false, 'drink');
+  assert.notEqual(d, A.plainPrompt(m, false));
+  assert.ok(d.includes(A.POSES.drink.en) && !d.includes('same creature design, body shape, pose,'));
+  assert.ok(d.includes('flat, uniform'));   // the flat ground stays
+  assert.equal(A.poseOk('fly'), false);
+});

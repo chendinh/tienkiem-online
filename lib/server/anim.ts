@@ -14,7 +14,7 @@ import { blobOn, putBlob, readBlob } from './blob';
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
 export interface Out { status: Status; id?: string; alpha?: string; why?: string; started?: boolean }
 interface Done {
-  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'gardenbg'; meta: any;
+  buf: Buffer; ext: string; kind: 'animvar' | 'anim' | 'animcut' | 'animfg' | 'animstill' | 'gardenbg'; meta: any;
   more?: { id: string; buf: Buffer; ext: string; kind: 'animalpha'; meta: any }[];   // saved BEFORE the main row, so "main row exists" means "all of it exists"
 }
 
@@ -128,10 +128,10 @@ export async function idle(maxMs = 285000): Promise<void> {
 
 // ---- a mutated variant of a creature: an edit of its base picture
 // plain: the Linh Thú Viên's picture, the creature on one flat colour (A.plainPrompt). For 'ngusac' the base picture is the game's own rainbow picture and only its ground changes.
-export async function variant(sp: string, mutId: string, baseId: string, plain = false): Promise<Out> {
+export async function variant(sp: string, mutId: string, baseId: string, plain = false, pose = 'stand'): Promise<Out> {
   const m = A.mutationOf(mutId);
   if (!m || !A.isPictureId(baseId)) return { status: 'invalid' };
-  const model = falModels().edit, prompt = plain ? A.plainPrompt(m, m.id === 'ngusac') : A.variantPrompt(m), cost = falCost(model, 960, 960);
+  const model = falModels().edit, prompt = plain ? A.posePrompt(m, m.id === 'ngusac', pose) : A.variantPrompt(m), cost = falCost(model, 960, 960);
   const id = sha('variant', sp, m.id, baseId, model, prompt);
   return launch(id, cost, async (pay) => {
     const base = await readImage(baseId);
@@ -150,7 +150,7 @@ export async function variant(sp: string, mutId: string, baseId: string, plain =
       if (v.ok) out = buf; else { why = v.why; seed += 7919; }
     }
     if (!out) throw new Error('rejected by review: ' + why);
-    return { buf: out, ext: 'jpg', kind: 'animvar', meta: { spec: { kind: 'variant', sp, mut: m.id, base: baseId, ...(plain ? { plain: true } : {}) }, model, prompt, seed, cost: r4(spent) } };
+    return { buf: out, ext: 'jpg', kind: 'animvar', meta: { spec: { kind: 'variant', sp, mut: m.id, base: baseId, ...(plain ? { plain: true } : {}), ...(plain && pose !== 'stand' ? { pose } : {}) }, model, prompt, seed, cost: r4(spent) } };
   });
 }
 
@@ -210,6 +210,33 @@ export async function cut(sp: string, mutId: string, motionId: string, clipId: s
   const mv = A.motionOf(motionId);
   if (!mv || !A.isPictureId(clipId) || (mutId !== A.BASE && !A.mutationOf(mutId))) return { status: 'invalid' };
   return cutVideo(clipId, 'anim', 'animcut', { kind: 'cut', sp, mut: mutId, motion: mv.id });
+}
+
+// ---- a still cut-out: the creature's flat-ground picture with its background removed (a PNG with alpha, kind 'animstill'), for the pen's "tĩnh" option. It is one picture
+// through one cheap background removal (about 0.02 USD) instead of a video clip and its cut-out, and its `box` (where the creature is inside the picture, as shares of it,
+// the same thing the page measures from a clip) is measured here, once, so the page needs no canvas.
+export async function still(sp: string, mutId: string, srcId: string, pose = 'stand'): Promise<Out> {
+  const m = A.mutationOf(mutId);
+  if (!m || !A.isPictureId(srcId)) return { status: 'invalid' };
+  const cutM = process.env.FAL_FG_CUT_MODEL || A.DEFAULT_FG_CUT_MODEL, cost = A.FG_CUT_USD;
+  const id = sha('still', sp, m.id, srcId, cutM, pose);
+  return launch(id, cost, async (pay) => {
+    const src = await readImage(srcId);
+    if (!src) throw new Error('the picture is gone');
+    const { fal } = await import('@fal-ai/client');
+    const url = await upload(fal, src);
+    const c: any = await withTimeout(fal.subscribe(cutM, { input: A.fgCutInput(url) }), 120000, 'fal ' + cutM);
+    const ci = c?.data?.image || c?.data?.images?.[0];
+    if (!ci?.url) throw new Error('fal: no image from the background removal');
+    const out = await download(ci.url);
+    await pay(cost);
+    if (!isPng(out)) throw new Error('the cut-out is not a PNG (no alpha)');
+    const sharp = (await import('sharp')).default;
+    const { data, info } = await sharp(out).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true });
+    const box = G.alphaBox(data, info.width, info.height);
+    if (!box) throw new Error('nothing is left after the cut-out');
+    return { buf: out, ext: 'png', kind: 'animstill', meta: { spec: { kind: 'still', sp, mut: m.id, src: srcId, ...(pose !== 'stand' ? { pose } : {}) }, model: cutM, cost, box } };
+  });
 }
 
 // ---- the foreground layer of a zone's scene: grass, rocks and roots as a PNG with alpha (kind 'animfg')

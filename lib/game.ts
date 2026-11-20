@@ -1032,7 +1032,11 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
     chips.push(`Thu phục thành công (${Math.round(pt * 100)}%)`);
     questTamed(st, sp.id, chips, rep);
     taskHit(st, { kind: 'tame', el: sp.el }, rep);
-    if (rep && m.mut) rep.highlights.push({ prio: 95, kind: 'mutation', text: `Thu phục ${m.name} Dị Biến!`, beast: m, log });
+    if (rep && m.mut) {
+      // one card for one creature: this replaces the "met it" card (and the "first of its species" card) the same Dị Biến already has in this report
+      rep.highlights = rep.highlights.filter((h) => !(h.beast && (h.beast === m || h.beast.id === m.id)));
+      rep.highlights.push({ prio: 95, kind: 'mutation', text: `Thu phục ${m.name} Dị Biến!${first ? ' Cũng là lần đầu thu phục loài này.' : ''}`, beast: m, log });
+    }
     return true;
   }
   chips.push(`Thu phục thất bại (${Math.round(pt * 100)}%)`);

@@ -19,6 +19,9 @@ export const ZOO_BGS: ZooBg[] = [
   { id: 'tinhha', name: 'Tinh Hà', src: '/art/zones/tinhha_v.jpg' },
   { id: 'xichviem', name: 'Xích Viêm', src: '/art/zones/xichviem_v.jpg' },
 ];
+// The pose a creature takes on a perch: by the kind of place the perch is named for (rock, stream, bank, island, far, left/right, near); any other perch: standing.
+const POSE_BY_PERCH: [RegExp, string][] = [[/^(da|xa)/, 'watch'], [/^suoi/, 'drink'], [/^(bo|dao)/, 'rest'], [/^(trai|phai)/, 'walk']];
+export const poseOf = (perchId: string): string => POSE_BY_PERCH.find(([r]) => r.test(perchId))?.[1] || 'stand';
 export const zooBgOk = (id: unknown): id is string => ZOO_BGS.some((b) => b.id === id);
 
 export interface ZooItem { uid: string; beast: number; perch: string; x: number; y: number; flip: boolean; k: number }
@@ -58,6 +61,7 @@ export function parseZoo(raw: unknown, own: ReadonlySet<number>): ZooLayout {
 // The motion a Linh Thú Viên clip is made with (lib/anim.ts MOTIONS). A cut-out made with another motion (the first version used 'idle') is not used: it was nearly still.
 export const ZOO_MOTION = 'live';
 export type Stage = 'base' | 'variant' | 'clip' | 'cut';
+export type ZooMode = 'video' | 'still';   // how a creature is shown in the pen: a looping video clip, or one still cut-out picture (cheaper to make)
 export const ETA_MIN: Record<Stage, number> = { base: 6, variant: 5, clip: 4, cut: 2 };
 export const etaText = (stage: Stage | undefined) => `khoảng ${ETA_MIN[stage || 'base']} phút`;
 

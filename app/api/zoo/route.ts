@@ -1,7 +1,7 @@
 import { after } from 'next/server';
-import { beastsOf, carryOn, cutsFor, loadZoo, picsFor, portrait, saveZoo, summon } from '@/lib/server/zoo';
+import { beastsOf, carryOn, cutsFor, loadZoo, modeOf, picsFor, portrait, saveZoo, stillOnly, stillsFor, summon } from '@/lib/server/zoo';
 import { idle } from '@/lib/server/anim';
-import { mutationOf } from '@/lib/anim';
+import { mutationOf, poseOk } from '@/lib/anim';
 import { ensureDaily } from '@/lib/server/dailystore';
 import { json, guard, checkWrite, readBody, requireUser } from '@/lib/server/http';
 import { ZOO_BGS, ZOO_MAX } from '@/lib/zoo';
@@ -11,7 +11,7 @@ export const maxDuration = 300;   // a clip is made after the answer is sent: th
 
 // Linh Thú Viên of a player (the game's session cookie).
 // GET  the player's Dị Biến beasts (each with its look and, when made, its cut-out clip), their layout and the backgrounds
-// POST { step: 'summon', beast }  make the clip of that beast's look if it is missing (once for everybody); answers its stage and a rough waiting time. Ask again until 'ready'.
+// POST { step: 'summon', beast, mode?, pose? }  pose (stand, watch, drink, rest, walk: the pose that fits the perch, see poseOf) is for the still option;  mode 'still' makes one still cut-out picture instead of the clip (cheaper); make the clip of that beast's look if it is missing (once for everybody); answers its stage and a rough waiting time. Ask again until 'ready'.
 // GET  ?pics=<species>:<look>,...  the pictures of those looks that exist already (nothing is made)
 // POST { step: 'portrait', beast }  make the picture of that beast's look if it is missing (once for everybody); answers 'ready' with its url, or 'making': ask again
 // POST { step: 'save', bg, lay }  keep the layout (nothing is spent)
@@ -27,10 +27,11 @@ export async function GET(req: Request) {
     await ensureDaily();   // the species of the day are known only after this
     const beasts = await beastsOf(u.id, true);
     if (!beasts) return json({ ok: false, code: 'E_NOT_FOUND' }, 404);
-    const own = new Set(beasts.map((b) => b.id)), cuts = await cutsFor(beasts.map((b) => ({ sp: b.sp, look: b.look })));
+    const own = new Set(beasts.map((b) => b.id)), keys = beasts.map((b) => ({ sp: b.sp, look: b.look })), cuts = stillOnly() ? new Map() : await cutsFor(keys), stills = await stillsFor(keys);
     return json({
-      ok: true, max: ZOO_MAX, bgs: ZOO_BGS, zoo: await loadZoo(u.id, own),
+      ok: true, max: ZOO_MAX, stillOnly: stillOnly(), bgs: ZOO_BGS, zoo: await loadZoo(u.id, own),
       beasts: beasts.map((b) => ({ ...b, cut: cuts.get(`${b.sp}:${b.look}`) || null })),
+      stills: Object.fromEntries(stills),   // `species:look:pose` -> the still cut-out picture
     });
   });
 }
@@ -47,9 +48,9 @@ export async function POST(req: Request) {
     if (b?.step === 'summon') {
       const beast = beasts.find((x) => x.id === b.beast);   // only the look of a beast the player really has can be asked for
       if (!beast) return json({ status: 'invalid' });
-      const out = await summon(beast.sp, beast.look);
-      if (out.imgStarted || out.started) after(() => carryOn(beast.sp, beast.look));   // keeps the function alive and goes on to the next step by itself
-      return json({ ok: true, status: out.status, stage: out.stage, eta: out.eta, cut: out.cut, why: out.why });
+      const mode = modeOf(b.mode), pose = poseOk(b.pose) ? b.pose : 'stand', out = await summon(beast.sp, beast.look, mode, pose);
+      if (out.imgStarted || out.started) after(() => carryOn(beast.sp, beast.look, mode, pose));   // keeps the function alive and goes on to the next step by itself
+      return json({ ok: true, status: out.status, stage: out.stage, eta: out.eta, cut: out.cut, still: out.still, why: out.why });
     }
     if (b?.step === 'portrait') {
       const beast = beasts.find((x) => x.id === b.beast);   // only a look the player really has can be made
