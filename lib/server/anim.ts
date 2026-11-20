@@ -27,7 +27,17 @@ export const animModel = () => process.env.FAL_ANIM_MODEL || A.DEFAULT_MODEL;
 export const cutModel = () => process.env.FAL_CUT_MODEL || A.DEFAULT_CUT_MODEL;
 export const animSeconds = () => (process.env.FAL_ANIM_SECONDS === '10' ? 10 : 5);
 export const labCap = () => Number(process.env.LAB_BUDGET_USD || 5);
-const editCost = () => falCost(falModels().edit, 960, 960);
+// The model that draws a creature's Dị Biến look from its base picture. It was FAL_EDIT_MODEL (FLUX Kontext), which recoloured the creature thinly and left its outline
+// soft; the Nano Banana editor that draws the character's outfits keeps the creature and paints the look far better. FAL_VARIANT_MODEL overrides it.
+const variantModel = () => process.env.FAL_VARIANT_MODEL || falModels().outfit;
+const variantRes = () => process.env.FAL_VARIANT_RES || falModels().outfitRes;
+const variantCost = () => falCost(variantModel(), 960, 960, /nano-banana-(2|pro)/.test(variantModel()) ? variantRes() : '');
+// The input of a one-picture edit by model: Nano Banana takes image_urls, an aspect ratio and a resolution; FLUX Kontext takes image_url and a guidance.
+function variantInput(model: string, prompt: string, url: string, seed: number) {
+  if (/nano-banana/.test(model)) return { prompt, image_urls: [url], seed, aspect_ratio: '1:1', num_images: 1, output_format: 'jpeg', ...(/nano-banana-(2|pro)/.test(model) ? { resolution: variantRes() } : {}), ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}) };
+  return { prompt, image_url: url, seed, guidance_scale: 3.5, num_images: 1, output_format: 'jpeg', safety_tolerance: '2' };
+}
+const editCost = () => variantCost();
 const falReady = () => { const P = provider(); return P.enabled && P.name === 'fal'; };
 
 // ---- the lab's own spend ledger: one row in the kv table, added to with a single SQL statement
@@ -131,7 +141,7 @@ export async function idle(maxMs = 285000): Promise<void> {
 export async function variant(sp: string, mutId: string, baseId: string, plain = false, pose = 'stand'): Promise<Out> {
   const m = A.mutationOf(mutId);
   if (!m || !A.isPictureId(baseId)) return { status: 'invalid' };
-  const model = falModels().edit, prompt = plain ? A.posePrompt(m, m.id === 'ngusac', pose) : A.variantPrompt(m), cost = falCost(model, 960, 960);
+  const model = variantModel(), prompt = plain ? A.posePrompt(m, m.id === 'ngusac', pose) : A.variantPrompt(m), cost = variantCost();
   const id = sha('variant', sp, m.id, baseId, model, prompt);
   return launch(id, cost, async (pay) => {
     const base = await readImage(baseId);
@@ -141,7 +151,7 @@ export async function variant(sp: string, mutId: string, baseId: string, plain =
     let seed = seedOf(`${sp}#${m.id}`), out: Buffer | null = null, why = '', spent = 0;
     // The reviewer (Claude, when its key is set) checks it is still the same creature; one redraw with another seed, then the picture is refused.
     for (let n = 0; n < 2 && !out; n++) {
-      const res: any = await withTimeout(fal.subscribe(model, { input: { prompt, image_url: url, seed, guidance_scale: 3.5, num_images: 1, output_format: 'jpeg', safety_tolerance: '2' } }), 150000, 'fal ' + model);
+      const res: any = await withTimeout(fal.subscribe(model, { input: variantInput(model, prompt, url, seed) }), 150000, 'fal ' + model);
       const img = res?.data?.images?.[0];
       if (!img?.url) throw new Error('fal: no image in result');
       const buf = await download(img.url);
