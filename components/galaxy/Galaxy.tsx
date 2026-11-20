@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointer } from 'react';
-import { FEATURE, GALAXIES, galaxyOf, gxPic, type Galaxy as G, type GxArt } from '@/lib/galaxy';
+import { FEATURE, GALAXIES, galaxyOf, gxPic, type Galaxy as G } from '@/lib/galaxy';
 import { Icon } from '@/components/ds/Icon';
 import { sfx } from '@/lib/audio';
 
@@ -40,11 +40,11 @@ function Air({ g }: { g: G }) {
   );
 }
 
-function Pic({ name, className, eager, art }: { name: string; className?: string; eager?: boolean; art?: GxArt | null }) {
+function Pic({ name, className, eager }: { name: string; className?: string; eager?: boolean }) {
   return (
     <picture>
-      <source media="(max-aspect-ratio: 1/1)" srcSet={gxPic(name, '1k', art)} />
-      <img className={className} src={gxPic(name, '2k', art)} alt="" draggable={false} decoding="async" fetchPriority={eager ? 'high' : 'auto'} />
+      <source media="(max-aspect-ratio: 1/1)" srcSet={gxPic(name, '1k')} />
+      <img className={className} src={gxPic(name, '2k')} alt="" draggable={false} decoding="async" fetchPriority={eager ? 'high' : 'auto'} />
     </picture>
   );
 }
@@ -57,7 +57,6 @@ export function Galaxy() {
   const [have, setHave] = useState<string[]>([]); // close-ups that are mounted (the one shown and the ones preloaded)
   const [tab, setTab] = useState<'story' | 'facts'>('story');
   const [intro, setIntro] = useState(false);
-  const [art, setArt] = useState<GxArt | null>(null);   // pictures redrawn by the owner (if any)
   const [port, setPort] = useState(false);
   const stage = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null), anim = useRef<Animation | null>(null);
   const dim = useRef({ vw: 0, vh: 0, ww: 0, wh: 0, port: false });
@@ -131,8 +130,6 @@ export function Galaxy() {
     try { const u = new URL(window.location.href); id ? u.searchParams.set('g', id) : u.searchParams.delete('g'); window.history.replaceState(null, '', u); } catch { /* ignore */ }
   }, [ensure, flyTo]);
 
-  useEffect(() => { fetch('/api/galaxy').then((r) => r.json()).then((j) => { if (j?.ok && j.art && Object.keys(j.art).length) setArt(j.art); }).catch(() => {}); }, []);
-
   // the first state (a deep link ?g=…) and quiet preloading of the other pictures
   useEffect(() => {
     const first = galaxyOf(new URLSearchParams(window.location.search).get('g'));
@@ -188,7 +185,7 @@ export function Galaxy() {
     <div ref={stage} className="gx" data-mode={mode} data-fly={flying ? '1' : '0'} data-instant={instant ? '1' : '0'} data-port={port ? '1' : '0'} onPointerDown={down} onPointerUp={up} onPointerMove={move}>
       {/* the star chart; the camera is its transform */}
       <div ref={world} className="gx-world">
-        <Pic name="map" className="gx-mapimg" eager art={art} />
+        <Pic name="map" className="gx-mapimg" eager />
         {GALAXIES.map((x) => {
           const [px, py] = port ? x.posM : x.pos;
           return (
@@ -204,7 +201,7 @@ export function Galaxy() {
       {/* one close-up per galaxy, faded in over the chart */}
       {GALAXIES.filter((x) => have.includes(x.id)).map((x) => (
         <div key={x.id} className="gx-close" data-on={sel === x.id} aria-hidden={sel !== x.id}>
-          <div className="gx-par" data-depth="0.5"><Pic name={x.id} className="gx-pic" art={art} /></div>
+          <div className="gx-par" data-depth="0.5"><Pic name={x.id} className="gx-pic" /></div>
           <Air g={x} />
         </div>
       ))}
@@ -220,7 +217,7 @@ export function Galaxy() {
 
       <nav className="gx-dock" aria-label="Các tinh hà">
         {GALAXIES.map((x) => (
-          <button key={x.id} type="button" className={`gx-chip ${x.status}`} data-on={sel === x.id} style={{ '--a': x.accent, backgroundImage: `url(${gxPic(x.id, 't', art)})` } as CSSProperties}
+          <button key={x.id} type="button" className={`gx-chip ${x.status}`} data-on={sel === x.id} style={{ '--a': x.accent, backgroundImage: `url(${gxPic(x.id, 't')})` } as CSSProperties}
             onClick={() => go(x.id)} onPointerEnter={() => ensure(x.id)} aria-label={x.name} aria-pressed={sel === x.id} title={x.name}>
             {x.status === 'soon' ? <Icon name="lock" size={14} /> : null}
           </button>

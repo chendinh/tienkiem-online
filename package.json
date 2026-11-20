@@ -25,7 +25,8 @@
     "dao:backfill": "tsx scripts/dao-backfill.ts",
     "bots:remove": "tsx scripts/remove-bots.ts",
     "img:index": "tsx scripts/index-images.ts",
-    "img:wanted": "tsx scripts/draw-wanted.ts"
+    "img:wanted": "tsx scripts/draw-wanted.ts",
+    "gen:galaxy": "tsx scripts/gen-galaxy.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.1",

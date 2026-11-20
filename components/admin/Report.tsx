@@ -183,47 +183,47 @@ function Redraw({ adminKey }: { adminKey: string }) {
 }
 
 // Ảnh Tinh Hà: the owner's button to draw the pictures of Vạn Giới Tinh Đồ again with the image model. Big for PC (2560 wide) and a smaller tall one for phones (1080x1920).
-// Drawing takes up to two minutes and costs money, so every button asks twice. The star chart is repainted from the bundled chart (so the galaxies stay where the buttons are).
+// The pictures are written into public/art/galaxy, so it only works where the disk can be written (your own machine); then the files are committed. Every button asks twice (it costs money).
 function GalaxyArt({ adminKey }: { adminKey: string }) {
-  const [art, setArt] = useState<Record<string, string>>({}), [names, setNames] = useState<[string, string][]>([]);
+  const [names, setNames] = useState<[string, string][]>([]), [stamps, setStamps] = useState<Record<string, number>>({}), [ok, setOk] = useState(true);
   const [sure, setSure] = useState(''), [busy, setBusy] = useState(''), [msg, setMsg] = useState(''), [err, setErr] = useState('');
   const hdr = { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
   const load = useCallback(async () => {
     try {
       const [a, g] = await Promise.all([fetch('/api/admin/galaxy', { headers: hdr, cache: 'no-store' }).then((r) => r.json()), import('@/lib/galaxyArt')]);
-      if (a?.ok) { setArt(a.art || {}); setNames((a.names as string[]).map((n) => [n, g.GX_ART_LABEL[n] || n])); setErr(''); } else setErr('Không đọc được danh sách ảnh.');
+      if (a?.ok) { setStamps(a.stamps || {}); setOk(!!a.writable); setNames((a.names as string[]).map((n) => [n, g.GX_ART_LABEL[n] || n])); setErr(''); } else setErr('Không đọc được danh sách ảnh.');
     } catch { setErr('Không đọc được danh sách ảnh.'); }
   }, [adminKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [load]);
-  const ERR: Record<string, string> = { E_NO_FAL: 'Chưa có FAL_KEY trong môi trường.', E_NO_BLOB: 'Chưa nối Vercel Blob (BLOB_READ_WRITE_TOKEN), nên chưa lưu được ảnh vẽ lại.' };
-  async function go(name: string, what: '2k' | '1k' | 'reset') {
-    const id = `${name}:${what}`;
+  const ERR: Record<string, string> = { E_NO_FAL: 'Chưa có FAL_KEY trong môi trường.', E_READONLY: 'Máy chủ này không ghi được vào thư mục. Chạy game ở máy bạn (npm run dev) rồi vẽ ở đó.' };
+  async function go(name: string, size: '2k' | '1k') {
+    const id = `${name}:${size}`;
     if (sure !== id) { setSure(id); setMsg(''); return; }
-    setSure(''); setBusy(id); setErr(''); setMsg(what === 'reset' ? '' : 'Đang vẽ, mất khoảng 30 đến 120 giây. Đừng đóng trang.');
+    setSure(''); setBusy(id); setErr(''); setMsg('Đang vẽ, mất khoảng 30 đến 120 giây. Đừng đóng trang.');
     try {
-      const r = await fetch('/api/admin/galaxy', { method: 'POST', headers: hdr, body: JSON.stringify(what === 'reset' ? { name, reset: true } : { name, size: what }) });
+      const r = await fetch('/api/admin/galaxy', { method: 'POST', headers: hdr, body: JSON.stringify({ name, size }) });
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) { setArt(j.art || {}); setMsg(what === 'reset' ? 'Đã quay về ảnh gốc của game.' : `Đã vẽ xong${j.cost ? ` (khoảng ${j.cost} USD)` : ''}. Trang Tinh Đồ tự lấy ảnh mới trong vòng một phút.`); }
+      if (r.ok && j.ok) { setStamps(j.stamps || {}); setMsg(`Đã vẽ xong và lưu vào public/art/galaxy (${(j.files || []).join(', ')}), khoảng ${j.cost} USD. Xem ảnh rồi commit.`); }
       else { setMsg(''); setErr(ERR[j?.code] || 'Không vẽ được. Thử lại.'); }
     } catch { setMsg(''); setErr('Không vẽ được (quá thời gian?). Thử lại.'); }
     setBusy('');
   }
   const cell = (name: string, size: '2k' | '1k') => {
-    const url = art[`${name}_${size}`], id = `${name}:${size}`;
+    const id = `${name}:${size}`, t = stamps[`${name}_${size}`];
     return (
       <div key={id} className="rp-gx">
-        {url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" loading="lazy" width={size === '2k' ? 120 : 52} height={size === '2k' ? 68 : 92} style={{ objectFit: 'cover', borderRadius: 6 }} /></a> : <small className="muted">ảnh gốc</small>}
-        <button className="btn sm" disabled={!!busy} onClick={() => go(name, size)}>{busy === id ? 'Đang vẽ…' : sure === id ? `Bấm lần nữa (~${size === '2k' ? '0.17' : '0.09'} USD)` : 'Vẽ lại'}</button>
+        {t ? <a href={`/art/galaxy/${name}_${size}.webp?t=${t}`} target="_blank" rel="noreferrer"><img src={`/art/galaxy/${name}_${size}.webp?t=${t}`} alt="" loading="lazy" width={size === '2k' ? 120 : 52} height={size === '2k' ? 68 : 92} style={{ objectFit: 'cover', borderRadius: 6 }} /></a> : null}
+        <button className="btn sm" disabled={!!busy || !ok} onClick={() => go(name, size)}>{busy === id ? 'Đang vẽ…' : sure === id ? `Bấm lần nữa (~${size === '2k' ? '0.17' : '0.09'} USD)` : 'Vẽ lại'}</button>
       </div>
     );
   };
   return (
-    <Card id="tinhha" title="Ảnh Tinh Hà" sub="vẽ lại bằng AI, bản lớn cho máy tính và bản nhỏ cho điện thoại; ảnh mới thay ngay trên trang Tinh Đồ">
+    <Card id="tinhha" title="Ảnh Tinh Hà" sub="vẽ lại bằng AI và lưu thẳng vào thư mục public/art/galaxy; bản lớn cho máy tính, bản nhỏ cho điện thoại">
       {err && <p className="formErr" role="alert">{err}</p>}
       {msg && <p className="muted" role="status">{msg}</p>}
-      <Table head={['Ảnh', 'Máy tính (2560×1440)', 'Điện thoại (1080×1920)', '']} rows={names.map(([n, label]) => [label, cell(n, '2k'), cell(n, '1k'),
-        <button key={n} className="btn sm ghost" disabled={!!busy || !Object.keys(art).some((k) => k.startsWith(`${n}_`))} onClick={() => go(n, 'reset')}>{sure === `${n}:reset` ? 'Bấm lần nữa' : 'Về ảnh gốc'}</button>])} />
-      <small className="muted">Bản đồ tổng được vẽ lại từ bản đồ gốc nên các tinh hà giữ nguyên vị trí. Cần FAL_KEY và Vercel Blob. Đổi mô hình bằng FAL_GALAXY_MODEL, độ phân giải bằng FAL_GALAXY_RES (mặc định 4K cho máy tính, 2K cho điện thoại). Ảnh vẽ lại nào chưa ưng thì bấm "Về ảnh gốc".</small>
+      {!ok && <p className="muted">Máy chủ này không ghi được vào thư mục (Vercel chỉ đọc). Chạy game ở máy bạn bằng npm run dev, mở /admin ở đó, hoặc chạy npm run gen:galaxy.</p>}
+      <Table head={['Ảnh', 'Máy tính (2560×1440)', 'Điện thoại (1080×1920)']} rows={names.map(([n, label]) => [label, cell(n, '2k'), cell(n, '1k')])} />
+      <small className="muted">Bản đồ tổng được vẽ lại từ bản đồ đang có nên các tinh hà giữ nguyên vị trí. Cần FAL_KEY. Đổi mô hình bằng FAL_GALAXY_MODEL, độ phân giải bằng FAL_GALAXY_RES (mặc định 4K cho máy tính, 2K cho điện thoại). Ảnh chưa ưng thì bỏ thay đổi bằng git checkout public/art/galaxy.</small>
     </Card>
   );
 }

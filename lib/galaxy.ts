@@ -12,6 +12,4 @@ export const galaxyOf = (id: string | null | undefined) => GALAXIES.find((g) => 
 
 // Pictures: `name_2k.webp` (2560x1440, PC) and `name_1k.webp` (1080x1920, phone upright); `name_t.webp` is a small round thumbnail.
 export const GX_DIR = '/art/galaxy';
-// `art` = the pictures the owner redrew with the image model (GET /api/galaxy); without one the picture that ships with the game is used
-export type GxArt = Record<string, string>;
-export const gxPic = (name: string, size: '2k' | '1k' | 't', art?: GxArt | null) => art?.[`${name}_${size}`] || `${GX_DIR}/${name}_${size}.webp`;
+export const gxPic = (name: string, size: '2k' | '1k' | 't') => `${GX_DIR}/${name}_${size}.webp`;

@@ -12,7 +12,10 @@ Bản đồ các tinh hà. Một trang riêng như Linh Thú Viên (game không 
 ## Vẽ lại ảnh
 `python3 scripts/art/galaxy_art.py` (cần numpy, scipy, opencv, pillow; không cần mạng). `SCALE=0.3` để xem nhanh, ảnh ra `/tmp/galaxy-preview`. Sau khi vẽ lại cảnh nào, chạy `python3 scripts/art/galaxy_art.py thumbs`.
 
-## Thay bằng ảnh do AI vẽ
+## Vẽ lại bằng AI (lưu thẳng vào thư mục)
+Chạy game ở máy bạn (`npm run dev`), vào `/admin` → Ảnh Tinh Hà, bấm Vẽ lại ở bản máy tính hoặc điện thoại; hoặc `npm run gen:galaxy -- thienhuyen` (cần `FAL_KEY` trong `.env.local`). Ảnh ghi đè đúng file trong `public/art/galaxy/`, bạn xem rồi commit. Trên Vercel thư mục chỉ đọc nên nút báo như vậy.
+
+## Thay bằng ảnh tự đưa vào
 Chỉ cần ghi đè đúng tên file (`thienhuyen_2k.webp`, `thienhuyen_1k.webp`, …). Giao diện không phụ thuộc nội dung ảnh, trừ `map_*`: các nút tinh hà được đặt theo `pos`/`posM`, nên ảnh bản đồ mới phải có tinh hà ở đúng các vị trí đó (hoặc sửa `pos`/`posM` cho khớp).
 
 ## Thêm một tinh hà
