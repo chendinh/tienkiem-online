@@ -339,6 +339,8 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const [storm, setStorm] = useState(false);
   const [credits, setCredits] = useState(false);
   const [acked, setAcked] = useState<string[]>([]);   // reports closed by the player and waiting for the server to confirm
+  const [narrow, setNarrow] = useState(false);   // phone width: the mode switch (Lịch Luyện / Bế Quan) sits on the character card instead of the header
+  useEffect(() => { const mq = window.matchMedia('(max-width: 720px)'); const on = () => setNarrow(mq.matches); on(); mq.addEventListener('change', on); return () => mq.removeEventListener('change', on); }, []);
   const [sideOpen, setSideOpen] = useState(false);   // the third column (Kho báu) is a drawer on laptop and phone screens
   const [intro, setIntro] = useState(false);
   const [ai, setAi] = useState<any>(null);
@@ -617,6 +619,13 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const state = st.decision ? 'Chờ quyết định' : st.recovery ? 'Điều Tức' : (p.injury || 0) > 0 ? 'Thương Thế' : p.heartDemon > 0 ? 'Tâm Ma' : st.set.mode === 'retreat' ? 'Bế Quan' : 'Lịch Luyện';
   const ack = async (id: string) => { setAcked((a) => (a.includes(id) ? a : [...a, id])); await act('ack', { id }); };   // stays hidden even if the server refuses: the button must always close the window
 
+  // Lịch Luyện / Bế Quan: in the header on wide screens, on a phone it moves down to the character card, above the Tu Vi button
+  const modeSeg = (
+    <Seg label="Chế độ" value={st.set.mode} onChange={async (v) => { const r = await act('mode', { mode: v }); if (!r.ok) say(r.msg, false); }} options={[
+      { v: 'adventure' as const, label: <><Icon name="wind" size={15} /><span className="lbl">Lịch Luyện</span></>, title: 'Lịch Luyện: ra ngoài săn Linh Thú, nhặt pháp khí' },
+      { v: 'retreat' as const, label: <><Icon name="lotus" size={15} /><span className="lbl">Bế Quan</span></>, title: 'Bế Quan: ngồi thiền tích lũy Tu Vi' },
+    ]} />
+  );
   return (
     <GenCtx.Provider value={!!(ai && ai.enabled)}>
     <ZoomProvider>
@@ -630,12 +639,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       <header className="top">
         <div className="brand"><h1 className="wm"><Lockup width={112} className="lkWide" /><Logo size={38} className="lkMark" /></h1></div>
         <QiWidget aura={C.EL[aura].color} />
-        <div className="topMid">
-          <Seg label="Chế độ" value={st.set.mode} onChange={async (v) => { const r = await act('mode', { mode: v }); if (!r.ok) say(r.msg, false); }} options={[
-            { v: 'adventure' as const, label: <><Icon name="wind" size={15} /><span className="lbl">Lịch Luyện</span></>, title: 'Lịch Luyện: ra ngoài săn Linh Thú, nhặt pháp khí' },
-            { v: 'retreat' as const, label: <><Icon name="lotus" size={15} /><span className="lbl">Bế Quan</span></>, title: 'Bế Quan: ngồi thiền tích lũy Tu Vi' },
-          ]} />
-        </div>
+        {narrow ? null : <div className="topMid">
+          {modeSeg}
+        </div>}
         <nav className="topNav" aria-label="Chức năng">
           <button type="button" aria-label="Linh Thú Viên" title="Linh Thú Viên" className="nav pic zoo quick" data-tone="jade" onClick={goZoo}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/zoo.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="zoo" size={18} /></span><span className="lbl">Linh Thú Viên</span></button>
           <button type="button" aria-label="Tinh Đồ" title="Vạn Giới Tinh Đồ" className="nav pic galaxy quick" data-tone="azure" onClick={goGalaxy}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/galaxy.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="galaxy" size={18} /></span><span className="lbl">Tinh Đồ</span></button>
@@ -716,6 +722,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           </div>
           <Toast msg={note} />
           <div className="heroActions">
+            {narrow ? <div className="modeHero">{modeSeg}</div> : null}
             <button className={`btn big ${storm ? 'storming' : ''}`} disabled={!bott || storm} onClick={() => setBreakOpen(true)}>
               {storm ? <><Icon name="bolt" size={18} /> Đang độ kiếp…</> : bott ? `Đột Phá lên ${C.REALMS[target]}` : L >= BALANCE.playableLevelCap ? 'Đã tới giới hạn bản hiện tại' : 'Đang tích lũy Tu Vi…'}
             </button>
