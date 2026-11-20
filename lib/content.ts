@@ -692,3 +692,7 @@ export const WEEK_EN: Record<string, string> = {
 };
 for (const [el, d] of Object.entries(WEEK_EN)) PLACE_EN[`week_${el}`] = d;
 export const weekArt = (el: string) => zoneArt(`week_${slug(el)}`);
+// The three story cards a new character sees first (components/Onboarding.tsx), vertical for phones. Appended last so no earlier picture changes its seed.
+PLACE_EN.onboard_1_v = 'a vast sea of clouds at dawn above floating spirit mountains, ribbons of luminous qi falling like silver rain onto blossoming land, a tiny lone pavilion on a far peak, warm golden light, the quiet birth of a world';
+PLACE_EN.onboard_2_v = 'a creeping wall of thick gray fog swallowing a green valley, withering glowing trees, pale hollow ghost-like beast silhouettes drifting inside the mist, sickly gray and cold teal tones, the last warm light fading, ominous but beautiful';
+PLACE_EN.onboard_3_v = 'the foot of a misty mountain above a sea of clouds at first light, a winding stone path rising through old pines toward a glowing sunrise, a single small spirit stone glowing warmly on a mossy rock in the foreground, hopeful gold and jade tones';

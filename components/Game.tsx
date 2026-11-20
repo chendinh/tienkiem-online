@@ -18,6 +18,7 @@ import { DailyModal } from './Daily';
 import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V, OWN_BASE_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
+import { Welcome } from './Onboarding';
 import lore from '@/content/lore.json';
 import { Img, GenImg, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
 import { ArtsPanel } from './Arts';
@@ -775,17 +776,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         <div className="row"><button className="link" onClick={() => setCredits(true)}>Ghi công</button><a className="link" href="/design">Bộ quy chuẩn giao diện</a></div>
       </footer>
 
-      {!p.prologueSeen && !rep && (
-        <div className="modal">
-          <div className="modalBody lore">
-            <h2>{(lore as any).worldName}</h2>
-            <p className="tag">{(lore as any).tagline}</p>
-            {(lore as any).prologue.map((t: string, i: number) => <p key={i}>{t}</p>)}
-            <p className="hook">{(lore as any).hook}</p>
-            <button className="btn big" onClick={() => { p.prologueSeen = true; save(); re(); }}>Bước vào đạo đồ</button>
-          </div>
-        </div>
-      )}
+      {!p.prologueSeen && !rep && <Welcome st={st} aiOn={!!ai && ai.enabled && !ai.locked} guest={guest} onLink={() => setLinkOpen(true)} onDone={() => { p.prologueSeen = true; save(); re(); }} />}
 
       {codex && (
         <div className="modal" onClick={() => setCodex(null)}>
