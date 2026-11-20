@@ -111,3 +111,14 @@ test('Thiên and Tiên item icons are drawn large by the finer model, the rest s
   assert.equal(low.hq, undefined); assert.equal(low.width, 512);
   for (const p of [thien, tien]) { assert.equal(p.hq, true); assert.equal(p.width, 1024); assert.equal(p.height, 1024); }
 });
+
+test('a character with an account draws a base picture of its own (another seed), a guest keeps the shared one', async () => {
+  const { buildPlan } = await import('../lib/imageprompt');
+  const { avatarBaseSpec, OWN_BASE_V } = await import('../lib/avatarSpec');
+  const st: any = { player: { look: { g: 'f', hc: 0, hs: 0, ey: 0, sk: 1, mk: 0, seed: 11 }, linh: ['Thủy'], pers: 2 }, eq: {} };
+  const guest = buildPlan(avatarBaseSpec(st)), own = buildPlan(avatarBaseSpec(st, OWN_BASE_V));
+  assert.equal(guest.seed, 11);
+  assert.notEqual(own.seed, guest.seed);
+  assert.equal(own.prompt, guest.prompt);   // the same character, only drawn again
+  assert.equal(JSON.stringify(avatarBaseSpec(st)).includes('"v"'), false);
+});

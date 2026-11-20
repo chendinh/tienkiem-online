@@ -153,7 +153,7 @@ export function buildPlan(spec: any): Plan {
   if (spec.kind === 'avatar' || spec.kind === 'outfit') {
     const L = readLook(spec.look), el = oneOf(spec.el, C.EO), pers = intIn(spec.pers, 0, C.PERS_EXPR.length - 1);
     const base = { kind: 'avatar', look: spec.look, el, pers };
-    if (spec.kind === 'avatar') return { kind: 'avatar', prompt: avatarText(L, el, pers, plainWear(L), C.SCENE_T[0]), width: 768, height: 1152, seed: L.seed, pri: 0 };
+    if (spec.kind === 'avatar') return { kind: 'avatar', prompt: avatarText(L, el, pers, plainWear(L), C.SCENE_T[0]), width: 768, height: 1152, seed: seedV(L.seed, variant(spec)), pri: 0 };
     const eq = readEq(spec.eq);
     // nothing visible is worn: that is exactly the base picture (no paid edit)
     if (C.VISIBLE.every((s) => !eq[s])) return buildPlan({ ...base, pri: spec.pri });

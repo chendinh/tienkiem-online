@@ -13,7 +13,9 @@ import * as C from './content';
 export const ART_V = 7;
 
 // Base portrait of a character: plain robe, empty hands. Drawn once; the standing pose and every outfit are edits of it.
-export const avatarBaseSpec = (st: Wearer) => ({ kind: 'avatar', look: st.player.look, el: st.player.linh[0], pers: st.player.pers });
+// A guest's base picture is the one every character of that look shares; a character with an account gets one of its own: a new draw (`v`, a new seed) the first time it is drawn.
+export const OWN_BASE_V = 1;
+export const avatarBaseSpec = (st: Wearer, v = 0) => ({ kind: 'avatar', look: st.player.look, el: st.player.linh[0], pers: st.player.pers, ...(v ? { v } : {}) });
 
 // What the portrait shows: base / tier / element of the six visible slots.
 export function equipSpec(st: Wearer) {

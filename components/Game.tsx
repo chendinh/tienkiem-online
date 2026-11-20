@@ -16,7 +16,7 @@ import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
 import { DailyModal } from './Daily';
 import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
-import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V } from '@/lib/avatarSpec';
+import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V, OWN_BASE_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import lore from '@/content/lore.json';
 import { Img, GenImg, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
@@ -123,19 +123,21 @@ const WHY: Record<string, string> = { limited: 'Đã chạm giới hạn ảnh A
 // Portrait, for looking at only (the equipment slots live in the Trang bị tab, not on the picture). The base picture (plain robe, empty hands)
 // is drawn once per character, then the standing pose (an edit of the base, drawn automatically). After that the picture only changes when
 // the player presses the button: the AI redraws the SAME person, in the same pose, wearing what is equipped right now.
-function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: number; aura: string; on: boolean; offWhy: string; save: () => void; re: () => void; onBio: () => void }) {
+function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { st: GS; tier: number; aura: string; on: boolean; offWhy: string; save: () => void; re: () => void; onBio: () => void; guest: boolean; onLink: () => void }) {
   const p = st.player, av = p.avatar, zoom = useZoom();
   const heroRef = useRef<HTMLDivElement>(null); useTilt(heroRef);
   const cue = useCue();
   const sig = equipSig(st);
   const [baseTry, setBaseTry] = useState(0);
+  const [guide, setGuide] = useState(false);   // a guest pressed the button that needs an account
+  const baseV = guest ? 0 : OWN_BASE_V;      // a guest has the base picture of its look; a character with an account draws one of its own
   const [poseTry, setPoseTry] = useState(0);
   const [want, setWant] = useState<{ spec: any; sig: string; n: number } | null>(null);
   const [msg, setMsg] = useState('');
   const breaks = useRef(0);
 
   const needBase = on && !av?.base;
-  const base = useGenImage(needBase ? avatarBaseSpec(st) : null, 0, baseTry);
+  const base = useGenImage(needBase ? avatarBaseSpec(st, baseV) : null, 0, baseTry);
   useEffect(() => {
     if (needBase && base.url) { p.avatar = { base: base.url, url: base.url, sig: PLAIN_SIG, crop: base.crop, art: ART_V }; save(); re(); }
   }, [needBase, base.url]);
@@ -175,7 +177,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
     else if (rolled.status === 'failed' || rolled.status === 'limited' || rolled.status === 'disabled') { setMsg(WHY[rolled.status]); setRoll(null); }
   }, [roll, rolled.url, rolled.status]);
 
-  const redo = useGenImage(restyle && restyle.stage === 'base' ? avatarBaseSpec(st) : null, 0, restyle ? restyle.n : 0);
+  const redo = useGenImage(restyle && restyle.stage === 'base' ? avatarBaseSpec(st, baseV) : null, 0, restyle ? restyle.n : 0);
   const redoPose = useGenImage(restyle && restyle.stage === 'pose' ? poseSpec(st) : null, 0, restyle ? restyle.n : 0);
   useEffect(() => {
     if (!restyle) return;
@@ -212,11 +214,12 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
   // (another version of the same picture), so a picture the player does not like can be redrawn at once.
   const canDraw = on && hasPic && !drawing;
   const plainPose = sig === PLAIN_SIG && !!av?.pose;  // nothing visible is worn: the picture is the standing pose itself
-  const doRestyle = () => { if (on && hasPic && !drawing) { setMsg(''); setRestyle({ n: Date.now(), stage: 'base' }); } };
+  const doRestyle = () => { if (guest) { setGuide(true); return; } if (on && hasPic && !drawing) { setMsg(''); setRestyle({ n: Date.now(), stage: 'base' }); } };
   const redoCost = C.VISIBLE.some((s) => st.eq[s]) ? '0,19' : '0,12';  // base 0,05 + pose 0,07 (+ outfit 0,07)
   const worn = C.VISIBLE.map((s) => st.eq[s]?.name).filter(Boolean).join(', ');
   const anotherV = () => 1 + Math.floor(Math.random() * 999998);
   const draw = () => {
+    if (guest) { setGuide(true); return; }
     if (!canDraw) return;
     setMsg('');
     // nothing worn and no pose yet (it failed): there is no other version to draw, so try the pose again
@@ -260,9 +263,26 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio }: { st: GS; tier: n
         </div>
       )}
       <div className="rerow">
-        <button className={`btn ${OUTFIT_DRAW && changed && canDraw ? 'hot' : ''}`} disabled={!OUTFIT_DRAW || !canDraw} onClick={draw} title={OUTFIT_DRAW ? tip : 'Tạm khóa'}><Icon name="brush" size={16} /> {label}</button>
+        <button className={`btn ${OUTFIT_DRAW && changed && canDraw ? 'hot' : ''}`} disabled={!OUTFIT_DRAW || (!guest && !canDraw)} onClick={draw} title={OUTFIT_DRAW ? (guest ? 'Cần liên kết email' : tip) : 'Tạm khóa'}><Icon name="brush" size={16} /> {label}</button>
         <button className="btn" onClick={onBio}><Icon name="book" size={16} /> Tiểu sử</button>
       </div>
+      {guide && (
+        <Window title="Vẽ nhân vật theo trang bị" icon="brush" onClose={() => setGuide(false)}>
+          <div className="guestGuide" onClick={(e) => e.stopPropagation()}>
+            <p>Tài khoản khách đã có <b>ảnh nhân vật gốc</b> và <b>tư thế đứng</b>. Tính năng <b>vẽ nhân vật mặc đúng trang bị đang đeo</b> dành cho tài khoản đã liên kết email.</p>
+            <p>Khi liên kết email, nhân vật của ngươi sẽ:</p>
+            <ul>
+              <li>được vẽ một <b>ảnh gốc riêng, mới</b>, không dùng chung với ai;</li>
+              <li>vẽ lại được theo trang bị mỗi khi đổi đồ, hoặc vẽ bản khác nếu chưa ưng;</li>
+              <li>giữ tiến trình và chơi được trên mọi thiết bị.</li>
+            </ul>
+            <div className="rerow">
+              <button className="btn hot" onClick={() => { setGuide(false); onLink(); }}>Liên kết email</button>
+              <button className="btn" onClick={() => setGuide(false)}>Để sau</button>
+            </div>
+          </div>
+        </Window>
+      )}
     </>
   );
 }
@@ -673,7 +693,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       <div className="mobView"><Seg<'journey' | 'hero'> label="Màn hình" value={view} onChange={setView} options={[{ v: 'journey' as const, label: <><Icon name="wind" size={15} /><span>Hành trình</span></>, title: 'Các lần gặp gỡ và trận đánh' }, { v: 'hero' as const, label: <><Icon name="lotus" size={15} /><span>Nhân vật</span></>, title: 'Chỉ số, đột phá, khu vực' }]} /></div>
       <main className={`main ${sideOpen ? 'sideOpen' : ''}`} data-view={view}>
         <section className="panel heroPanel">
-          <Hero st={st} tier={tier} aura={aura} on={!!ai && ai.enabled && !ai.locked} offWhy={!ai ? 'Đang chuẩn bị…' : !ai.enabled ? 'Chưa có nguồn ảnh AI (thiếu khóa trong .env.local)' : 'Nhà cung cấp ảnh tạm khóa 15 phút (lỗi 403)'} save={save} re={re} onBio={() => setCodex('bio')} />
+          <Hero st={st} tier={tier} aura={aura} on={!!ai && ai.enabled && !ai.locked} offWhy={!ai ? 'Đang chuẩn bị…' : !ai.enabled ? 'Chưa có nguồn ảnh AI (thiếu khóa trong .env.local)' : 'Nhà cung cấp ảnh tạm khóa 15 phút (lỗi 403)'} save={save} re={re} onBio={() => setCodex('bio')} guest={guest} onLink={() => setLinkOpen(true)} />
           <h2 className="pname">{p.name}</h2>
           <div className="idLines">
             <button type="button" className={`dao ${p.dao ? '' : 'none'}`} onClick={() => setModal('dao')} title="Xem đạo hiệu và đặc quyền">{p.dao || 'Chưa có đạo hiệu'}</button>
@@ -853,7 +873,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             </div>
         </>}
       </Window>}
-      {linkOpen && <LinkEmailModal onClose={() => setLinkOpen(false)} onLinked={(em) => { setUser({ ...user, email: em, guest: false }); setLinkOpen(false); toast('Đã liên kết email.', true); }} />}
+      {linkOpen && <LinkEmailModal onClose={() => setLinkOpen(false)} onLinked={(em) => { setUser({ ...user, email: em, guest: false }); setLinkOpen(false); p.avatar = undefined; save(); re(); toast('Đã liên kết email. Nhân vật đang được vẽ ảnh gốc riêng.', true); }} />}
       {modal === 'dao' && <DaoModal dao={p.dao} email={guest ? 'khách (chưa liên kết email)' : email} onClose={() => setModal(null)} />}
       {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}

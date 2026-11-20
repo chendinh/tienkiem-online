@@ -1,6 +1,7 @@
 // String table for messages the server can answer with (Requirement 31.1 and 31.11). The server returns a `code`; the client shows the Vietnamese text.
 // Every code the server can return has an entry here (scripts/check.ts verifies this).
 export const ERR = {
+  E_GUEST_LOCKED: 'Tài khoản khách chưa vẽ được nhân vật theo trang bị. Hãy liên kết email.',
   E_AUTH: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Hãy đăng nhập lại.',
   E_BAD_REQUEST: 'Yêu cầu không hợp lệ.',
   E_NO_CRON_SECRET: 'Chưa đặt CRON_SECRET nên việc chạy hằng ngày bị đóng.',
