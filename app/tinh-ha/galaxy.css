@@ -44,7 +44,7 @@
 .gx-par, .gx-air > div { position: absolute; inset: -2%; will-change: transform; }
 .gx-par picture, .gx-par img { display: block; width: 100%; height: 100%; }
 .gx-pic { object-fit: cover; animation: gx-drift 46s ease-in-out infinite alternate; will-change: transform; }
-@keyframes gx-drift { from { transform: scale(1.02) translate3d(-0.8%, -0.4%, 0); } to { transform: scale(1.09) translate3d(0.9%, 0.6%, 0); } }
+@keyframes gx-drift { from { transform: scale(1.015) translate3d(-0.6%, -0.3%, 0); } to { transform: scale(1.045) translate3d(0.6%, 0.4%, 0); } }   /* a gentle drift: the less it enlarges the picture, the more of it shows */
 .gx-close:not([data-on='true']) .gx-pic, .gx-close:not([data-on='true']) .gx-air * { animation-play-state: paused; }
 
 .gx-air { position: absolute; inset: 0; pointer-events: none; }
@@ -77,10 +77,6 @@
 .fx-thanhde i { width: 38%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--g) 38%, transparent), transparent 68%); animation: fx-dapple 17s ease-in-out infinite alternate; }
 .fx-thanhde i:nth-child(1) { left: -6%; top: 4%; } .fx-thanhde i:nth-child(2) { left: 52%; top: 0; animation-delay: -5s; animation-duration: 21s; } .fx-thanhde i:nth-child(3) { left: 20%; top: 40%; animation-delay: -9s; } .fx-thanhde i:nth-child(4) { left: 62%; top: 46%; animation-delay: -13s; animation-duration: 24s; }
 @keyframes fx-dapple { from { opacity: 0.06; transform: translate3d(-8%, -6%, 0) scale(0.85); } to { opacity: 0.42; transform: translate3d(9%, 7%, 0) scale(1.15); } }
-/* Tử Tiêu: a violet lightning flash with a bolt, every few seconds */
-.fx-tutieu i { inset: 0; background: radial-gradient(70% 60% at 62% 14%, rgba(210, 200, 255, 0.6), rgba(150, 190, 255, 0.15) 45%, transparent 75%); animation: fx-flash 8s linear infinite; }
-.fx-tutieu b { left: 60%; top: 0; width: 7%; height: 52%; background: linear-gradient(180deg, #fff, rgba(190, 205, 255, 0)); clip-path: polygon(55% 0, 78% 0, 52% 32%, 88% 34%, 22% 100%, 42% 55%, 8% 51%); animation: fx-flash 8s linear infinite; }
-@keyframes fx-flash { 0%, 88%, 100% { opacity: 0; } 89% { opacity: 0.95; } 90.5% { opacity: 0.1; } 92% { opacity: 0.75; } 96% { opacity: 0; } }
 /* Hỗn Độn: two slow rings of yin and yang turning against each other */
 .fx-hondon i { left: 50%; top: 50%; width: 120vmin; height: 120vmin; margin: -60vmin 0 0 -60vmin; border-radius: 50%; background: conic-gradient(rgba(255, 255, 255, 0.26), rgba(0, 0, 0, 0) 25%, rgba(255, 255, 255, 0.2) 50%, rgba(0, 0, 0, 0) 75%, rgba(255, 255, 255, 0.26)); -webkit-mask-image: radial-gradient(circle, transparent 54%, #000 57%, #000 62%, transparent 65%); mask-image: radial-gradient(circle, transparent 54%, #000 57%, #000 62%, transparent 65%); animation: fx-spin 70s linear infinite, fx-fade 8s ease-in-out infinite alternate; }
 .fx-hondon i:nth-child(2) { width: 84vmin; height: 84vmin; margin: -42vmin 0 0 -42vmin; animation-direction: reverse, alternate; animation-duration: 48s, 11s; }
@@ -167,6 +163,7 @@
     .gx-panel h2 { font-size: 1.4rem; }
   .gx-tag { font-size: 0.92rem; margin-bottom: 8px; }
   .gx-title small { display: none; }
+  .gx-par { inset: 0; }   /* a phone has no mouse parallax, so the picture need not be oversized: more of it shows */
 }
 @keyframes gx-up-sheet { from { opacity: 0; transform: translate3d(0, 30px, 0); } to { opacity: 1; transform: none; } }
 

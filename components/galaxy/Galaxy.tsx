@@ -19,7 +19,7 @@ const reduced = () => typeof window !== 'undefined' && window.matchMedia('(prefe
 const fxLevel = () => (typeof document !== 'undefined' && document.documentElement.dataset.fx) || 'mid';
 
 // how many light pieces each galaxy's own effect has (the look of each is in galaxy.css: .fx-<id>)
-const FX_PARTS: Record<string, number> = { thienhuyen: 3, huyenminh: 2, xichdiem: 2, thanhde: 4, tutieu: 1, hondon: 2 };
+const FX_PARTS: Record<string, number> = { thienhuyen: 3, huyenminh: 2, xichdiem: 2, thanhde: 4, hondon: 2 };
 
 // the living parts of a close-up: specks drifting up, stars that blink, a shooting star now and then, a breathing glow (all CSS, transform and opacity only)
 function Air({ g }: { g: G }) {
@@ -39,7 +39,7 @@ function Air({ g }: { g: G }) {
         {bits.blink.map((k, i) => <b key={i} style={{ left: `${k.x}%`, top: `${k.y}%`, '--s': `${k.s}px`, animationDuration: `${k.dur}s`, animationDelay: `${k.delay}s` } as CSSProperties} />)}
       </div>
       <s className="gx-meteor" style={{ animationDelay: `${(hashOf(g.id) % 7) + 2}s` }} />
-      <div className={`gx-fx fx-${g.id}`} data-depth="0.7">{Array.from({ length: FX_PARTS[g.id] ?? 0 }, (_, i) => <i key={i} />)}{g.id === 'tutieu' ? <b /> : null}</div>
+      <div className={`gx-fx fx-${g.id}`} data-depth="0.7">{Array.from({ length: FX_PARTS[g.id] ?? 0 }, (_, i) => <i key={i} />)}</div>
     </div>
   );
 }
