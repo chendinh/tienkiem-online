@@ -558,12 +558,12 @@ test('a new character knows one technique of its weapon môn and an old save get
 });
 test('Bí Công drop after a win about as often as the balance says, and Auto Learn learns them', () => {
   let wins = 0, books = 0;
-  for (let seed = 1; seed <= 12; seed++) { const st = fresh(seed); Object.assign(st.set, { autoFight: true, autoLearn: true, autoBreak: true }); st.inv.trib = 10; const seen = new Set<number>(); for (let k = 0; k < 250; k++) { const r = G.settle(st, 10); wins += r.wins; for (const e of st.feed) if (e.kind === 'book' && !seen.has(e.id)) { seen.add(e.id); books++; } } assert.ok(st.arts.learned.length >= 1); }
+  for (let seed = 1; seed <= 12; seed++) { const st = fresh(seed); st.starter = { done: ['tame'] }; Object.assign(st.set, { autoFight: true, autoLearn: true, autoBreak: true }); st.inv.trib = 10; const seen = new Set<number>(); for (let k = 0; k < 250; k++) { const r = G.settle(st, 10); wins += r.wins; for (const e of st.feed) if (e.kind === 'book' && !seen.has(e.id)) { seen.add(e.id); books++; } } assert.ok(st.arts.learned.length >= 1); }
   const p = books / wins;
   assert.ok(p > B.bookDropP * 0.7 && p < B.bookDropP * 1.6, `drop rate ${p.toFixed(3)} over ${wins} wins`);
 });
 test('with Auto Learn off the Bí Công waits in the bag and learning it follows the rules', () => {
-  const st = fresh(310); Object.assign(st.set, { autoLearn: false, autoFight: true, autoBreak: true }); st.inv.trib = 10; G.settle(st, 3000);
+  const st = fresh(310); st.starter = { done: ['tame'] }; Object.assign(st.set, { autoLearn: false, autoFight: true, autoBreak: true }); st.inv.trib = 10; G.settle(st, 3000);
   const names = Object.keys(st.inv.books);
   assert.ok(names.length > 0);
   const n = names.find((x) => A.TECHS[x] && A.TECHS[x].minLevel <= G.levelOf(st.player) && !st.arts.learned.includes(x));
@@ -714,7 +714,7 @@ test('an older character takes the đạo hiệu of its e-mail once, with the pr
 });
 test('30 chức vụ, and fate gives, changes and takes them away while the character adventures', () => {
   assert.equal(C.TITLES.length, 30); assert.equal(new Set(C.TITLES.map((t) => t.id)).size, 30); assert.ok(C.TITLES.every((t) => t.name && t.blurb));
-  const st = G.newGame(31, 'f', T0); Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 20;
+  const st = G.newGame(31, 'f', T0); st.starter = { done: ['tame'] }; Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 20;
   const seen: string[] = []; let gained = 0, lost = 0, changed = 0, prev = st.player.title;
   for (let k = 0; k < 120; k++) {
     G.settle(st, 500);
@@ -1177,7 +1177,7 @@ test('daily tasks: the engine counts what happens, pays once, and a new day brin
   assert.equal(st.tasks!.day, day); assert.equal(st.tasks!.list.length, 3);
   // force a known job set and let the journey run
   st.tasks!.list = [{ id: 'win:', kind: 'win', lv: 0, need: 3, n: 0, done: false, reward: 0 }, { id: 'item:0', kind: 'item', lv: 0, need: 2, n: 0, tier: 0, done: false, reward: 0 }, { id: 'res:', kind: 'res', lv: 1, need: 2, n: 0, done: false, reward: 0 }];
-  st.set.autoFight = true;
+  st.set.autoFight = true; st.starter = { done: ['tame'] };
   for (let i = 0; i < 3000 && st.tasks!.list.some((t) => !t.done); i++) { st.player.hp = 1e9; G.tick(st); }
   for (const t of st.tasks!.list) { assert.ok(t.n >= 1, t.id); if (t.done) { assert.ok(t.reward > 0); assert.equal(t.n, t.need); } }
   assert.ok(st.tasks!.list.every((t) => t.n <= t.need));
@@ -1322,4 +1322,25 @@ test('guest fate: a guest has the same origin, linh căn and personality; an e-m
   G.rollFate(c, ' nguoi@choi.vn '); G.rollFate(d, 'nguoi@choi.vn');
   assert.deepEqual([c.player.origin, c.player.linh, c.player.purity, c.player.pers], [d.player.origin, d.player.linh, d.player.purity, d.player.pers]);   // the same e-mail, the same fate
   assert.equal(G.rollFate(G.newGame(5, undefined, T0), 'x@y.vn'), false);   // an ordinary character is left alone
+});
+
+test('Nhập Môn taming job: a creature at every step, always asked, cannot be skipped, the first talisman cannot fail, and it ends with the first creature', () => {
+  const st = fresh(77);
+  st.starter = { done: ['kill', 'equip'] }; st.set.autoTame = true; st.set.autoFight = false; st.inv.taming = [0, 0, 0, 0];
+  assert.equal(G.tutorTame(st), true);
+  let n = 0;
+  for (; n < 200 && !st.decision; n++) { st.player.hp = 1e9; G.tick(st); }
+  assert.ok(st.decision && st.decision.kind === 'tame', 'asked even with Auto Tame on');
+  assert.ok(n <= 60, 'it did not take long to meet one');
+  const d = st.decision as Extract<G.Decision, { kind: 'tame' }>;
+  assert.equal(d.tutor, true); assert.equal(d.beast.elite, undefined);
+  assert.ok(st.inv.taming.some((n) => n >= 1), 'there is a talisman to use');
+  assert.equal(G.decide(st, { id: d.id, choice: 'skip' }).ok, false, 'no skipping');
+  st.clock += 10 * 60_000; G.tick(st); assert.ok(st.decision, 'no timeout');
+  const sp = G.SP(d.beast.sp);
+  assert.equal(G.tameProb(st, sp, d.beast, 0), 1);
+  const r = G.decide(st, { id: st.decision!.id, choice: 'tame', grade: 0 });
+  assert.equal(r.ok, true); assert.equal(st.beasts.length, 1);
+  assert.equal(G.tutorTame(st), false, 'the help ends with the first creature');
+  assert.ok(G.tameProb(st, sp, d.beast, 0) < 1, 'the rate is the normal one again');
 });

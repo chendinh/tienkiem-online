@@ -69,7 +69,7 @@ export interface GameState {
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
-export type Decision = { id: number; kind: 'tame'; beast: Beast; log: string[]; until?: number } | { id: number; kind: 'npc'; npc: NpcFoe } | { id: number; kind: 'break' };
+export type Decision = { id: number; kind: 'tame'; beast: Beast; log: string[]; until?: number; tutor?: true } | { id: number; kind: 'npc'; npc: NpcFoe } | { id: number; kind: 'break' };
 // Daily quest: tame `need` of today's creature: the creature that is new today when the daily job made one, otherwise (`old`) a creature the player already knows how to meet.
 // The reward (a share of the Tu Vi of this Level) is paid once, when the last one is tamed; an `old` quest also gives one Địa item of the player's Level with random numbers (`gift` = its name).
 export interface DayQuest { day: string; sp: string; n: number; need: number; done: boolean; reward: number; old?: boolean; gift?: string }
@@ -282,11 +282,12 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
 
 export function sizeFactors(size: number) { return [1 + B.sizeHpCoef * (size - 1), 1, 1, 1, 1 - B.sizeSpeedCoef * (size - 1)]; }
 function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
-  const elite = next(st.streams, 'enc') < B.eliteChance;
+  const tutor = tutorTame(st);
+  const elite = next(st.streams, 'enc') < B.eliteChance && !tutor;
   const g = st.streams, R = rates();
   const ws = [...C.SPECIES.map((s) => (zone.species[s.id] || 0) * ((ph && ph.species && ph.species[s.id]) || 1)), ...D.dailyWeights(zone.id, st.clock)];
   const sp = D.allSpecies()[weighted(g, 'enc', ws)];
-  const level = clamp(L + int(g, 'gen', -1, 2), zone.lv[0], Math.min(zone.lv[1], B.playableLevelCap));
+  const level = clamp(L + (tutor ? Math.min(0, int(g, 'gen', -1, 2)) - 1 : int(g, 'gen', -1, 2)), zone.lv[0], Math.min(zone.lv[1], B.playableLevelCap));   // the taming job: a little below the player
   const apt = [0, 0, 0, 0, 0].map(() => B.aptMin + next(g, 'gen') * (B.aptMax - B.aptMin));
   const pers = int(g, 'gen', 0, C.PERS.length - 1);
   const size = truncNormal(g, 'gen', B.sizeMean, B.sizeSigma, B.sizeMin, B.sizeMax);
@@ -591,6 +592,7 @@ export function decide(st: GameState, b: { id: number; choice: string; grade?: n
   if (!d || d.id !== b.id) return fail('E_NO_DECISION');
   if (d.kind === 'tame') {
     const m = d.beast, sp = SP(m.sp);
+    if (b.choice === 'skip' && d.tutor) return fail('E_TUTOR');
     if (b.choice === 'skip') { st.decision = null; feed(st, { kind: 'system', text: `Bỏ qua ${m.name}.` }); return ok(`Đã bỏ qua ${m.name}.`); }
     if (b.choice !== 'tame' || !Number.isInteger(b.grade) || b.grade! < 0 || b.grade! > 3) return fail('E_BAD_REQUEST');
     if (st.beasts.length >= B.penCapacity) return fail('E_PEN_FULL');
@@ -955,7 +957,11 @@ export function combatPower(st: GameState): number { const S = pstats(st); retur
 export const bestParty = (st: GameState) => st.beasts.slice().sort((a, b) => b.power - a.power).slice(0, B.maxParty);
 
 // ---------- encounters (Requirement 7)
+// Nhập Môn, the taming job: until the first creature is tamed, every step of the journey meets a weak creature and the first Khế Ước Phù cannot fail.
+// It ends by itself with the first creature (or the finished job), so it is a one-time help for a new player, never a rate the rest of the game has.
+export const tutorTame = (st: GameState) => !!st.starter && st.starter.done.includes('kill') && !st.starter.done.includes('tame') && st.beasts.length === 0;
 export const tameProb = (st: GameState, sp: C.Species, m: Beast, grade: number) => {
+  if (tutorTame(st)) return 1;
   const d = levelOf(st.player) - m.level;
   return clamp(B.tameBase * sp.tame * C.PERS[m.pers].tame * B.tameGradeMult[grade] * Math.max(0, 1 + B.tameLevelStep * d) * W.tameMult(st.clock), B.tameMin, B.tameMax);
 };
@@ -1099,6 +1105,12 @@ function rollTame(st: GameState, m: Beast, sp: C.Species, grade: number, chips: 
 }
 // After a Victory over a Monster. Auto_Tame on: the filter decides. Auto_Tame off: a notable creature (Dị Biến, Tinh Anh, very small or large, new species) asks the player.
 export function tryTame(st: GameState, m: Beast, sp: C.Species, chips: string[], rep?: Report, log?: string[]): TameNote | null {
+  if (tutorTame(st)) {   // always asked, whatever the settings; it cannot be skipped and does not time out; a talisman is given if there is none
+    if (st.inv.taming.every((n) => n <= 0)) { st.inv.taming[0]++; if (rep) rep.gain.taming++; chips.push('Thiên Đạo tặng một Khế Ước Phù'); }
+    st.decision = { id: ++st.uid, kind: 'tame', beast: m, log: log || [], tutor: true };
+    chips.push('Thu phục chắc chắn thành công, hãy dùng Khế Ước Phù');
+    return null;
+  }
   if (st.set.autoTame) {
     if (!matchesFilter(st, m, sp)) return null;
     if (st.beasts.length >= B.penCapacity) return missed(m, 'pen', chips, rep, log);
@@ -1243,11 +1255,11 @@ export function tick(st: GameState, rep?: Report) {
   const dq = st.decision;
   if (dq && dq.kind === 'tame') {
     if (dq.until == null) dq.until = st.clock + B.tameDecisionSec * 1000;   // a question saved before this rule existed
-    else if (st.clock >= dq.until) { st.decision = null; feed(st, { kind: 'system', text: `Bỏ qua ${dq.beast.name} (hết thời gian quyết định).` }); }
+    else if (st.clock >= dq.until && !dq.tutor) { st.decision = null; feed(st, { kind: 'system', text: `Bỏ qua ${dq.beast.name} (hết thời gian quyết định).` }); }
   }
   if (st.decision) { if (rep) rep.blockedTicks++; }   // the journey waits for the player's answer
-  else if (mode0 === 'adventure' && !st.recovery && next(st.streams, 'enc') < B.encounterChance) {
-    const k = weighted(st.streams, 'enc', encounterWeights(zone, ph, dropEventAt(zone.id, startMs)));
+  else if (mode0 === 'adventure' && !st.recovery && (tutorTame(st) || next(st.streams, 'enc') < B.encounterChance)) {
+    const k = tutorTame(st) ? 0 : weighted(st.streams, 'enc', encounterWeights(zone, ph, dropEventAt(zone.id, startMs)));   // the taming job: a creature every time
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
   ensureTasks(st);

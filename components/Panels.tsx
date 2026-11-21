@@ -576,10 +576,11 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
         <div className="dbTags">{info.map((t) => <span key={t.t} className={`dbTag ${t.cls}`} title={t.tip}>{t.t}</span>)}</div></div>
       <div className="dbBtns">
         {d.grades.map((g) => <button key={g.grade} className="btn hot sm" disabled={g.have <= 0 || d.penFull} title={`Còn ${g.have} Khế Ước ${C.GRADES[g.grade]}`} onClick={() => go('tame', { grade: g.grade })}>{C.GRADES[g.grade]} {pct(g.p)} ({g.have})</button>)}
-        <button className="btn sm" onClick={() => go('skip')}>Bỏ qua</button>
+        {!d.tutor && <button className="btn sm" onClick={() => go('skip')}>Bỏ qua</button>}
       </div>
+      {d.tutor && <div className="hint">Nhập Môn: lần thu phục đầu tiên chắc chắn thành công. Chọn một Khế Ước Phù để thu phục.</div>}
       {d.penFull && <div className="hint warn">Chuồng Linh Thú đã đầy: hãy bán bớt Linh Thú.</div>}
-      <TameTimer id={d.id} ms={d.msLeft} onExpire={() => { act('decide', { id: d.id, choice: 'skip' }); }} />
+      {!d.tutor && <TameTimer id={d.id} ms={d.msLeft} onExpire={() => { act('decide', { id: d.id, choice: 'skip' }); }} />}
     </>);
   } else {
     const n = d.npc, ratio = n.power / Math.max(1, d.mine);

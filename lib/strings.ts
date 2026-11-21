@@ -46,6 +46,7 @@ export const ERR = {
   E_NO_TRIB: 'Ngươi không có Độ Kiếp Phù.',
   E_NO_PLAYER: 'Người chơi này không còn trên Bảng Phong Thần.',
   E_NO_DECISION: 'Lựa chọn này không còn nữa.',
+  E_TUTOR: 'Nhiệm vụ Nhập Môn: hãy thu phục con linh thú này trước, thu phục chắc chắn thành công.',
   E_PEN_FULL: 'Chuồng Linh Thú đã đầy. Hãy bán bớt Linh Thú rồi thử lại.',
   E_MARKET_GONE: 'Quầy hoặc đề nghị này không còn nữa (đã đổi, đã rút hoặc đã hết hạn).',
   E_MARKET_OWN: 'Đây là món của ngươi bày. Hãy rút về nếu không muốn đổi nữa.',
