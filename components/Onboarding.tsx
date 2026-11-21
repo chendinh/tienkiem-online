@@ -81,7 +81,7 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
           </div>
           <div className={'wPortrait' + (url ? ' ready' : '')}>
             {url
-              ? <img key={url} src={url} alt="Diện mạo của ngươi" style={p.avatar?.crop ? { height: `${100 / (1 - p.avatar.crop)}%` } : undefined} />
+              ? <img key={url} src={url} alt="Diện mạo của ngươi" style={p.avatar?.crop ? { height: `${100 / (1 - p.avatar.crop)}%`, objectFit: 'cover' } : undefined} />
               : aiOn
                 ? <div className="wDraw"><i /><span>Họa sư Thiên Đạo đang vẽ diện mạo của ngươi…</span></div>
                 : <div className="wDraw"><Img src={C.introArt(p.look.g)} className="wFb" fb="✦" /><span>Họa sư đang nghỉ. Ảnh của ngươi sẽ được vẽ khi có thể.</span></div>}

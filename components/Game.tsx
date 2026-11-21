@@ -133,6 +133,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
   const [guide, setGuide] = useState(false);   // a guest pressed the button that needs an account
   const baseV = guest ? 0 : OWN_BASE_V;      // a guest has the base picture of its look; a character with an account draws one of its own
   const [poseTry, setPoseTry] = useState(0);
+  const [poseOn, setPoseOn] = useState(false);   // the standing pose is drawn only after the player asks for it (the draw button), never on its own
   const [want, setWant] = useState<{ spec: any; sig: string; n: number } | null>(null);
   const [msg, setMsg] = useState('');
   const breaks = useRef(0);
@@ -150,7 +151,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
 
   // The standing pose is drawn automatically right after the base (an edit of it, about 0,07 USD) and replaces the plain picture when that is
   // what is shown. A character from an older art direction does not get one here: it is offered the full redraw below instead.
-  const needPose = on && !!av?.base && !av.pose && (av.art ?? 0) >= ART_V && !restyle;
+  const needPose = poseOn && on && !!av?.base && !av.pose && (av.art ?? 0) >= ART_V && !restyle;
   const pose = useGenImage(needPose ? poseSpec(st) : null, 0, poseTry);
   useEffect(() => {
     const a = p.avatar;
@@ -223,8 +224,8 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
     if (guest) { setGuide(true); return; }
     if (!canDraw) return;
     setMsg('');
-    // nothing worn and no pose yet (it failed): there is no other version to draw, so try the pose again
-    if (sig === PLAIN_SIG && !av!.pose) { if (needPose) setPoseTry((n) => n + 1); return; }
+    // nothing worn and no pose yet: this press asks for the standing pose (drawn from the base picture; a failed one is tried again)
+    if (sig === PLAIN_SIG && !av!.pose) { if (poseOn) setPoseTry((n) => n + 1); else setPoseOn(true); return; }
     if (plainPose) {
       // first press: back to the standing pose (nothing to draw, nothing to pay). When it is already shown: draw the pose again.
       if (av!.url !== av!.pose) { p.avatar = { ...av!, url: av!.pose, sig: PLAIN_SIG }; save(); re(); return; }
@@ -234,8 +235,9 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
     // the picture shows other equipment: draw what is worn now (a set drawn before is served from the cache); it already matches: another version
     setWant({ spec: changed ? outfitSpec(st) : outfitSpec(st, anotherV()), sig, n: Date.now() });
   };
-  const label = drawing ? 'Đang vẽ…' : changed || !hasPic ? 'Vẽ lại theo trang bị' : 'Vẽ bản khác';
-  const tip = !on ? offWhy : changed && plainPose ? 'Quay về ảnh tư thế đứng (không tốn tiền)' : changed ? `Vẽ nhân vật mặc: ${worn || 'chưa mặc món nào nhìn thấy được'}` : plainPose ? 'Vẽ lại tư thế đứng, ra một bản khác (khoảng 0,07 USD)' : 'Vẽ lại với cùng trang bị, ra một bản khác (khoảng 0,07 USD)';
+  const noPose = hasPic && !av!.pose && sig === PLAIN_SIG && (av!.art ?? 0) >= ART_V;   // a new character: the base picture only, the pose waits for the button
+  const label = drawing ? 'Đang vẽ…' : noPose ? 'Vẽ tư thế đứng' : changed || !hasPic ? 'Vẽ lại theo trang bị' : 'Vẽ bản khác';
+  const tip = !on ? offWhy : noPose ? 'Vẽ tư thế đứng từ ảnh gốc (khoảng 0,07 USD)' : changed && plainPose ? 'Quay về ảnh tư thế đứng (không tốn tiền)' : changed ? `Vẽ nhân vật mặc: ${worn || 'chưa mặc món nào nhìn thấy được'}` : plainPose ? 'Vẽ lại tư thế đứng, ra một bản khác (khoảng 0,07 USD)' : 'Vẽ lại với cùng trang bị, ra một bản khác (khoảng 0,07 USD)';
   const baseWhy = base.status === 'failed' || base.status === 'limited' || base.status === 'disabled' ? WHY[base.status] : '';
 
   return (
@@ -243,7 +245,7 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
       <div ref={heroRef} className={`hero tier${tier}`} style={{ '--aura': C.EL[aura].color, '--rc': C.RCOLOR[tier] } as CSSProperties}>
         <div className="halo" />
         {hasPic
-          ? <div className="heroZoom zoomable" role="button" tabIndex={0} title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'avatar', src: av!.url!, name: p.name, sub: `${p.dao ? p.dao + ' · ' : ''}${C.REALMS[p.realm]} · ${C.SUBS[p.sub]}`, crop: av!.crop })} onKeyDown={(e) => { if (e.key === 'Enter') zoom({ kind: 'avatar', src: av!.url!, name: p.name, crop: av!.crop }); }}><Img key={av!.url} src={av!.url} className="heroImg genimg" style={av!.crop ? { height: `${100 / (1 - av!.crop)}%` } : undefined} fb={<Logo size={64} />} onBad={broken} /></div>
+          ? <div className="heroZoom zoomable" role="button" tabIndex={0} title="Bấm để xem ảnh lớn" onClick={() => zoom({ kind: 'avatar', src: av!.url!, name: p.name, sub: `${p.dao ? p.dao + ' · ' : ''}${C.REALMS[p.realm]} · ${C.SUBS[p.sub]}`, crop: av!.crop })} onKeyDown={(e) => { if (e.key === 'Enter') zoom({ kind: 'avatar', src: av!.url!, name: p.name, crop: av!.crop }); }}><Img key={av!.url} src={av!.url} className="heroImg genimg" style={av!.crop ? { height: `${100 / (1 - av!.crop)}%`, objectFit: 'cover' } : undefined} fb={<Logo size={64} />} onBad={broken} /></div>
           : <div className="heroPh"><Logo size={72} /><span>{!on ? offWhy : baseWhy || 'AI đang vẽ nhân vật…'}</span>{on && base.status === 'failed' && <button className="btn" onClick={() => setBaseTry((n) => n + 1)}>Thử lại</button>}</div>}
         {drawing && <div className="aiTag busy">{restyle ? (restyle.stage === 'base' ? 'AI đang vẽ lại nhân vật (ảnh gốc mới)…' : 'AI đang vẽ tư thế đứng…') : posing || roll ? 'AI đang vẽ tư thế đứng…' : 'AI đang vẽ theo trang bị…'}</div>}
         {!drawing && !hasPic && on && base.status === 'pending' && <div className="aiTag busy">AI đang vẽ nhân vật…</div>}
