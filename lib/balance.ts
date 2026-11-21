@@ -137,7 +137,7 @@ export const BALANCE = {
   confirmPurchaseThreshold: 1000,
   // cultivation (Requirement 22)
   rate0: 20, rateGrowth: 1.1,
-  thresholdMin0: 20, thresholdGrowth: 1.55, thresholdPeak: 1.5,   // minutes of base-rate cultivation for Level 1, how much each next Level asks for more, and the extra on the last Level of a Realm (4× longer than the first version, and steeper)
+  thresholdMin0: 20, thresholdGrowth: 1.45, thresholdPeak: 1.5,   // minutes of base-rate cultivation for Level 1, how much each next Level asks for more, and the extra on the last Level of a Realm (4× longer than the first version, and steeper)
   baseStats: [100, 60, 14, 10, 10],
   baseStatLevelGrowth: 1.1, baseStatRealmGrowth: 1.25,
   baseCrit: 5, baseCritDmg: 150,

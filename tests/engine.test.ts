@@ -24,7 +24,7 @@ test('validateBalance rejects broken configs', () => {
 
 test('cultivation tables match Appendix B.2', () => {
   assert.equal(cultRate(1), 20); assert.equal(cultRate(4), 27); assert.equal(cultRate(20), 122);
-  assert.equal(cultThreshold(1), 4800); assert.equal(cultThreshold(2), 8180); assert.equal(cultThreshold(4), 36200); assert.equal(cultThreshold(20), 181536770);   // 20 minutes for Level 1, each Level asks 1.55 times more, the last Level of a Realm 1.5 times more again
+  assert.equal(cultThreshold(1), 4800); assert.equal(cultThreshold(2), 7660); assert.equal(cultThreshold(4), 29630); assert.equal(cultThreshold(20), 51127480);   // 20 minutes for Level 1, each Level asks 1.45 times more, the last Level of a Realm 1.5 times more again
   assert.equal(new Set([1, 2, 3, 4]).size, 4);
 });
 
