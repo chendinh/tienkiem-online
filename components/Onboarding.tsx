@@ -74,10 +74,10 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
       {reveal && (
         <div className="wBody">
           <h2>Thiên Đạo định đoạt</h2>
-          <div className="wCards">
-            <div className="wCard" style={{ animationDelay: '0.2s' }}><small>Xuất thân</small><b>{origin.n}</b><span>{origin.note}. Khởi đầu với {origin.stones} linh thạch và {origin.talis} Khế Ước Phù.</span></div>
-            <div className="wCard" style={{ animationDelay: '0.7s' }}><small>Linh căn</small><b className="chips">{p.linh.map((e) => <ElChip key={e} el={e} />)}</b><span>Độ thuần {p.purity}: càng cao càng dễ đột phá, nhưng Thiên Kiếp càng nặng.</span></div>
-            <div className="wCard" style={{ animationDelay: '1.2s' }}><small>Tính cách</small><b>{C.PERS[p.pers].n}</b><span>Hiện trong khí chất của nhân vật ở ảnh và tiểu sử.</span></div>
+          <div className="wRows">
+            <div className="wRow" style={{ animationDelay: '0.2s' }}><small>Xuất thân</small><b>{origin.n}</b></div>
+            <div className="wRow" style={{ animationDelay: '0.6s' }}><small>Linh căn</small><b>{p.linh.map((e) => <ElChip key={e} el={e} />)}<em>thuần {p.purity}</em></b></div>
+            <div className="wRow" style={{ animationDelay: '1s' }}><small>Tính cách</small><b>{C.PERS[p.pers].n}</b></div>
           </div>
           <div className={'wPortrait' + (url ? ' ready' : '')}>
             {url
