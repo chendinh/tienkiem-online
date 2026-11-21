@@ -323,7 +323,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     else if (c !== 'cancel') toast(errText(c), false);
   };
   const removePk = async () => { if (await askConfirm({ title: 'Gỡ passkey?', body: 'Mọi passkey của tài khoản này sẽ bị gỡ. Ngươi vẫn đăng nhập được bằng cách khác nếu đã có email.', ok: 'Gỡ', danger: true })) { await authPost({ action: 'pk-remove' }); setUser((u) => ({ ...u, passkeys: 0 })); } };
-  const [linkOpen, setLinkOpen] = useState(false), [nagGone, setNagGone] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false), [nagGone, setNagGone] = useState(false), [replay, setReplay] = useState(false);   // replay: the tutorial opened again from Cài đặt
   useEffect(() => { if (linkNote) toast(linkNote.t, linkNote.ok); }, [linkNote]);
   const stRef = useRef<GS | null>(null);
   const stormRef = useRef(false);
@@ -776,7 +776,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         <div className="row"><button className="link" onClick={() => setCredits(true)}>Ghi công</button><a className="link" href="/design">Bộ quy chuẩn giao diện</a></div>
       </footer>
 
-      {!p.prologueSeen && !rep && <Welcome st={st} aiOn={!!ai && ai.enabled && !ai.locked} guest={guest} onLink={() => setLinkOpen(true)} onDone={() => { p.prologueSeen = true; save(); re(); }} />}
+      {((!p.prologueSeen && !rep) || replay) && <Welcome st={st} aiOn={!!ai && ai.enabled && !ai.locked} guest={guest} onLink={() => setLinkOpen(true)} onDone={() => { setReplay(false); if (!p.prologueSeen) { p.prologueSeen = true; save(); re(); } }} />}
 
       {codex && (
         <div className="modal" onClick={() => setCodex(null)}>
@@ -879,7 +879,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
-      {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} />}
+      {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} onGuide={() => setReplay(true)} />}
       {modal === 'daily' && <DailyModal st={st} onClose={() => setModal(null)} onLore={() => setCodex('daily')} />}
       {modal === 'alchemy' && <AlchemyModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'night' && <NightMarketModal st={st} act={act} onClose={() => setModal(null)} />}

@@ -130,7 +130,7 @@ const TAME_MODE_OPTS: { v: TameMode; n: string; t: string }[] = [
   { v: 'all', n: 'Tất cả thú', t: 'Thu phục mọi con vừa thắng.' },
 ];
 const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
-export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void }) {
+export function SettingsModal({ st, act, onClose, onCredits, onGuide }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void; onGuide?: () => void }) {
   const s = st.set;
   // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
   const known = new Set(allSpecies().map((x) => x.id));   // a saved species that no longer exists would show as a phantom "chosen" one the player cannot see or remove
@@ -210,6 +210,11 @@ export function SettingsModal({ st, act, onClose, onCredits }: { st: GS; act: Ac
                 </label>}
             <label className="tg"><input type="checkbox" checked={d.autoBuyTal} onChange={(e) => up({ autoBuyTal: e.target.checked })} /> Tự mua Khế Ước Phù khi hết, giá ×{B.autoBuy.markup} giá Phường Thị</label>
           </div>}
+          {onGuide && <>
+            <h3>Hướng dẫn</h3>
+            <button type="button" className="btn" onClick={() => { onClose(); onGuide(); }}>Xem lại hướng dẫn tân thủ</button>
+            <div className="hint">Cốt truyện mở đầu và màn Thiên Đạo định đoạt. Không thay đổi gì trong game.</div>
+          </>}
         </div>
         <div className="setBar">
           <small className={dirty ? 'dirty' : ''}>{dirty ? 'Có thay đổi chưa lưu' : msg && !msg.ok ? msg.t : msg ? 'Đã lưu cài đặt.' : 'Chưa có thay đổi'}</small>
