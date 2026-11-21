@@ -8,6 +8,15 @@ import { STARTER, rewardText } from '@/lib/starter';
 import { TOPICS, TOUR_IDS, fill } from '@/lib/tour';
 import { ModalClose } from './ds/ModalClose';
 
+// Freeze the page behind a full-screen overlay. iOS Safari ignores overflow:hidden on the body, so the page is pinned in place instead and put back at the same spot.
+function useLockScroll() {
+  useEffect(() => {
+    const y = window.scrollY, b = document.body, prev = { position: b.style.position, top: b.style.top, width: b.style.width, overflow: b.style.overflow };
+    b.style.position = 'fixed'; b.style.top = `-${y}px`; b.style.width = '100%'; b.style.overflow = 'hidden';
+    return () => { b.style.position = prev.position; b.style.top = prev.top; b.style.width = prev.width; b.style.overflow = prev.overflow; window.scrollTo(0, y); };
+  }, []);
+}
+
 // The first minute of a new character: three full-picture story cards (each says what the world is AND what the player does in it), then
 // "Thiên Đạo định đoạt" (the random origin, root and temper turn over one by one) while the AI draws the portrait. It ends by setting the same
 // `prologueSeen` flag as the old text prologue; Cài đặt can open it again.
@@ -38,6 +47,7 @@ const Scene = ({ art, fb }: { art: string; fb: string }) => (
 );
 
 export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boolean; guest: boolean; onLink: () => void; onDone: () => void }) {
+  useLockScroll();
   const p = st.player, [step, setStep] = useState(0);
   const reveal = step >= SCENES.length;
   const url = p.avatar?.url;
