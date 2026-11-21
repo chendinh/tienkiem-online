@@ -3,6 +3,7 @@ import { type Streams, newStreams, next, int, pick, weighted, truncNormal, shuff
 import * as C from './content';
 import * as A from './arts';
 import * as D from './daily';
+import * as ST from './starter';
 import * as X from './codex';
 import * as W from './weekly';
 import * as T from './tasks';
@@ -14,7 +15,7 @@ export interface Bio { bio: string; motto: string; secret: string }
 // Portrait state: base = plain portrait, pose = the same portrait in a graceful standing pose (an edit of base, drawn right after it),
 // url = what is shown now, sig = equipment that image shows (see avatarSpec), art = art direction version (ART_V).
 export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number; at?: number }
-export interface Player { showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
+export interface Player { showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; tour?: string[]; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
 export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
@@ -63,6 +64,7 @@ export interface GameState {
   tot?: { items: number[]; byDay?: Record<string, number[]> };   // lifetime counters for the report page (lib/server/report.ts): items found by rarity since this field was added. Never read by the game itself
   questDays?: string[];   // the days (UTC) the daily quest was finished, the latest 30
   tasks?: T.DayTasks;   // the three extra jobs of today (Easy, Medium, Hard; lib/tasks.ts), made on the first tick of the UTC day
+  starter?: { done: string[] };   // Nhập Môn (lib/starter.ts): the first jobs already finished and paid. A save older than the feature gets it in the server's upgrade()
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
@@ -1036,6 +1038,22 @@ function taskHit(st: GameState, h: T.Hit, rep?: Report) {
     advance(st, rep);
   }
 }
+// Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
+export function starterCheck(st: GameState, rep?: Report) {
+  const s = st.starter;
+  if (!s || s.done.length >= ST.STARTER.length) return;
+  for (const x of ST.STARTER) {
+    if (s.done.includes(x.id) || !x.done(st)) continue;
+    s.done.push(x.id);
+    const r = x.reward;
+    if (r.stones) earn(st, r.stones, 'Nhập Môn', rep);
+    if (r.taming) { st.inv.taming[0] += r.taming; if (rep) rep.gain.taming += r.taming; }
+    if (r.pill) { st.inv.hp[0] += r.pill; if (rep) rep.gain.hp += r.pill; }
+    const last = s.done.length === ST.STARTER.length;
+    feed(st, { kind: 'story', text: `Nhập Môn (${s.done.length}/${ST.STARTER.length}): ${x.title}. Thưởng ${ST.rewardText(r)}.${last ? ' Ngươi đã hoàn thành Nhập Môn.' : ''}` });
+    if (rep) rep.highlights.push({ prio: 65, kind: 'quest', text: `Nhập Môn: ${x.title}, +${ST.rewardText(r)}` });
+  }
+}
 function questTamed(st: GameState, spId: string, chips: string[], rep?: Report) {
   const q = ensureQuest(st);
   if (q.sp !== spId) return;
@@ -1258,6 +1276,7 @@ export function tick(st: GameState, rep?: Report) {
   if (epi) { feed(st, { kind: 'event', text: 'Đốn Ngộ! Tu vi tăng vọt trong khoảnh khắc.' }); if (rep) { rep.epiphanies++; rep.highlights.push({ prio: 10, kind: 'epiphany', text: 'Đốn Ngộ trong lúc bế quan.' }); } }
   p.cp += g; if (rep) rep.cp += g;
   advance(st, rep);
+  starterCheck(st, rep);
   if (p.heartDemon > 0) p.heartDemon--;
   if ((p.injury || 0) > 0) p.injury!--;
   if (st.beasts.length > 0 && st.tick % B.upkeepEveryTicks === 0) {
@@ -1289,7 +1308,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
   const st: GameState = {
     v: 2, seed, streams, tick: 0, clock: now, uid: 0, settleSeq: 0, player, bag: [], stash: [], eq: Object.fromEntries(C.SLOTS.map((s) => [s, null])), beasts: [], best: {},
     stones: 0, inv: { taming: [0, 0, 0, 0], hp: [0, 0, 0], bt: B.shop.breakthrough.map(() => 0), trib: 0, mat: {}, books: {} }, arts: { learned: [], loadout: {}, methods: [A.STARTER_METHOD], method: A.STARTER_METHOD }, pity: { mut: 0, item: 0 }, set: defaultSettings(), recovery: false, zone: C.START_ZONE,
-    feed: [], recent: [], kills: 0, pend: {}, ledger: [], ledgerBase: 0, ledgerDaily: [], reqs: {}, reports: [], auditQ: [], decision: null, breakSnooze: 0,
+    feed: [], recent: [], kills: 0, pend: {}, ledger: [], ledgerBase: 0, ledgerDaily: [], reqs: {}, reports: [], auditQ: [], decision: null, breakSnooze: 0, starter: { done: [] },
   };
   const origin = C.ORIGINS[player.origin];
   earn(st, B.startingStones + origin.stones, 'starting_grant');

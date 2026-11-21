@@ -394,6 +394,29 @@
   .wFb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.35; }
   .wDraw span { position: relative; }
   .wTip { margin: 0; min-height: 3em; max-width: 440px; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
+  .starter { margin: var(--sp-2) var(--sp-3) 0; border: 1px solid var(--line-gold); border-radius: var(--r-md); background: var(--glass-soft); overflow: hidden; }
+  .starterHead { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 44px; padding: 6px var(--sp-3); border: 0; background: transparent; color: var(--text-1); text-align: left; cursor: pointer; font: inherit; }
+  .starterHead b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
+  .stBadge { flex: none; padding: 2px 8px; border-radius: var(--r-pill); background: var(--gold-lacquer); color: #2b1c05; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.04em; }
+  .stReward { flex: none; font-size: var(--fs-xs); color: var(--jade-300); }
+  .stChev { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--text-2); border-bottom: 2px solid var(--text-2); transform: rotate(45deg) translateY(-2px); transition: transform var(--dur-base) var(--ease-out); }
+  .stChev.open { transform: rotate(225deg); }
+  .stBar { display: flex; gap: 3px; padding: 0 var(--sp-3) 6px; } .stBar i { flex: 1; height: 3px; border-radius: 3px; background: var(--line-strong); } .stBar i.on { background: var(--gold-300); }
+  .starterBody { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); border-top: 1px solid var(--line-strong); font-size: var(--fs-sm); line-height: 1.55; color: var(--text-2); animation: w-rise 0.3s var(--ease-out) both; }
+  .starterBody p { margin: 0; } .starterBody ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+  .starterBody li { display: flex; justify-content: space-between; gap: var(--sp-2); } .starterBody li small { color: var(--text-3); }
+  .starterBody li.ok span { text-decoration: line-through; color: var(--text-3); } .starterBody li.now span { color: var(--gold-200); font-weight: 700; }
+  .hintCard { position: fixed; z-index: var(--z-popover); left: 50%; top: calc(env(safe-area-inset-top) + 58px); width: min(440px, calc(100vw - 24px)); transform: translateX(-50%); display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); border: 1px solid var(--line-gold); background: rgb(6 14 20 / 0.94); backdrop-filter: blur(10px); box-shadow: 0 18px 48px -16px rgb(0 0 0 / 0.8); animation: hint-in 0.45s var(--ease-out) both; }
+  .hintCard b { color: var(--gold-200); letter-spacing: 0.06em; }
+  .hintCard p { margin: 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--text-1); }
+  .hintBtns { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+  @keyframes hint-in { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .guideBook { display: grid; gap: var(--sp-2); }
+  .guideItem { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--glass-soft); }
+  .guideItem summary { min-height: 44px; display: flex; align-items: center; padding: 0 var(--sp-3); cursor: pointer; font-weight: 700; color: var(--gold-200); }
+  .guideItem p, .guideItem ol { margin: 0; padding: 0 var(--sp-3) var(--sp-3); font-size: var(--fs-sm); line-height: 1.65; color: var(--text-2); }
+  .guideItem ol { padding-left: calc(var(--sp-3) + 18px); display: grid; gap: var(--sp-2); }
+  @media (prefers-reduced-motion: reduce) { .hintCard, .starterBody { animation: none; } }
   .wBtns { display: grid; gap: var(--sp-2); justify-items: center; width: 100%; }
   @keyframes w-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
   @keyframes w-flip { from { opacity: 0; transform: perspective(500px) rotateY(80deg) scale(0.92); } to { opacity: 1; transform: none; } }

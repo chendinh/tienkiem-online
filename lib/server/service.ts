@@ -8,6 +8,8 @@ import { appendLog, loadAccount, saveAccount, withLock } from './store';
 import { savepoint } from './db';
 import { type AccountFile, ApiError } from './auth';
 import { randomInt, createHash } from 'node:crypto';
+import { STARTER_IDS } from '../starter';
+import { TOUR_IDS } from '../tour';
 import { publish } from './ranking';
 import * as M from './market';
 import { PURE_INTENTS } from '../intents';
@@ -58,6 +60,8 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (email && (!st.player.daoFix || !st.player.dao)) G.adoptDao(st, email);   // the đạo hiệu follows the e-mail address
   if (st.decision === undefined) st.decision = null;
   if (st.breakSnooze === undefined) st.breakSnooze = 0;
+  // Nhập Môn is for new characters: an established one (20 or more wins) gets it already done, so it is not paid for what it did long ago
+  if (!st.starter) st.starter = { done: st.kills >= 20 ? [...STARTER_IDS] : [] };
   if (st.set.autoFight === undefined) st.set.autoFight = B.defaults.autoFight;
   if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
   if (st.set.autoBuyPill === undefined) st.set.autoBuyPill = B.defaults.autoBuyPill;
@@ -117,6 +121,10 @@ function cosmetic(st: G.GameState, b: any): G.Res {
     }
   }
   if (b.prologueSeen === true) p.prologueSeen = true;
+  if (b.tour !== undefined) {   // the hints the player has read: only known ids, each once
+    if (!Array.isArray(b.tour) || b.tour.length > 40) return G.fail('E_BAD_COSMETIC');
+    p.tour = [...new Set([...(p.tour || []), ...b.tour.filter((x: any) => typeof x === 'string' && TOUR_IDS.includes(x))])];
+  }
   return G.ok('');
 }
 

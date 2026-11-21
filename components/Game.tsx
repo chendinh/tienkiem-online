@@ -18,7 +18,7 @@ import { DailyModal } from './Daily';
 import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V, OWN_BASE_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
-import { Welcome } from './Onboarding';
+import { Welcome, StarterBar, HintCard, GuideModal, pickHint, ALL_HINTS } from './Onboarding';
 import lore from '@/content/lore.json';
 import { Img, GenImg, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
 import { ArtsPanel } from './Arts';
@@ -323,7 +323,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     else if (c !== 'cancel') toast(errText(c), false);
   };
   const removePk = async () => { if (await askConfirm({ title: 'Gỡ passkey?', body: 'Mọi passkey của tài khoản này sẽ bị gỡ. Ngươi vẫn đăng nhập được bằng cách khác nếu đã có email.', ok: 'Gỡ', danger: true })) { await authPost({ action: 'pk-remove' }); setUser((u) => ({ ...u, passkeys: 0 })); } };
-  const [linkOpen, setLinkOpen] = useState(false), [nagGone, setNagGone] = useState(false), [replay, setReplay] = useState(false);   // replay: the tutorial opened again from Cài đặt
+  const [linkOpen, setLinkOpen] = useState(false), [nagGone, setNagGone] = useState(false), [replay, setReplay] = useState(false), [book, setBook] = useState(false);   // replay: the tutorial opened again from Cài đặt
   useEffect(() => { if (linkNote) toast(linkNote.t, linkNote.ok); }, [linkNote]);
   const stRef = useRef<GS | null>(null);
   const stormRef = useRef(false);
@@ -365,7 +365,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   // A new state from the server replaces ours. Pictures and the biography the player just made stay until the server has them.
   const commit = useCallback((v: GS) => {
     const cur = stRef.current;
-    if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; }
+    if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; v.player.tour = [...new Set([...(cur.player.tour || []), ...(v.player.tour || [])])]; }
     stRef.current = v; re();
   }, [re]);
   // The next fight of the queue goes on stage. The moment a fight is over its result (drops, taming, rewards) goes into the journey, even when more fights are waiting:
@@ -474,6 +474,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       if (p.avatar) body.avatar = p.avatar;
       if (p.bio) body.bio = p.bio;
       if (p.prologueSeen) body.prologueSeen = true;
+      if (p.tour && p.tour.length) body.tour = p.tour;
       try { await gameAct(body); } catch {}
       if (saveVer.current === v) dirty.current = false;
     }, 500);
@@ -682,6 +683,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
                 <div className="menuGrid">{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
+                <div className="menuGrid one">{tile('scroll', 'Cẩm nang: cách chơi và cách game hoạt động', () => setBook(true))}</div>
                 <div className="menuGrid one">{tile('gear', 'Cài đặt: âm nhạc, nghỉ ngơi, tự động, thu phục', () => setModal('settings'), true)}</div></div>
             </div>
             <div className="pop-sect">Hiệu ứng hình ảnh</div>
@@ -700,6 +702,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <button className="btn sm ghost" onClick={() => setNagGone(true)} aria-label="Để sau">Để sau</button>
         </div>
       )}
+      {p.prologueSeen && !replay && <StarterBar st={st} onBook={() => setBook(true)} />}
       <div className="mobView"><Seg<'journey' | 'hero'> label="Màn hình" value={view} onChange={setView} options={[{ v: 'journey' as const, label: <><Icon name="wind" size={15} /><span>Hành trình</span></>, title: 'Các lần gặp gỡ và trận đánh' }, { v: 'hero' as const, label: <><Icon name="lotus" size={15} /><span>Nhân vật</span></>, title: 'Chỉ số, đột phá, khu vực' }]} /></div>
       <main className={`main ${sideOpen ? 'sideOpen' : ''}`} data-view={view}>
         <section className="panel heroPanel">
@@ -777,6 +780,14 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       </footer>
 
       {((!p.prologueSeen && !rep) || replay) && <Welcome st={st} aiOn={!!ai && ai.enabled && !ai.locked} guest={guest} onLink={() => setLinkOpen(true)} onDone={() => { setReplay(false); if (!p.prologueSeen) { p.prologueSeen = true; save(); re(); } }} />}
+
+      {(() => {
+        const id = p.prologueSeen && !rep && !stage && !modal && !codex && !replay && !book ? pickHint(st, p.tour || []) : null;
+        if (!id) return null;
+        const seen = () => { p.tour = [...new Set([...(p.tour || []), id])]; save(); re(); };
+        return <HintCard st={st} id={id} onDone={seen} onOff={() => { p.tour = [...ALL_HINTS]; save(); re(); }} onBook={() => { seen(); setBook(true); }} />;
+      })()}
+      {book && <GuideModal st={st} onClose={() => setBook(false)} />}
 
       {codex && (
         <div className="modal" onClick={() => setCodex(null)}>
@@ -879,7 +890,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
-      {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} onGuide={() => setReplay(true)} />}
+      {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} onGuide={() => setReplay(true)} onBook={() => setBook(true)} />}
       {modal === 'daily' && <DailyModal st={st} onClose={() => setModal(null)} onLore={() => setCodex('daily')} />}
       {modal === 'alchemy' && <AlchemyModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'night' && <NightMarketModal st={st} act={act} onClose={() => setModal(null)} />}

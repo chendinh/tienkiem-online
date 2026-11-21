@@ -1270,3 +1270,36 @@ test('a Thiên Bí Công the player already knows is kept in the bag (to trade),
     assert.ok(Object.values(A.TECHS).some((t) => t.tier >= B.keepDupBookTier));
   } finally { (B as any).bookDropP = saved; (B as any).bookTierWeights = savedW; }
 });
+
+test('Nhập Môn: a new character starts it, each finished job pays once, and checking again pays nothing', () => {
+  const st = fresh(910);
+  assert.deepEqual(st.starter, { done: [] });
+  const t0 = st.inv.taming[0], p0 = st.inv.hp[0], s0 = st.stones;
+  G.starterCheck(st);
+  assert.deepEqual(st.starter!.done, [], 'nothing is done at the start (the starting weapon and robe do not count)');
+  st.kills = 5;
+  G.starterCheck(st);
+  assert.deepEqual(st.starter!.done, ['kill']); assert.equal(st.inv.taming[0], t0 + 2);
+  G.starterCheck(st); G.starterCheck(st);
+  assert.equal(st.inv.taming[0], t0 + 2, 'paid once');
+  st.eq = { a: {} as any, b: {} as any }; G.starterCheck(st); assert.ok(!st.starter!.done.includes('equip'), 'the two starting items are not enough');
+  st.eq = { a: {} as any, b: {} as any, c: {} as any }; st.beasts = [{} as any]; st.set.autoTame = true; st.player.realm = 1; st.questDone = 1;
+  G.starterCheck(st);
+  assert.equal(st.starter!.done.length, 6);
+  assert.equal(st.stones, s0 + 60 + 150 + 200, 'stones from the equip, break and daily jobs');
+  assert.equal(st.inv.hp[0], p0 + 3 + 2, 'pills from the tame and break jobs');
+  assert.equal(st.inv.taming[0], t0 + 2 + 3 + 1, 'talismans from the kill, auto and daily jobs');
+  assert.match(st.feed[0].text, /hoàn thành Nhập Môn/);
+});
+test('Nhập Môn pays no random number: the random streams are left as they were', () => {
+  const st = fresh(911), before = JSON.stringify(st.streams);
+  st.kills = 9; st.set.autoTame = true; G.starterCheck(st);
+  assert.equal(JSON.stringify(st.streams), before);
+});
+test('the hint texts only use the numbers the page can fill, and every hint topic is in the guide', async () => {
+  const { TOPICS, TOUR_IDS, fill } = await import('../lib/tour');
+  assert.equal(new Set(TOUR_IDS).size, TOUR_IDS.length, 'ids are unique');
+  for (const t of TOPICS) for (const s of [t.hint || '', t.guide]) assert.ok(!/\{\w+\}/.test(fill(s, { offline: 1, tameSec: 1, bag: 1, stash: 1, pen: 1 })), `${t.id}: a number is left unfilled`);
+  assert.equal(fill('{pen} chỗ', { pen: 100 }), '100 chỗ');
+  assert.ok(TOPICS.filter((t) => t.hint).length >= 8);
+});

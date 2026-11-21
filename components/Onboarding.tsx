@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import * as C from '@/lib/content';
 import type { GS } from '@/lib/client/types';
 import { ElChip, Img } from './ui';
+import { BALANCE as B } from '@/lib/balance';
+import { STARTER, rewardText } from '@/lib/starter';
+import { TOPICS, TOUR_IDS, fill } from '@/lib/tour';
+import { ModalClose } from './ds/ModalClose';
 
 // The first minute of a new character: three full-picture story cards (each says what the world is AND what the player does in it), then
 // "Thiên Đạo định đoạt" (the random origin, root and temper turn over one by one) while the AI draws the portrait. It ends by setting the same
@@ -89,6 +93,88 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------- after the story: Nhập Môn bar, one-time hints, and the Cẩm nang
+
+const tourVars = (st: GS) => ({ offline: st.config.offlineCapH, tameSec: B.tameDecisionSec, bag: st.caps.bag, stash: st.caps.stash, pen: st.caps.pen });
+
+// The topic worth showing now, or null: the first one that applies and that the player has not read yet.
+export function pickHint(st: GS, seen: string[]): string | null {
+  const d = st.decision, items = st.bag.length + Object.values(st.eq).filter(Boolean).length;
+  const rules: [string, boolean][] = [
+    ['mut', !!d && d.kind === 'tame' && !!d.beast.mut],
+    ['tame', !!d && d.kind === 'tame'],
+    ['npc', !!d && d.kind === 'npc'],
+    ['break', !!d && d.kind === 'break'],
+    ['recovery', st.recovery],
+    ['item', items > 0],
+    ['bag', st.bag.length >= st.caps.bag - 5],
+    ['pen', st.beasts.length >= st.caps.pen - 5],
+  ];
+  for (const [id, on] of rules) if (on && !seen.includes(id)) return id;
+  return null;
+}
+export const ALL_HINTS = TOUR_IDS;
+
+export function HintCard({ st, id, onDone, onOff, onBook }: { st: GS; id: string; onDone: () => void; onOff: () => void; onBook: () => void }) {
+  const t = TOPICS.find((x) => x.id === id);
+  if (!t || !t.hint) return null;
+  return (
+    <div className="hintCard" role="status" key={id}>
+      <b>{t.title}</b>
+      <p>{fill(t.hint, tourVars(st))}</p>
+      <div className="hintBtns">
+        <button type="button" className="btn hot sm" onClick={onDone} autoFocus>Đã hiểu</button>
+        <button type="button" className="btn sm ghost" onClick={onBook}>Cẩm nang</button>
+        <button type="button" className="btn sm ghost" onClick={onOff}>Tắt gợi ý</button>
+      </div>
+    </div>
+  );
+}
+
+// A slim bar under the header while Nhập Môn is open: the next job, its pay, and (tapped) how to do it and the whole list.
+export function StarterBar({ st, onBook }: { st: GS; onBook: () => void }) {
+  const [open, setOpen] = useState(false);
+  const done = st.starter?.done ?? [];
+  if (!st.starter || done.length >= STARTER.length) return null;
+  const next = STARTER.find((x) => !done.includes(x.id))!;
+  return (
+    <div className="starter" role="region" aria-label="Nhập Môn">
+      <button type="button" className="starterHead" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span className="stBadge">Nhập Môn {done.length}/{STARTER.length}</span>
+        <b>{next.title}</b>
+        <span className="stReward">+{rewardText(next.reward)}</span>
+        <i className={'stChev' + (open ? ' open' : '')} aria-hidden="true" />
+      </button>
+      <div className="stBar" aria-hidden="true">{STARTER.map((x) => <i key={x.id} className={done.includes(x.id) ? 'on' : ''} />)}</div>
+      {open && (
+        <div className="starterBody">
+          <p><b>Cách làm:</b> {next.how}</p>
+          <ol>{STARTER.map((x) => <li key={x.id} className={done.includes(x.id) ? 'ok' : x === next ? 'now' : ''}><span>{x.title}</span><small>+{rewardText(x.reward)}</small></li>)}</ol>
+          <button type="button" className="btn sm" onClick={onBook}>Mở Cẩm nang</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function GuideModal({ st, onClose }: { st: GS; onClose: () => void }) {
+  const v = tourVars(st);
+  return (
+    <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Cẩm nang">
+      <ModalClose onClose={onClose} />
+      <div className="modalBody guideBook" onClick={(e) => e.stopPropagation()}>
+        <h2>Cẩm nang</h2>
+        <p className="hint">Mọi điều cần biết để chơi, bấm vào một mục để mở.</p>
+        <details className="guideItem" open>
+          <summary>Nhập Môn: sáu việc đầu tiên</summary>
+          <ol>{STARTER.map((x) => <li key={x.id}><b>{x.title}</b> (+{rewardText(x.reward)})<br />{x.how}</li>)}</ol>
+        </details>
+        {TOPICS.map((t) => <details key={t.id} className="guideItem"><summary>{t.title}</summary><p>{fill(t.guide, v)}</p></details>)}
+      </div>
     </div>
   );
 }

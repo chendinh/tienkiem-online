@@ -130,7 +130,7 @@ const TAME_MODE_OPTS: { v: TameMode; n: string; t: string }[] = [
   { v: 'all', n: 'Tất cả thú', t: 'Thu phục mọi con vừa thắng.' },
 ];
 const TIERS = C.RARITY.map((n, i) => ({ v: i, n }));
-export function SettingsModal({ st, act, onClose, onCredits, onGuide }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void; onGuide?: () => void }) {
+export function SettingsModal({ st, act, onClose, onCredits, onGuide, onBook }: { st: GS; act: Act; onClose: () => void; onCredits?: () => void; onGuide?: () => void; onBook?: () => void }) {
   const s = st.set;
   // every setting except the music is edited as a draft and sent once with "Lưu thay đổi" (the bar at the bottom), so no click waits for the server
   const known = new Set(allSpecies().map((x) => x.id));   // a saved species that no longer exists would show as a phantom "chosen" one the player cannot see or remove
@@ -212,8 +212,11 @@ export function SettingsModal({ st, act, onClose, onCredits, onGuide }: { st: GS
           </div>}
           {onGuide && <>
             <h3>Hướng dẫn</h3>
-            <button type="button" className="btn" onClick={() => { onClose(); onGuide(); }}>Xem lại hướng dẫn tân thủ</button>
-            <div className="hint">Cốt truyện mở đầu và màn Thiên Đạo định đoạt. Không thay đổi gì trong game.</div>
+            <div className="row">
+              {onBook && <button type="button" className="btn hot" onClick={() => { onClose(); onBook(); }}>Mở Cẩm nang</button>}
+              <button type="button" className="btn" onClick={() => { onClose(); onGuide(); }}>Xem lại phần giới thiệu</button>
+            </div>
+            <div className="hint">Cẩm nang giải thích cách chơi và cách game hoạt động. Phần giới thiệu là cốt truyện mở đầu. Cả hai không thay đổi gì trong game.</div>
           </>}
         </div>
         <div className="setBar">
