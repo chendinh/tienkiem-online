@@ -62,6 +62,7 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (st.breakSnooze === undefined) st.breakSnooze = 0;
   // Nhập Môn is for new characters: an established one (20 or more wins) gets it already done, so it is not paid for what it did long ago
   if (!st.starter) st.starter = { done: st.kills >= 20 ? [...STARTER_IDS] : [] };
+  else st.starter.done = st.starter.done.filter((id) => STARTER_IDS.includes(id));   // jobs that were taken out of Nhập Môn (the first breakthrough, the daily quest) no longer count
   if (st.set.autoFight === undefined) st.set.autoFight = B.defaults.autoFight;
   if (st.set.autoLearn === undefined) st.set.autoLearn = B.defaults.autoLearn;
   if (st.set.autoBuyPill === undefined) st.set.autoBuyPill = B.defaults.autoBuyPill;

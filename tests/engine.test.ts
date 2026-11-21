@@ -374,8 +374,10 @@ test('Tu Sĩ: the player chooses to fight or avoid when Auto Fight is off', () =
   assert.ok(fightSt.feed[0].kind === 'npc' && fightSt.feed[0].outcome);
 });
 test('Tu Sĩ with Auto Fight on never asks', () => {
-  const st = fresh(70); auto(st, true); Object.assign(st.set, { autoBuyPill: false, autoBuyTal: false }); G.settle(st, 6000);   // auto-buy writes a journey line per fight and would push the Tu Sĩ line out of the short feed
-  assert.equal(st.decision, null); assert.ok(st.feed.some((e) => e.kind === 'npc'));
+  const st = fresh(70); auto(st, true); Object.assign(st.set, { autoBuyPill: false, autoBuyTal: false });
+  let npc = 0;
+  for (let i = 0; i < 30; i++) { G.settle(st, 200); assert.equal(st.decision, null); npc += st.feed.filter((e) => e.kind === 'npc').length; if (npc) break; }   // the short feed is looked at often: a Tu Sĩ line is pushed out of it by later lines
+  assert.ok(npc > 0, 'a Tu Sĩ was met and fought without asking');
 });
 test('Breakthrough question appears at the bottleneck when Auto Breakthrough is off, and "later" snoozes it', () => {
   const st = atPeak(5, 0); st.set.mode = 'retreat'; G.settle(st, 1);
@@ -1285,10 +1287,11 @@ test('Nhập Môn: a new character starts it, each finished job pays once, and c
   st.eq = { a: {} as any, b: {} as any }; G.starterCheck(st); assert.ok(!st.starter!.done.includes('equip'), 'the two starting items are not enough');
   st.eq = { a: {} as any, b: {} as any, c: {} as any }; st.beasts = [{} as any]; st.set.autoTame = true; st.player.realm = 1; st.questDone = 1;
   G.starterCheck(st);
-  assert.equal(st.starter!.done.length, 6);
-  assert.equal(st.stones, s0 + 60 + 150 + 200, 'stones from the equip, break and daily jobs');
-  assert.equal(st.inv.hp[0], p0 + 3 + 2, 'pills from the tame and break jobs');
-  assert.equal(st.inv.taming[0], t0 + 2 + 3 + 1, 'talismans from the kill, auto and daily jobs');
+  assert.equal(st.starter!.done.length, 4, 'four jobs: the first breakthrough and the daily quest are left for the player to find');
+  assert.ok(!st.starter!.done.includes('break') && !st.starter!.done.includes('daily'));
+  assert.equal(st.stones, s0 + 60, 'stones from the equip job');
+  assert.equal(st.inv.hp[0], p0 + 3, 'pills from the tame job');
+  assert.equal(st.inv.taming[0], t0 + 2 + 3, 'talismans from the kill and auto jobs');
   assert.match(st.feed[0].text, /hoàn thành Nhập Môn/);
 });
 test('Nhập Môn pays no random number: the random streams are left as they were', () => {

@@ -184,7 +184,7 @@ export function GuideModal({ st, onClose }: { st: GS; onClose: () => void }) {
         <h2>Cẩm nang hướng dẫn</h2>
         <p className="hint">Mọi điều cần biết để chơi, bấm vào một mục để mở.</p>
         <details className="guideItem" open>
-          <summary>Nhập Môn: sáu việc đầu tiên</summary>
+          <summary>Nhập Môn: bốn việc đầu tiên</summary>
           <ol>{STARTER.map((x) => <li key={x.id}><b>{x.title}</b> (+{rewardText(x.reward)})<br />{x.how}</li>)}</ol>
         </details>
         {TOPICS.map((t) => <details key={t.id} className="guideItem"><summary>{t.title}</summary><p>{fill(t.guide, v)}</p></details>)}
