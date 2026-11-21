@@ -684,7 +684,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             {<div className="pop-grid" style={{ marginBottom: 10 }}>{user.passkeys ? <button className="btn sm ghost" onClick={removePk}>Gỡ passkey ({user.passkeys})</button> : <button className="btn sm" disabled={pkBusy} onClick={addPk}>Thêm passkey (vân tay / khuôn mặt)</button>}</div>}
             <div className="popNav">
               <div className="menuGroup"><div className="menuTitle">Tu luyện</div>
-                <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('zoo', 'Linh Thú Viên', goZoo)}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
+                <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Mua bán và nhiệm vụ</div>
                 <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>

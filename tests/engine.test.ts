@@ -24,7 +24,7 @@ test('validateBalance rejects broken configs', () => {
 
 test('cultivation tables match Appendix B.2', () => {
   assert.equal(cultRate(1), 20); assert.equal(cultRate(4), 27); assert.equal(cultRate(20), 122);
-  assert.equal(cultThreshold(1), 1200); assert.equal(cultThreshold(2), 1980); assert.equal(cultThreshold(4), 8200); assert.equal(cultThreshold(20), 24340880);
+  assert.equal(cultThreshold(1), 4800); assert.equal(cultThreshold(2), 8180); assert.equal(cultThreshold(4), 36200); assert.equal(cultThreshold(20), 181536770);   // 20 minutes for Level 1, each Level asks 1.55 times more, the last Level of a Realm 1.5 times more again
   assert.equal(new Set([1, 2, 3, 4]).size, 4);
 });
 
@@ -374,7 +374,7 @@ test('Tu Sĩ: the player chooses to fight or avoid when Auto Fight is off', () =
   assert.ok(fightSt.feed[0].kind === 'npc' && fightSt.feed[0].outcome);
 });
 test('Tu Sĩ with Auto Fight on never asks', () => {
-  const st = fresh(70); auto(st, true); Object.assign(st.set, { autoBuyPill: false, autoBuyTal: false });
+  const st = fresh(70); st.starter = { done: ['tame'] }; auto(st, true); Object.assign(st.set, { autoBuyPill: false, autoBuyTal: false });   // (the taming job of Nhập Môn always asks, so it is out of the way here)
   let npc = 0;
   for (let i = 0; i < 30; i++) { G.settle(st, 200); assert.equal(st.decision, null); npc += st.feed.filter((e) => e.kind === 'npc').length; if (npc) break; }   // the short feed is looked at often: a Tu Sĩ line is pushed out of it by later lines
   assert.ok(npc > 0, 'a Tu Sĩ was met and fought without asking');

@@ -137,15 +137,15 @@ export const BALANCE = {
   confirmPurchaseThreshold: 1000,
   // cultivation (Requirement 22)
   rate0: 20, rateGrowth: 1.1,
-  thresholdMin0: 5, thresholdGrowth: 1.5, thresholdPeak: 1.5,
+  thresholdMin0: 20, thresholdGrowth: 1.55, thresholdPeak: 1.5,   // minutes of base-rate cultivation for Level 1, how much each next Level asks for more, and the extra on the last Level of a Realm (4× longer than the first version, and steeper)
   baseStats: [100, 60, 14, 10, 10],
   baseStatLevelGrowth: 1.1, baseStatRealmGrowth: 1.25,
   baseCrit: 5, baseCritDmg: 150,
   // breakthrough (Requirement 23)
-  breakBase: [0, 0, 0.9, 0.75, 0.6, 0.5, 0.4], // by target Realm number 1..6 (index 0 and 1 unused)
+  breakBase: [0, 0, 0.3, 0.25, 0.2, 0.15, 0.1], // by target Realm number 1..6 (index 0 and 1 unused); with the best purity and a pill it still stays under breakMax (49%)
   breakPurityBonus: 0.1,
   breakPillBonus: 0.15,
-  breakMin: 0.05, breakMax: 0.95,
+  breakMin: 0.05, breakMax: 0.49,
   tribulationRealms: [3, 4, 5, 6],
   tribulationWaves: { 3: 3, 4: 4, 5: 5, 6: 6 } as Record<number, number>,
   tribulationReduction: 0.3,
@@ -156,7 +156,7 @@ export const BALANCE = {
   purityDemonExtra: 0.5,   // Tâm Ma lasts up to +50% longer
   purityTribExtra: 0.25,   // Thiên Kiếp hits up to +25% harder
   autoBreakMinHp: 0.8,
-  autoBreakMinProb: 0.5,
+  autoBreakMinProb: 0.1,
   // player settings defaults (Requirement 1.8)
   // Items go to the bag and the player decides (autoEquip off, no auto-dissolve). Tu Sĩ fights and Linh Thú taming ask the player unless an auto setting is on.
   defaults: { retreatPct: 30, resumePct: 80, autoPill: true, autoTame: false, autoBreak: false, autoEquip: false, autoFight: false, autoLearn: true, autoBuyPill: true, autoBuyTal: true, dissolveMax: -1 },
