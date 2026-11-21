@@ -318,6 +318,10 @@
   .eqDetail .item { margin-top: 0; }
   .cmp { margin-top: var(--sp-2); font-size: var(--fs-xs); line-height: 1.55; color: var(--text-3); }
   .eqAct { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+  /* the two answers of the breakthrough popup: the same width, height and type size, one under the other */
+  .breakAct { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .breakAct > .btn, .breakAct > .btn.big { width: 100%; min-height: 48px; margin: 0; padding: 0.6rem 1rem; justify-content: center; text-align: center; white-space: normal; font-size: var(--fs-md); letter-spacing: 0.04em; }
+  .breakAct > .btn:not(.big) { font-weight: 600; }
 }
 @layer game {
   /* ---- intro: a cinematic title card over the painted world --------------------------------------------- */

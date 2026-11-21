@@ -505,7 +505,7 @@ export function BreakModal({ st, onBreak, onClose, onLater }: { st: GS; onBreak:
           {waves > 0 && <label className="tg"><input type="checkbox" checked={trib} disabled={st.inv.trib <= 0} onChange={(e) => setTrib(e.target.checked)} /> Dùng Độ Kiếp Phù (có {st.inv.trib}): giảm 30% sát thương Thiên Kiếp</label>}
           <div className="hint">Sinh lực hiện tại {fmt(st.player.hp)}. Nên hồi đầy trước khi vượt Thiên Kiếp.</div>
         </div>
-        <div className="eqAct">
+        <div className="breakAct">
           <button className="btn big" onClick={() => onBreak({ pill, trib: trib && waves > 0 })}>Đột phá ({pct(prob)})</button>
           <button className="btn" onClick={onLater || onClose}>{onLater ? 'Để sau, tiếp tục hành trình' : 'Đóng'}</button>
         </div>
