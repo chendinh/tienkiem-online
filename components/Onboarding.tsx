@@ -76,7 +76,7 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
           <h2>Thiên Đạo định đoạt</h2>
           <div className="wRows">
             <div className="wRow" style={{ animationDelay: '0.2s' }}><small>Xuất thân</small><b>{origin.n}</b></div>
-            <div className="wRow" style={{ animationDelay: '0.6s' }}><small>Linh căn</small><b>{p.linh.map((e) => <ElChip key={e} el={e} />)}<em>thuần {p.purity}</em></b></div>
+            <div className="wRow" style={{ animationDelay: '0.6s' }}><small>Linh căn</small><b>{p.linh.map((e) => <ElChip key={e} el={e} />)}</b></div>
             <div className="wRow" style={{ animationDelay: '1s' }}><small>Tính cách</small><b>{C.PERS[p.pers].n}</b></div>
           </div>
           <div className={'wPortrait' + (url ? ' ready' : '')}>
