@@ -457,6 +457,9 @@ export const ORIGINS = [
   { n: 'Đệ Tử Ngoại Môn', note: 'đệ tử ngoại môn thường bị coi thường', stones: 60, talis: 3 },
 ];
 
+// A guest plays with these three; linking an e-mail rolls the character's own (see G.rollFate).
+export const GUEST_FATE = { origin: 0, linh: ['Thổ'], purity: 0.75, pers: 2 };   // Tán Tu, Thổ Linh Căn, Điềm Tĩnh
+
 // ---------- Phường Thị (shop): twelve items, unlimited stock, prices from Balance_Config.shop (Requirement 24)
 export const GRADES = ['Hoàng', 'Huyền', 'Địa', 'Thiên'];
 export interface ShopItem { id: string; name: string; kind: 'taming' | 'hp' | 'bt' | 'trib'; idx: number; price: number; note: string }

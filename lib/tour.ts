@@ -34,7 +34,7 @@ export const TOPICS: Topic[] = [
   { id: 'auto', title: 'Các cài đặt tự động',
     guide: 'Mặc định game hỏi ngươi ở những chuyện lớn (thu phục, gặp Tu Sĩ, đột phá, mặc đồ). Trong Cài đặt, mục “Tự động” và “Tự thu phục” cho game tự quyết thay ngươi. Chỉ cần chọn đúng kiểu ngươi muốn rồi bấm Lưu thay đổi.' },
   { id: 'guest', title: 'Khách và tài khoản',
-    guide: 'Chơi với tư cách khách thì nhân vật gắn với trình duyệt này. Liên kết email để giữ nhân vật khi đổi máy hoặc xóa dữ liệu trình duyệt, và để họa sư vẽ riêng một diện mạo cho ngươi.' },
+    guide: 'Chơi với tư cách khách thì nhân vật gắn với trình duyệt này và dùng xuất thân, linh căn, tính cách mặc định. Liên kết email để giữ nhân vật khi đổi máy hoặc xóa dữ liệu trình duyệt, để Thiên Đạo định đoạt số mệnh riêng cho ngươi và họa sư vẽ riêng một diện mạo.' },
 ];
 export const TOUR_IDS = TOPICS.map((t) => t.id);
 export const fill = (s: string, v: Record<string, number>) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? ''));

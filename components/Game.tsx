@@ -272,9 +272,10 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
       {guide && (
         <Window title="Vẽ nhân vật theo trang bị" icon="brush" onClose={() => setGuide(false)}>
           <div className="guestGuide" onClick={(e) => e.stopPropagation()}>
-            <p>Tài khoản khách đã có <b>ảnh nhân vật gốc</b> và <b>tư thế đứng</b>. Tính năng <b>vẽ nhân vật mặc đúng trang bị đang đeo</b> dành cho tài khoản đã liên kết email.</p>
+            <p>Tài khoản khách dùng <b>xuất thân, linh căn, tính cách mặc định</b> và ảnh nhân vật gốc chung. Tính năng <b>vẽ nhân vật mặc đúng trang bị đang đeo</b> dành cho tài khoản đã liên kết email.</p>
             <p>Khi liên kết email, nhân vật của ngươi sẽ:</p>
             <ul>
+              <li>được Thiên Đạo định đoạt <b>xuất thân, linh căn, tính cách riêng</b> (tiến trình giữ nguyên);</li>
               <li>được vẽ một <b>ảnh gốc riêng, mới</b>, không dùng chung với ai;</li>
               <li>vẽ lại được theo trang bị mỗi khi đổi đồ, hoặc vẽ bản khác nếu chưa ưng;</li>
               <li>giữ tiến trình và chơi được trên mọi thiết bị.</li>
@@ -329,7 +330,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   useEffect(() => { if (linkNote) toast(linkNote.t, linkNote.ok); }, [linkNote]);
   const stRef = useRef<GS | null>(null);
   const stormRef = useRef(false);
-  const dirty = useRef(false), saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null), saveVer = useRef(0);
+  const dirty = useRef(false), saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null), saveVer = useRef(0), freshSeen = useRef(false);
   const [, setN] = useState(0);
   const re = useCallback(() => setN((x) => x + 1), []);
   const [ready, setReady] = useState(false);
@@ -367,7 +368,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   // A new state from the server replaces ours. Pictures and the biography the player just made stay until the server has them.
   const commit = useCallback((v: GS) => {
     const cur = stRef.current;
-    if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; v.player.tour = [...new Set([...(cur.player.tour || []), ...(v.player.tour || [])])]; }
+    if (cur && dirty.current) { v.player.avatar = cur.player.avatar; v.player.bio = cur.player.bio || v.player.bio; v.player.prologueSeen = cur.player.prologueSeen || v.player.prologueSeen; if (freshSeen.current) delete v.player.fresh; v.player.tour = [...new Set([...(cur.player.tour || []), ...(v.player.tour || [])])]; }
     stRef.current = v; re();
   }, [re]);
   // The next fight of the queue goes on stage. The moment a fight is over its result (drops, taming, rewards) goes into the journey, even when more fights are waiting:
@@ -476,6 +477,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       if (p.avatar) body.avatar = p.avatar;
       if (p.bio) body.bio = p.bio;
       if (p.prologueSeen) body.prologueSeen = true;
+      if (freshSeen.current) body.fresh = false;
       if (p.tour && p.tour.length) body.tour = p.tour;
       try { await gameAct(body); } catch {}
       if (saveVer.current === v) dirty.current = false;
@@ -781,10 +783,10 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         <div className="row"><button className="link" onClick={() => setCredits(true)}>Ghi công</button><a className="link" href="/design">Bộ quy chuẩn giao diện</a></div>
       </footer>
 
-      {((!p.prologueSeen && !rep) || replay) && <Welcome st={st} aiOn={!!ai && ai.enabled && !ai.locked} guest={guest} onLink={() => setLinkOpen(true)} onDone={() => { setReplay(false); if (!p.prologueSeen) { p.prologueSeen = true; save(); re(); } }} />}
+      {((!p.prologueSeen && !rep) || replay || (p.fresh && !rep)) && <Welcome st={st} aiOn={!!ai && ai.enabled && !ai.locked} guest={guest} onLink={() => setLinkOpen(true)} onDone={() => { setReplay(false); if (!p.prologueSeen || p.fresh) { p.prologueSeen = true; if (p.fresh) { freshSeen.current = true; delete p.fresh; } save(); re(); } }} />}
 
       {(() => {
-        const id = p.prologueSeen && !rep && !stage && !modal && !codex && !replay && !book ? pickHint(st, p.tour || []) : null;
+        const id = p.prologueSeen && !p.fresh && !rep && !stage && !modal && !codex && !replay && !book ? pickHint(st, p.tour || []) : null;
         if (!id) return null;
         const seen = () => { p.tour = [...new Set([...(p.tour || []), id])]; save(); re(); };
         return <HintCard st={st} id={id} onDone={seen} onOff={() => { p.tour = [...ALL_HINTS]; save(); re(); }} onBook={() => { seen(); setBook(true); }} />;
@@ -887,7 +889,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             </div>
         </>}
       </Window>}
-      {linkOpen && <LinkEmailModal onClose={() => setLinkOpen(false)} onLinked={(em) => { setUser({ ...user, email: em, guest: false }); setLinkOpen(false); p.avatar = undefined; save(); re(); toast('Đã liên kết email. Nhân vật đang được vẽ ảnh gốc riêng.', true); }} />}
+      {linkOpen && <LinkEmailModal onClose={() => setLinkOpen(false)} onLinked={(em) => { setUser({ ...user, email: em, guest: false }); setLinkOpen(false); if (saveTimer.current) clearTimeout(saveTimer.current); toast('Đã liên kết email. Thiên Đạo đang định đoạt số mệnh riêng cho ngươi…', true); setTimeout(() => window.location.reload(), 900); }} />}
       {modal === 'dao' && <DaoModal dao={p.dao} email={guest ? 'khách (chưa liên kết email)' : email} onClose={() => setModal(null)} />}
       {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}

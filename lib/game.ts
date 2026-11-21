@@ -15,7 +15,7 @@ export interface Bio { bio: string; motto: string; secret: string }
 // Portrait state: base = plain portrait, pose = the same portrait in a graceful standing pose (an edit of base, drawn right after it),
 // url = what is shown now, sig = equipment that image shows (see avatarSpec), art = art direction version (ART_V).
 export interface Avatar { base?: string; pose?: string; url?: string; sig?: string; crop?: number; art?: number; at?: number }
-export interface Player { showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; tour?: string[]; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
+export interface Player { showcase?: { kind: 'item' | 'beast'; id: number }; title?: string; titleHist?: string[]; daoFix?: boolean; avatar?: Avatar; origin: number; bio?: Bio; chapters?: { realm: number; text: string }[]; prologueSeen?: boolean; tour?: string[]; guestFate?: boolean; fresh?: boolean; look: Look; name: string; dao: string; linh: string[]; purity: number; pers: number; realm: number; sub: number; cp: number; hp: number; heartDemon: number; injury?: number }
 export interface AffixRoll { id: string; label: string; stat: string; value: number }
 // locked: the player chose this item (or locked it by hand). Auto-equip never replaces a locked worn item and a full bag never dissolves a locked one.
 export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
@@ -1294,7 +1294,7 @@ export function defaultSettings(): Settings {
   const d = B.defaults;
   return { mode: 'adventure', autoTame: d.autoTame, autoEquip: d.autoEquip, autoBreak: d.autoBreak, autoPill: d.autoPill, autoFight: d.autoFight, autoLearn: d.autoLearn, autoBuyPill: d.autoBuyPill, autoBuyTal: d.autoBuyTal, retreatPct: d.retreatPct, resumePct: d.resumePct, dissolveMax: d.dissolveMax, tame: { mode: 'all', species: [], grade: 0 } };
 }
-export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string): GameState {
+export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f' | 'm', now = Date.now(), email?: string, guest = false): GameState {
   const streams = newStreams(seed);
   const n = weighted(streams, 'gen', B.linhCountWeights) + 1;
   const linh = shuffle(streams, 'gen', C.EO).slice(0, n);
@@ -1305,6 +1305,8 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
     dao: next(streams, 'gen') < 0.3 ? pick(streams, 'gen', C.DAO) : '', linh, purity: Math.round((0.5 + next(streams, 'gen') * 0.5) * 100) / 100,
     pers: int(streams, 'gen', 0, C.PERS.length - 1), realm: 0, sub: 0, cp: 0, hp: 1, heartDemon: 0,
   };
+  // a guest has the same three for everybody (the rolls above are still drawn, so the other streams stay as they were); its own come when an e-mail is linked
+  if (guest) { const f = C.GUEST_FATE; player.origin = f.origin; player.linh = [...f.linh]; player.purity = f.purity; player.pers = f.pers; player.guestFate = true; }
   const st: GameState = {
     v: 2, seed, streams, tick: 0, clock: now, uid: 0, settleSeq: 0, player, bag: [], stash: [], eq: Object.fromEntries(C.SLOTS.map((s) => [s, null])), beasts: [], best: {},
     stones: 0, inv: { taming: [0, 0, 0, 0], hp: [0, 0, 0], bt: B.shop.breakthrough.map(() => 0), trib: 0, mat: {}, books: {} }, arts: { learned: [], loadout: {}, methods: [A.STARTER_METHOD], method: A.STARTER_METHOD }, pity: { mut: 0, item: 0 }, set: defaultSettings(), recovery: false, zone: C.START_ZONE,
@@ -1324,6 +1326,26 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
   flushLedger(st, 'create', now);
   return st;
 }
+// The e-mail has just been linked to a guest: roll origin, linh căn, purity and personality for good (same e-mail, same fate). Progress stays.
+// A better origin pays the difference in stones and talismans once; a worse one takes nothing back. The portrait and the biography were made for the old traits, so they go.
+export function rollFate(st: GameState, email: string): boolean {
+  const p = st.player;
+  if (!p.guestFate) return false;
+  const streams = newStreams(1 + Math.floor(hash01(`fate|${String(email).trim().toLowerCase()}`) * (2 ** 31 - 2)));
+  const n = weighted(streams, 'gen', B.linhCountWeights) + 1;
+  const old = C.ORIGINS[p.origin];
+  p.linh = shuffle(streams, 'gen', C.EO).slice(0, n);
+  p.purity = Math.round((0.5 + next(streams, 'gen') * 0.5) * 100) / 100;
+  p.origin = int(streams, 'gen', 0, C.ORIGINS.length - 1);
+  p.pers = int(streams, 'gen', 0, C.PERS.length - 1);
+  const o = C.ORIGINS[p.origin];
+  earn(st, Math.max(0, o.stones - old.stones), 'starting_grant');
+  st.inv.taming[0] += Math.max(0, o.talis - old.talis);
+  delete p.guestFate; delete p.avatar; delete p.bio; p.fresh = true;
+  feed(st, { kind: 'system', text: `Thiên Đạo định đoạt số mệnh của ${p.name}: ${o.n}, Linh Căn ${p.linh.join(' ')}, tính ${C.PERS[p.pers].n}.` });
+  return true;
+}
+
 // ---------- Đạo hiệu (belongs to the e-mail) and chức vụ (comes and goes with fate)
 export function daoOfEmail(email: string): string {
   const key = String(email).trim().toLowerCase();

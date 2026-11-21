@@ -25,7 +25,7 @@ export function serverNow(): number {
   return T0 + (Date.now() - T0) * s;
 }
 
-export function createState(gender: 'f' | 'm' | undefined, now: number, email?: string): G.GameState { return G.newGame(randomInt(1, 2 ** 31 - 1), gender, now, email); }
+export function createState(gender: 'f' | 'm' | undefined, now: number, email?: string, guest = false): G.GameState { return G.newGame(randomInt(1, 2 ** 31 - 1), gender, now, email, guest); }
 
 // What the browser may see: no seeds, no RNG positions, no request cache (Requirement 13.16).
 // The open question with the numbers the player needs, all computed here (Requirement 31.8).
@@ -121,6 +121,7 @@ function cosmetic(st: G.GameState, b: any): G.Res {
     }
   }
   if (b.prologueSeen === true) p.prologueSeen = true;
+  if (b.fresh === false) delete p.fresh;   // the player has seen the fate that was rolled for the linked e-mail
   if (b.tour !== undefined) {   // the hints the player has read: only known ids, each once
     if (!Array.isArray(b.tour) || b.tour.length > 40) return G.fail('E_BAD_COSMETIC');
     p.tour = [...new Set([...(p.tour || []), ...b.tour.filter((x: any) => typeof x === 'string' && TOUR_IDS.includes(x))])];

@@ -4,7 +4,8 @@ import { BALANCE as B } from '../balance';
 import { type ErrCode } from '../strings';
 import { unpublish } from './ranking';
 import { query } from './db';
-import { saveAccount, removeAccount, withLock, type AccountFile } from './store';
+import { saveAccount, loadAccount, removeAccount, withLock, type AccountFile } from './store';
+import * as G from '../game';
 import { sendMail, mailAllowed } from './mail';
 import { resetMail, linkMail } from './mailTemplates';
 
@@ -213,6 +214,12 @@ export async function confirmLinkCode(accId: string, code: unknown, now: number)
   return finishLink(l.token_hash, now);
 }
 
+// The guest has an address now: its character gets its own origin, linh căn and personality (the caller holds the account's lock).
+async function settleFate(acc: string, email: string) {
+  const a = await loadAccount(acc);
+  if (a && a.state && G.rollFate(a.state, email)) await saveAccount({ ...a, email });
+}
+
 async function finishLink(k: string, now: number): Promise<{ email: string }> {
   return withLock(`link:${k}`, async () => {
     const r = await query<{ acc: string; email: string; email_key: string; salt: string; hash: string }>('UPDATE email_links SET used = true WHERE token_hash = $1 AND used = false AND exp >= $2 RETURNING acc, email, email_key, salt, hash', [k, now]);
@@ -225,6 +232,7 @@ async function finishLink(k: string, now: number): Promise<{ email: string }> {
       if (await metaByEmail(l.email_key)) throw new ApiError('E_EMAIL_TAKEN', 409);
       await query('UPDATE acct_auth SET email = $2, email_key = $3, salt = $4, hash = $5, guest = false WHERE id = $1', [l.acc, l.email, l.email_key, l.salt, l.hash]);
       await query('UPDATE accounts SET email = $2 WHERE id = $1', [l.acc, l.email]);
+      await settleFate(l.acc, l.email);
       return { email: l.email };
     });
   });
@@ -244,6 +252,7 @@ export async function oauthSignIn(rawEmail: string, guestAcc: string | null, ua:
       if (await metaByEmail(key)) throw new ApiError('E_EMAIL_TAKEN', 409);
       await query('UPDATE acct_auth SET email = $2, email_key = $3, salt = $4, hash = $5, guest = false WHERE id = $1', [guest.id, email, key, pw.salt, pw.hash]);
       await query('UPDATE accounts SET email = $2 WHERE id = $1', [guest.id, email]);
+      await settleFate(guest.id, email);
       return { token: await openSession(guest.id, ua, now), email };
     });
   }

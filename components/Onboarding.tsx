@@ -46,9 +46,12 @@ const Scene = ({ art, fb }: { art: string; fb: string }) => (
   <Img src={C.zoneArt(art)} className="wArtImg" fb={<Img src={C.zoneArt(fb)} className="wArtImg" fb="✦" />} />
 );
 
+// A character whose e-mail was just linked comes straight to the reveal (the story was told before).
+const p0 = (st: GS) => !!st.player.fresh && !!st.player.prologueSeen;
+
 export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boolean; guest: boolean; onLink: () => void; onDone: () => void }) {
   useLockScroll();
-  const p = st.player, [step, setStep] = useState(0);
+  const p = st.player, [step, setStep] = useState(() => (p0(st) ? SCENES.length : 0));
   const reveal = step >= SCENES.length;
   const url = p.avatar?.url;
   const [tip, setTip] = useState(0), [late, setLate] = useState(false);
@@ -59,11 +62,12 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
     const a = setInterval(() => setTip((n) => (n + 1) % TIPS.length), 4500), b = setTimeout(() => setLate(true), 60000);
     return () => { clearInterval(a); clearTimeout(b); };
   }, [reveal]);
+  const gDefault = guest && !!p.guestFate, fresh = !!p.fresh && !guest;
   const next = () => setStep((n) => Math.min(SCENES.length, n + 1));
   const s = SCENES[Math.min(step, SCENES.length - 1)], origin = C.ORIGINS[p.origin];
 
   return (
-    <div className={'welcome' + (reveal ? ' reveal' : '')} role="dialog" aria-modal="true" aria-label={reveal ? 'Thiên Đạo định đoạt' : 'Cốt truyện'}>
+    <div className={'welcome' + (reveal ? ' reveal' : '')} role="dialog" aria-modal="true" aria-label={reveal ? (gDefault ? 'Số mệnh của khách' : 'Thiên Đạo định đoạt') : 'Cốt truyện'}>
       <div className="wArts" aria-hidden="true">
         {SCENES.map((x, i) => <div key={x.art} className={'wArt' + (i === Math.min(step, SCENES.length - 1) ? ' on' : i < step ? ' past' : '')}><Scene art={x.art} fb={x.fb} /></div>)}
       </div>
@@ -83,7 +87,7 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
 
       {reveal && (
         <div className="wBody">
-          <h2>Thiên Đạo định đoạt</h2>
+          <h2>{gDefault ? 'Số mệnh của khách' : 'Thiên Đạo định đoạt'}</h2>
           <div className="wRows">
             <div className="wRow" style={{ animationDelay: '0.2s' }}><small>Xuất thân</small><b>{origin.n}</b></div>
             <div className="wRow" style={{ animationDelay: '0.6s' }}><small>Linh căn</small><b>{p.linh.map((e) => <ElChip key={e} el={e} />)}</b></div>
@@ -96,10 +100,10 @@ export function Welcome({ st, aiOn, guest, onLink, onDone }: { st: GS; aiOn: boo
                 ? <div className="wDraw"><i /><span>Họa sư Thiên Đạo đang vẽ diện mạo của ngươi…</span></div>
                 : <div className="wDraw"><Img src={C.introArt(p.look.g)} className="wFb" fb="✦" /><span>Họa sư đang nghỉ. Ảnh của ngươi sẽ được vẽ khi có thể.</span></div>}
           </div>
-          <p className="wTip" aria-live="polite">{url ? (guest ? 'Đây là diện mạo chung cho khách. Liên kết email để họa sư vẽ riêng một bức chỉ của ngươi.' : 'Diện mạo của ngươi đã sẵn sàng.') : late ? 'Họa sư đang bận, ảnh sẽ tự hiện trong khung nhân vật khi xong. Ngươi cứ vào đạo đồ.' : TIPS[tip]}</p>
+          <p className="wTip" aria-live="polite">{gDefault ? 'Khách dùng xuất thân, linh căn, tính cách mặc định. Liên kết email để Thiên Đạo định đoạt riêng và họa sư vẽ ảnh riêng cho ngươi.' : url ? (fresh ? 'Số mệnh riêng của ngươi đã định. Họa sư đã vẽ ảnh mới.' : 'Diện mạo của ngươi đã sẵn sàng.') : late ? 'Họa sư đang bận, ảnh sẽ tự hiện trong khung nhân vật khi xong. Ngươi cứ vào đạo đồ.' : TIPS[tip]}</p>
           <div className="wBtns">
             <button type="button" className="wBtn primary" onClick={onDone}>Bước vào đạo đồ<Arrow /></button>
-            {guest && url && <button type="button" className="wBtn ghost" onClick={() => { onDone(); onLink(); }}>Liên kết email để có ảnh riêng</button>}
+            {gDefault && <button type="button" className="wBtn ghost" onClick={() => { onDone(); onLink(); }}>Liên kết email để nhận số mệnh riêng</button>}
           </div>
         </div>
       )}

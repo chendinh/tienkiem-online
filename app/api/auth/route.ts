@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         return json({ ok: true, user: { email: r.email, guest: false } }, 200, { 'Set-Cookie': sessionCookie(r.token) });
       }
       case 'guest': {
-        const r = await createGuest(ua, clientIp(req), now, (_id, email) => createState(undefined, now, email));
+        const r = await createGuest(ua, clientIp(req), now, (_id, email) => createState(undefined, now, email, true));
         return json({ ok: true, user: { email: '', guest: true } }, 200, { 'Set-Cookie': sessionCookie(r.token) });
       }
       case 'link-request': {

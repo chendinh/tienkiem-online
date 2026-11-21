@@ -1303,3 +1303,23 @@ test('the hint texts only use the numbers the page can fill, and every hint topi
   assert.equal(fill('{pen} chỗ', { pen: 100 }), '100 chỗ');
   assert.ok(TOPICS.filter((t) => t.hint).length >= 8);
 });
+
+test('guest fate: a guest has the same origin, linh căn and personality; an e-mail brings its own, once, and progress stays', () => {
+  const a = G.newGame(1, undefined, T0, 'khach-a@guest.invalid', true), b = G.newGame(2, undefined, T0, 'khach-b@guest.invalid', true);
+  for (const g of [a, b]) {
+    assert.equal(g.player.origin, C.GUEST_FATE.origin); assert.deepEqual(g.player.linh, C.GUEST_FATE.linh); assert.equal(g.player.purity, C.GUEST_FATE.purity); assert.equal(g.player.pers, C.GUEST_FATE.pers);
+    assert.equal(g.player.guestFate, true);
+  }
+  assert.equal(a.stones, G.newGame(1, undefined, T0).stones - C.ORIGINS[G.newGame(1, undefined, T0).player.origin].stones + C.ORIGINS[C.GUEST_FATE.origin].stones);   // the stones of the default origin
+  a.kills = 7; a.stones += 500;
+  const before = a.stones, kills = a.kills;
+  assert.equal(G.rollFate(a, 'Nguoi@Choi.vn'), true);
+  assert.equal(a.player.guestFate, undefined); assert.equal(a.player.fresh, true);
+  assert.equal(a.kills, kills); assert.ok(a.stones >= before);
+  assert.ok(a.player.linh.length >= 1 && a.player.purity >= 0.5 && a.player.purity <= 1 && a.player.origin < C.ORIGINS.length && a.player.pers < C.PERS.length);
+  assert.equal(G.rollFate(a, 'other@x.vn'), false);   // only once
+  const c = G.newGame(3, undefined, T0, 'khach-c@guest.invalid', true), d = G.newGame(4, undefined, T0, 'khach-d@guest.invalid', true);
+  G.rollFate(c, ' nguoi@choi.vn '); G.rollFate(d, 'nguoi@choi.vn');
+  assert.deepEqual([c.player.origin, c.player.linh, c.player.purity, c.player.pers], [d.player.origin, d.player.linh, d.player.purity, d.player.pers]);   // the same e-mail, the same fate
+  assert.equal(G.rollFate(G.newGame(5, undefined, T0), 'x@y.vn'), false);   // an ordinary character is left alone
+});
