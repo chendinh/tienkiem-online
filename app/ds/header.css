@@ -15,6 +15,11 @@
   .brand h1.wm { display: flex; line-height: 0; margin: 0; }
   .brand .lkWide { width: 112px; height: auto; filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--gold-400) 28%, transparent)); }
   .brand .lkMark { display: none; }
+  /* the hint lamp: stays beside the logo until Nhập Môn is finished, opens the Cẩm nang */
+  .brand .hintBulb { flex: none; display: grid; place-items: center; width: 34px; height: 34px; margin-left: var(--sp-2); padding: 0; border-radius: 50%; cursor: pointer; color: var(--gold-100, #f4e6c0); border: 1px solid var(--gold-300); background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--gold-400) 55%, #1d1507), #0b0e10 78%); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-400) 14%, transparent), 0 0 14px -2px color-mix(in srgb, var(--gold-300) 70%, transparent); animation: bulb-glow 2.4s ease-in-out infinite; }
+  .brand .hintBulb:active { transform: scale(0.94); }
+  @keyframes bulb-glow { 0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-400) 12%, transparent), 0 0 10px -3px color-mix(in srgb, var(--gold-300) 55%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold-400) 22%, transparent), 0 0 20px 0 color-mix(in srgb, var(--gold-300) 85%, transparent); } }
+  @media (prefers-reduced-motion: reduce) { .brand .hintBulb { animation: none; } }
   .topMid { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; margin-left: var(--sp-3); }
   .top-chip { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line-gold); background: rgb(0 0 0 / 0.3); font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.05em; color: var(--jade-200); white-space: nowrap; }
   .top .seg > button { display: inline-flex; align-items: center; gap: 6px; }

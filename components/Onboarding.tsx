@@ -178,10 +178,10 @@ export function StarterBar({ st, onBook }: { st: GS; onBook: () => void }) {
 export function GuideModal({ st, onClose }: { st: GS; onClose: () => void }) {
   const v = tourVars(st);
   return (
-    <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Cẩm nang">
+    <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Cẩm nang hướng dẫn">
       <ModalClose onClose={onClose} />
       <div className="modalBody guideBook" onClick={(e) => e.stopPropagation()}>
-        <h2>Cẩm nang</h2>
+        <h2>Cẩm nang hướng dẫn</h2>
         <p className="hint">Mọi điều cần biết để chơi, bấm vào một mục để mở.</p>
         <details className="guideItem" open>
           <summary>Nhập Môn: sáu việc đầu tiên</summary>

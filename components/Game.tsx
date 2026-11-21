@@ -19,6 +19,7 @@ import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, S
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V, OWN_BASE_V } from '@/lib/avatarSpec';
 import { useGenImage } from '@/lib/useGenImage';
 import { Welcome, StarterBar, HintCard, GuideModal, pickHint, ALL_HINTS } from './Onboarding';
+import { STARTER_IDS } from '@/lib/starter';
 import lore from '@/content/lore.json';
 import { Img, GenImg, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
 import { ArtsPanel } from './Arts';
@@ -643,7 +644,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       <Atmosphere scene={st.set.mode === 'retreat' ? 'night' : 'dawn'} aura={C.EL[aura].color} zone={st.zone} />
 
       <header className="top">
-        <div className="brand"><h1 className="wm"><Lockup width={112} className="lkWide" /><Logo size={38} className="lkMark" /></h1></div>
+        <div className="brand"><h1 className="wm"><Lockup width={112} className="lkWide" /><Logo size={38} className="lkMark" /></h1>
+          {p.prologueSeen && !p.fresh && st.starter && st.starter.done.length < STARTER_IDS.length && <button type="button" className="hintBulb" aria-label="Gợi ý: mở Cẩm nang hướng dẫn" title="Gợi ý: Cẩm nang hướng dẫn" onClick={() => { cue.open(); setBook(true); }}><Icon name="bulb" size={20} /></button>}
+        </div>
         <QiWidget aura={C.EL[aura].color} />
         {narrow ? null : <div className="topMid">
           {modeSeg}
@@ -668,7 +671,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>{(close) => {
             // every entry closes the menu first, then opens its window
             const go = (fn: () => void) => () => { close(); cue.open(); setSideOpen(false); fn(); };
-            const tile = (icon: 'stone' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo' | 'galaxy', label: string, fn: () => void, hot?: boolean) => (
+            const tile = (icon: 'stone' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo' | 'galaxy' | 'bulb', label: string, fn: () => void, hot?: boolean) => (
               <button type="button" className={`menuTile ${hot ? 'hot' : ''}`} onClick={go(fn)}><Icon name={icon} size={22} /><span>{label}</span></button>
             );
             return (<>
@@ -687,7 +690,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
                 <div className="menuGrid">{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
-                <div className="menuGrid one">{tile('scroll', 'Cẩm nang: cách chơi và cách game hoạt động', () => setBook(true))}</div>
+                <div className="menuGrid one" style={{ marginBottom: 10 }}>{tile('bulb', 'Cẩm nang hướng dẫn', () => setBook(true))}</div>
                 <div className="menuGrid one">{tile('gear', 'Cài đặt: âm nhạc, nghỉ ngơi, tự động, thu phục', () => setModal('settings'), true)}</div></div>
             </div>
             <div className="pop-sect">Hiệu ứng hình ảnh</div>

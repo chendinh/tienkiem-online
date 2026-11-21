@@ -22,6 +22,7 @@ const P: Record<string, ReactNode> = {
   'music-off': <><path d="M9 17.5V6l10-2v8" /><circle cx="6.5" cy="17.5" r="2.5" /><path d="M3.5 3.5l17 17" /></>,
   volume: <><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" {...F} /><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" /></>,
   gear: <><circle cx="12" cy="12" r="3" {...F} /><circle cx="12" cy="12" r="6.6" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></>,
+  bulb: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 00-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0012 3z" {...F} /></>,
   close: <path d="M6 6l12 12M18 6L6 18" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   plus: <path d="M12 5v14M5 12h14" />,
