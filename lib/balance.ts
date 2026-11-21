@@ -137,12 +137,13 @@ export const BALANCE = {
   confirmPurchaseThreshold: 1000,
   // cultivation (Requirement 22)
   rate0: 20, rateGrowth: 1.1,
+  legacyThreshold: { fromLevel: 21, min0: 5, growth: 1.5 },
   thresholdMin0: 20, thresholdGrowth: 1.45, thresholdPeak: 1.5,   // minutes of base-rate cultivation for Level 1, how much each next Level asks for more, and the extra on the last Level of a Realm (4× longer than the first version, and steeper)
   baseStats: [100, 60, 14, 10, 10],
   baseStatLevelGrowth: 1.1, baseStatRealmGrowth: 1.25,
   baseCrit: 5, baseCritDmg: 150,
   // breakthrough (Requirement 23)
-  breakBase: [0, 0, 0.3, 0.25, 0.2, 0.15, 0.1], // by target Realm number 1..6 (index 0 and 1 unused); with the best purity and a pill it still stays under breakMax (49%)
+  breakBase: [0, 0, 0.3, 0.25, 0.2, 0.15, 0.4], // by target Realm number 1..6 (index 0 and 1 unused); with the best purity and a pill it still stays under breakMax (49%)
   breakPurityBonus: 0.1,
   breakPillBonus: 0.15,
   breakMin: 0.05, breakMax: 0.49,
@@ -185,7 +186,9 @@ export function rates(): Rates {
 export const cultRate = (L: number) => Math.round(BALANCE.rate0 * Math.pow(BALANCE.rateGrowth, L - 1));
 export function cultThreshold(L: number): number {
   const b = BALANCE;
-  let minutes = b.thresholdMin0 * Math.pow(b.thresholdGrowth, L - 1);
+  // Luyện Hư (Levels 21 to 24) keeps the first version's numbers: characters were already in the middle of it when the earlier Levels were made harder
+  const old = L >= b.legacyThreshold.fromLevel;
+  let minutes = (old ? b.legacyThreshold.min0 : b.thresholdMin0) * Math.pow(old ? b.legacyThreshold.growth : b.thresholdGrowth, L - 1);
   if (L % 4 === 0) minutes *= b.thresholdPeak;
   const ticksPerHour = 3600 / b.tickSec;
   return Math.round((ticksPerHour * cultRate(L) * (minutes / 60)) / 10) * 10;
@@ -247,7 +250,7 @@ export function validateBalance(b: Balance = BALANCE): string[] {
   let prevT = 0, prevR = 0;
   for (let L = 1; L <= b.playableLevelCap; L++) {
     const t = cultThreshold(L), r = cultRate(L);
-    need(isInt(t) && t > prevT, `Cultivation_Threshold(${L}) phải là số nguyên tăng ngặt`);
+    need(isInt(t) && (t > prevT || L === b.legacyThreshold.fromLevel), `Cultivation_Threshold(${L}) phải là số nguyên tăng ngặt (trừ chỗ nối sang Luyện Hư)`);
     need(isInt(r) && r > 0 && r >= prevR, `Base_Cultivation_Rate(${L}) phải là số nguyên dương không giảm`);
     prevT = t; prevR = r;
   }
