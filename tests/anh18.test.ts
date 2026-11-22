@@ -44,3 +44,6 @@ test('framing is close, hands are handled by positive wording, only older models
   assert.ok((inputOf('kolors', 'x', '2k', 5, false) as any).negative_prompt);
   assert.equal((inputOf('flux2pro', 'x', '2k', 5, false) as any).negative_prompt, undefined);
 });
+test('prompts never mention a clock (the model draws one)', () => {
+  for (const story of STORIES) assert.ok(!/clock|watch|timepiece/i.test(composeScene({ story: story.id, angle: 'bust', hands: 'hidden', expr: 'soft', level: '2', style: 'donghua' })), story.id);
+});

@@ -62,8 +62,8 @@ export const LEVELS: Opt[] = [
   { id: '3', label: 'Mức 3 · táo bạo', text: 'bold and glamorous: a short embroidered silk top with an ornate underlayer and bare midriff, a confident pose' },
 ];
 
-// A phone wallpaper: 9:16, subject low, room at the top for the clock and notifications.
-export const LAYOUT = 'vertical 9:16 phone wallpaper, the face and upper body fill the frame, feet out of frame, a clear open space in the upper third for the clock, a strong focal point and a clear romantic story, unforgettable wow-factor';
+// A phone wallpaper: 9:16, subject low, a calm empty upper area so a phone's own widgets sit well.
+export const LAYOUT = 'vertical 9:16 phone wallpaper, the face and upper body fill the frame, feet out of frame, a calm, softly lit, uncluttered upper third (just sky, mist or foliage), a strong focal point and a clear romantic story, unforgettable wow-factor';
 
 const by = (a: Opt[], id: string) => a.find((x) => x.id === id) || a[0];
 export interface Pick { style: string; story: string; angle: string; hands: string; expr: string; level: string }
