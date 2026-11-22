@@ -56,5 +56,7 @@ test('the my-face model: photo accepted only as a small data URL, look forced to
   assert.match(buildFacePrompt(f), /non-suggestive/); assert.match(FACE_PREFIX, /slimmer/);
   const i: any = inputOf('seedreamFace', 'x', '4k', 5, true, 'data:image/jpeg;base64,AAAA');
   assert.equal(i.enable_safety_checker, true); assert.deepEqual(i.image_urls, ['data:image/jpeg;base64,AAAA']);
-  assert.ok(MODELS.filter((m) => m.face).length === 1);
+  assert.ok(MODELS.filter((m) => m.face).length === 2);
+  const x: any = inputOf('flux2MaxFace', 'x', '4k', 5, true, 'data:image/jpeg;base64,AAAA');
+  assert.equal(x.enable_safety_checker, true); assert.equal(x.safety_tolerance, '2'); assert.deepEqual(x.image_urls, ['data:image/jpeg;base64,AAAA']);
 });

@@ -3,7 +3,7 @@
 // Rules kept here on purpose: the character is always an original, fictional ADULT; suggestive (revealing clothes, alluring poses) but never explicit;
 // reference pictures are refused everywhere EXCEPT the one 'my own face' model below, which is locked to a non-suggestive, fully clothed, elegant look (a real face is never mixed with the alluring levels).
 
-export type ModelId = 'seedream45' | 'flux2pro' | 'flux2max' | 'flux2dev' | 'kolors' | 'sdxl' | 'seedreamFace';
+export type ModelId = 'seedream45' | 'flux2pro' | 'flux2max' | 'flux2dev' | 'kolors' | 'sdxl' | 'seedreamFace' | 'flux2MaxFace';
 export type Res = '2k' | '4k';
 
 export interface ModelInfo { id: ModelId; label: string; endpoint: string; note: string; native4k: boolean; legacy?: boolean; face?: boolean }
@@ -15,6 +15,7 @@ export const MODELS: ModelInfo[] = [
   { id: 'kolors', label: 'Kolors', endpoint: 'fal-ai/kolors', note: 'đời cũ · ảnh chân thực · khoảng 1K', native4k: false, legacy: true },
   { id: 'sdxl', label: 'SDXL', endpoint: 'fal-ai/fast-sdxl', note: 'đời cũ · nhanh · khoảng 1K', native4k: false, legacy: true },
   { id: 'seedreamFace', label: 'Seedream 4.5 · mặt của tôi', endpoint: 'fal-ai/bytedance/seedream/v4.5/edit', note: 'giữ gương mặt từ ảnh bạn tải lên · chỉ mức thanh lịch, mặc kín đáo', native4k: true, face: true },
+  { id: 'flux2MaxFace', label: 'FLUX.2 Max · mặt của tôi', endpoint: 'fal-ai/flux-2-max/edit', note: 'giữ gương mặt từ ảnh bạn tải lên · khoảng 2K · từ $0.07/ảnh (ảnh gốc cũng tính phí)', native4k: false, face: true },
 ];
 export const modelOf = (id: unknown): ModelInfo | undefined => MODELS.find((m) => m.id === id);
 
@@ -59,6 +60,7 @@ export function inputOf(id: ModelId, prompt: string, res: Res, tol: number, auth
   // The older models have no authorisation step, so the checker is never switched off for them, whatever the server flag says.
   const checker = { enable_safety_checker: modelOf(id)?.legacy || modelOf(id)?.face ? true : !authorised };
   if (id === 'seedreamFace') return { prompt, image_urls: [ref], image_size: res === '4k' ? { width: 2304, height: 4096 } : { width: 1536, height: 2688 }, num_images: 1, ...checker };
+  if (id === 'flux2MaxFace') return { prompt, image_urls: [ref], image_size: 'portrait_16_9', safety_tolerance: '2', output_format: 'jpeg', ...checker };
   if (id === 'flux2dev') return { prompt, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
   if (id === 'kolors') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
   if (id === 'sdxl') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, format: 'jpeg', ...checker };
