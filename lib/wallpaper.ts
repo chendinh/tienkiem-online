@@ -34,8 +34,8 @@ export const ANGLES: Opt[] = [
   { id: 'bust', label: 'Nửa người, hơi chếch dưới', text: 'medium close-up from the waist up, slightly low angle, 85mm portrait lens, shallow depth of field, her face sharp and flawless' },
   { id: 'close', label: 'Cận mặt và vai', text: 'tight close-up of her face and shoulders, slightly tilted camera, 85mm lens, the setting softly blurred behind her' },
   { id: 'lying', label: 'Nằm nghiêng, cận', text: 'she is lying on her side among petals, a close shot of her face and shoulders at eye level, the rest of her body out of frame' },
-  { id: 'over', label: 'Từ trên nhìn xuống, cận', text: 'high-angle close shot looking down at her face and shoulders, her hair spread around her like a flower' },
-  { id: 'shoulder', label: 'Liếc qua vai, nửa người', text: 'half-body view, she turns her face to the camera over her bare shoulder, the setting stretching behind her' },
+  { id: 'over', label: 'Từ trên nhìn xuống, cận', text: 'high-angle close shot looking down at her face and shoulders, her hair spread around her like a flower, cropped at the chest' },
+  { id: 'shoulder', label: 'Liếc qua vai, nửa người', text: 'half-body view, she turns her face to the camera over her bare shoulder, the setting stretching behind her, cropped at the waist' },
   { id: 'moon', label: 'Khung cửa tròn', text: 'framed inside a circular moon gate or round window, medium close-up of her upper body' },
 ];
 
@@ -55,11 +55,12 @@ export const HAIR: Opt[] = [
 ];
 
 export const HANDS: Opt[] = [
-  { id: 'hidden', label: 'Giấu tay trong tay áo', text: 'both hands are hidden inside her wide flowing sleeves, no hands visible' },
-  { id: 'fan', label: 'Cầm quạt tròn', text: 'one hand holds a round silk fan near her shoulder with five natural fingers clearly visible, the other hand out of frame' },
-  { id: 'hair', label: 'Vuốt tóc sau tai', text: 'one hand with five natural slender fingers gently tucks a strand of hair behind her ear, the other hand out of frame' },
+  { id: 'hidden', label: 'Giấu tay trong tay áo (ít lỗi nhất)', text: 'both hands are hidden inside her wide flowing sleeves, no hands visible' },
+  { id: 'cheek', label: 'Tựa má, tay áo che gần hết', text: 'her cheek rests lightly against the back of one hand that is mostly covered by a long flowing sleeve, only the relaxed fingertips show, the other arm out of frame' },
+  { id: 'lap', label: 'Tay đặt xuôi ngoài khung hình', text: 'both arms relaxed and low, the hands out of frame below the edge of the picture' },
+  { id: 'fan', label: 'Cầm quạt tròn che nửa tay', text: 'one hand holds a round silk fan close to her shoulder, the fan covers most of the hand, the other hand out of frame' },
+  { id: 'hair', label: 'Vuốt tóc sau tai', text: 'one hand with five natural slender fingers gently tucks a strand of hair behind her ear, the elbow bent naturally, the other hand out of frame' },
   { id: 'flower', label: 'Cầm một cành hoa', text: 'one hand holds a single flower by its stem near her chest, five natural fingers visible, the other hand out of frame' },
-  { id: 'cheek', label: 'Tựa má', text: 'one hand with five natural fingers rests lightly on her cheek, the other hand out of frame' },
 ];
 
 export const EXPRESSIONS: Opt[] = [
@@ -78,7 +79,10 @@ export const LEVELS: Opt[] = [
 ];
 
 // A phone wallpaper: 9:16, subject low, a calm empty upper area so a phone's own widgets sit well.
-export const LAYOUT = 'vertical 9:16 phone wallpaper, the face and upper body fill the frame, feet out of frame, a calm, softly lit, uncluttered upper third (just sky, mist or foliage), a strong focal point and a clear romantic story, unforgettable wow-factor';
+export const LAYOUT = 'vertical 9:16 phone wallpaper, cropped at the chest or waist so no legs or feet are in the frame, the face and upper body fill the frame, a calm, softly lit, uncluttered upper third (just sky, mist or foliage), a strong focal point and a clear romantic story, unforgettable wow-factor';
+
+// Said in positive words (the models ignore negation): counts, proportions, symmetry.
+export const ANATOMY = 'exactly two arms and at most two hands in the whole picture, any visible hand has five natural fingers with a natural thumb and relaxed wrist, natural elbow and shoulder angles, graceful balanced proportions: a slim waist, realistic shoulder width, a long elegant neck and a head size in harmony with the body (about seven and a half heads tall), symmetrical beautiful face, one single person';
 
 const by = (a: Opt[], id: string) => a.find((x) => x.id === id) || a[0];
 export interface Pick { style: string; story: string; angle: string; hands: string; hair: string; expr: string; level: string }
@@ -86,7 +90,7 @@ export const DEFAULT_PICK: Pick = { style: 'donghua', story: 'nguyetmon', angle:
 
 export function composeScene(p: Pick): string {
   const st = STORIES.find((x) => x.id === p.story) || STORIES[0];
-  return `${st.text}. Setting: ${st.setting}. Camera: ${by(ANGLES, p.angle).text}. Hands: ${by(HANDS, p.hands).text}. Hair: ${by(HAIR, p.hair).text}. Expression: ${by(EXPRESSIONS, p.expr).text}. Outfit and pose: ${by(LEVELS, p.level).text}. Style: ${by(STYLES, p.style).text}. ${LAYOUT}.`;
+  return `${st.text}. Setting: ${st.setting}. Camera: ${by(ANGLES, p.angle).text}. Hands: ${by(HANDS, p.hands).text}. Hair: ${by(HAIR, p.hair).text}. Anatomy: ${ANATOMY}. Expression: ${by(EXPRESSIONS, p.expr).text}. Outfit and pose: ${by(LEVELS, p.level).text}. Style: ${by(STYLES, p.style).text}. ${LAYOUT}.`;
 }
 
 const pick = <T,>(a: T[], r: () => number): T => a[Math.floor(r() * a.length) % a.length];

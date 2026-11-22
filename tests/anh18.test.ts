@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { faceScene } from '../lib/wallpaper';
-import { ANGLES, EXPRESSIONS, HAIR, HANDS, LEVELS, STORIES, STYLES, composeScene, randomPick } from '../lib/wallpaper';
+import { ANATOMY, ANGLES, EXPRESSIONS, HAIR, HANDS, LEVELS, STORIES, STYLES, composeScene, randomPick } from '../lib/wallpaper';
 import { FACE_PREFIX, buildFacePrompt, isPhotoDataUrl, DEFAULT_SCENE, MODELS, SCENES, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
 
 test('the default scene passes the filter and the prompt always says adult and fictional', () => {
@@ -40,7 +40,7 @@ test('every wallpaper combination passes the filter, stays clothed and fits a ph
 });
 test('framing is close, hands are handled by positive wording, only older models get a negative prompt', () => {
   const t = composeScene({ story: 'cocam', angle: 'bust', hands: 'hidden', hair: 'long', expr: 'soft', level: '2', style: 'donghua' });
-  assert.match(t, /waist up/); assert.match(t, /feet out of frame/); assert.match(t, /hidden inside her wide flowing sleeves/);
+  assert.match(t, /waist up/); assert.match(t, /no legs or feet are in the frame/); assert.match(t, /hidden inside her wide flowing sleeves/);
   assert.ok(!/\b(no|not|without)\b[^.]*fingers/i.test(t.replace('no hands visible', '')), 'no negated finger wording');
   assert.ok((inputOf('kolors', 'x', '2k', 5, false) as any).negative_prompt);
   assert.equal((inputOf('flux2pro', 'x', '2k', 5, false) as any).negative_prompt, undefined);
@@ -66,4 +66,10 @@ test('every hairstyle passes the filter, appears in the scene, and the stories n
     assert.equal(promptProblem(t), null, h.id); assert.ok(t.includes(h.text), h.id); assert.ok(t.length < 2000, h.id);
   }
   for (const s of STORIES) assert.ok(!/\b(black|silver|white|long)[- ]?(white )?hair\b/i.test(s.text), s.id);
+});
+test('anatomy is stated positively, legs and feet stay out of the frame, risky hand poses are softened', () => {
+  const t = composeScene({ story: 'ruouhoa', angle: 'over', hands: 'cheek', hair: 'butterfly', expr: 'dream', level: '3', style: 'real' });
+  assert.ok(t.includes(ANATOMY)); assert.match(t, /no legs or feet are in the frame/); assert.match(t, /mostly covered by a long flowing sleeve/);
+  assert.ok(!/\b(no|not|never|without)\b[^.]*(extra|deformed|bad|wrong)/i.test(ANATOMY), 'no negated anatomy wording');
+  assert.ok(t.length < 2000, String(t.length));
 });
