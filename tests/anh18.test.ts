@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { faceScene } from '../lib/wallpaper';
-import { ANGLES, EXPRESSIONS, HANDS, LEVELS, STORIES, STYLES, composeScene, randomPick } from '../lib/wallpaper';
+import { ANGLES, EXPRESSIONS, HAIR, HANDS, LEVELS, STORIES, STYLES, composeScene, randomPick } from '../lib/wallpaper';
 import { FACE_PREFIX, buildFacePrompt, isPhotoDataUrl, DEFAULT_SCENE, MODELS, SCENES, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
 
 test('the default scene passes the filter and the prompt always says adult and fictional', () => {
@@ -30,28 +30,28 @@ test('older models keep the checker on even when the server flag says it may be 
 });
 test('every wallpaper combination passes the filter, stays clothed and fits a phone', () => {
   for (const story of STORIES) for (const angle of ANGLES) for (const hands of HANDS) for (const expr of EXPRESSIONS) for (const level of LEVELS) for (const style of STYLES) {
-    const t = composeScene({ story: story.id, angle: angle.id, hands: hands.id, expr: expr.id, level: level.id, style: style.id });
+    const t = composeScene({ story: story.id, angle: angle.id, hands: hands.id, hair: 'long', expr: expr.id, level: level.id, style: style.id });
     assert.equal(promptProblem(t), null, `${story.id}/${angle.id}/${hands.id}/${expr.id}/${level.id}/${style.id}`);
     assert.ok(t.length < 2000, 'scene text must fit the 2000 character limit');
   }
-  assert.match(composeScene({ story: 'x', angle: 'x', hands: 'x', expr: 'x', level: 'x', style: 'x' }), /9:16/);
+  assert.match(composeScene({ story: 'x', angle: 'x', hands: 'x', hair: 'x', expr: 'x', level: 'x', style: 'x' }), /9:16/);
   const r = randomPick({ level: '3' }, () => 0.5);
   assert.equal(r.level, '3');
 });
 test('framing is close, hands are handled by positive wording, only older models get a negative prompt', () => {
-  const t = composeScene({ story: 'cocam', angle: 'bust', hands: 'hidden', expr: 'soft', level: '2', style: 'donghua' });
+  const t = composeScene({ story: 'cocam', angle: 'bust', hands: 'hidden', hair: 'long', expr: 'soft', level: '2', style: 'donghua' });
   assert.match(t, /waist up/); assert.match(t, /feet out of frame/); assert.match(t, /hidden inside her wide flowing sleeves/);
   assert.ok(!/\b(no|not|without)\b[^.]*fingers/i.test(t.replace('no hands visible', '')), 'no negated finger wording');
   assert.ok((inputOf('kolors', 'x', '2k', 5, false) as any).negative_prompt);
   assert.equal((inputOf('flux2pro', 'x', '2k', 5, false) as any).negative_prompt, undefined);
 });
 test('prompts never mention a clock (the model draws one)', () => {
-  for (const story of STORIES) assert.ok(!/clock|watch|timepiece/i.test(composeScene({ story: story.id, angle: 'bust', hands: 'hidden', expr: 'soft', level: '2', style: 'donghua' })), story.id);
+  for (const story of STORIES) assert.ok(!/clock|watch|timepiece/i.test(composeScene({ story: story.id, angle: 'bust', hands: 'hidden', hair: 'long', expr: 'soft', level: '2', style: 'donghua' })), story.id);
 });
 test('the my-face model: photo accepted only as a small data URL, look forced to level 1, checker always on', () => {
   assert.ok(isPhotoDataUrl('data:image/jpeg;base64,/9j/4AAQ'));
   for (const bad of ['http://x/y.jpg', 'data:text/html;base64,AAAA', 'data:image/svg+xml;base64,AAAA', '', 5]) assert.equal(isPhotoDataUrl(bad), false, String(bad));
-  const f = faceScene({ story: 'nguyetmon', angle: 'bust', hands: 'hidden', expr: 'soft', level: '3', style: 'donghua' });
+  const f = faceScene({ story: 'nguyetmon', angle: 'bust', hands: 'hidden', hair: 'long', expr: 'soft', level: '3', style: 'donghua' });
   assert.match(f, /off-shoulder neckline and sheer gauze sleeves/); assert.ok(!/bare midriff/.test(f));
   assert.match(buildFacePrompt(f), /non-suggestive/); assert.match(FACE_PREFIX, /slimmer/);
   const i: any = inputOf('seedreamFace', 'x', '4k', 5, true, 'data:image/jpeg;base64,AAAA');
@@ -59,4 +59,11 @@ test('the my-face model: photo accepted only as a small data URL, look forced to
   assert.ok(MODELS.filter((m) => m.face).length === 2);
   const x: any = inputOf('flux2MaxFace', 'x', '4k', 5, true, 'data:image/jpeg;base64,AAAA');
   assert.equal(x.enable_safety_checker, true); assert.equal(x.safety_tolerance, '2'); assert.deepEqual(x.image_urls, ['data:image/jpeg;base64,AAAA']);
+});
+test('every hairstyle passes the filter, appears in the scene, and the stories no longer fix a hair colour', () => {
+  for (const h of HAIR) {
+    const t = composeScene({ story: 'bangtuyet', angle: 'bust', hands: 'hidden', hair: h.id, expr: 'soft', level: '2', style: 'donghua' });
+    assert.equal(promptProblem(t), null, h.id); assert.ok(t.includes(h.text), h.id); assert.ok(t.length < 2000, h.id);
+  }
+  for (const s of STORIES) assert.ok(!/\b(black|silver|white|long)[- ]?(white )?hair\b/i.test(s.text), s.id);
 });

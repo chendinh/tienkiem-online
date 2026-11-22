@@ -12,10 +12,10 @@ export const STYLES: Opt[] = [
 ];
 
 export const STORIES: Story[] = [
-  { id: 'bangtuyet', label: 'Nữ vương băng tuyết', text: 'an ice empress with long silver-white hair and a frost crown, seated on a throne carved from glacier, waiting at the summit for someone who never came', setting: 'a snowy fir mountain at night, swirling snowflakes, green and violet aurora across the sky, frozen waterfall, ice crystals glittering on her gown' },
+  { id: 'bangtuyet', label: 'Nữ vương băng tuyết', text: 'an ice empress with a frost crown, seated on a throne carved from glacier, waiting at the summit for someone who never came', setting: 'a snowy fir mountain at night, swirling snowflakes, green and violet aurora across the sky, frozen waterfall, ice crystals glittering on her gown' },
   { id: 'lienhoa', label: 'Đêm trăng bên ao sen', text: 'a moon fairy lying among white lilies beside a spirit pond, daydreaming of a lost love', setting: 'dark glassy water with floating petals, glowing koi under the surface, giant full moon, fireflies, jade bracelets, mist rolling over lotus leaves' },
   { id: 'daohoa', label: 'Đào hoa kiếm', text: 'a sword maiden in flowing violet robes who has just released her spirit sword, which hovers and glows blue beside her', setting: 'a cherry blossom grove on a cliff, a storm of pink petals, a misty pavilion and waterfall far below, golden morning light' },
-  { id: 'hoadiep', label: 'Hồ điệp lửa trong rừng trúc', text: 'an enchantress with long black hair who lets a butterfly of living flame rest on her fingertip, smiling as if sharing a secret', setting: 'a bamboo forest at dusk, red silk curtains, hanging lanterns, embers drifting upward, a velvet divan under warm firelight' },
+  { id: 'hoadiep', label: 'Hồ điệp lửa trong rừng trúc', text: 'an enchantress who lets a butterfly of living flame rest on her fingertip, smiling as if sharing a secret', setting: 'a bamboo forest at dusk, red silk curtains, hanging lanterns, embers drifting upward, a velvet divan under warm firelight' },
   { id: 'tinhha', label: 'Ngồi bên mép đảo bay giữa ngân hà', text: 'a star priestess sitting barefoot on the edge of a floating island, looking back over her shoulder as constellations answer her gaze', setting: 'a vast galaxy with nebula clouds, comets, glowing rings of runes, waterfalls of light pouring off the island, tiny floating lanterns' },
   { id: 'longcung', label: 'Long cung dưới biển', text: 'a dragon-sea princess drifting weightlessly in her underwater palace, her silk gown floating like water', setting: 'a coral palace with pearl pillars, glowing jellyfish lanterns, shafts of sunlight from the surface, schools of luminous fish, rising bubbles' },
   { id: 'hoason', label: 'Phượng hoàng trên núi lửa', text: 'a phoenix cultivator in crimson and gold silk, standing defiant as a firebird circles above her', setting: 'a volcanic temple of black stone and gold, rivers of lava, rain of glowing embers, huge phoenix feathers drifting through the smoke' },
@@ -37,6 +37,21 @@ export const ANGLES: Opt[] = [
   { id: 'over', label: 'Từ trên nhìn xuống, cận', text: 'high-angle close shot looking down at her face and shoulders, her hair spread around her like a flower' },
   { id: 'shoulder', label: 'Liếc qua vai, nửa người', text: 'half-body view, she turns her face to the camera over her bare shoulder, the setting stretching behind her' },
   { id: 'moon', label: 'Khung cửa tròn', text: 'framed inside a circular moon gate or round window, medium close-up of her upper body' },
+];
+
+// Hair is a separate choice, so the same story can be drawn with very different, striking hairstyles.
+export const HAIR: Opt[] = [
+  { id: 'long', label: 'Đen dài mượt, bay nhẹ', text: 'long, glossy, silky black hair flowing past her shoulders, a few windswept strands across her cheek' },
+  { id: 'silver', label: 'Bạc trắng, trâm pha lê', text: 'long silver-white hair with delicate crystal hairpins and fine braids woven through it' },
+  { id: 'bun', label: 'Búi cao, trâm ngọc phượng', text: 'an elegant high bun held by a jade hairpin and a gold phoenix hair ornament, loose wisps framing her face' },
+  { id: 'halfup', label: 'Nửa búi, dải lụa', text: 'half-up half-down hair tied with a long silk ribbon, the rest flowing in soft waves' },
+  { id: 'braid', label: 'Tết lệch, hoa và ngọc trai', text: 'a loose side braid draped over one shoulder, woven with small white flowers and pearls' },
+  { id: 'waves', label: 'Xoăn sóng nâu ánh vàng', text: 'soft voluminous loose waves in deep chestnut brown with golden highlights, petals caught in the curls' },
+  { id: 'crimson', label: 'Đỏ thẫm, mão lửa', text: 'long hair in deep crimson shading to black at the ends, with a golden flame-shaped crown' },
+  { id: 'ice', label: 'Xanh băng chuyển tím', text: 'long ice-blue to lavender gradient hair with tiny glowing snowflake ornaments' },
+  { id: 'ponytail', label: 'Đuôi ngựa cao, dây đỏ', text: 'a high flowing ponytail tied with a red cord, long side bangs and wind-swept strands' },
+  { id: 'butterfly', label: 'Cài bướm và chuồn chuồn phát sáng', text: 'black hair swept up and adorned with glowing butterfly and dragonfly ornaments with dangling beaded tassels' },
+  { id: 'moon', label: 'Rẽ giữa, trán chuỗi vàng, mão trăng', text: 'centre-parted hair with a delicate gold forehead pendant and a moon-shaped crown, long hair falling behind her' },
 ];
 
 export const HANDS: Opt[] = [
@@ -66,17 +81,17 @@ export const LEVELS: Opt[] = [
 export const LAYOUT = 'vertical 9:16 phone wallpaper, the face and upper body fill the frame, feet out of frame, a calm, softly lit, uncluttered upper third (just sky, mist or foliage), a strong focal point and a clear romantic story, unforgettable wow-factor';
 
 const by = (a: Opt[], id: string) => a.find((x) => x.id === id) || a[0];
-export interface Pick { style: string; story: string; angle: string; hands: string; expr: string; level: string }
-export const DEFAULT_PICK: Pick = { style: 'donghua', story: 'nguyetmon', angle: 'bust', hands: 'hidden', expr: 'soft', level: '2' };
+export interface Pick { style: string; story: string; angle: string; hands: string; hair: string; expr: string; level: string }
+export const DEFAULT_PICK: Pick = { style: 'donghua', story: 'nguyetmon', angle: 'bust', hands: 'hidden', hair: 'long', expr: 'soft', level: '2' };
 
 export function composeScene(p: Pick): string {
   const st = STORIES.find((x) => x.id === p.story) || STORIES[0];
-  return `${st.text}. Setting: ${st.setting}. Camera: ${by(ANGLES, p.angle).text}. Hands: ${by(HANDS, p.hands).text}. Expression: ${by(EXPRESSIONS, p.expr).text}. Outfit and pose: ${by(LEVELS, p.level).text}. Style: ${by(STYLES, p.style).text}. ${LAYOUT}.`;
+  return `${st.text}. Setting: ${st.setting}. Camera: ${by(ANGLES, p.angle).text}. Hands: ${by(HANDS, p.hands).text}. Hair: ${by(HAIR, p.hair).text}. Expression: ${by(EXPRESSIONS, p.expr).text}. Outfit and pose: ${by(LEVELS, p.level).text}. Style: ${by(STYLES, p.style).text}. ${LAYOUT}.`;
 }
 
 const pick = <T,>(a: T[], r: () => number): T => a[Math.floor(r() * a.length) % a.length];
 export function randomPick(keep: Partial<Pick> = {}, r: () => number = Math.random): Pick {
-  return { style: keep.style ?? pick(STYLES, r).id, story: pick(STORIES, r).id, angle: pick(ANGLES, r).id, hands: pick(HANDS, r).id, expr: pick(EXPRESSIONS, r).id, level: keep.level ?? '2' };
+  return { style: keep.style ?? pick(STYLES, r).id, story: pick(STORIES, r).id, angle: pick(ANGLES, r).id, hands: pick(HANDS, r).id, hair: pick(HAIR, r).id, expr: pick(EXPRESSIONS, r).id, level: keep.level ?? '2' };
 }
 
 // For the "my face" model the allure level is forced to 1 (elegant, covered); whatever the page sends for the level is ignored.
