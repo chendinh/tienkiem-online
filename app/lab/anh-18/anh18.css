@@ -12,7 +12,7 @@ textarea.al-in { min-height: 8.5rem; resize: vertical; line-height: 1.45; }
 .al-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .al-chip { padding: 0.45rem 0.8rem; font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--ink-800); border: 1px solid var(--line-strong); border-radius: var(--r-pill); cursor: pointer; }
 .al-chip[aria-pressed='true'] { color: var(--ink-950); background: var(--gold-leaf); border-color: var(--gold-400); }
-.al-models { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
+.al-models { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-3); }
 .al-btn { display: grid; gap: 0.2rem; text-align: left; padding: 0.8rem 1rem; font: inherit; color: var(--ink-950); background: var(--gold-leaf); border: 0; border-radius: var(--r-lg); cursor: pointer; }
 .al-btn b { font-size: 1.02rem; }
 .al-btn small { font-size: 0.78rem; opacity: 0.8; }

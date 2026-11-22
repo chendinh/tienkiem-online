@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SCENE, MODELS, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
+import { DEFAULT_SCENE, MODELS, SCENES, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
 
 test('the default scene passes the filter and the prompt always says adult and fictional', () => {
   assert.equal(promptProblem(DEFAULT_SCENE), null);
@@ -19,4 +19,10 @@ test('safety checker stays on unless the account is authorised; seedream 4K is i
   assert.ok(l.image_size.width * l.image_size.height >= 2560 * 1440);
   assert.equal((inputOf('flux2max', 'x', '2k', 9, false) as any).safety_tolerance, '5');
   assert.equal(modelOf('nope'), undefined);
+});
+test('every preset scene passes the filter and the prompt keeps the character clothed', () => {
+  for (const x of SCENES) { assert.equal(promptProblem(x.text), null, x.id); assert.match(buildPrompt(x.text), /no nudity/); }
+});
+test('older models keep the checker on even when the server flag says it may be off', () => {
+  for (const id of ['flux2dev', 'kolors', 'sdxl'] as const) assert.equal((inputOf(id, 'x', '2k', 5, true) as any).enable_safety_checker, true, id);
 });
