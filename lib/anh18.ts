@@ -42,15 +42,17 @@ export function promptProblem(text: string): string | null {
   if (EXPLICIT.test(t)) return 'explicit';
   return null;
 }
-export const buildPrompt = (scene: string): string => PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 1200) + SUFFIX;
+export const buildPrompt = (scene: string): string => PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 2000) + SUFFIX;
 
+// Only the older models take a negative prompt (the newer ones ignore negation, so hands and faces are handled by positive wording in lib/wallpaper.ts).
+const NEG = 'extra fingers, fused fingers, bad hands, deformed face, asymmetrical eyes, extra limbs, bad anatomy, blurry, low quality, watermark, text, logo';
 // Input per model. enable_safety_checker stays true unless the account has been authorised by fal to turn it off AND the owner sets FAL_NSFW_AUTHORIZED=1.
 export function inputOf(id: ModelId, prompt: string, res: Res, tol: number, authorised: boolean): Record<string, unknown> {
   // The older models have no authorisation step, so the checker is never switched off for them, whatever the server flag says.
   const checker = { enable_safety_checker: modelOf(id)?.legacy ? true : !authorised };
   if (id === 'flux2dev') return { prompt, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
-  if (id === 'kolors') return { prompt, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
-  if (id === 'sdxl') return { prompt, image_size: 'portrait_16_9', num_images: 1, format: 'jpeg', ...checker };
+  if (id === 'kolors') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
+  if (id === 'sdxl') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, format: 'jpeg', ...checker };
   if (id === 'seedream45') return { prompt, image_size: res === '4k' ? { width: 2304, height: 4096 } : { width: 1536, height: 2688 }, num_images: 1, ...checker };
   return { prompt, image_size: 'portrait_16_9', safety_tolerance: String(Math.min(5, Math.max(1, Math.round(tol) || 5))), output_format: 'jpeg', ...checker };
 }

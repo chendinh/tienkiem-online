@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { DEFAULT_SCENE, MODELS, SCENES, promptProblem, type ModelId, type Res } from '@/lib/anh18';
-import { ANGLES, DEFAULT_PICK, EXPRESSIONS, LEVELS, STORIES, STYLES, composeScene, randomPick, type Opt, type Pick } from '@/lib/wallpaper';
+import { ANGLES, DEFAULT_PICK, EXPRESSIONS, HANDS, LEVELS, STORIES, STYLES, composeScene, randomPick, type Opt, type Pick } from '@/lib/wallpaper';
 import { errText } from '@/lib/strings';
 
 // Lab: one button per model. Each press asks the server for one picture of an original, fictional, adult xianxia character and shows it with the time it took.
@@ -76,12 +76,13 @@ export function Anh18Lab() {
         <Chips label="Wallpaper · phong cách" opts={STYLES} value={pk.style} onPick={setP('style')} />
         <Chips label="Nội dung (câu chuyện + bối cảnh)" opts={STORIES} value={pk.story} onPick={setP('story')} />
         <Chips label="Góc máy" opts={ANGLES} value={pk.angle} onPick={setP('angle')} />
+        <Chips label="Tay (tay hay bị lỗi nhất: nên giấu hoặc đặt tư thế đơn giản)" opts={HANDS} value={pk.hands} onPick={setP('hands')} />
         <Chips label="Biểu cảm" opts={EXPRESSIONS} value={pk.expr} onPick={setP('expr')} />
         <Chips label="Độ quyến rũ (vẫn mặc đồ; fal có thể từ chối mức cao)" opts={LEVELS} value={pk.level} onPick={setP('level')} />
         <div className="al-chips"><button className="al-chip" onClick={() => setScene(composeScene(pk))}>Dựng cảnh từ lựa chọn</button><button className="al-chip" onClick={dice}>🎲 Ngẫu nhiên (giữ phong cách và mức)</button></div>
         <div className="al-row"><span>Mẫu có sẵn (từ nhẹ tới táo bạo, vẫn mặc đồ)</span>
           <div className="al-chips">{SCENES.map((x) => <button key={x.id} className="al-chip" aria-pressed={scene === x.text} onClick={() => setScene(x.text)}>{x.label}</button>)}</div></div>
-        <div className="al-row"><span>Cảnh vẽ (tiếng Anh cho model hiểu tốt nhất)</span><textarea className="al-in" value={scene} onChange={(e) => setScene(e.target.value)} maxLength={1200} /></div>
+        <div className="al-row"><span>Cảnh vẽ (tiếng Anh cho model hiểu tốt nhất)</span><textarea className="al-in" value={scene} onChange={(e) => setScene(e.target.value)} maxLength={2000} /></div>
         {problem && <p className="al-err">{PROBLEM[problem]}</p>}
         <div className="al-row"><span>Độ phân giải (chỉ Seedream đạt 4K thật; các model khác tối đa khoảng 2K)</span>
           <div className="al-chips">{(['2k', '4k'] as Res[]).map((x) => <button key={x} className="al-chip" aria-pressed={res === x} onClick={() => setRes(x)}>{x.toUpperCase()}</button>)}</div></div>

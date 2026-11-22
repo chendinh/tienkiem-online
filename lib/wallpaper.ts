@@ -22,15 +22,29 @@ export const STORIES: Story[] = [
   { id: 'thuphong', label: 'Thung lũng phong đỏ', text: 'a tea-ceremony fairy by a stone bridge, sleeves fluttering, glancing up with a gentle teasing smile', setting: 'an autumn maple valley in blazing red and gold, a waterfall, falling leaves, steam rising from a tea set, soft afternoon haze' },
   { id: 'suoinong', label: 'Suối nóng linh khí dưới trăng', text: 'an immortal enchantress resting at the edge of a glowing spirit hot spring, hands running through her wet hair', setting: 'carved stone pools, rising steam, lotus petals and fireflies, a full moon, paper lanterns reflected in the water' },
   { id: 'thuphong2', label: 'Tàng thư các', text: 'a scholar-immortal leaning on a desk in a vast ancient library tower, looking up from a scroll as if she had been waiting for the reader', setting: 'endless shelves, floating scrolls and glowing seals, candlelight, fireflies, a round window with the moon, drifting dust like gold' },
+  { id: 'cocam', label: 'Cổ cầm dưới trăng', text: 'a gentle musician-immortal with a guqin resting across her lap, her long sleeves covering her hands, lost in a love song meant for someone far away', setting: 'a moonlit open pavilion over a lake, silk curtains stirring in the breeze, floating lanterns, drifting pear blossom petals, incense smoke curling in the light' },
+  { id: 'duthu', label: 'Che ô giấy dầu trong mưa hoa', text: 'a romantic maiden holding an oil-paper umbrella against her shoulder, looking out from under its rim as if she has just recognised her beloved in the crowd', setting: 'a stone alley in a mountain town, soft rain of peach blossom petals, red lanterns glowing in the mist, wet stone reflecting the lights' },
+  { id: 'hongtuyen', label: 'Sợi chỉ đỏ nhân duyên', text: 'a fated maiden whose glowing red thread of destiny drifts from her sleeve across the frame into the distance, her eyes following it with longing and a hidden smile', setting: 'a twilight sky of rose gold clouds, floating wish lanterns, a moon bridge, thousands of tiny sparkles along the thread' },
+  { id: 'nguyetmon', label: 'Cửa trăng và quạt tròn', text: 'a graceful beauty standing behind a round silk fan, peeking out with a shy teasing look, as if waiting for a secret rendezvous', setting: 'a circular moon gate in a classical garden, plum blossoms, lattice windows, a winding path with glowing lanterns, a crescent moon' },
+  { id: 'ruouhoa', label: 'Rượu hoa lê dưới trăng', text: 'a slightly tipsy immortal beauty with flushed cheeks, a jade wine cup on the low table before her, her hands tucked in her sleeves, smiling at an empty seat across from her', setting: 'a pear blossom orchard in full bloom at midnight, a stone table with a wine jar and two cups, a full moon, petals falling like snow' },
 ];
 
+// Closer framing on purpose: the face, shoulders and upper body fill the frame, so legs, feet and backs (where models slip) stay out of the picture.
 export const ANGLES: Opt[] = [
-  { id: 'low', label: 'Từ dưới nhìn lên', text: 'dramatic low-angle shot looking up at her, powerful and graceful, her legs leading the eye upward, the setting towering behind her' },
-  { id: 'close', label: 'Cận mặt, tựa cằm', text: 'intimate close-up portrait, slightly tilted camera, chin resting on her hand, the setting softly blurred behind her' },
-  { id: 'lying', label: 'Nằm nghiêng', text: 'she is lying on her side, camera at eye level close to the ground, petals and details framing her face' },
-  { id: 'over', label: 'Nhìn từ trên xuống', text: 'high overhead shot looking down at her, her hair and robes spread out around her like a flower' },
-  { id: 'shoulder', label: 'Liếc qua vai', text: 'three-quarter back view, she turns and looks back over her shoulder at the camera, the setting stretching into the distance' },
-  { id: 'full', label: 'Toàn thân, dáng ngồi', text: 'full-length seated pose, elegant diagonal composition, one knee raised, hands relaxed' },
+  { id: 'bust', label: 'Nửa người, hơi chếch dưới', text: 'medium close-up from the waist up, slightly low angle, 85mm portrait lens, shallow depth of field, her face sharp and flawless' },
+  { id: 'close', label: 'Cận mặt và vai', text: 'tight close-up of her face and shoulders, slightly tilted camera, 85mm lens, the setting softly blurred behind her' },
+  { id: 'lying', label: 'Nằm nghiêng, cận', text: 'she is lying on her side among petals, a close shot of her face and shoulders at eye level, the rest of her body out of frame' },
+  { id: 'over', label: 'Từ trên nhìn xuống, cận', text: 'high-angle close shot looking down at her face and shoulders, her hair spread around her like a flower' },
+  { id: 'shoulder', label: 'Liếc qua vai, nửa người', text: 'half-body view, she turns her face to the camera over her bare shoulder, the setting stretching behind her' },
+  { id: 'moon', label: 'Khung cửa tròn', text: 'framed inside a circular moon gate or round window, medium close-up of her upper body' },
+];
+
+export const HANDS: Opt[] = [
+  { id: 'hidden', label: 'Giấu tay trong tay áo', text: 'both hands are hidden inside her wide flowing sleeves, no hands visible' },
+  { id: 'fan', label: 'Cầm quạt tròn', text: 'one hand holds a round silk fan near her shoulder with five natural fingers clearly visible, the other hand out of frame' },
+  { id: 'hair', label: 'Vuốt tóc sau tai', text: 'one hand with five natural slender fingers gently tucks a strand of hair behind her ear, the other hand out of frame' },
+  { id: 'flower', label: 'Cầm một cành hoa', text: 'one hand holds a single flower by its stem near her chest, five natural fingers visible, the other hand out of frame' },
+  { id: 'cheek', label: 'Tựa má', text: 'one hand with five natural fingers rests lightly on her cheek, the other hand out of frame' },
 ];
 
 export const EXPRESSIONS: Opt[] = [
@@ -43,24 +57,24 @@ export const EXPRESSIONS: Opt[] = [
 
 // Levels of allure: all clothed. 3 is the ceiling to try; fal's checker may refuse it for some models.
 export const LEVELS: Opt[] = [
-  { id: '1', label: 'Mức 1 · thanh lịch', text: 'elegant and graceful: a long layered silk gown with an off-shoulder neckline and a high slit, poised pose' },
-  { id: '2', label: 'Mức 2 · quyến rũ', text: 'alluring: a fitted silk bodice with bare shoulders and collarbone, a long slit showing one leg, a relaxed languid pose' },
-  { id: '3', label: 'Mức 3 · táo bạo', text: 'bold and glamorous: a short embroidered silk top and a low-slung gauzy skirt over an ornate underlayer, an arched confident pose' },
+  { id: '1', label: 'Mức 1 · thanh lịch', text: 'elegant and graceful: a layered silk gown with an off-shoulder neckline and sheer gauze sleeves, poised pose' },
+  { id: '2', label: 'Mức 2 · quyến rũ', text: 'alluring: a fitted silk bodice with bare shoulders and collarbone, a softly open collar, a relaxed languid pose' },
+  { id: '3', label: 'Mức 3 · táo bạo', text: 'bold and glamorous: a short embroidered silk top with an ornate underlayer and bare midriff, a confident pose' },
 ];
 
 // A phone wallpaper: 9:16, subject low, room at the top for the clock and notifications.
-export const LAYOUT = 'vertical 9:16 phone wallpaper composition, clear open space in the upper third for the clock, the subject in the lower two thirds, a strong focal point and a clear story, unforgettable wow-factor';
+export const LAYOUT = 'vertical 9:16 phone wallpaper, the face and upper body fill the frame, feet out of frame, a clear open space in the upper third for the clock, a strong focal point and a clear romantic story, unforgettable wow-factor';
 
 const by = (a: Opt[], id: string) => a.find((x) => x.id === id) || a[0];
-export interface Pick { style: string; story: string; angle: string; expr: string; level: string }
-export const DEFAULT_PICK: Pick = { style: 'donghua', story: 'bangtuyet', angle: 'low', expr: 'cool', level: '2' };
+export interface Pick { style: string; story: string; angle: string; hands: string; expr: string; level: string }
+export const DEFAULT_PICK: Pick = { style: 'donghua', story: 'nguyetmon', angle: 'bust', hands: 'hidden', expr: 'soft', level: '2' };
 
 export function composeScene(p: Pick): string {
   const st = STORIES.find((x) => x.id === p.story) || STORIES[0];
-  return `${st.text}. Setting: ${st.setting}. Camera: ${by(ANGLES, p.angle).text}. Expression: ${by(EXPRESSIONS, p.expr).text}. Outfit and pose: ${by(LEVELS, p.level).text}. Style: ${by(STYLES, p.style).text}. ${LAYOUT}.`;
+  return `${st.text}. Setting: ${st.setting}. Camera: ${by(ANGLES, p.angle).text}. Hands: ${by(HANDS, p.hands).text}. Expression: ${by(EXPRESSIONS, p.expr).text}. Outfit and pose: ${by(LEVELS, p.level).text}. Style: ${by(STYLES, p.style).text}. ${LAYOUT}.`;
 }
 
 const pick = <T,>(a: T[], r: () => number): T => a[Math.floor(r() * a.length) % a.length];
 export function randomPick(keep: Partial<Pick> = {}, r: () => number = Math.random): Pick {
-  return { style: keep.style ?? pick(STYLES, r).id, story: pick(STORIES, r).id, angle: pick(ANGLES, r).id, expr: pick(EXPRESSIONS, r).id, level: keep.level ?? '2' };
+  return { style: keep.style ?? pick(STYLES, r).id, story: pick(STORIES, r).id, angle: pick(ANGLES, r).id, hands: pick(HANDS, r).id, expr: pick(EXPRESSIONS, r).id, level: keep.level ?? '2' };
 }
