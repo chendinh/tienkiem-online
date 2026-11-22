@@ -8,6 +8,7 @@ export const ERR = {
   E_PROMPT_BLOCKED: 'Mô tả này không được phép: chỉ vẽ nhân vật hư cấu, trưởng thành, không khỏa thân trắng trợn.',
   E_FAL_POLICY: 'fal từ chối mô tả hoặc ảnh này vì bộ lọc nội dung (content policy).',
   E_FAL: 'fal báo lỗi khi vẽ.',
+  E_FACE_CONSENT: 'Cần xác nhận đây là ảnh của chính bạn, bạn đủ 18 tuổi và ảnh là một người trưởng thành.',
   E_READONLY: 'Máy chủ này không ghi được vào thư mục ảnh.',
   E_NO_CRON_SECRET: 'Chưa đặt CRON_SECRET nên việc chạy hằng ngày bị đóng.',
   E_SERVER: 'Máy chủ gặp lỗi. Hãy thử lại sau ít phút.',

@@ -22,6 +22,8 @@ export function Anh18Lab() {
   const [res, setRes] = useState<Res>('4k');
   const [tol, setTol] = useState(5);
   const [off, setOff] = useState(false);
+  const [face, setFace] = useState<string | null>(null);
+  const [own, setOwn] = useState(false);
   const [pk, setPk] = useState<Pick>(DEFAULT_PICK);
   const setP = (k: keyof Pick) => (id: string) => { const n = { ...pk, [k]: id }; setPk(n); setScene(composeScene(n)); };
   const dice = () => { const n = randomPick({ style: pk.style, level: pk.level }); setPk(n); setScene(composeScene(n)); };
@@ -42,12 +44,27 @@ export function Anh18Lab() {
   const problem = promptProblem(scene);
   const patch = (n: number, p: Partial<Tile>) => setTiles((t) => t.map((x) => (x.n === n ? { ...x, ...p } : x)));
 
+  // Shrinks the photo in the browser (about 1280 px, JPEG) so the request stays small; nothing is stored by the page.
+  function pickFile(f?: File) {
+    if (!f) return;
+    const img = new Image(), u = URL.createObjectURL(f);
+    img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height);
+      setFace(c.toDataURL('image/jpeg', 0.88)); URL.revokeObjectURL(u);
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); setErr('Không đọc được ảnh này.'); };
+    img.src = u;
+  }
+
   async function draw(model: ModelId) {
-    if (!key || !adult || problem) return;
+    const isFace = !!MODELS.find((m) => m.id === model)?.face;
+    if (!key || !adult || (!isFace && problem) || (isFace && (!face || !own))) return;
     const n = seq + 1; setSeq(n);
     setTiles((t) => [{ n, model, res, st: 'run' }, ...t]);
     try {
-      const r = await fetch('/api/lab/anh18', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ model, scene, res, tol }) });
+      const r = await fetch('/api/lab/anh18', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(isFace ? { model, pick: pk, res, consent: own, face } : { model, scene, res, tol }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { patch(n, { st: 'err', msg: errText(j.code) + (j.detail ? ` [${j.status ?? ''}] ${j.detail}` : '') }); return; }
       patch(n, j.url ? { st: 'ok', url: j.url, ms: j.ms, w: j.w, h: j.h, seed: j.seed } : { st: 'filtered', ms: j.ms, msg: 'fal đã lọc ảnh này (bộ lọc an toàn đang bật).' });
@@ -91,7 +108,15 @@ export function Anh18Lab() {
         <p className="al-note">Bộ lọc của fal: {off ? 'ĐÃ TẮT (FAL_NSFW_AUTHORIZED=1)' : 'đang bật. Muốn tắt phải được fal cấp quyền cho tài khoản, rồi đặt FAL_NSFW_AUTHORIZED=1.'}</p>
       </div>
       <div className="al-models">
-        {MODELS.map((m) => <button key={m.id} className="al-btn" disabled={!adult || !!problem || scene.trim().length < 5} onClick={() => draw(m.id)}><b>Vẽ bằng {m.label}</b><small>{m.note}</small></button>)}
+        {MODELS.filter((m) => !m.face).map((m) => <button key={m.id} className="al-btn" disabled={!adult || !!problem || scene.trim().length < 5} onClick={() => draw(m.id)}><b>Vẽ bằng {m.label}</b><small>{m.note}</small></button>)}
+      </div>
+      <div className="al-panel">
+        <div className="al-row"><span>Vẽ bằng gương mặt của tôi</span>
+          <p className="al-note">Tải ảnh chân dung rõ mặt của CHÍNH BẠN. Gương mặt được chỉnh nhẹ cho thon và đẹp hơn nhưng vẫn là bạn. Chế độ này luôn ở mức thanh lịch, mặc kín đáo (mức quyến rũ cao không dùng với mặt người thật). Ảnh không được lưu; nó chỉ được gửi cho fal để vẽ. Hiện chỉnh cho nhân vật nữ.</p>
+          <input type="file" accept="image/*" onChange={(e) => pickFile(e.target.files?.[0])} aria-label="Ảnh chân dung của bạn" />
+          {face && <img src={face} alt="Ảnh của bạn" style={{ width: 120, borderRadius: 'var(--r-sm)' }} />}</div>
+        <label className="al-check"><input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} /> <span>Đây là ảnh của chính tôi, tôi đủ 18 tuổi, và tôi không dùng ảnh của người khác.</span></label>
+        {MODELS.filter((m) => m.face).map((m) => <button key={m.id} className="al-btn" disabled={!adult || !face || !own} onClick={() => draw(m.id)}><b>Vẽ bằng {m.label}</b><small>{m.note}</small></button>)}
       </div>
       {err && <p className="al-err">{err}</p>}
       <div className="al-grid" style={{ marginTop: 'var(--sp-5)' }}>

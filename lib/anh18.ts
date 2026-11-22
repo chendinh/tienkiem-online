@@ -1,12 +1,12 @@
 // Lab "Ảnh 18+": adult, fictional xianxia portraits drawn with fal models, to compare models before a paid feature exists.
 // Shared by the page and by /api/lab/anh18 (the server is the one that enforces the rules; the page only shows them).
 // Rules kept here on purpose: the character is always an original, fictional ADULT; suggestive (revealing clothes, alluring poses) but never explicit;
-// no reference pictures are accepted, so no real person's face can be fed in.
+// reference pictures are refused everywhere EXCEPT the one 'my own face' model below, which is locked to a non-suggestive, fully clothed, elegant look (a real face is never mixed with the alluring levels).
 
-export type ModelId = 'seedream45' | 'flux2pro' | 'flux2max' | 'flux2dev' | 'kolors' | 'sdxl';
+export type ModelId = 'seedream45' | 'flux2pro' | 'flux2max' | 'flux2dev' | 'kolors' | 'sdxl' | 'seedreamFace';
 export type Res = '2k' | '4k';
 
-export interface ModelInfo { id: ModelId; label: string; endpoint: string; note: string; native4k: boolean; legacy?: boolean }
+export interface ModelInfo { id: ModelId; label: string; endpoint: string; note: string; native4k: boolean; legacy?: boolean; face?: boolean }
 export const MODELS: ModelInfo[] = [
   { id: 'seedream45', label: 'Seedream 4.5', endpoint: 'fal-ai/bytedance/seedream/v4.5/text-to-image', note: '4K thật · khoảng $0.04/ảnh', native4k: true },
   { id: 'flux2pro', label: 'FLUX.2 Pro', endpoint: 'fal-ai/flux-2-pro', note: 'mặt người thật · tối đa khoảng 4MP (≈2K)', native4k: false },
@@ -14,6 +14,7 @@ export const MODELS: ModelInfo[] = [
   { id: 'flux2dev', label: 'FLUX.2 dev', endpoint: 'fal-ai/flux-2', note: 'đời cũ hơn, rẻ · khoảng 1–2K', native4k: false, legacy: true },
   { id: 'kolors', label: 'Kolors', endpoint: 'fal-ai/kolors', note: 'đời cũ · ảnh chân thực · khoảng 1K', native4k: false, legacy: true },
   { id: 'sdxl', label: 'SDXL', endpoint: 'fal-ai/fast-sdxl', note: 'đời cũ · nhanh · khoảng 1K', native4k: false, legacy: true },
+  { id: 'seedreamFace', label: 'Seedream 4.5 · mặt của tôi', endpoint: 'fal-ai/bytedance/seedream/v4.5/edit', note: 'giữ gương mặt từ ảnh bạn tải lên · chỉ mức thanh lịch, mặc kín đáo', native4k: true, face: true },
 ];
 export const modelOf = (id: unknown): ModelInfo | undefined => MODELS.find((m) => m.id === id);
 
@@ -42,14 +43,22 @@ export function promptProblem(text: string): string | null {
   if (EXPLICIT.test(t)) return 'explicit';
   return null;
 }
+// The "my face" model: the photo is the owner's own, the look is always elegant and non-suggestive, and the face is only gently refined (still the same person).
+export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character: keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face shape with smooth luminous skin and bright eyes, natural and still clearly the same person. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
+export const FACE_SUFFIX = ' Ultra detailed masterpiece, dreamlike ethereal lighting, richly layered background details, elegant, graceful and romantic, fully clothed, modest and non-suggestive.';
+export const buildFacePrompt = (scene: string): string => FACE_PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 2000) + FACE_SUFFIX;
+export const FACE_MAX_CHARS = 4_200_000;   // data URL length cap (the page shrinks the photo to about 1280 px first)
+export const isPhotoDataUrl = (v: unknown): v is string => typeof v === 'string' && v.length < FACE_MAX_CHARS && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
+
 export const buildPrompt = (scene: string): string => PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 2000) + SUFFIX;
 
 // Only the older models take a negative prompt (the newer ones ignore negation, so hands and faces are handled by positive wording in lib/wallpaper.ts).
 const NEG = 'extra fingers, fused fingers, bad hands, deformed face, asymmetrical eyes, extra limbs, bad anatomy, blurry, low quality, watermark, text, logo';
 // Input per model. enable_safety_checker stays true unless the account has been authorised by fal to turn it off AND the owner sets FAL_NSFW_AUTHORIZED=1.
-export function inputOf(id: ModelId, prompt: string, res: Res, tol: number, authorised: boolean): Record<string, unknown> {
+export function inputOf(id: ModelId, prompt: string, res: Res, tol: number, authorised: boolean, ref?: string): Record<string, unknown> {
   // The older models have no authorisation step, so the checker is never switched off for them, whatever the server flag says.
-  const checker = { enable_safety_checker: modelOf(id)?.legacy ? true : !authorised };
+  const checker = { enable_safety_checker: modelOf(id)?.legacy || modelOf(id)?.face ? true : !authorised };
+  if (id === 'seedreamFace') return { prompt, image_urls: [ref], image_size: res === '4k' ? { width: 2304, height: 4096 } : { width: 1536, height: 2688 }, num_images: 1, ...checker };
   if (id === 'flux2dev') return { prompt, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
   if (id === 'kolors') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, output_format: 'jpeg', ...checker };
   if (id === 'sdxl') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, format: 'jpeg', ...checker };

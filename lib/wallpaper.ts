@@ -78,3 +78,6 @@ const pick = <T,>(a: T[], r: () => number): T => a[Math.floor(r() * a.length) % 
 export function randomPick(keep: Partial<Pick> = {}, r: () => number = Math.random): Pick {
   return { style: keep.style ?? pick(STYLES, r).id, story: pick(STORIES, r).id, angle: pick(ANGLES, r).id, hands: pick(HANDS, r).id, expr: pick(EXPRESSIONS, r).id, level: keep.level ?? '2' };
 }
+
+// For the "my face" model the allure level is forced to 1 (elegant, covered); whatever the page sends for the level is ignored.
+export const faceScene = (p: Pick): string => composeScene({ ...p, level: '1' });

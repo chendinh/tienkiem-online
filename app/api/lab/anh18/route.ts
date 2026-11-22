@@ -1,7 +1,8 @@
 import { ApiError } from '@/lib/server/auth';
-import { json, guard, checkWrite, readBody } from '@/lib/server/http';
+import { json, guard, checkWrite } from '@/lib/server/http';
 import { requireAdmin } from '@/lib/server/admin';
-import { MODELS, buildPrompt, inputOf, modelOf, promptProblem, type Res } from '@/lib/anh18';
+import { FACE_MAX_CHARS, MODELS, buildFacePrompt, buildPrompt, inputOf, isPhotoDataUrl, modelOf, promptProblem, type Res } from '@/lib/anh18';
+import { DEFAULT_PICK, faceScene } from '@/lib/wallpaper';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -23,10 +24,25 @@ export async function POST(req: Request) {
   return guard(async () => {
     requireAdmin(req);
     checkWrite(req);
-    const b = await readBody(req);
-    const m = modelOf(b?.model), scene = typeof b?.scene === 'string' ? b.scene : '';
+    const text = await req.text();
+    if (text.length > FACE_MAX_CHARS + 20000) throw new ApiError('E_BAD_REQUEST', 413);
+    let b: any; try { b = JSON.parse(text); } catch { throw new ApiError('E_BAD_REQUEST'); }
+    const m = modelOf(b?.model);
     const res: Res = b?.res === '2k' ? '2k' : '4k';
-    if (!m || scene.trim().length < 5 || b?.images || b?.image_urls) throw new ApiError('E_BAD_REQUEST');   // text only: no reference picture is ever accepted
+    if (!m || b?.images || b?.image_urls) throw new ApiError('E_BAD_REQUEST');
+    // A reference photo is accepted ONLY by the "my face" model, only with the owner's consent, and then the look is forced to elegant and clothed (level 1);
+    // the owner's free text is ignored. Every other model is text only.
+    let scene: string, prompt: string, ref: string | undefined;
+    if (m.face) {
+      if (b?.consent !== true) throw new ApiError('E_FACE_CONSENT', 422);
+      if (!isPhotoDataUrl(b?.face)) throw new ApiError('E_BAD_REQUEST');
+      const pk = { ...DEFAULT_PICK, ...(b?.pick && typeof b.pick === 'object' ? Object.fromEntries(Object.entries(b.pick).filter(([, v]) => typeof v === 'string')) : {}) };
+      scene = faceScene(pk); prompt = buildFacePrompt(scene); ref = b.face;
+    } else {
+      scene = typeof b?.scene === 'string' ? b.scene : '';
+      if (b?.face || scene.trim().length < 5) throw new ApiError('E_BAD_REQUEST');
+      prompt = buildPrompt(scene);
+    }
     if (promptProblem(scene)) throw new ApiError('E_PROMPT_BLOCKED', 422);
     if (!process.env.FAL_KEY) throw new ApiError('E_NO_FAL', 503);
     const { fal } = await import('@fal-ai/client');
@@ -34,7 +50,7 @@ export async function POST(req: Request) {
     let out: any;
     try {
       out = await Promise.race([
-        fal.subscribe(m.endpoint, { input: inputOf(m.id, buildPrompt(scene), res, Number(b?.tol), authorised()) as any }),
+        fal.subscribe(m.endpoint, { input: inputOf(m.id, prompt, res, Number(b?.tol), authorised(), ref) as any }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('fal timeout')), 240000)),
       ]);
     } catch (e: any) {

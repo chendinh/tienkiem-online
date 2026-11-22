@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { faceScene } from '../lib/wallpaper';
 import { ANGLES, EXPRESSIONS, HANDS, LEVELS, STORIES, STYLES, composeScene, randomPick } from '../lib/wallpaper';
-import { DEFAULT_SCENE, MODELS, SCENES, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
+import { FACE_PREFIX, buildFacePrompt, isPhotoDataUrl, DEFAULT_SCENE, MODELS, SCENES, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
 
 test('the default scene passes the filter and the prompt always says adult and fictional', () => {
   assert.equal(promptProblem(DEFAULT_SCENE), null);
@@ -46,4 +47,14 @@ test('framing is close, hands are handled by positive wording, only older models
 });
 test('prompts never mention a clock (the model draws one)', () => {
   for (const story of STORIES) assert.ok(!/clock|watch|timepiece/i.test(composeScene({ story: story.id, angle: 'bust', hands: 'hidden', expr: 'soft', level: '2', style: 'donghua' })), story.id);
+});
+test('the my-face model: photo accepted only as a small data URL, look forced to level 1, checker always on', () => {
+  assert.ok(isPhotoDataUrl('data:image/jpeg;base64,/9j/4AAQ'));
+  for (const bad of ['http://x/y.jpg', 'data:text/html;base64,AAAA', 'data:image/svg+xml;base64,AAAA', '', 5]) assert.equal(isPhotoDataUrl(bad), false, String(bad));
+  const f = faceScene({ story: 'nguyetmon', angle: 'bust', hands: 'hidden', expr: 'soft', level: '3', style: 'donghua' });
+  assert.match(f, /off-shoulder neckline and sheer gauze sleeves/); assert.ok(!/bare midriff/.test(f));
+  assert.match(buildFacePrompt(f), /non-suggestive/); assert.match(FACE_PREFIX, /slimmer/);
+  const i: any = inputOf('seedreamFace', 'x', '4k', 5, true, 'data:image/jpeg;base64,AAAA');
+  assert.equal(i.enable_safety_checker, true); assert.deepEqual(i.image_urls, ['data:image/jpeg;base64,AAAA']);
+  assert.ok(MODELS.filter((m) => m.face).length === 1);
 });
