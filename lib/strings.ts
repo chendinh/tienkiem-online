@@ -5,6 +5,7 @@ export const ERR = {
   E_AUTH: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Hãy đăng nhập lại.',
   E_BAD_REQUEST: 'Yêu cầu không hợp lệ.',
   E_NO_FAL: 'Chưa cấu hình FAL_KEY để vẽ ảnh.',
+  E_PROMPT_BLOCKED: 'Mô tả này không được phép: chỉ vẽ nhân vật hư cấu, trưởng thành, không khỏa thân trắng trợn.',
   E_READONLY: 'Máy chủ này không ghi được vào thư mục ảnh.',
   E_NO_CRON_SECRET: 'Chưa đặt CRON_SECRET nên việc chạy hằng ngày bị đóng.',
   E_SERVER: 'Máy chủ gặp lỗi. Hãy thử lại sau ít phút.',
