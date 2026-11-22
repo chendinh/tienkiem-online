@@ -42,7 +42,7 @@ export function Anh18Lab() {
     try {
       const r = await fetch('/api/lab/anh18', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ model, scene, res, tol }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) { patch(n, { st: 'err', msg: errText(j.code) }); return; }
+      if (!r.ok) { patch(n, { st: 'err', msg: errText(j.code) + (j.detail ? ` [${j.status ?? ''}] ${j.detail}` : '') }); return; }
       patch(n, j.url ? { st: 'ok', url: j.url, ms: j.ms, w: j.w, h: j.h, seed: j.seed } : { st: 'filtered', ms: j.ms, msg: 'fal đã lọc ảnh này (bộ lọc an toàn đang bật).' });
     } catch { patch(n, { st: 'err', msg: 'Không kết nối được máy chủ.' }); }
   }

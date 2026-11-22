@@ -31,10 +31,18 @@ export async function POST(req: Request) {
     if (!process.env.FAL_KEY) throw new ApiError('E_NO_FAL', 503);
     const { fal } = await import('@fal-ai/client');
     const t0 = Date.now();
-    const out: any = await Promise.race([
-      fal.subscribe(m.endpoint, { input: inputOf(m.id, buildPrompt(scene), res, Number(b?.tol), authorised()) as any }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('fal timeout')), 240000)),
-    ]);
+    let out: any;
+    try {
+      out = await Promise.race([
+        fal.subscribe(m.endpoint, { input: inputOf(m.id, buildPrompt(scene), res, Number(b?.tol), authorised()) as any }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('fal timeout')), 240000)),
+      ]);
+    } catch (e: any) {
+      // say what fal answered, so the owner can tell "filtered by the content policy" from "bad parameter" or "no credit"
+      const detail = (() => { try { return JSON.stringify(e?.body?.detail ?? e?.body ?? e?.message ?? '').slice(0, 240); } catch { return String(e?.message || '').slice(0, 240); } })();
+      console.error('[anh18]', m.id, e?.status, detail);
+      return json({ ok: false, code: /content_policy|safety|nsfw|flagged/i.test(detail) ? 'E_FAL_POLICY' : 'E_FAL', detail, status: e?.status ?? null, model: m.id }, /content_policy|safety|nsfw|flagged/i.test(detail) ? 422 : 502);
+    }
     const img = out?.data?.images?.[0];
     const flagged = Array.isArray(out?.data?.has_nsfw_concepts) ? out.data.has_nsfw_concepts.some(Boolean) : false;
     if (img?.url) falHost(img.url);
