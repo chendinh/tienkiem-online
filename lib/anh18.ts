@@ -27,8 +27,8 @@ export const SCENES: { id: string; label: string; text: string }[] = [
 ];
 
 // What is always added around the owner's scene text.
-export const PREFIX = 'Photorealistic cinematic fantasy portrait of an original fictional adult woman (about 25-30 years old), a xianxia immortal cultivator. ';
-export const SUFFIX = ' Ultra detailed, dreamlike ethereal lighting, glowing spirit energy, ornate fantasy details, realistic face, skin and hair, alluring and provocative but always clothed: all intimate areas covered by fabric, jewelry or steam, no nudity, fully non-explicit.';
+export const PREFIX = 'Cinematic fantasy wallpaper of an original fictional adult woman (about 25-30 years old), a xianxia immortal cultivator. ';
+export const SUFFIX = ' Ultra detailed masterpiece, dreamlike ethereal lighting, glowing spirit energy, richly layered background details, alluring and provocative but always clothed: all intimate areas covered by fabric, jewelry or steam, no nudity, fully non-explicit.';
 
 // Words that stop the request: anything that points at a minor, at a real person, or at explicit nudity / sex acts.
 const MINOR = /\b(loli\w*|shota|child\w*|kid\w*|minor|underage|under\s?age|teen\w*|toddler|baby|girl\w*|boy\w*|schoolgirl|school\s?uniform|student|juvenile|preteen|young\s+(?:girl|looking|face)|1[0-7]\s?(?:yo|y\/o|years?\s?old))\b|trẻ\s?em|bé\s?gái|thiếu\s?nữ|học\s?sinh|nhỏ\s?tuổi|chưa\s?đủ\s?tuổi|\b1[0-7]\s?tuổi/i;

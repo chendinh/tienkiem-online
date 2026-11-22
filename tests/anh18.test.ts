@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { ANGLES, EXPRESSIONS, LEVELS, STORIES, STYLES, composeScene, randomPick } from '../lib/wallpaper';
 import { DEFAULT_SCENE, MODELS, SCENES, buildPrompt, inputOf, modelOf, promptProblem } from '../lib/anh18';
 
 test('the default scene passes the filter and the prompt always says adult and fictional', () => {
@@ -25,4 +26,14 @@ test('every preset scene passes the filter and the prompt keeps the character cl
 });
 test('older models keep the checker on even when the server flag says it may be off', () => {
   for (const id of ['flux2dev', 'kolors', 'sdxl'] as const) assert.equal((inputOf(id, 'x', '2k', 5, true) as any).enable_safety_checker, true, id);
+});
+test('every wallpaper combination passes the filter, stays clothed and fits a phone', () => {
+  for (const story of STORIES) for (const angle of ANGLES) for (const expr of EXPRESSIONS) for (const level of LEVELS) for (const style of STYLES) {
+    const t = composeScene({ story: story.id, angle: angle.id, expr: expr.id, level: level.id, style: style.id });
+    assert.equal(promptProblem(t), null, `${story.id}/${angle.id}/${expr.id}/${level.id}/${style.id}`);
+    assert.ok(t.length < 1200, 'scene text must fit the 1200 character limit');
+  }
+  assert.match(composeScene({ story: 'x', angle: 'x', expr: 'x', level: 'x', style: 'x' }), /9:16/);
+  const r = randomPick({ level: '3' }, () => 0.5);
+  assert.equal(r.level, '3');
 });

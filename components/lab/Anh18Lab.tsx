@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { DEFAULT_SCENE, MODELS, SCENES, promptProblem, type ModelId, type Res } from '@/lib/anh18';
+import { ANGLES, DEFAULT_PICK, EXPRESSIONS, LEVELS, STORIES, STYLES, composeScene, randomPick, type Opt, type Pick } from '@/lib/wallpaper';
 import { errText } from '@/lib/strings';
 
 // Lab: one button per model. Each press asks the server for one picture of an original, fictional, adult xianxia character and shows it with the time it took.
@@ -8,6 +9,9 @@ import { errText } from '@/lib/strings';
 const KEY = 'tutien-admin-key';
 interface Tile { n: number; model: ModelId; res: Res; st: 'run' | 'ok' | 'filtered' | 'err'; url?: string; ms?: number; w?: number; h?: number; seed?: number | null; msg?: string }
 const PROBLEM: Record<string, string> = { minor: 'Mô tả nhắc tới trẻ vị thành niên.', real: 'Mô tả nhắc tới người thật.', explicit: 'Mô tả quá trắng trợn: chỉ vẽ gợi cảm, không khỏa thân.' };
+function Chips({ label, opts, value, onPick }: { label: string; opts: Opt[]; value: string; onPick: (id: string) => void }) {
+  return <div className="al-row"><span>{label}</span><div className="al-chips">{opts.map((o) => <button key={o.id} className="al-chip" aria-pressed={value === o.id} onClick={() => onPick(o.id)}>{o.label}</button>)}</div></div>;
+}
 const nameOf = (id: ModelId) => MODELS.find((m) => m.id === id)?.label || id;
 
 export function Anh18Lab() {
@@ -18,6 +22,9 @@ export function Anh18Lab() {
   const [res, setRes] = useState<Res>('4k');
   const [tol, setTol] = useState(5);
   const [off, setOff] = useState(false);
+  const [pk, setPk] = useState<Pick>(DEFAULT_PICK);
+  const setP = (k: keyof Pick) => (id: string) => { const n = { ...pk, [k]: id }; setPk(n); setScene(composeScene(n)); };
+  const dice = () => { const n = randomPick({ style: pk.style, level: pk.level }); setPk(n); setScene(composeScene(n)); };
   const [err, setErr] = useState('');
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [seq, setSeq] = useState(0);
@@ -66,6 +73,12 @@ export function Anh18Lab() {
       <p className="al-note">Chỉ vẽ nhân vật hư cấu, trưởng thành, gợi cảm nhưng không khỏa thân. Không có chỗ tải ảnh lên, nên không dùng được mặt người thật. Ảnh không được lưu lại.</p>
       <div className="al-panel">
         <label className="al-check"><input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} /> <span>Tôi đủ 18 tuổi và hiểu đây là ảnh người lớn, chỉ để thử.</span></label>
+        <Chips label="Wallpaper · phong cách" opts={STYLES} value={pk.style} onPick={setP('style')} />
+        <Chips label="Nội dung (câu chuyện + bối cảnh)" opts={STORIES} value={pk.story} onPick={setP('story')} />
+        <Chips label="Góc máy" opts={ANGLES} value={pk.angle} onPick={setP('angle')} />
+        <Chips label="Biểu cảm" opts={EXPRESSIONS} value={pk.expr} onPick={setP('expr')} />
+        <Chips label="Độ quyến rũ (vẫn mặc đồ; fal có thể từ chối mức cao)" opts={LEVELS} value={pk.level} onPick={setP('level')} />
+        <div className="al-chips"><button className="al-chip" onClick={() => setScene(composeScene(pk))}>Dựng cảnh từ lựa chọn</button><button className="al-chip" onClick={dice}>🎲 Ngẫu nhiên (giữ phong cách và mức)</button></div>
         <div className="al-row"><span>Mẫu có sẵn (từ nhẹ tới táo bạo, vẫn mặc đồ)</span>
           <div className="al-chips">{SCENES.map((x) => <button key={x.id} className="al-chip" aria-pressed={scene === x.text} onClick={() => setScene(x.text)}>{x.label}</button>)}</div></div>
         <div className="al-row"><span>Cảnh vẽ (tiếng Anh cho model hiểu tốt nhất)</span><textarea className="al-in" value={scene} onChange={(e) => setScene(e.target.value)} maxLength={1200} /></div>
