@@ -46,12 +46,14 @@ export function promptProblem(text: string): string | null {
 }
 // The "my face" model: the photo is the owner's own, the look is always elegant and non-suggestive, and the face is only gently refined (still the same person).
 export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character: keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face shape with smooth luminous skin and bright eyes, natural and still clearly the same person. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
+// When the owner's own photo shows no face: only the hair, the colouring and the overall look are used, and the picture is drawn from behind, in profile or with the face hidden.
+export const FACELESS_PREFIX = 'Use the adult person in the reference photo only for hair, hair colour and overall look, keeping that look recognisable with natural proportions. Her face is not shown. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
 export const FACE_SUFFIX = ' Ultra detailed masterpiece, dreamlike ethereal lighting, richly layered background details, elegant, graceful and romantic, fully clothed, modest and non-suggestive.';
-export const buildFacePrompt = (scene: string): string => FACE_PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 2000) + FACE_SUFFIX;
+export const buildFacePrompt = (scene: string, faceless = false): string => (faceless ? FACELESS_PREFIX : FACE_PREFIX) + scene.trim().replace(/\s+/g, ' ').slice(0, 2400) + FACE_SUFFIX;
 export const FACE_MAX_CHARS = 4_200_000;   // data URL length cap (the page shrinks the photo to about 1280 px first)
 export const isPhotoDataUrl = (v: unknown): v is string => typeof v === 'string' && v.length < FACE_MAX_CHARS && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
 
-export const buildPrompt = (scene: string): string => PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 2000) + SUFFIX;
+export const buildPrompt = (scene: string): string => PREFIX + scene.trim().replace(/\s+/g, ' ').slice(0, 2400) + SUFFIX;
 
 // Only the older models take a negative prompt (the newer ones ignore negation, so hands and faces are handled by positive wording in lib/wallpaper.ts).
 const NEG = 'extra fingers, fused fingers, bad hands, deformed face, asymmetrical eyes, extra limbs, bad anatomy, blurry, low quality, watermark, text, logo';
@@ -66,4 +68,18 @@ export function inputOf(id: ModelId, prompt: string, res: Res, tol: number, auth
   if (id === 'sdxl') return { prompt, negative_prompt: NEG, image_size: 'portrait_16_9', num_images: 1, format: 'jpeg', ...checker };
   if (id === 'seedream45') return { prompt, image_size: res === '4k' ? { width: 2304, height: 4096 } : { width: 1536, height: 2688 }, num_images: 1, ...checker };
   return { prompt, image_size: 'portrait_16_9', safety_tolerance: String(Math.min(5, Math.max(1, Math.round(tol) || 5))), output_format: 'jpeg', ...checker };
+}
+
+// "Fix the anatomy" pass: the owner sends back a picture this lab just drew (a fal CDN address, never an upload) and an edit model redraws only the hands, limbs and reflection.
+export const FIX_PROMPT = 'Edit this picture: keep the character, face, hairstyle, outfit, background, lighting, colours and composition exactly the same. Only correct the anatomy: every visible hand has exactly five natural fingers with a natural thumb and relaxed wrist; the arms, shoulders, legs and feet are natural, balanced and in proportion; there are exactly two arms and at most two hands; any reflection in the water is one clean mirror image that matches the pose.';
+export type FixKind = 'seedream' | 'flux';
+export const FIXERS: Record<FixKind, { label: string; endpoint: string }> = {
+  seedream: { label: 'Sửa tay · Seedream 4.5', endpoint: 'fal-ai/bytedance/seedream/v4.5/edit' },
+  flux: { label: 'Sửa tay · FLUX.2 Max', endpoint: 'fal-ai/flux-2-max/edit' },
+};
+export const isFixKind = (v: unknown): v is FixKind => v === 'seedream' || v === 'flux';
+export const isFalUrl = (v: unknown): v is string => { try { const u = new URL(String(v)); return u.protocol === 'https:' && /(^|\.)fal\.media$/.test(u.hostname); } catch { return false; } };
+export function fixInput(kind: FixKind, url: string, res: Res): Record<string, unknown> {
+  if (kind === 'seedream') return { prompt: FIX_PROMPT, image_urls: [url], image_size: res === '4k' ? 'auto_4K' : 'auto_2K', num_images: 1, enable_safety_checker: true };
+  return { prompt: FIX_PROMPT, image_urls: [url], safety_tolerance: '2', output_format: 'jpeg', enable_safety_checker: true };
 }

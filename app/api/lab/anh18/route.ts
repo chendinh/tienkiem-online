@@ -1,8 +1,8 @@
 import { ApiError } from '@/lib/server/auth';
 import { json, guard, checkWrite } from '@/lib/server/http';
 import { requireAdmin } from '@/lib/server/admin';
-import { FACE_MAX_CHARS, MODELS, buildFacePrompt, buildPrompt, inputOf, isPhotoDataUrl, modelOf, promptProblem, type Res } from '@/lib/anh18';
-import { DEFAULT_PICK, faceScene } from '@/lib/wallpaper';
+import { FACE_MAX_CHARS, FIXERS, MODELS, buildFacePrompt, buildPrompt, fixInput, inputOf, isFalUrl, isFixKind, isPhotoDataUrl, modelOf, promptProblem, type Res } from '@/lib/anh18';
+import { DEFAULT_PICK, faceScene, isFaceless } from '@/lib/wallpaper';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -27,37 +27,47 @@ export async function POST(req: Request) {
     const text = await req.text();
     if (text.length > FACE_MAX_CHARS + 20000) throw new ApiError('E_BAD_REQUEST', 413);
     let b: any; try { b = JSON.parse(text); } catch { throw new ApiError('E_BAD_REQUEST'); }
-    const m = modelOf(b?.model);
     const res: Res = b?.res === '2k' ? '2k' : '4k';
-    if (!m || b?.images || b?.image_urls) throw new ApiError('E_BAD_REQUEST');
-    // A reference photo is accepted ONLY by the "my face" model, only with the owner's consent, and then the look is forced to elegant and clothed (level 1);
-    // the owner's free text is ignored. Every other model is text only.
-    let scene: string, prompt: string, ref: string | undefined;
-    if (m.face) {
-      if (b?.consent !== true) throw new ApiError('E_FACE_CONSENT', 422);
-      if (!isPhotoDataUrl(b?.face)) throw new ApiError('E_BAD_REQUEST');
-      const pk = { ...DEFAULT_PICK, ...(b?.pick && typeof b.pick === 'object' ? Object.fromEntries(Object.entries(b.pick).filter(([, v]) => typeof v === 'string')) : {}) };
-      scene = faceScene(pk); prompt = buildFacePrompt(scene); ref = b.face;
+    if (b?.images || b?.image_urls) throw new ApiError('E_BAD_REQUEST');
+    // Three kinds of request: a text-only picture (any model), "my face" (the owner's own photo, consent, forced elegant look), and "fix hands"
+    // (a picture this lab drew, given back by its fal address, redrawn by an edit model with a fixed prompt).
+    let endpoint: string, input: Record<string, unknown>, label: string, scene = '';
+    if (isFixKind(b?.fix)) {
+      if (!isFalUrl(b?.fixUrl)) throw new ApiError('E_BAD_REQUEST');
+      endpoint = FIXERS[b.fix as 'seedream' | 'flux'].endpoint; label = b.fix; input = fixInput(b.fix, b.fixUrl, res);
     } else {
-      scene = typeof b?.scene === 'string' ? b.scene : '';
-      if (b?.face || scene.trim().length < 5) throw new ApiError('E_BAD_REQUEST');
-      prompt = buildPrompt(scene);
+      const m = modelOf(b?.model);
+      if (!m) throw new ApiError('E_BAD_REQUEST');
+      let prompt: string, ref: string | undefined;
+      if (m.face) {
+        if (b?.consent !== true) throw new ApiError('E_FACE_CONSENT', 422);
+        if (!isPhotoDataUrl(b?.face)) throw new ApiError('E_BAD_REQUEST');
+        const pk = { ...DEFAULT_PICK, ...(b?.pick && typeof b.pick === 'object' ? Object.fromEntries(Object.entries(b.pick).filter(([, v]) => typeof v === 'string')) : {}) };
+        const noFace = b?.noFace === true;
+        if (noFace && !isFaceless(pk.view) && pk.view !== 'profile') pk.view = 'back';   // a photo without a face is only used for pictures that show no face
+        scene = faceScene(pk); prompt = buildFacePrompt(scene, noFace); ref = b.face;
+      } else {
+        scene = typeof b?.scene === 'string' ? b.scene : '';
+        if (b?.face || scene.trim().length < 5) throw new ApiError('E_BAD_REQUEST');
+        prompt = buildPrompt(scene);
+      }
+      endpoint = m.endpoint; label = m.id; input = inputOf(m.id, prompt, res, Number(b?.tol), authorised(), ref);
     }
-    if (promptProblem(scene)) throw new ApiError('E_PROMPT_BLOCKED', 422);
+    if (scene && promptProblem(scene)) throw new ApiError('E_PROMPT_BLOCKED', 422);
     if (!process.env.FAL_KEY) throw new ApiError('E_NO_FAL', 503);
     const { fal } = await import('@fal-ai/client');
     const t0 = Date.now();
     let out: any;
     try {
       out = await Promise.race([
-        fal.subscribe(m.endpoint, { input: inputOf(m.id, prompt, res, Number(b?.tol), authorised(), ref) as any }),
+        fal.subscribe(endpoint, { input: input as any }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('fal timeout')), 240000)),
       ]);
     } catch (e: any) {
       // say what fal answered, so the owner can tell "filtered by the content policy" from "bad parameter" or "no credit"
       const detail = (() => { try { return JSON.stringify(e?.body?.detail ?? e?.body ?? e?.message ?? '').slice(0, 240); } catch { return String(e?.message || '').slice(0, 240); } })();
-      console.error('[anh18]', m.id, e?.status, detail);
-      return json({ ok: false, code: /content_policy|safety|nsfw|flagged/i.test(detail) ? 'E_FAL_POLICY' : 'E_FAL', detail, status: e?.status ?? null, model: m.id }, /content_policy|safety|nsfw|flagged/i.test(detail) ? 422 : 502);
+      console.error('[anh18]', label, e?.status, detail);
+      return json({ ok: false, code: /content_policy|safety|nsfw|flagged/i.test(detail) ? 'E_FAL_POLICY' : 'E_FAL', detail, status: e?.status ?? null, model: label }, /content_policy|safety|nsfw|flagged/i.test(detail) ? 422 : 502);
     }
     const img = out?.data?.images?.[0];
     const flagged = Array.isArray(out?.data?.has_nsfw_concepts) ? out.data.has_nsfw_concepts.some(Boolean) : false;
