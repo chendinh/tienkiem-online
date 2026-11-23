@@ -147,8 +147,8 @@ export function GenAi() {
     <main className="ga">
       <header className="ga-head">
         <a href="/" className="ga-back">← Về game</a>
-        <h1>Chân dung tu tiên của bạn</h1>
-        <p>Tải ảnh của chính bạn, chọn bối cảnh, AI vẽ bạn thành tiên nhân trong tranh. Khuôn mặt thon gọn, thanh lịch hơn ảnh gốc một chút.</p>
+        <h1>Tiên Dung Họa Quán</h1>
+        <p>Tải ảnh của chính bạn, chọn bối cảnh, họa sư AI vẽ bạn thành tiên nhân trong tranh. Khuôn mặt thon gọn, thanh lịch hơn ảnh gốc một chút.</p>
         <div className="ga-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'f'} onClick={() => setTab('f')}>👸 Nhân vật nữ</button>
           <button type="button" role="tab" aria-selected={tab === 'm'} onClick={() => setTab('m')}>🧙 Nhân vật nam</button>
@@ -261,7 +261,7 @@ export function GenAi() {
         <div className="ga-modal" role="dialog" aria-modal="true" aria-labelledby="ga-legal-t">
           <div className="ga-sheet">
             <h2 id="ga-legal-t">Điều khoản sử dụng</h2>
-            <p className="ga-sub">Vui lòng đọc kỹ trước khi dùng tính năng vẽ chân dung bằng ảnh của bạn.</p>
+            <p className="ga-sub">Vui lòng đọc kỹ trước khi vào Tiên Dung Họa Quán.</p>
             <ol className="ga-legal">{LEGAL.map((x) => <li key={x.h}><b>{x.h}.</b> {x.p}</li>)}</ol>
             <label className="ga-check"><input type="checkbox" checked={legalTick} onChange={(e) => setLegalTick(e.target.checked)} /><span>Tôi đã đọc và đồng ý các điều khoản trên. Tôi từ đủ {MIN_AGE} tuổi và chỉ dùng ảnh cá nhân của chính mình.</span></label>
             <div className="ga-actions">
