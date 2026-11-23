@@ -198,3 +198,38 @@ test('male calligraphy story: the writing is on the paper, never on the hand', (
   const sc = M.composeScene(M.cleanPick({ type: 'calm', story: 'thuphapnam', frame: 'full' }));
   assert.match(sc, /sheet of white paper/); assert.match(sc, /only on the paper/); assert.ok(sc.length < SCENE_MAX);
 });
+
+import { DEFAULT_FIXES, FIXES, FIXES_MAX, FIX_GROUPS, cleanFixes, facelessOf, fixesText } from '../lib/genai';
+test('error guards: positive sentences only, neutral wording, known ids, order kept, defaults when none sent', () => {
+  assert.ok(FIXES.length >= 15);
+  const ids = FIXES.map((f) => f.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const f of FIXES) {
+    assert.ok(FIX_GROUPS.includes(f.group), f.id);
+    assert.ok(f.label.length > 3 && f.hint.length > 3, f.id);
+    assert.ok(!/\b(no|not|without|never|avoid|don't|isn't|nothing)\b/i.test(f.text), `${f.id} is negative: ${f.text}`);
+    assert.ok(!/\b(she|her|he|his|woman|man|girl|boy)\b/i.test(f.text), `${f.id} is not neutral`);
+    assert.equal(sceneProblem(f.text + ' padding for the minimum length'), null, f.id);
+  }
+  assert.deepEqual(cleanFixes(undefined), DEFAULT_FIXES);
+  assert.deepEqual(cleanFixes('x'), DEFAULT_FIXES);
+  assert.deepEqual(cleanFixes([]), []);
+  assert.deepEqual(cleanFixes(['sharp', 'nope', 'sharp', 5, 'fingers']), ['fingers', 'sharp']);
+  assert.ok(fixesText(ids).length < FIXES_MAX, 'all guards on fit under the cap');
+  assert.equal(fixesText([]), '');
+});
+test('error guards go after the scene and before the clothed rule; face guards drop out when no face is shown', () => {
+  const sc = composeScene(DEFAULT_PICK);
+  const p = buildGenPrompt(sc, false, 'f', ['fingers', 'faceSym', 'sharp']);
+  assert.ok(p.indexOf(sc) < p.indexOf('Quality notes:') && p.indexOf('Quality notes:') < p.indexOf('fully clothed'));
+  assert.match(p, /symmetrical, harmonious face/);
+  const back = buildGenPrompt(sc, false, 'f', ['fingers', 'faceSym', 'eyes', 'hair', 'sharp'], true);
+  assert.ok(!/symmetrical, harmonious face|bright clear eyes|well-defined locks/.test(back));
+  assert.match(back, /slender, clearly separated fingers/);
+  assert.match(buildGenPrompt(sc, false, 'f'), /Quality notes:/);   // no list sent: the defaults
+  assert.ok(!/Quality notes:/.test(buildGenPrompt(sc, false, 'f', [])));
+  assert.equal(facelessOf('f', { view: 'back' }, false), true);
+  assert.equal(facelessOf('m', { view: 'hidden' }, false), true);
+  assert.equal(facelessOf('f', { view: 'front' }, false), false);
+  assert.equal(facelessOf('m', { view: 'front' }, true), true);
+});

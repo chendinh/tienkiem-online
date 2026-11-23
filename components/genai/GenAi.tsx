@@ -3,7 +3,7 @@
 // The page only shows the rules (lib/genai.ts); the server (/api/gen-ai) is the one that enforces them.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { errText } from '@/lib/strings';
-import { FACELESS_VIEWS, LEGAL, LEGAL_VERSION, MIN_AGE, SCENE_MAX, STYLES, TABS, isFaceless, sceneProblem, type Gender } from '@/lib/genai';
+import { DEFAULT_FIXES, FACELESS_VIEWS, FIXES, FIX_GROUPS, LEGAL, LEGAL_VERSION, MIN_AGE, SCENE_MAX, STYLES, TABS, cleanFixes, fixesText, isFaceless, sceneProblem, type Gender } from '@/lib/genai';
 
 type Status = { enabled: boolean; user: { email: string; guest: boolean } | null; left: number; limit: number; unlimited: boolean };
 type Result = { url: string; ms: number };
@@ -58,6 +58,7 @@ export function GenAi() {
   const [tab, setTab] = useState<Gender>('f');
   const [photo, setPhoto] = useState('');
   const [noFace, setNoFace] = useState(false);
+  const [fixes, setFixes] = useState<string[]>(DEFAULT_FIXES);   // the error guards that are switched on
   const [picks, setPicks] = useState<Record<Gender, Record<string, string>>>({ f: TABS.f.defaults, m: TABS.m.defaults });
   const [customs, setCustoms] = useState<Record<Gender, string | null>>({ f: null, m: null });   // null = the description follows the choices
   const cfg = TABS[tab], pick = picks[tab], custom = customs[tab];
@@ -90,6 +91,7 @@ export function GenAi() {
   const views = noFace ? cfg.views.filter((v) => FACELESS_VIEWS.includes(v.id)) : cfg.views;
   const poses = cfg.poses(pick.frame, pick.view);
   const faceless = isFaceless(pick.view);
+  const fixText = fixesText(cleanFixes(fixes), noFace || isFaceless(pick.view));
   const stories = cfg.types.length ? cfg.stories.filter((x) => x.type === pick.type) : cfg.stories;
   const auto = useMemo(() => cfg.compose(cfg.clean(pick, noFace)), [cfg, pick, noFace]);
   const shown = custom ?? auto;
@@ -97,7 +99,7 @@ export function GenAi() {
   const badText = bad === 'short' ? 'Mô tả quá ngắn.' : bad ? errText('E_PROMPT_BLOCKED') : '';
 
   const user = status?.user, canUse = !!status && status.enabled && !!user && !user.guest;
-  const why = !photo ? 'Hãy chọn ảnh của bạn ở bước 1.' : bad ? 'Hãy sửa lại mô tả ở bước 7.' : status && !status.unlimited && status.left <= 0 ? 'Hôm nay bạn đã dùng hết lượt.' : '';
+  const why = !photo ? 'Hãy chọn ảnh của bạn ở bước 1.' : bad ? 'Hãy sửa lại mô tả ở bước 8.' : status && !status.unlimited && status.left <= 0 ? 'Hôm nay bạn đã dùng hết lượt.' : '';
 
   function pickFile(f?: File) {
     if (!f) return;
@@ -128,7 +130,7 @@ export function GenAi() {
       try {
         r = await fetch('/api/gen-ai', {
           method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consent: { personal: true, adult: true, terms: LEGAL_VERSION }, photo, noFace, gender, pick: cfg.clean(pick, noFace), scene: custom ?? undefined }),
+          body: JSON.stringify({ consent: { personal: true, adult: true, terms: LEGAL_VERSION }, photo, noFace, gender, fixes, pick: cfg.clean(pick, noFace), scene: custom ?? undefined }),
         });
       } catch (e: any) {   // the request never got an answer (lost connection, closed tab, timeout)
         const ref = await report({ code: 'E_NET', detail: `fetch failed: ${String(e?.message || e)}`, gender, size });
@@ -244,7 +246,24 @@ export function GenAi() {
             <div className="ga-chips">{cfg.hairs.map((h) => <button key={h.id} type="button" aria-pressed={pick.hair === h.id} onClick={() => set({ hair: h.id })}>{h.label}</button>)}</div>
           </Section>
 
-          <Section n={7} title="Mô tả gửi cho AI (prompt)" sub="Đây là phần mô tả được tạo từ các lựa chọn của bạn. Muốn tự viết thì sửa thẳng vào ô dưới (viết tiếng Anh sẽ chính xác hơn).">
+          <Section n={7} title="Chống lỗi ảnh" sub="Mỗi mục thêm một câu mô tả ảnh đẹp vào prompt để AI tránh lỗi đó. Bật càng nhiều thì càng ít lỗi, nhưng ảnh có thể kém tự do hơn.">
+            <div className="ga-actions ga-fix-act">
+              <button type="button" className="ga-link" onClick={() => setFixes(FIXES.map((f) => f.id))}>Bật hết</button>
+              <button type="button" className="ga-link" onClick={() => setFixes([...DEFAULT_FIXES])}>Mặc định</button>
+              <button type="button" className="ga-link" onClick={() => setFixes([])}>Tắt hết</button>
+              <span className="ga-fix-n">{fixes.length}/{FIXES.length} đang bật</span>
+            </div>
+            {FIX_GROUPS.map((g) => (
+              <div className="ga-row" key={g}><Label>{g}</Label>
+                <div className="ga-fixes">{FIXES.filter((f) => f.group === g).map((f) => {
+                  const on = fixes.includes(f.id);
+                  return <button key={f.id} type="button" className="ga-fix" aria-pressed={on} onClick={() => setFixes((a) => (on ? a.filter((x) => x !== f.id) : [...a, f.id]))}><b>{f.label}</b><small>{f.hint}</small><i aria-hidden="true">{on ? '✓' : ''}</i></button>;
+                })}</div>
+              </div>
+            ))}
+          </Section>
+
+          <Section n={8} title="Mô tả gửi cho AI (prompt)" sub="Đây là phần mô tả được tạo từ các lựa chọn của bạn. Muốn tự viết thì sửa thẳng vào ô dưới (viết tiếng Anh sẽ chính xác hơn).">
             <textarea className="ga-in" value={shown} maxLength={SCENE_MAX} onChange={(e) => setCustom(e.target.value)} spellCheck={false} />
             <div className="ga-prompt-foot">
               <span>{shown.length}/{SCENE_MAX}</span>
@@ -252,6 +271,7 @@ export function GenAi() {
             </div>
             {custom !== null && <p className="ga-sub">Bạn đã tự sửa mô tả, nên các lựa chọn ở trên không còn đổi mô tả nữa.</p>}
             {badText && <p className="ga-err">{badText}</p>}
+            {fixText && <details className="ga-fixtext"><summary>Phần chống lỗi được thêm vào prompt</summary><p>{fixText}</p></details>}
             <p className="ga-sub">Hệ thống luôn tự thêm: lấy khuôn mặt từ ảnh của bạn, trang phục thanh lịch kín đáo. Mô tả vi phạm điều khoản sẽ bị từ chối.</p>
           </Section>
       </>

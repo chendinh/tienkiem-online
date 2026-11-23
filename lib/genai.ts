@@ -149,9 +149,11 @@ export const SCENE_MAX = 2400, SCENE_MIN = 20;
 export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face with smooth luminous skin and bright eyes. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
 export type Gender = 'f' | 'm';
 export const isGender = (v: unknown): v is Gender => v === 'f' || v === 'm';
-export const buildGenPrompt = (scene: string, noFace: boolean, gender: Gender = 'f'): string => {
+export const buildGenPrompt = (scene: string, noFace: boolean, gender: Gender = 'f', fixes?: unknown, faceless = noFace): string => {
   const body = scene.trim().replace(/\s+/g, ' ').slice(0, SCENE_MAX);
-  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + body + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + body + FACE_SUFFIX;
+  const notes = fixesText(cleanFixes(fixes), faceless);
+  const mid = notes ? `${body} ${notes}` : body;
+  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + mid + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + mid + FACE_SUFFIX;
 };
 
 // The scene that is really used: the player's own text when they rewrote it (custom), otherwise the one made from the choices (never trusted from the browser).
@@ -163,6 +165,52 @@ export const sceneProblem = (scene: string): string | null => (scene.trim().leng
 
 // The day the turns are counted in: the Vietnamese day (UTC+7).
 export const dayKey = (now = Date.now()) => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
+
+// ---- "chống lỗi" (error guards) -------------------------------------------------------------------------------------------------
+// Seedream has no negative prompt box, and "no extra fingers" tends to draw extra fingers. So each guard is a short POSITIVE sentence describing the right
+// result; the ones the player switches on are added after the scene. The player only switches them on or off (no free text), the server rebuilds the text from the ids.
+// The wording is neutral ("the character") so the same guards serve both tabs.
+export interface Fix { id: string; group: string; label: string; hint: string; text: string }
+export const FIX_GROUPS = ['Tay và chân', 'Khuôn mặt', 'Cơ thể và dáng', 'Trang phục', 'Bối cảnh và ánh sáng', 'Chất lượng ảnh'];
+const F = (id: string, group: string, label: string, hint: string, text: string): Fix => ({ id, group, label, hint, text });
+export const FIXES: Fix[] = [
+  F('fingers', 'Tay và chân', 'Ngón tay thon, tách rõ', 'Tránh ngón dính, thừa, thiếu', 'every visible hand has slender, clearly separated fingers with natural joints and neat fingernails'),
+  F('arms', 'Tay và chân', 'Cánh tay nối liền mạch', 'Tránh tay dài ngắn, gập lạ', 'the shoulders, elbows, wrists and hands connect smoothly, both arms of equal natural length'),
+  F('legs', 'Tay và chân', 'Hai chân cân đối', 'Tránh chân dài ngắn, đầu gối lệch', 'the legs have equal natural length with smooth knees and balanced weight on the ground'),
+  F('feet', 'Tay và chân', 'Bàn chân gọn', 'Tránh bàn chân to, méo', 'any visible feet are small, neat and firmly grounded'),
+  F('faceSym', 'Khuôn mặt', 'Mặt cân đối', 'Tránh mặt lệch, méo', 'a symmetrical, harmonious face with two eyes of the same size, a straight nose and a natural mouth'),
+  F('eyes', 'Khuôn mặt', 'Mắt sáng, rõ nét', 'Tránh mắt lé, lệch', 'bright clear eyes with detailed irises, both looking in the same direction'),
+  F('head', 'Khuôn mặt', 'Đầu nhỏ vừa người', 'Tránh đầu to hơn cơ thể', 'a small delicate head that suits the slim figure, a long natural neck'),
+  F('hair', 'Khuôn mặt', 'Tóc mượt, từng lọn rõ', 'Tránh tóc rối, dính vào mặt', 'hair flows in smooth, well-defined locks that frame the face'),
+  F('single', 'Cơ thể và dáng', 'Chỉ một nhân vật', 'Tránh nhân đôi, hai đầu', 'exactly one person in the picture, with one head and one body'),
+  F('posture', 'Cơ thể và dáng', 'Dáng đứng, ngồi vững', 'Tránh dáng gãy, vặn lạ', 'a balanced, relaxed posture with a straight spine, level shoulders and natural weight distribution'),
+  F('shoulders', 'Cơ thể và dáng', 'Vai và cổ tự nhiên', 'Tránh vai lệch, cổ dài quá', 'a slender neck joins naturally to level shoulders'),
+  F('cloth', 'Trang phục', 'Vải rủ tự nhiên', 'Tránh áo méo, tay áo lạ', 'fabric folds fall naturally with gravity, sleeves and sashes flow in one consistent direction, the collar is neat and symmetrical'),
+  F('accessory', 'Trang phục', 'Trang sức gọn, đối xứng', 'Tránh phụ kiện rối, thừa', 'a few elegant accessories placed symmetrically, each clearly drawn'),
+  F('bg', 'Bối cảnh và ánh sáng', 'Nền gọn, một điểm nhấn', 'Tránh nền rối, nhiều vật lạ', 'an orderly background with layered depth and one clear focal point on the character'),
+  F('light', 'Bối cảnh và ánh sáng', 'Ánh sáng nhất quán', 'Tránh bóng đổ nhiều hướng', 'one consistent light direction with matching soft shadows'),
+  F('clean', 'Chất lượng ảnh', 'Ảnh sạch, không chữ', 'Tránh chữ, logo, khung viền', 'a clean, pure illustration made of the scene alone, filling the whole frame'),
+  F('sharp', 'Chất lượng ảnh', 'Sắc nét, nhiều chi tiết', 'Tránh ảnh nhòe, mờ', 'sharp focus, crisp fine detail, high resolution, smooth clean edges'),
+  F('color', 'Chất lượng ảnh', 'Màu hài hòa', 'Tránh màu chói, lòe loẹt', 'a harmonious colour palette built on three main hues'),
+];
+// On by default: the ones that fix what players meet most (hands, face, doubles, posture, mess, blur). The rest the player may add.
+export const DEFAULT_FIXES = ['fingers', 'faceSym', 'eyes', 'single', 'posture', 'bg', 'sharp'];
+// Ids about the face are left out of pictures that show none (they would invite the model to show it).
+const FACE_FIXES = ['faceSym', 'eyes', 'hair'];
+export const FIXES_MAX = 1700;
+// Anything not a known id is dropped, duplicates too; no list at all means the defaults. The order is always the one of FIXES.
+export function cleanFixes(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_FIXES];
+  const want = new Set(raw.filter((x): x is string => typeof x === 'string'));
+  return FIXES.filter((f) => want.has(f.id)).map((f) => f.id);
+}
+export function fixesText(ids: string[], faceless = false): string {
+  const t = FIXES.filter((f) => ids.includes(f.id) && !(faceless && FACE_FIXES.includes(f.id))).map((f) => f.text);
+  return t.length ? `Quality notes: ${t.join('; ')}.`.slice(0, FIXES_MAX) : '';
+}
+// Whether the picture shows no face: the photo has none, or the chosen view is from behind or hidden.
+export const facelessOf = (gender: Gender, pick: unknown, noFace: boolean): boolean => noFace || isFaceless(TABS_VIEW(gender, pick, noFace));
+const TABS_VIEW = (gender: Gender, pick: unknown, noFace: boolean): string => (gender === 'm' ? M.cleanPick(pick, noFace).view : cleanPick(pick, noFace).view);
 
 // What the page needs for each tab, so one page serves both (the page only reads this table).
 type Pk = Record<string, string>;

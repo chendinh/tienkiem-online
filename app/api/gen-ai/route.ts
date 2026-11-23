@@ -7,7 +7,7 @@ import { serverNow } from '@/lib/server/service';
 import { claimJob, releaseJobs } from '@/lib/server/images';
 import { addSpent, bonusOf, giveBonusBack, giveTurnBack, recordGen, spentToday, takeTurn, turnsUsed, useBonus } from '@/lib/server/genaiQuota';
 import { FACE_MAX_CHARS, inputOf, isPhotoDataUrl, modelOf } from '@/lib/anh18';
-import { LEGAL_VERSION, buildGenPrompt, consentOk, QUIET_CODES, isGender, isUnlimited, sceneOf, sceneProblem, turnsLeft } from '@/lib/genai';
+import { LEGAL_VERSION, buildGenPrompt, consentOk, QUIET_CODES, cleanFixes, facelessOf, isGender, isUnlimited, sceneOf, sceneProblem, turnsLeft } from '@/lib/genai';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -15,7 +15,7 @@ export const maxDuration = 300;
 // The player-facing picture maker. Signed-in accounts with an e-mail only (guests are refused), Seedream 4.5 "edit" with the player's own photo and nothing else,
 // the fal safety checker always on. The photo goes to fal and is not stored; the picture stays on fal's CDN (the page offers it for download at once).
 // GET   -> { enabled, user, left, limit, terms }                         (user is null when nobody is signed in)
-// POST  { consent: { personal, adult, terms }, photo, gender?: 'f' | 'm', noFace?, pick, scene? }  -> { ok, url, w, h, ms, left }
+// POST  { consent: { personal, adult, terms }, photo, gender?: 'f' | 'm', noFace?, pick, scene?, fixes?: string[] (ids of the error guards, lib/genai.ts) }  -> { ok, url, w, h, ms, left }
 // Limits (environment): GENAI_DAILY_LIMIT turns per account per day (default 3), GENAI_DAILY_BUDGET_USD for the whole site per day (default 5),
 // GENAI_COST_USD per picture (default 0.04, Seedream 4.5), GENAI_OFF=1 closes the feature.
 const limitPerDay = () => Math.max(1, Math.floor(Number(process.env.GENAI_DAILY_LIMIT) || 3));
@@ -99,9 +99,9 @@ async function run(req: Request, ctx: Ctx): Promise<Response> {
           else throw new ApiError('E_GENAI_LIMIT', 429);
         }
         // what is kept for abuse handling: who, when, which terms were confirmed, the description. Never the photo.
-        try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, gender, custom, noFace, unlimited, scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
+        try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, gender, custom, noFace, unlimited, fixes: cleanFixes(b?.fixes), scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
       }
-      const prompt = buildGenPrompt(scene, noFace, gender);
+      const prompt = buildGenPrompt(scene, noFace, gender, b?.fixes, facelessOf(gender, b?.pick, noFace));
       const input = inputOf('seedreamFace', prompt, '4k', 2, false, b.photo);   // the fal safety checker stays on for this model
       const { fal } = await import('@fal-ai/client');
       const t0 = Date.now();
