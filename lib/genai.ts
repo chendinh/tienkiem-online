@@ -94,6 +94,19 @@ const PEEK: Record<string, string> = {
   ruouhoa: 'candid shot from outside looking in through a wooden garden gate left ajar at the edge of the orchard, the gate frame and a few pear blossom branches softly blurred in the foreground framing her',
 };
 
+// Every picture is built in depth layers: each story names what drifts blurred in front, what fills the middle and what fades behind.
+const LAYERS: Record<string, string> = {
+  lienhoa: 'Depth layers: front, blurred lotus leaves and petals; middle, pond mist and glowing koi; back, a huge hazy moon and the far shore.',
+  hoadiep: 'Depth layers: front, blurred red silk and drifting embers; middle, bamboo stalks and lantern glow; back, smoky firelit bamboo depths.',
+  hoason: 'Depth layers: front, blurred drifting embers and phoenix feathers; middle, smoke over black stone; back, distant glowing lava rivers.',
+  thuphong2: 'Depth layers: front, blurred floating scrolls and dust motes; middle, candle-lit shelves; back, endless hazy shelves fading into golden light.',
+  cocam: 'Depth layers: front, blurred silk curtains and pear petals; middle, incense smoke and floating lanterns; back, the misty lake and a hazy moon.',
+  duthu: 'Depth layers: front, blurred falling peach petals and a lantern; middle, rain mist between the walls; back, the lantern-lit alley fading into fog.',
+  hongtuyen: 'Depth layers: front, blurred wish lanterns; middle, the red thread and sparkles; back, rose-gold clouds and a faint moon bridge.',
+  nguyetmon: 'Depth layers: front, blurred plum blossoms; middle, lattice windows and the lantern path; back, the distant garden and a crescent moon in haze.',
+  ruouhoa: 'Depth layers: front, blurred pear blossom branches and falling petals; middle, night mist among the trees; back, rows of blossoming trees and a hazy full moon.',
+};
+
 // Positive wording only (the model ignores negation): counts, proportions, symmetry. The head size line is the one that matters most for a face taken from a photo.
 export const ANATOMY = 'exactly two arms and at most two hands in the whole picture; the head is small and in natural proportion to the body, about one seventh to one eighth of her total height, with shoulders clearly wider than her head and a long slender neck; a slim waist; every visible hand is small and simple with five natural fingers and a natural thumb; elbows, wrists and knees bend at natural angles';
 
@@ -144,6 +157,7 @@ export function composeScene(p: GenPick): string {
   return [
     `${st.text}. Setting: ${st.setting}.`,
     WATER.has(st.id) ? `Water: ${REFLECTION}.` : '',
+    LAYERS[st.id] || '',
     `Camera: ${by(FRAMES, p.frame).text}, ${p.angle === 'peek' && PEEK[st.id] ? PEEK[st.id] : by(ANGLES, p.angle).text}.`,
     `View: ${view.text}.`,
     faceless ? '' : `Expression: ${by(EXPRESSIONS, p.expr).text}, clearly readable on her face.`,
@@ -159,7 +173,7 @@ export function composeScene(p: GenPick): string {
 }
 
 // ---- the request ---------------------------------------------------------------------------------------------------------------------
-export const SCENE_MAX = 2600, SCENE_MIN = 20;
+export const SCENE_MAX = 2800, SCENE_MIN = 20;
 // Lines the server always puts around the scene, whatever the player wrote. The first one takes ONLY the identity from the photo.
 export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face with smooth luminous skin and bright eyes. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. The face is redrawn with exactly the expression named in the description, whatever expression the photo has. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
 export type Gender = 'f' | 'm';
@@ -168,7 +182,7 @@ export const buildGenPrompt = (scene: string, noFace: boolean, gender: Gender = 
   const body = scene.trim().replace(/\s+/g, ' ').slice(0, SCENE_MAX);
   const notes = fixesText(cleanFixes(fixes), faceless);
   const mid = notes ? `${body} ${notes}` : body;
-  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + mid + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + mid + FACE_SUFFIX;
+  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + M.LAYERS_ALL + mid + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + M.LAYERS_ALL + mid + FACE_SUFFIX;
 };
 
 // The scene that is really used: the player's own text when they rewrote it (custom), otherwise the one made from the choices (never trusted from the browser).

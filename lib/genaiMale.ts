@@ -111,6 +111,21 @@ const PEEK: Record<string, string> = {
   thienlien: 'candid shot from outside looking in through a stone archway at the lakeshore, the arch and golden mist softly blurred in the foreground framing him',
 };
 
+// Every picture is built in depth layers: each story names what drifts blurred in front, what fills the middle and what fades behind.
+const LAYERS: Record<string, string> = {
+  leikiep: 'Depth layers: front, blurred translucent sparks and rune seals; middle, wind-torn clouds; back, distant lightning in black clouds.',
+  hoaviem: 'Depth layers: front, blurred smoke and drifting embers; middle, blue flames among broken pillars; back, far hazy ruins.',
+  chienthan: 'Depth layers: front, blurred cranes and banner edges; middle, golden light over the stone steps; back, a vast sea of clouds fading into the sunrise.',
+  kiemlanh: 'Depth layers: front, blurred translucent crystal shards; middle, cold mist and light motes; back, a deep glowing blue void.',
+  trucdem: 'Depth layers: front, blurred bamboo leaves and fireflies; middle, moonlit mist between the stalks; back, distant silver-lit bamboo depths.',
+  luado: 'Depth layers: front, blurred red ribbons and bamboo leaves; middle, dappled light through the lattice; back, soft sunlit bamboo behind.',
+  tuyetdinh: 'Depth layers: front, blurred pine branches and layered snow mist; middle, icy haze; back, the frozen lake and moonlit peaks.',
+  cocamnam: 'Depth layers: front, blurred bamboo leaves and petals; middle, stream mist and fireflies; back, blue misty peaks and a pale moon.',
+  tradinh: 'Depth layers: front, blurred plum blossoms and steam; middle, lantern glow over the tea table; back, drifting clouds and far peaks.',
+  thuphapnam: 'Depth layers: front, blurred plum petals and candle glow; middle, paper and inkstone in warm light; back, a dim study and a pale moon at the window.',
+  thienlien: 'Depth layers: front, blurred glowing lotus petals; middle, golden mist on the water; back, the dawn horizon of the lake.',
+};
+export const LAYERS_ALL = 'The picture is built in clearly separated depth layers, front to back: soft out-of-focus translucent foreground elements, the sharp character, a misty middle ground and a dreamy glowing background, each layer divided by soft haze and light bloom. ';
 export const EXPRESSIONS: MChoice[] = [
   { id: 'cool', label: 'Lạnh lùng', icon: '😐', hint: 'Không cười, ánh mắt sắc', text: 'a cold, composed expression without a smile, sharp steady eyes, lips closed and calm', tone: 'cold silver-blue light, crisp still air, strong contrast, a solemn atmosphere' },
   { id: 'fierce', label: 'Quyết liệt', icon: '😠', hint: 'Mày chau, mắt rực khí thế', text: 'a fierce, determined expression, brows drawn together, burning intense eyes, jaw set firm', tone: 'dramatic high-contrast light, strong rim light, wind-whipped robes, embers and spirit energy surging' },
@@ -165,6 +180,7 @@ export function composeScene(p: MalePick): string {
   return [
     `${st.text}. Setting: ${st.setting}.`,
     WATER.has(st.id) ? `Water: ${REFLECTION_M}.` : '',
+    LAYERS[st.id] || '',
     `Character: ${ty.text}.`,
     `Camera: ${by(FRAMES, p.frame).text}, ${p.angle === 'peek' && PEEK[st.id] ? PEEK[st.id] : by(ANGLES, p.angle).text}.`,
     `View: ${view.text}.`,

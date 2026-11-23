@@ -270,3 +270,9 @@ test('the doorway camera fits each story: its own door or gate, and the generic 
   for (const st of STORIES) assert.match(composeScene(cleanPick({ ...DEFAULT_PICK, story: st.id, angle: 'peek' })), /looking in through/, st.id);
   for (const st of M.STORIES) assert.match(M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: st.type, story: st.id, angle: 'peek' })), /looking in through/, st.id);
 });
+
+test('every story names its depth layers and every prompt asks for separated layers', () => {
+  for (const st of STORIES) assert.match(composeScene(cleanPick({ ...DEFAULT_PICK, story: st.id })), /Depth layers: front, .*; middle, .*; back, /, st.id);
+  for (const st of M.STORIES) assert.match(M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: st.type, story: st.id })), /Depth layers: front, /, st.id);
+  for (const g of ['f', 'm'] as const) for (const nf of [false, true]) assert.match(buildGenPrompt('x'.repeat(30), nf, g), /separated depth layers/);
+});
