@@ -52,7 +52,7 @@ const Label = ({ children }: { children: ReactNode }) => <div className="ga-lab"
 export function GenAi() {
   const [status, setStatus] = useState<Status | null>(null);
   const [loadErr, setLoadErr] = useState('');
-  const [legalOk, setLegalOk] = useState(true);   // starts true so the popup does not flash on the server render; the effect below decides
+  const [legalOk, setLegalOk] = useState<boolean | null>(null);   // null until the browser has been asked: nothing is drawn before that, so neither the page nor the popup flashes on reload
   const [legalTick, setLegalTick] = useState(false);
   const [tab, setTab] = useState<'f' | 'm'>('f');
   const [photo, setPhoto] = useState('');
@@ -142,6 +142,7 @@ export function GenAi() {
     } catch { window.open(result.url, '_blank', 'noopener'); }
   }
 
+  if (legalOk === null) return <main className="ga" aria-busy="true" />;
   return (
     <main className="ga">
       <header className="ga-head">
