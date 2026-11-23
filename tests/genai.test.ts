@@ -276,3 +276,9 @@ test('every story names its depth layers and every prompt asks for separated lay
   for (const st of M.STORIES) assert.match(M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: st.type, story: st.id })), /Depth layers: front, /, st.id);
   for (const g of ['f', 'm'] as const) for (const nf of [false, true]) assert.match(buildGenPrompt('x'.repeat(30), nf, g), /separated depth layers/);
 });
+
+test('one person only: every prompt says so, and no story or expression text invites a second person', () => {
+  for (const g of ['f', 'm'] as const) for (const nf of [false, true]) assert.match(buildGenPrompt('x'.repeat(30), nf, g), /only person in the whole picture[\s\S]*does not appear in the image/);
+  const all = [...STORIES.map((x) => x.id + ' ' + composeScene(cleanPick({ ...DEFAULT_PICK, story: x.id }))), ...M.STORIES.map((x) => x.id + ' ' + M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: x.type, story: x.id })))];
+  for (const t of all) assert.doesNotMatch(t, /someone|empty seat|two cups|beloved|each other|companion|crowd|disciple|lover|couple/i, t.slice(0, 40));
+});

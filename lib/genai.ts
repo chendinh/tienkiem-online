@@ -45,7 +45,16 @@ const MOOD: Record<string, string> = {
   ruouhoa: 'Vườn lê nở rộ dưới trăng, chén ngọc chờ ai đó',
 };
 export interface GenStory extends Opt { setting: string; mood: string }
-export const STORIES: GenStory[] = ALL_STORIES.filter((s) => !HIDDEN_STORIES.includes(s.id)).map((s) => ({ ...s, mood: MOOD[s.id] || '' }));
+// The lab's texts mention a second person (an empty seat to smile at, someone far away, a beloved in the crowd, two cups): the model draws that person. Here every story is about the character alone.
+const ALONE: Record<string, { text?: string; setting?: string }> = {
+  cocam: { text: 'a gentle musician-immortal with a guqin before her, her long sleeves covering her hands, lost in a love song, gazing softly into the distance' },
+  duthu: { text: 'a romantic maiden with an oil-paper umbrella and a soft hopeful smile, alone in the rain of petals' },
+  hongtuyen: { text: 'a fated maiden whose glowing red thread of destiny drifts from her sleeve across the frame and fades into the glowing sky, her eyes following it with longing and a hidden smile' },
+  ruouhoa: { text: 'a slightly tipsy immortal beauty with flushed cheeks, a jade wine cup on the low table before her, smiling softly at the cup', setting: 'a pear blossom orchard in full bloom at midnight, a stone table with a wine jar and a single jade cup, a full moon, petals falling like snow' },
+};
+export const STORIES: GenStory[] = ALL_STORIES.filter((s) => !HIDDEN_STORIES.includes(s.id)).map((s) => ({ ...s, ...(ALONE[s.id] || {}), mood: MOOD[s.id] || '' }));
+// Always in the prompt, whatever the switches say: the reference photo only lends a face, and the character is the one and only person.
+export const ONE_PERSON = 'The character is the only person in the whole picture, drawn once, with one head and one body. The reference photo is only a source for the face and does not appear in the image. Everything else is scenery and objects, with no other person, figure, silhouette or face. ';
 
 // UI helpers shown next to each option (the text is Vietnamese for the player; `text` stays English for the model).
 export interface Choice extends Opt { icon: string; hint: string; tone?: string }
@@ -182,7 +191,7 @@ export const buildGenPrompt = (scene: string, noFace: boolean, gender: Gender = 
   const body = scene.trim().replace(/\s+/g, ' ').slice(0, SCENE_MAX);
   const notes = fixesText(cleanFixes(fixes), faceless);
   const mid = notes ? `${body} ${notes}` : body;
-  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + M.LAYERS_ALL + mid + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + M.LAYERS_ALL + mid + FACE_SUFFIX;
+  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + M.LAYERS_ALL + ONE_PERSON + mid + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + M.LAYERS_ALL + ONE_PERSON + mid + FACE_SUFFIX;
 };
 
 // The scene that is really used: the player's own text when they rewrote it (custom), otherwise the one made from the choices (never trusted from the browser).
