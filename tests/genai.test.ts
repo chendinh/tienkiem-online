@@ -291,3 +291,10 @@ test('the lavender close-up story (her) and the crystal-eye story (him): present
   assert.match(b, /crystal beads/); assert.match(b, /Depth layers/); assert.match(b, /chin lowered/);
   assert.equal(sceneProblem(a), null); assert.equal(sceneProblem(b), null);
 });
+
+test('the lavender hair (her) and the crystal-bead hair (him) exist and compose', () => {
+  assert.ok(HAIR.some((h) => h.id === 'lavender')); assert.ok(M.HAIR.some((h) => h.id === 'crystal'));
+  assert.match(composeScene(cleanPick({ ...DEFAULT_PICK, hair: 'lavender' })), /lavender-purple hair/);
+  assert.match(M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, hair: 'crystal' })), /crystal beads/);
+  assert.ok(!/\b(she|her)\b/i.test(M.HAIR.find((h) => h.id === 'crystal')!.text));
+});

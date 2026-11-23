@@ -4,11 +4,13 @@
 //  - five stories are switched off for now (HIDDEN_STORIES), the round moon-gate camera is gone and a "peek through a doorway" camera takes its place;
 //  - the hands have a "natural" choice, the expressions are described feature by feature so they read clearly, and the body proportions are spelled out;
 //  - the player sees the whole description (the prompt) and may rewrite it; the server still adds its fixed lines and runs the word filter on it.
-import { FRAMES, HAIR, LAYOUT, LEVELS, REFLECTION, STORIES as ALL_STORIES, STORY_POSE, STYLES, VIEWS, validPoses, POSES, type Opt, type Pose } from './wallpaper';
+import { FRAMES, HAIR as LAB_HAIR, LAYOUT, LEVELS, REFLECTION, STORIES as ALL_STORIES, STORY_POSE, STYLES, VIEWS, validPoses, POSES, type Opt, type Pose } from './wallpaper';
 import { FACELESS_PREFIX, FACE_SUFFIX, promptProblem } from './anh18';
 import * as M from './genaiMale';
 
-export { FRAMES, HAIR, STYLES, VIEWS, POSES, validPoses, promptProblem };
+// The lab's list plus the lavender look from the owner's references.
+export const HAIR: Opt[] = [...LAB_HAIR, { id: 'lavender', label: 'Tím lavender buông xõa, trâm bạc', text: 'long, silky lavender-purple hair parted in the centre and flowing loose past her shoulders, a slim silver crown hairpin with small pearls, a few fine strands drifting across her cheek' }];
+export { FRAMES, STYLES, VIEWS, POSES, validPoses, promptProblem };
 export type { Opt, Pose };
 
 // ---- legal -------------------------------------------------------------------------------------------------------------------------

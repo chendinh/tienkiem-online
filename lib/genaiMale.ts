@@ -144,6 +144,7 @@ export const HAIR: Opt[] = [
   { id: 'topknot', label: 'Búi cao, mão ngọc', text: 'hair gathered in a neat high topknot with a jade hair crown and a slim silver hairpin, long hair falling behind him' },
   { id: 'halfup', label: 'Nửa búi, trâm ngọc', text: 'half-up half-down black hair held by a jade hairpin, loose strands framing his face' },
   { id: 'lowtie', label: 'Buộc thấp, hai lọn mai rủ trước', text: 'long black hair tied low at the nape with a silk cord, two long strands hanging down on either side of his face' },
+  { id: 'crystal', label: 'Đen dài, hạt pha lê', text: 'long black hair with a few strands drifting across his face, tiny glittering crystal beads threaded into the hair and a blue jade tassel hanging at his side' },
   { id: 'ribbon', label: 'Xõa dài, dải lụa đỏ', text: 'long loose black hair with a red silk ribbon fluttering through it' },
   { id: 'ponytail', label: 'Đuôi ngựa cao, dây buộc', text: 'a high flowing ponytail tied with a dark cord, long side bangs and wind-swept strands' },
   { id: 'wind', label: 'Tóc dài bay trong gió', text: 'long black hair blown back by the wind, flowing behind him in dramatic streams' },
