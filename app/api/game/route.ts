@@ -10,7 +10,8 @@ export const maxDuration = 60;
 export async function GET(req: Request) {
   return guard(async () => {
     const u = await requireUser(req);
-    const out = await getGame(u.id);
+    const logs = Number(new URL(req.url).searchParams.get('logs'));   // the newest journey row whose fight log the browser already has (lib/feedlogs.ts)
+    const out = await getGame(u.id, Number.isSafeInteger(logs) && logs > 0 ? logs : 0);
     after(() => touchPresence(u.id));   // the minute counts as online time on the report page
     return json(out);
   });

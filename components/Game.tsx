@@ -10,6 +10,7 @@ import { type FeedEntry, pstats, levelOf, threshold, outfitTier, auraElement, at
 import type { GS } from '@/lib/client/types';
 import { authMe, authPost, gameGet, gameAct, watchNet, type AuthUser } from '@/lib/client/api';
 import { errText } from '@/lib/strings';
+import { makeLogCache } from '@/lib/feedlogs';
 import { BALANCE } from '@/lib/balance';
 import { AuthScreen, LinkEmailModal } from './Auth';
 import { RankingModal } from './Ranking';
@@ -333,6 +334,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const [linkOpen, setLinkOpen] = useState(false), [nagGone, setNagGone] = useState(false), [replay, setReplay] = useState(false), [book, setBook] = useState(false);   // replay: the tutorial opened again from Cài đặt
   useEffect(() => { if (linkNote) toast(linkNote.t, linkNote.ok); }, [linkNote]);
   const stRef = useRef<GS | null>(null);
+  const [logCache] = useState(makeLogCache);   // the fight logs the browser has received, so a poll can leave them out (lib/feedlogs.ts)
   const stormRef = useRef(false);
   const dirty = useRef(false), saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null), saveVer = useRef(0), freshSeen = useRef(false);
   const [, setN] = useState(0);
@@ -418,6 +420,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     catch { return { ok: false, msg: errText('E_SERVER'), code: 'E_SERVER' }; }
     finally { setBusy((n) => n - 1); inflight.current--; }
     if (out.code === 'E_AUTH') { onSignOut(); return { ok: false, msg: errText('E_AUTH'), code: 'E_AUTH' }; }
+    if (out.state) logCache.fill(out.state.feed);   // the logs of a fight that this answer brings must be kept: the next poll will leave them out
     if (out.state) {
       actAt.current = performance.now();
       // While a fight is replayed, apply() keeps every newer state aside. That is right for the poll, but the player's own click (clean the bag, wear, buy...)
@@ -430,7 +433,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       } else apply(out.state);
     }
     return { ok: out.ok, msg: out.ok ? out.msg || '' : out.msg || errText(out.code || 'E_SERVER'), data: out.data, code: out.code };
-  }, [apply, onSignOut]);
+  }, [apply, onSignOut, logCache]);
 
   // ---- instant actions. What needs no dice (lib/intents.ts) is done on the screen at once, with the very same rules the server uses, on a copy of the state;
   // the server is told in the background, one request after another, and its answer replaces the copy. The caller gets the result right away, so nothing
@@ -498,7 +501,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     const run = (async () => {
       try {
         const t0 = performance.now(); lastPoll.current = t0;
-        const out = await gameGet();
+        let out = await gameGet(logCache.since());
+        // a fight log that the answer left out and the cache does not hold: ask again for all of them (never shows a row without its log)
+        if (out.state && !logCache.fill(out.state.feed)) { out = await gameGet(0); if (out.state) logCache.fill(out.state.feed); }
         if (out.code === 'E_AUTH') onSignOut();
         else if (out.state) { if (t0 >= actAt.current && inflight.current === 0) apply(out.state); }
         else if (out.ok) setIntro(true);
@@ -506,7 +511,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     })();
     polling.current = run;
     return run;
-  }, [apply, onSignOut]);
+  }, [apply, onSignOut, logCache]);
   useEffect(() => {
     watchNet(setNet);
     poll().finally(() => setReady(true));

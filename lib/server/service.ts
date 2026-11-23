@@ -15,6 +15,7 @@ import * as M from './market';
 import { PURE_INTENTS } from '../intents';
 import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
 import { dailyVersion, dailyPacks, relicSig } from '../daily';
+import { cutFeedLogs } from '../feedlogs';
 const dailyArtCount = () => dailyPacks().filter((p) => p.beast && p.beast.art).length;   // changes when a picture arrives, so the browser reloads /api/daily
 
 const T0 = Date.UTC(2026, 0, 1);
@@ -37,10 +38,12 @@ function decisionView(st: G.GameState, now: number) {
   const pv = G.previewBreakthrough(st);
   return { ...d, preview: pv.ok ? pv.data : null };
 }
-export function toView(st: G.GameState, now: number) {
+// logsSince: the poll already has the fight logs of the journey rows up to this id (lib/feedlogs.ts), so they are left out.
+export function toView(st: G.GameState, now: number, logsSince = 0) {
   const { seed: _s, streams: _r, reqs: _q, pend: _p, auditQ: _a, relicQ: _rq, ledger, ledgerDaily, reports, ...rest } = st;
   return {
     ...rest,
+    feed: cutFeedLogs(st.feed, logsSince),
     ledger: ledger.slice(-40), ledgerBalance: G.ledgerSum(st), ledgerDaily,
     pending: reports.filter((r) => !r.seen), decision: decisionView(st, now),
     now, odds: G.oddsOf(st, now), zones: G.zonesView(st, now), events: G.eventsView(now), week: W.weekView(now),
@@ -188,14 +191,14 @@ function settleCopy(st: G.GameState, now: number): { work: G.GameState; out: G.S
 // it settles a copy and returns it without taking the lock or writing, and the next request replays the same few ticks. It saves only after a minute of
 // game time (so the ranking and the stored clock keep up) or after an offline absence (the report is stored with it). Before, every 5 s poll took the account lock
 // and wrote the whole save (200 KB or more), which also made every click wait behind a poll.
-export async function getGame(id: string): Promise<Out> {
+export async function getGame(id: string, logsSince = 0): Promise<Out> {
   await ensureDaily();
   const acct0 = await readAcct(id);
   if (!acct0) throw new ApiError('E_AUTH', 401);
   if (!acct0.state) return { ok: true, state: null };
   const now0 = serverNow();
   const peek = settleCopy(acct0.state, now0);
-  if (!peek.out.offline && peek.out.ticks < B.pollSaveTicks) return { ok: true, state: toView(peek.work, now0) };
+  if (!peek.out.offline && peek.out.ticks < B.pollSaveTicks) return { ok: true, state: toView(peek.work, now0, logsSince) };
   return withLock(`acct:${id}`, async () => {
     const acct = await readAcct(id);
     if (!acct) throw new ApiError('E_AUTH', 401);
@@ -207,7 +210,7 @@ export async function getGame(id: string): Promise<Out> {
       await drainAudit(id, work, now);
       await commit(id, acct, work);
     }
-    return { ok: true, state: toView(acct.state, now) };
+    return { ok: true, state: toView(acct.state, now, logsSince) };
   });
 }
 

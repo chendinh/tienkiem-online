@@ -21,7 +21,7 @@ export interface AffixRoll { id: string; label: string; stat: string; value: num
 export interface Item { id: number; base: string; slot: string; name: string; tier: number; level: number; el: string; impl: { stat: string; value: number }; affixes: AffixRoll[]; tien?: string; power: number; locked?: boolean; art?: number; rel?: string }
 export interface Beast { id: number; sp: string; name: string; level: number; size: number; cm: number; cls: number; mut: boolean; pers: number; apt: number[]; skills: string[]; stats: number[]; power: number; elite?: boolean }
 export interface BestEntry { seen: number; tamed: number; maxCm: number; minCm: number; mutSeen: number; mutTamed: number }
-export interface FeedEntry { id: number; tick: number; kind: string; text: string; beast?: Beast; item?: Item; outcome?: string; chips?: string[]; log?: string[] }
+export interface FeedEntry { id: number; tick: number; kind: string; text: string; beast?: Beast; item?: Item; outcome?: string; chips?: string[]; log?: string[]; logCut?: true /* only in an answer to a poll (lib/feedlogs.ts), never in a save */ }
 export interface Highlight { prio: number; kind: string; text: string; item?: Item; beast?: Beast; log?: string[]; book?: { name: string; method?: boolean } }
 export interface Report {
   id: string; at: number; seen: boolean; ticks: number; elapsedSec: number; mode: string; zone: string; recoveryTicks: number;

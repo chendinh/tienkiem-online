@@ -34,8 +34,10 @@ export async function authPost(body: any): Promise<AuthOut & { options?: any; ci
   try { const { j } = await send('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return j; }
   catch { return { ok: false, code: 'E_SERVER' }; }
 }
-export async function gameGet(): Promise<ServerOut> {
-  const { status, j } = await retrying(() => send('/api/game'));
+// logsSince: the newest journey row whose fight log the browser already has; the server leaves those logs out (lib/feedlogs.ts).
+export async function gameGet(logsSince = 0): Promise<ServerOut> {
+  const url = logsSince > 0 ? `/api/game?logs=${logsSince}` : '/api/game';
+  const { status, j } = await retrying(() => send(url));
   if (status === 401) return { ok: false, code: 'E_AUTH', state: null };
   return j;
 }
