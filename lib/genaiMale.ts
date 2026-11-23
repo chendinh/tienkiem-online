@@ -106,14 +106,12 @@ export const EXPRESSIONS: MChoice[] = [
 export const HAIR: Opt[] = [
   { id: 'long', label: 'Đen dài buông xõa', text: 'long, glossy black hair falling loose past his shoulders, a few windswept strands across his face' },
   { id: 'silver', label: 'Bạc trắng buông xõa', text: 'long silver-white hair flowing loose down his back, a few strands drifting in the wind' },
-  { id: 'storm', label: 'Bạc xám, dấu ấn trên trán', text: 'long wind-swept silver-grey hair swept back from his face, a small glowing mark on his forehead' },
   { id: 'topknot', label: 'Búi cao, mão ngọc', text: 'hair gathered in a neat high topknot with a jade hair crown and a slim silver hairpin, long hair falling behind him' },
   { id: 'halfup', label: 'Nửa búi, trâm ngọc', text: 'half-up half-down black hair held by a jade hairpin, loose strands framing his face' },
+  { id: 'lowtie', label: 'Buộc thấp, hai lọn mai rủ trước', text: 'long black hair tied low at the nape with a silk cord, two long strands hanging down on either side of his face' },
   { id: 'ribbon', label: 'Xõa dài, dải lụa đỏ', text: 'long loose black hair with a red silk ribbon fluttering through it' },
   { id: 'ponytail', label: 'Đuôi ngựa cao, dây buộc', text: 'a high flowing ponytail tied with a dark cord, long side bangs and wind-swept strands' },
-  { id: 'braid', label: 'Tết nhỏ, chuỗi ngọc', text: 'long dark hair with thin side braids woven with small beads and silver rings' },
-  { id: 'bangs', label: 'Mái dài che mắt, ngang vai', text: 'shoulder-length layered hair with long bangs falling across his eyes' },
-  { id: 'crown', label: 'Mão vàng, tua rua dài', text: 'long dark hair beneath a gold crown with dangling tassels' },
+  { id: 'wind', label: 'Tóc dài bay trong gió', text: 'long black hair blown back by the wind, flowing behind him in dramatic streams' },
 ];
 
 export const ANATOMY = 'exactly two arms and at most two hands in the whole picture; the head is small and in natural proportion to the body, about one seventh to one eighth of his total height, with broad shoulders clearly wider than his head and a strong neck; a lean athletic build; every visible hand is strong and simple with five natural fingers and a natural thumb; elbows, wrists and knees bend at natural angles';

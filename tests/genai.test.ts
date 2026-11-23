@@ -138,7 +138,7 @@ test('male: no round-frame camera, a doorway peek exists, hands have natural and
   assert.ok(M.ANGLES.some((a) => a.id === 'peek') && !M.ANGLES.some((a) => a.id === 'moon'));
   assert.ok(M.HANDS.some((h) => h.id === 'natural') && M.HANDS.some((h) => h.id === 'hidden'));
   for (const e of M.EXPRESSIONS) assert.match(e.text, /eyes|brow|lips|smile|smirk/, e.id);
-  assert.ok(M.HAIR.length >= 10);
+  assert.ok(M.HAIR.length >= 8);
 });
 
 test('male: faceless views have no expression, close-up puts the hands out of frame, poses exist for every frame and view', () => {
