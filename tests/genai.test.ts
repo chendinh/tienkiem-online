@@ -239,3 +239,10 @@ test('the person blends into the scene: a guard that is on by default, and a lin
   assert.match(fixesText(['blend']), /lit by the scene's own light/);
   assert.match(buildGenPrompt(sceneOf({}, undefined, false, 'm').scene, false, 'm'), /lit by the light of the scene, so he belongs naturally/);
 });
+
+test('male: floating elements are semi-transparent and snow is a mist, in the prefix and in the stories', () => {
+  for (const noFace of [false, true]) assert.match(buildGenPrompt('x'.repeat(30), noFace, 'm'), /semi-transparent and dreamy[\s\S]*Snow appears as layered snow mist and icy haze/);
+  const snow = M.composeScene(M.cleanPick({ type: 'cool', story: 'tuyetdinh' }));
+  assert.match(snow, /snow mist/); assert.ok(!/snowflake/i.test(snow));
+  for (const s of M.STORIES) assert.ok(!/snowflake|\bfalling (snow|leaves|petals)\b/i.test(s.text + ' ' + s.setting), s.id);
+});
