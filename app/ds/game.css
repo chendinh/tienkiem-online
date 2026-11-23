@@ -212,8 +212,16 @@
   .zoomable { cursor: zoom-in; }
   .beastBox.zoomable:hover .beastArt { transform: translateY(-3px) scale(1.04); }
   .fill { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .beastArt.mut { border-color: rgb(255 255 255 / 0.4); box-shadow: 0 0 0 2px rgb(255 255 255 / 0.2), 0 0 24px 4px rgb(255 110 168 / 0.6), 0 0 44px rgb(90 180 255 / 0.4); animation: mut-glow 2.6s var(--ease-drift) infinite; animation-play-state: var(--amb); }
-  @keyframes mut-glow { 50% { box-shadow: 0 0 0 2px rgb(255 255 255 / 0.4), 0 0 30px 8px rgb(255 211 110 / 0.65), 0 0 52px rgb(183 139 255 / 0.55); } }
+  /* The Dị Biến glow breathes between two halos (pink and blue, then gold and violet) that cross-fade by opacity. It used to animate the box-shadow of the picture, which
+     repaints a large blurred area on every frame for as long as the creature is on screen. The picture no longer clips with overflow, so the halos can sit outside it;
+     the image carries the rounded corners itself. At fx=low the loop pauses on the first halo, as before. */
+  .beastArt.mut { overflow: visible; border-color: rgb(255 255 255 / 0.4); box-shadow: none; }
+  .beastArt.mut > .fill { border-radius: calc(var(--r-md) - 1px); }
+  .beastArt.mut::before, .beastArt.mut::after { content: ''; position: absolute; inset: -1px; border-radius: var(--r-md); pointer-events: none; animation-duration: 2.6s; animation-timing-function: var(--ease-drift); animation-iteration-count: infinite; animation-play-state: var(--amb); }
+  .beastArt.mut::before { box-shadow: 0 0 0 2px rgb(255 255 255 / 0.2), 0 0 24px 4px rgb(255 110 168 / 0.6), 0 0 44px rgb(90 180 255 / 0.4); animation-name: mut-glow-a; }
+  .beastArt.mut::after { opacity: 0; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.4), 0 0 30px 8px rgb(255 211 110 / 0.65), 0 0 52px rgb(183 139 255 / 0.55); animation-name: mut-glow-b; }
+  @keyframes mut-glow-a { 50% { opacity: 0; } }
+  @keyframes mut-glow-b { 50% { opacity: 1; } }
   .mutBadge { display: inline-block; margin: 0 4px 3px 0; padding: 1px 9px; font-style: normal; font-family: var(--font-text); font-size: var(--fs-xs); font-weight: 600; color: #ffe08a; border: 1px solid rgb(255 211 110 / 0.55); border-radius: var(--r-pill); background: linear-gradient(90deg, rgb(255 110 168 / 0.22), rgb(90 180 255 / 0.22)); }
   .lookTag { display: inline-block; margin: 0 6px 3px 0; padding: 1px 9px; font-style: normal; font-family: var(--font-text); font-size: var(--fs-xs); font-weight: 600; color: var(--hue, #e4bf55); border: 1px solid var(--hue, #e4bf55); border-radius: 999px; background: color-mix(in srgb, var(--hue, #e4bf55) 14%, transparent); white-space: nowrap; }   /* which of the ten Dị Biến looks (Ngọc Bích ...) */
   .imgfb { display: flex; align-items: center; justify-content: center; color: var(--gold-300); font-size: 40px; background: radial-gradient(circle at 50% 40%, #234654, #0a1319); }

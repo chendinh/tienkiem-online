@@ -44,6 +44,9 @@ import { MusicOrb } from './audio/MusicOrb';
 import { Credits } from './Credits';
 
 const POLL_MS = Math.min(BALANCE.onlinePollSec * 1000, 5000);   // never slower than Online_Poll_Interval
+// While nothing on the screen can change before the next answer (see the polling effect) the request is made less often, but still well inside Online_Poll_Interval
+// (requirement 4: in the foreground, at least one request per interval).
+const SLOW_POLL_MS = Math.min(BALANCE.onlinePollSec * 750, 7500);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // A fight log is up to 56 cards. It is built only when the player opens it, and a row is drawn again only when its entry changes (the whole feed is replaced by a new copy at every poll).
@@ -488,13 +491,13 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
 
   // A poll that is already running is shared: a second caller waits for the same request instead of returning at once,
   // so the first load never reports "ready" before the data has arrived (React runs effects twice in development).
-  const polling = useRef<Promise<void> | null>(null);
+  const polling = useRef<Promise<void> | null>(null), lastPoll = useRef(0);
   const poll = useCallback((): Promise<void> => {
     if (stormRef.current) return Promise.resolve();
     if (polling.current) return polling.current;
     const run = (async () => {
       try {
-        const t0 = performance.now();
+        const t0 = performance.now(); lastPoll.current = t0;
         const out = await gameGet();
         if (out.code === 'E_AUTH') onSignOut();
         else if (out.state) { if (t0 >= actAt.current && inflight.current === 0) apply(out.state); }
@@ -507,16 +510,30 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   useEffect(() => {
     watchNet(setNet);
     poll().finally(() => setReady(true));
-    const id = setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+    // The timer wakes twice per POLL_MS; whether a request goes out is decided here.
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      // Slow rhythm when a request would bring little the screen can use yet:
+      //  - a fight is on stage and more wait behind it: nothing newer is shown before the queue is empty (apply() only keeps the newest state aside), so most of what
+      //    comes back is thrown away. The normal rhythm is back as soon as the last queued fight is on stage, which leaves its whole replay to have the next ones ready;
+      //  - the journey waits for an answer that has no clock (a Tu Sĩ in the way, a breakthrough): the server does not move until the player answers, and the answer
+      //    brings the new state back by itself.
+      const d = stRef.current?.decision;
+      const slow = (!!stageNow.current && fightQ.current.length > 0) || (!!d && d.kind !== 'tame');
+      if (performance.now() - lastPoll.current < (slow ? SLOW_POLL_MS : POLL_MS) - 250) return;
+      poll();
+    }, POLL_MS / 2);
     const vis = () => { if (!document.hidden) poll(); };
     document.addEventListener('visibilitychange', vis);
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', vis); };
   }, [poll]);
+  // Whether the picture AI is on is a slow fact (a provider lock lasts 15 minutes): asked once a minute, and not at all while the page is hidden.
   useEffect(() => {
     let alive = true;
-    const load = () => fetch('/api/image').then((r) => r.json()).then((j) => alive && setAi((prev: any) => (JSON.stringify(prev) === JSON.stringify(j) ? prev : j))).catch(() => {});
-    load(); const id = setInterval(load, 15000);
-    return () => { alive = false; clearInterval(id); };
+    const load = () => { if (document.hidden) return; fetch('/api/image').then((r) => r.json()).then((j) => alive && setAi((prev: any) => (JSON.stringify(prev) === JSON.stringify(j) ? prev : j))).catch(() => {}); };
+    load(); const id = setInterval(load, 60000);
+    document.addEventListener('visibilitychange', load);
+    return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', load); };
   }, []);
   // Daily creatures and chronicle chapters: reloaded when the server reports a newer pack (or a new picture).
   const dailyVer = stRef.current?.dailyVer;

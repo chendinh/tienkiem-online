@@ -29,9 +29,11 @@
 
   /* ---- states */
   @keyframes hot-pulse { 0%, 100% { box-shadow: var(--sh-1), 0 0 0 0 transparent; } 50% { box-shadow: var(--sh-1), 0 0 20px 2px color-mix(in srgb, var(--gold-400) 60%, transparent); } }
-  @keyframes bar-flow { from { background-position: 0 0; } to { background-position: -220% 0; } }
-  @keyframes bar-warn { 50% { filter: brightness(1.45) saturate(1.2); } }
-  @keyframes bar-ready { 50% { filter: brightness(1.25); box-shadow: 0 0 26px 2px color-mix(in srgb, var(--gold-400) 85%, transparent); } }
+  /* the loops below move only transform or opacity: those are drawn by the compositor, so a loop that runs for hours does not make the page repaint */
+  @keyframes bar-flow { from { transform: translateX(-100%); } to { transform: translateX(45%); } }
+  @keyframes bar-pulse-hp { 50% { opacity: 0.45; } }   /* = filter: brightness(1.45) at the peak */
+  @keyframes bar-pulse-cp { 50% { opacity: 0.25; } }   /* = filter: brightness(1.25) at the peak */
+  @keyframes hot-glow { 50% { opacity: 1; } }
   @keyframes ripple { 0% { opacity: 0.9; transform: scale(0.4); } 100% { opacity: 0; transform: scale(1.4); } }
   .btn.rip::after, .seg > button.rip::after { animation: ripple 0.65s var(--ease-out); }
   @keyframes glow-pulse { 50% { opacity: 0.55; } }

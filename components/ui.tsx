@@ -265,6 +265,7 @@ export function Bar({ pct, label, cls = '' }: { pct: number; label: string; cls?
       <div className={`bar ${cls} ${low ? 'low' : ''} ${full ? 'full' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p)} aria-label={label}>
         <i className="trail" style={{ width: `${p}%` }} />
         <i className="fill" style={{ width: `${p}%` }} />
+        {(low || full) && <i className="pulse" style={{ width: `${p}%` }} />}
         <span>{label}</span>
       </div>
       <BarCap side="r" />

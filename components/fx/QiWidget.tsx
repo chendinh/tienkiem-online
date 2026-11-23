@@ -35,17 +35,20 @@ export function QiWidget({ aura = '#62cfae' }: { aura?: string }) {
       }
       g.globalAlpha = 1;
     };
-    const loop = (now: number) => {
-      raf = requestAnimationFrame(loop);
-      if (document.hidden || !visible) { last = now; return; }
-      if (now - last < 1000 / fps) return;
-      const dt = Math.min(0.2, (now - last) / 1000); last = now; draw(now, dt);
+    // The loop used to ask for an animation frame on every refresh of the screen (120 a second on a ProMotion phone) only to skip most of them, so the page never
+    // went idle. Now a timer wakes it at the drawing rate and a frame is requested only when there is something to draw; hidden or off screen it checks twice a second.
+    let timer = 0;
+    const tick = () => {
+      timer = 0;
+      if (document.hidden || !visible) { last = performance.now(); timer = window.setTimeout(tick, 500); return; }
+      raf = requestAnimationFrame((now) => { raf = 0; const dt = Math.min(0.2, (now - last) / 1000); last = now; draw(now, dt); timer = window.setTimeout(tick, 1000 / fps); });
     };
     const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver((e) => { visible = e[0].isIntersecting; }) : null;
     io?.observe(c);
-    draw(performance.now(), 0);
-    raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); io?.disconnect(); };
+    last = performance.now();
+    draw(last, 0);
+    timer = window.setTimeout(tick, 1000 / fps);
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); io?.disconnect(); };
   }, [level]);
   if (level === 'off') return null;
   return <canvas ref={cv} className="qiWidget" width={W} height={H} aria-hidden="true" />;
