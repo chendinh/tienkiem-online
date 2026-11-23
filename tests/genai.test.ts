@@ -193,3 +193,8 @@ test('error log entries are shaped and cut short; expected states are not logged
   for (const c of ['E_GENAI_LIMIT', 'E_GENAI_BUSY', 'E_AUTH']) assert.ok(QUIET_CODES.includes(c));
   assert.ok(!QUIET_CODES.includes('E_GENAI_FAIL') && !QUIET_CODES.includes('E_SERVER') && !QUIET_CODES.includes('E_BAD_REQUEST'));
 });
+
+test('male calligraphy story: the writing is on the paper, never on the hand', () => {
+  const sc = M.composeScene(M.cleanPick({ type: 'calm', story: 'thuphapnam', frame: 'full' }));
+  assert.match(sc, /sheet of white paper/); assert.match(sc, /only on the paper/); assert.ok(sc.length < SCENE_MAX);
+});

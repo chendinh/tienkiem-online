@@ -22,7 +22,7 @@ export const STORIES: MStory[] = [
   S('tuyetdinh', 'cool', 'Tuyết đêm đỉnh núi', 'a lone ice-sword cultivator standing in falling snow with frost on his lashes', 'a snowy pine mountain under a cold full moon, swirling snowflakes, a frozen lake, glittering frost', 'Một mình giữa tuyết rơi dưới trăng lạnh'),
   S('cocamnam', 'calm', 'Gảy cổ cầm bên suối', 'a silver-haired immortal playing a guqin beside a stream, a small white rabbit resting at his side', 'a moonlit bamboo grove with a gentle stream, glowing fireflies, drifting petals, a huge pale moon, blue mist on distant peaks', 'Tiếng đàn bên suối, thỏ trắng dưới trăng'),
   S('tradinh', 'calm', 'Pha trà trong đình núi', 'a scholar-immortal brewing tea in a mountain pavilion, steam curling past his calm face', 'a lantern-lit open pavilion on a misty mountain, a low tea table with a jade teapot, plum blossoms, drifting clouds', 'Hơi trà bay trong đình giữa mây núi'),
-  S('thuphapnam', 'calm', 'Thư pháp dưới đèn', 'a refined scholar-immortal writing calligraphy by lantern light, floating scrolls drifting around him', 'a quiet study under a pale moon, a stone desk with ink and brushes, glowing seals, candlelight, falling plum petals', 'Cuộn thư bay quanh nét bút dưới đèn'),
+  S('thuphapnam', 'calm', 'Thư pháp dưới đèn', 'a scholar-immortal at a stone desk, his brush touching a sheet of white paper where fresh black calligraphy flows, glowing scrolls floating around him', 'a quiet study under a pale moon, an unrolled paper scroll on the stone desk with an inkstone, candlelight, falling plum petals', 'Nét bút trên giấy, cuộn thư bay quanh dưới đèn'),
   S('thienlien', 'calm', 'Thiền trên đài sen', 'a serene immortal meditating cross-legged on a lotus platform above a still lake at dawn', 'a mirror-still lake at dawn, giant glowing lotus flowers, soft golden mist', 'Đài sen giữa hồ phẳng lặng lúc bình minh'),
 ];
 const WATER = new Set(['thienlien']);
@@ -80,7 +80,7 @@ const STORY_POSE: Record<string, string> = {
   tuyetdinh: 'standing alone with relaxed shoulders, a sheathed sword at his side, gazing into the distance',
   cocamnam: 'sitting upright on a stone with the guqin across his knees, eyes lowered, long sleeves covering his hands as they rest on the strings',
   tradinh: 'kneeling at the low tea table with a straight back, sleeves falling gracefully, eyes on the teacup',
-  thuphapnam: 'sitting at the stone desk with a straight back, a brush held lightly in a sleeve-covered hand, head bowed in focus',
+  thuphapnam: 'sitting at the desk with a straight back, the brush held above the paper, the wide sleeve lifted clear, eyes on the paper; all writing appears only on the paper',
   thienlien: 'sitting cross-legged with a straight back, hands resting calmly on his knees, eyes closed',
 };
 
