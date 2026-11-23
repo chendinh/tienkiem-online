@@ -81,6 +81,19 @@ export const EXPRESSIONS: Choice[] = [
   { id: 'dream', label: 'Mơ màng', icon: '😌', hint: 'Mắt khép hờ, nhìn xa', text: 'a dreamy look, half-closed eyes gazing into the distance, lips slightly parted', tone: 'hazy luminous bloom, pastel mist, floating motes of light, a soft dreamlike atmosphere' },
 ];
 
+// Looking through a doorway must fit the place: each story names the door, gate or opening that really belongs to its setting (the generic text is the fallback).
+const PEEK: Record<string, string> = {
+  lienhoa: 'candid shot from outside looking in through an open carved wooden doorway of a lakeside corridor, the dark door frame and a silk curtain softly blurred in the foreground framing her',
+  hoadiep: 'candid shot from outside looking in through the parted red silk curtains at the entrance of a bamboo pavilion, the curtain edges and a hanging lantern softly blurred in the foreground framing her',
+  hoason: 'candid shot from outside looking in through a tall black stone temple archway edged with gold, the archway pillars and drifting embers softly blurred in the foreground framing her',
+  thuphong2: 'candid shot from outside looking in through a half-open carved wooden library door, the dark door frame and a hanging silk curtain softly blurred in the foreground framing her',
+  cocam: 'candid shot from outside looking in through the hanging silk curtains at the edge of the lakeside pavilion, the curtains and the carved railing softly blurred in the foreground framing her',
+  duthu: 'candid shot from outside looking in through a carved wooden gate left ajar in a stone alley wall, the dark gate frame and a red lantern softly blurred in the foreground framing her',
+  hongtuyen: 'candid shot from outside looking in through a carved archway of a high pavilion terrace, the dark arch and a hanging wish lantern softly blurred in the foreground framing her',
+  nguyetmon: 'candid shot from outside looking in through a carved lattice window opening in a classical garden wall, the lattice frame and plum branches softly blurred in the foreground framing her',
+  ruouhoa: 'candid shot from outside looking in through a wooden garden gate left ajar at the edge of the orchard, the gate frame and a few pear blossom branches softly blurred in the foreground framing her',
+};
+
 // Positive wording only (the model ignores negation): counts, proportions, symmetry. The head size line is the one that matters most for a face taken from a photo.
 export const ANATOMY = 'exactly two arms and at most two hands in the whole picture; the head is small and in natural proportion to the body, about one seventh to one eighth of her total height, with shoulders clearly wider than her head and a long slender neck; a slim waist; every visible hand is small and simple with five natural fingers and a natural thumb; elbows, wrists and knees bend at natural angles';
 
@@ -131,7 +144,7 @@ export function composeScene(p: GenPick): string {
   return [
     `${st.text}. Setting: ${st.setting}.`,
     WATER.has(st.id) ? `Water: ${REFLECTION}.` : '',
-    `Camera: ${by(FRAMES, p.frame).text}, ${by(ANGLES, p.angle).text}.`,
+    `Camera: ${by(FRAMES, p.frame).text}, ${p.angle === 'peek' && PEEK[st.id] ? PEEK[st.id] : by(ANGLES, p.angle).text}.`,
     `View: ${view.text}.`,
     faceless ? '' : `Expression: ${by(EXPRESSIONS, p.expr).text}, clearly readable on her face.`,
     faceless ? '' : toneLine(by(EXPRESSIONS, p.expr).tone),

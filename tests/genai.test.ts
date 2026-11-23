@@ -261,3 +261,12 @@ test('the photo expression is not kept: the prompt asks for the named expression
   assert.doesNotMatch(EXPRESSIONS.find((e) => e.id === 'sad')!.text, /smile/);
   assert.doesNotMatch(M.EXPRESSIONS.find((e) => e.id === 'sad')!.text, /smile/);
 });
+
+test('the doorway camera fits each story: its own door or gate, and the generic text only as a fallback', () => {
+  const a = composeScene(cleanPick({ ...DEFAULT_PICK, story: 'hoason', angle: 'peek' }));
+  assert.match(a, /black stone temple archway/); assert.doesNotMatch(a, /carved wooden doorway/);
+  const b = M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, story: 'tuyetdinh', angle: 'peek' }));
+  assert.match(b, /half-buried in snow/);
+  for (const st of STORIES) assert.match(composeScene(cleanPick({ ...DEFAULT_PICK, story: st.id, angle: 'peek' })), /looking in through/, st.id);
+  for (const st of M.STORIES) assert.match(M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: st.type, story: st.id, angle: 'peek' })), /looking in through/, st.id);
+});

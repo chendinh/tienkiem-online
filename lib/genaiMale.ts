@@ -96,6 +96,21 @@ const HANDS_CLOSE = 'his hands are outside the frame';
 // The light and colour of the whole scene follow the chosen feeling, so a sad face is not dropped into a cheerful picture (and the reverse). The setting itself stays.
 export const toneLine = (t?: string): string => (t ? `Scene mood: ${t}; same setting.` : '');
 
+// Looking through a doorway must fit the place: each story names the door, gate or opening that really belongs to its setting (the generic text is the fallback).
+const PEEK: Record<string, string> = {
+  leikiep: 'candid shot from outside looking in through a ruined stone archway on the mountain peak, the dark arch edge softly blurred in the foreground framing him',
+  hoaviem: 'candid shot from outside looking in through a broken stone gateway of the ruined battlefield, the crumbling arch edge and drifting smoke softly blurred in the foreground framing him',
+  chienthan: 'candid shot from outside looking in through a stone archway on the cliff, the arch and a crimson war banner softly blurred in the foreground framing him',
+  kiemlanh: 'candid shot from outside looking in through a narrow gap between two translucent blue crystal shards, the shards softly blurred in the foreground framing him',
+  trucdem: 'candid shot from outside looking in through a simple wooden garden gate left ajar in the bamboo grove, the gate frame and bamboo leaves softly blurred in the foreground framing him',
+  luado: 'candid shot from outside looking in through the open bamboo lattice doorway of the pavilion, the dark frame and a red ribbon softly blurred in the foreground framing him',
+  tuyetdinh: 'candid shot from outside looking in through a weathered wooden gate half-buried in snow, the gate frame and snow mist softly blurred in the foreground framing him',
+  cocamnam: 'candid shot from outside looking in through a small wooden gate left ajar beside the stream, the gate frame and bamboo leaves softly blurred in the foreground framing him',
+  tradinh: 'candid shot from outside looking in through the open carved door of the mountain pavilion, the dark door frame and a lantern softly blurred in the foreground framing him',
+  thuphapnam: 'candid shot from outside looking in through an open carved wooden study door, the dark door frame and a hanging silk curtain softly blurred in the foreground framing him',
+  thienlien: 'candid shot from outside looking in through a stone archway at the lakeshore, the arch and golden mist softly blurred in the foreground framing him',
+};
+
 export const EXPRESSIONS: MChoice[] = [
   { id: 'cool', label: 'Lạnh lùng', icon: '😐', hint: 'Không cười, ánh mắt sắc', text: 'a cold, composed expression without a smile, sharp steady eyes, lips closed and calm', tone: 'cold silver-blue light, crisp still air, strong contrast, a solemn atmosphere' },
   { id: 'fierce', label: 'Quyết liệt', icon: '😠', hint: 'Mày chau, mắt rực khí thế', text: 'a fierce, determined expression, brows drawn together, burning intense eyes, jaw set firm', tone: 'dramatic high-contrast light, strong rim light, wind-whipped robes, embers and spirit energy surging' },
@@ -151,7 +166,7 @@ export function composeScene(p: MalePick): string {
     `${st.text}. Setting: ${st.setting}.`,
     WATER.has(st.id) ? `Water: ${REFLECTION_M}.` : '',
     `Character: ${ty.text}.`,
-    `Camera: ${by(FRAMES, p.frame).text}, ${by(ANGLES, p.angle).text}.`,
+    `Camera: ${by(FRAMES, p.frame).text}, ${p.angle === 'peek' && PEEK[st.id] ? PEEK[st.id] : by(ANGLES, p.angle).text}.`,
     `View: ${view.text}.`,
     faceless ? '' : `Expression: ${by(EXPRESSIONS, p.expr).text}, clearly readable on his face.`,
     faceless ? '' : toneLine(by(EXPRESSIONS, p.expr).tone),
