@@ -15,6 +15,8 @@ export function cutFeedLogs(feed: FeedEntry[], since: number): FeedEntry[] {
 }
 
 // Browser side: remembers the logs of every state it receives (a poll and the answer to a click alike) and puts back the ones a poll left out.
+// It also keeps a log that the SERVER no longer has (only its newest B.feedLogKeep rows keep one, so a fight lost its "Xem diễn biến" about a minute after it
+// ended): a row still on the list keeps showing the log the browser saw, until the row leaves the list or the page is loaded again. No cost on the server or the save.
 export function makeLogCache(keep = 60) {
   const logs = new Map<number, string[]>();
   let top = 0;   // the newest feed id whose log the cache holds, when it has one: what the next poll sends as `logs`
@@ -27,9 +29,10 @@ export function makeLogCache(keep = 60) {
       for (const e of feed) {
         if (e.id > newest) newest = e.id;
         if (e.log) logs.set(e.id, e.log);
-        else if (e.logCut) {
+        else {
           const kept = logs.get(e.id);
-          if (kept) { e.log = kept; delete e.logCut; } else whole = false;
+          if (kept) { e.log = kept; delete e.logCut; }   // left out by a poll, or dropped by the server because the row is no longer among its newest
+          else if (e.logCut) whole = false;
         }
       }
       if (!whole) { top = 0; return false; }

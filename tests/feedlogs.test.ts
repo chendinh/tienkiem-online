@@ -41,19 +41,33 @@ test('over a whole journey the browser ends with the same feed as without the cu
   Object.assign(st.set, { autoTame: true, autoFight: true, autoBreak: true, autoEquip: true });
   st.inv.trib = 20;
   const cache = makeLogCache();
-  let fullBytes = 0, cutBytes = 0, polls = 0, fights = 0;
+  const seen = new Map<number, string[]>();   // every log the server ever showed, by row
+  let fullBytes = 0, cutBytes = 0, polls = 0, fights = 0, kept = 0;
   for (let i = 0; i < 400; i++) {
     G.settle(st, 1);   // one tick (5 s) per poll
+    for (const e of st.feed) if (e.log) seen.set(e.id, e.log);
     const asked = cache.since();
     const got = structuredClone(cutFeedLogs(st.feed, asked));   // what crosses the wire
     cutBytes += JSON.stringify(got).length; fullBytes += JSON.stringify(st.feed).length; polls++;
     assert.equal(cache.fill(got), true);
-    assert.deepEqual(got, st.feed, `poll ${i}: the feed the browser rebuilds must equal the server's`);
+    // the browser shows what the server has, plus the log of a row that the server has since dropped from its older rows
+    const expected = st.feed.map((e) => (e.log || !seen.has(e.id) ? e : { ...e, log: seen.get(e.id) }));
+    assert.deepEqual(got, expected, `poll ${i}: the feed the browser rebuilds must be the server's, with the logs it saw kept`);
+    kept += got.filter((e, k) => e.log && !st.feed[k].log).length;
     if (st.feed[0]?.log) fights++;
   }
   assert.ok(fights > 0, 'the journey fought at least once');
+  assert.ok(kept > 0, 'a row that the server no longer holds a log for kept the one the browser saw');
   assert.ok(cutBytes < fullBytes, `cut ${cutBytes} < full ${fullBytes}`);
   console.log(`feed bytes over ${polls} polls: full ${fullBytes}, with the cut ${cutBytes} (${((1 - cutBytes / fullBytes) * 100).toFixed(0)}% less)`);
+});
+
+test('a log the server dropped from an old row stays on that row, and a row never seen with a log stays without', () => {
+  const cache = makeLogCache();
+  cache.fill(structuredClone([row(9, true), row(7, true)]));
+  const later = structuredClone([row(11, true), row(9, false), row(7, false), row(4, false)]);   // the server kept a log on its newest rows only
+  assert.equal(cache.fill(later), true);
+  assert.deepEqual(later, [row(11, true), row(9, true), row(7, true), row(4, false)]);
 });
 
 test('the cache stays small and drops the oldest logs first', () => {
