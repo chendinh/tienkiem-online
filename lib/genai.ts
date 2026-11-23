@@ -188,13 +188,14 @@ export const FIXES: Fix[] = [
   F('cloth', 'Trang phục', 'Vải rủ tự nhiên', 'Tránh áo méo, tay áo lạ', 'fabric folds fall naturally with gravity, sleeves and sashes flow in one consistent direction, the collar is neat and symmetrical'),
   F('accessory', 'Trang phục', 'Trang sức gọn, đối xứng', 'Tránh phụ kiện rối, thừa', 'a few elegant accessories placed symmetrically, each clearly drawn'),
   F('bg', 'Bối cảnh và ánh sáng', 'Nền gọn, một điểm nhấn', 'Tránh nền rối, nhiều vật lạ', 'an orderly background with layered depth and one clear focal point on the character'),
+  F('blend', 'Bối cảnh và ánh sáng', 'Nhân vật hòa nhập với cảnh', 'Tránh người như dán vào nền', "the character is lit by the scene's own light, with the scene's colours reflected on skin, hair and clothes, and is painted in the same style as the background so the figure belongs naturally in the setting"),
   F('light', 'Bối cảnh và ánh sáng', 'Ánh sáng nhất quán', 'Tránh bóng đổ nhiều hướng', 'one consistent light direction with matching soft shadows'),
   F('clean', 'Chất lượng ảnh', 'Ảnh sạch, không chữ', 'Tránh chữ, logo, khung viền', 'a clean, pure illustration made of the scene alone, filling the whole frame'),
   F('sharp', 'Chất lượng ảnh', 'Sắc nét, nhiều chi tiết', 'Tránh ảnh nhòe, mờ', 'sharp focus, crisp fine detail, high resolution, smooth clean edges'),
   F('color', 'Chất lượng ảnh', 'Màu hài hòa', 'Tránh màu chói, lòe loẹt', 'a harmonious colour palette built on three main hues'),
 ];
 // On by default: the ones that fix what players meet most (hands, face, doubles, posture, mess, blur). The rest the player may add.
-export const DEFAULT_FIXES = ['fingers', 'faceSym', 'eyes', 'single', 'posture', 'bg', 'sharp'];
+export const DEFAULT_FIXES = ['fingers', 'faceSym', 'eyes', 'single', 'posture', 'bg', 'blend', 'sharp'];
 // Ids about the face are left out of pictures that show none (they would invite the model to show it).
 const FACE_FIXES = ['faceSym', 'eyes', 'hair'];
 export const FIXES_MAX = 1700;

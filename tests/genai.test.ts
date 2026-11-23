@@ -233,3 +233,9 @@ test('error guards go after the scene and before the clothed rule; face guards d
   assert.equal(facelessOf('f', { view: 'front' }, false), false);
   assert.equal(facelessOf('m', { view: 'front' }, true), true);
 });
+
+test('the person blends into the scene: a guard that is on by default, and a line in the male prefix', () => {
+  assert.ok(DEFAULT_FIXES.includes('blend'));
+  assert.match(fixesText(['blend']), /lit by the scene's own light/);
+  assert.match(buildGenPrompt(sceneOf({}, undefined, false, 'm').scene, false, 'm'), /lit by the light of the scene, so he belongs naturally/);
+});

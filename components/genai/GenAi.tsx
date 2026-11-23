@@ -307,7 +307,7 @@ export function GenAi() {
             <ol className="ga-legal">{LEGAL.map((x) => <li key={x.h}><b>{x.h}.</b> {x.p}</li>)}</ol>
             <label className="ga-check"><input type="checkbox" checked={legalTick} onChange={(e) => setLegalTick(e.target.checked)} /><span>Tôi đã đọc và đồng ý các điều khoản trên. Tôi từ đủ {MIN_AGE} tuổi và chỉ dùng ảnh cá nhân của chính mình.</span></label>
             <div className="ga-actions">
-              <button type="button" className="ga-go" disabled={!legalTick} onClick={agree}>Đồng ý và vào</button>
+              <button type="button" className="ga-go" disabled={!legalTick} onClick={agree}>Tôi đồng ý</button>
               <a className="ga-ghost" href="/">Quay lại game</a>
             </div>
           </div>
