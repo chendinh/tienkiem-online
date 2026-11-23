@@ -238,7 +238,7 @@ export function GenAi() {
             </div>
           </Section>
 
-          <Section n={5} title="Biểu cảm" sub={faceless ? 'Ảnh không lộ mặt nên không có biểu cảm.' : 'Chọn một cảm xúc, AI sẽ vẽ rõ trên gương mặt.'}>
+          <Section n={5} title="Biểu cảm" sub={faceless ? 'Ảnh không lộ mặt nên không có biểu cảm.' : 'Chọn một cảm xúc: gương mặt và cả ánh sáng, màu sắc của cảnh sẽ đổi theo cho hợp.'}>
             <div className="ga-grid2">{cfg.exprs.map((x) => <Card key={x.id} on={!faceless && pick.expr === x.id} onClick={() => set({ expr: x.id })} icon={x.icon} title={x.label} hint={x.hint} disabled={faceless} />)}</div>
           </Section>
 

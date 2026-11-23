@@ -48,14 +48,14 @@ export interface GenStory extends Opt { setting: string; mood: string }
 export const STORIES: GenStory[] = ALL_STORIES.filter((s) => !HIDDEN_STORIES.includes(s.id)).map((s) => ({ ...s, mood: MOOD[s.id] || '' }));
 
 // UI helpers shown next to each option (the text is Vietnamese for the player; `text` stays English for the model).
-export interface Choice extends Opt { icon: string; hint: string }
+export interface Choice extends Opt { icon: string; hint: string; tone?: string }
 
 export const ANGLES: Choice[] = [
   { id: 'eye', label: 'Ngang tầm mắt', icon: '👁️', hint: 'Tự nhiên, ít lỗi nhất', text: 'camera at eye level' },
   { id: 'low', label: 'Từ dưới nhìn lên', icon: '⬆️', hint: 'Dáng cao, uy nghi', text: 'dramatic low-angle camera looking up at her, powerful and graceful' },
   { id: 'high', label: 'Từ trên nhìn xuống', icon: '⬇️', hint: 'Mềm mại, đáng yêu', text: 'high-angle camera looking slightly down at her' },
   { id: 'tilt', label: 'Chéo, năng động', icon: '📐', hint: 'Bố cục chéo, có chuyển động', text: 'slightly tilted dynamic camera with a diagonal composition' },
-  { id: 'peek', label: 'Nhìn qua khung cửa', icon: '🚪', hint: 'Như nhìn lén qua khe cửa, rất chân thật', text: 'candid shot from outside looking in through an open carved wooden doorway, the dark door frame and a hanging silk curtain softly blurred in the foreground framing her like a glimpse into her private world' },
+  { id: 'peek', label: 'Nhìn qua khung cửa', icon: '🚪', hint: 'Như nhìn lén qua khe cửa, rất chân thật', text: 'candid shot from outside looking in through an open carved wooden doorway, the dark door frame and a silk curtain softly blurred in the foreground framing her' },
 ];
 
 // "natural" lets the model choose what suits the pose and the scene; the others fix one simple, well-known hand pose.
@@ -68,16 +68,17 @@ export const HANDS: Choice[] = [
   { id: 'fan', label: 'Cầm quạt tròn', icon: '🪭', hint: 'Quạt che gần hết bàn tay', text: 'one hand holds a round silk fan close to her shoulder, the fan covers most of the hand, the other hand out of frame' },
 ];
 const HANDS_CLOSE = 'her hands are outside the frame';
+export const toneLine = M.toneLine;
 
 // Each expression names the eyes, the brows and the mouth, because "a soft look" is too weak to change a face taken from a photo.
 export const EXPRESSIONS: Choice[] = [
-  { id: 'smile', label: 'Cười tươi', icon: '😊', hint: 'Miệng cười rạng rỡ, mắt cong', text: 'a bright, clearly visible smile with a hint of teeth, cheeks lifted, eyes curved with joy' },
-  { id: 'tender', label: 'Dịu dàng', icon: '🙂', hint: 'Cười nhẹ, ánh mắt ấm', text: 'a gentle closed-lip smile, soft warm eyes looking at the viewer, relaxed brows' },
-  { id: 'tease', label: 'Tinh nghịch', icon: '😏', hint: 'Nhếch môi, liếc ngang', text: 'a mischievous smirk with one corner of the lips raised higher, one eyebrow slightly arched, a playful sideways glance' },
-  { id: 'shy', label: 'E thẹn', icon: '😳', hint: 'Má ửng hồng, mắt nhìn xuống', text: 'a shy blush on the cheeks, eyes glancing down and to the side, a small bashful smile' },
-  { id: 'sad', label: 'Man mác buồn', icon: '🥺', hint: 'Mắt long lanh, nét buồn nhẹ', text: 'a wistful, sorrowful look, eyes glistening, brows slightly drawn together, lips softly closed with a faint sad smile' },
-  { id: 'cool', label: 'Lạnh lùng, kiêu kỳ', icon: '😐', hint: 'Không cười, ánh mắt sắc', text: 'a cold, regal expression without a smile, sharp steady eyes, chin lifted, lips closed and calm' },
-  { id: 'dream', label: 'Mơ màng', icon: '😌', hint: 'Mắt khép hờ, nhìn xa', text: 'a dreamy look, half-closed eyes gazing into the distance, lips slightly parted' },
+  { id: 'smile', label: 'Cười tươi', icon: '😊', hint: 'Miệng cười rạng rỡ, mắt cong', text: 'a bright, clearly visible smile with a hint of teeth, cheeks lifted, eyes curved with joy', tone: 'bright and joyful, warm golden light, lively colours, sparkling highlights, drifting petals' },
+  { id: 'tender', label: 'Dịu dàng', icon: '🙂', hint: 'Cười nhẹ, ánh mắt ấm', text: 'a gentle closed-lip smile, soft warm eyes looking at the viewer, relaxed brows', tone: 'warm soft light, gentle peach and rose tones, a tender calm atmosphere' },
+  { id: 'tease', label: 'Tinh nghịch', icon: '😏', hint: 'Nhếch môi, liếc ngang', text: 'a mischievous smirk with one corner of the lips raised higher, one eyebrow slightly arched, a playful sideways glance', tone: 'playful sparkling light, lively contrast, little glints of light dancing around her' },
+  { id: 'shy', label: 'E thẹn', icon: '😳', hint: 'Má ửng hồng, mắt nhìn xuống', text: 'a shy blush on the cheeks, eyes glancing down and to the side, a small bashful smile', tone: 'soft pink glow, hazy blossom-coloured light, delicate drifting petals, a bashful atmosphere' },
+  { id: 'sad', label: 'Man mác buồn', icon: '🥺', hint: 'Mắt long lanh, nét buồn nhẹ', text: 'a wistful, sorrowful look, eyes glistening, brows slightly drawn together, lips softly closed, the corners of the lips relaxed and slightly downturned', tone: 'wistful, cool dim blue-grey light, thin mist, a few petals falling slowly, muted colours, one lantern glowing' },
+  { id: 'cool', label: 'Lạnh lùng, kiêu kỳ', icon: '😐', hint: 'Không cười, ánh mắt sắc', text: 'a cold, regal expression without a smile, sharp steady eyes, chin lifted, lips closed and calm', tone: 'cold silver-blue moonlight, crisp still air, strong contrast, a solemn regal atmosphere' },
+  { id: 'dream', label: 'Mơ màng', icon: '😌', hint: 'Mắt khép hờ, nhìn xa', text: 'a dreamy look, half-closed eyes gazing into the distance, lips slightly parted', tone: 'hazy luminous bloom, pastel mist, floating motes of light, a soft dreamlike atmosphere' },
 ];
 
 // Positive wording only (the model ignores negation): counts, proportions, symmetry. The head size line is the one that matters most for a face taken from a photo.
@@ -133,6 +134,7 @@ export function composeScene(p: GenPick): string {
     `Camera: ${by(FRAMES, p.frame).text}, ${by(ANGLES, p.angle).text}.`,
     `View: ${view.text}.`,
     faceless ? '' : `Expression: ${by(EXPRESSIONS, p.expr).text}, clearly readable on her face.`,
+    faceless ? '' : toneLine(by(EXPRESSIONS, p.expr).tone),
     `Pose: ${poseText(p)}.`,
     `Hands: ${hands}.`,
     `Hair: ${by(HAIR, p.hair).text}.`,
@@ -144,9 +146,9 @@ export function composeScene(p: GenPick): string {
 }
 
 // ---- the request ---------------------------------------------------------------------------------------------------------------------
-export const SCENE_MAX = 2400, SCENE_MIN = 20;
+export const SCENE_MAX = 2600, SCENE_MIN = 20;
 // Lines the server always puts around the scene, whatever the player wrote. The first one takes ONLY the identity from the photo.
-export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face with smooth luminous skin and bright eyes. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
+export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face with smooth luminous skin and bright eyes. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. The face is redrawn with exactly the expression named in the description, whatever expression the photo has. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
 export type Gender = 'f' | 'm';
 export const isGender = (v: unknown): v is Gender => v === 'f' || v === 'm';
 export const buildGenPrompt = (scene: string, noFace: boolean, gender: Gender = 'f', fixes?: unknown, faceless = noFace): string => {

@@ -2,7 +2,7 @@
 // decides the aura, the outfit and which stories are offered. Everything stays fully clothed, as for the women. Text for the model is English, labels are Vietnamese.
 import { LAYOUT as _L, REFLECTION, STYLES, type Opt, type Pose } from './wallpaper';
 
-export interface MChoice extends Opt { icon: string; hint: string }
+export interface MChoice extends Opt { icon: string; hint: string; tone?: string }
 export interface MStory extends Opt { setting: string; mood: string; type: string }
 
 export const TYPES: (MChoice & { outfit: string })[] = [
@@ -39,7 +39,7 @@ export const ANGLES: MChoice[] = [
   { id: 'low', label: 'Từ dưới nhìn lên', icon: '⬆️', hint: 'Dáng cao lớn, uy lực', text: 'dramatic low-angle camera looking up at him, powerful and imposing' },
   { id: 'high', label: 'Từ trên nhìn xuống', icon: '⬇️', hint: 'Cô độc, trầm lặng', text: 'high-angle camera looking slightly down at him' },
   { id: 'tilt', label: 'Chéo, năng động', icon: '📐', hint: 'Bố cục chéo, có chuyển động', text: 'slightly tilted dynamic camera with a diagonal composition' },
-  { id: 'peek', label: 'Nhìn qua khung cửa', icon: '🚪', hint: 'Như nhìn lén qua khe cửa, rất chân thật', text: 'candid shot from outside looking in through an open carved wooden doorway, the dark door frame and a hanging silk curtain softly blurred in the foreground framing him like a glimpse into his world' },
+  { id: 'peek', label: 'Nhìn qua khung cửa', icon: '🚪', hint: 'Như nhìn lén qua khe cửa, rất chân thật', text: 'candid shot from outside looking in through an open carved wooden doorway, the dark door frame and a silk curtain softly blurred in the foreground framing him' },
 ];
 export const VIEWS: Opt[] = [
   { id: 'front', label: 'Nhìn thẳng ống kính', text: 'he faces the camera, his eyes on the viewer' },
@@ -93,14 +93,16 @@ export const HANDS: MChoice[] = [
   { id: 'fold', label: 'Khoanh tay', icon: '🙅', hint: 'Tay áo che gần hết bàn tay', text: 'arms folded across his chest with the hands tucked under his arms, sleeves covering them' },
 ];
 const HANDS_CLOSE = 'his hands are outside the frame';
+// The light and colour of the whole scene follow the chosen feeling, so a sad face is not dropped into a cheerful picture (and the reverse). The setting itself stays.
+export const toneLine = (t?: string): string => (t ? `Scene mood: ${t}; same setting.` : '');
 
 export const EXPRESSIONS: MChoice[] = [
-  { id: 'cool', label: 'Lạnh lùng', icon: '😐', hint: 'Không cười, ánh mắt sắc', text: 'a cold, composed expression without a smile, sharp steady eyes, lips closed and calm' },
-  { id: 'fierce', label: 'Quyết liệt', icon: '😠', hint: 'Mày chau, mắt rực khí thế', text: 'a fierce, determined expression, brows drawn together, burning intense eyes, jaw set firm' },
-  { id: 'calm', label: 'Điềm tĩnh', icon: '😌', hint: 'Mắt hiền, môi thả lỏng', text: 'a serene, tranquil expression, soft steady eyes, relaxed brows and gently closed lips' },
-  { id: 'smirk', label: 'Nhếch môi tà mị', icon: '😏', hint: 'Cười nhếch một bên, mắt liếc', text: 'a charming smirk with one corner of the lips raised, one eyebrow slightly arched, a knowing sideways glance' },
-  { id: 'gentle', label: 'Ôn hòa mỉm cười', icon: '🙂', hint: 'Cười nhẹ, ánh mắt ấm', text: 'a gentle warm smile, kind eyes looking at the viewer, relaxed brows' },
-  { id: 'sad', label: 'Trầm buồn', icon: '😔', hint: 'Mắt long lanh, nét buồn nhẹ', text: 'a wistful, sorrowful look, eyes glistening, brows slightly drawn together, lips softly closed' },
+  { id: 'cool', label: 'Lạnh lùng', icon: '😐', hint: 'Không cười, ánh mắt sắc', text: 'a cold, composed expression without a smile, sharp steady eyes, lips closed and calm', tone: 'cold silver-blue light, crisp still air, strong contrast, a solemn atmosphere' },
+  { id: 'fierce', label: 'Quyết liệt', icon: '😠', hint: 'Mày chau, mắt rực khí thế', text: 'a fierce, determined expression, brows drawn together, burning intense eyes, jaw set firm', tone: 'dramatic high-contrast light, strong rim light, wind-whipped robes, embers and spirit energy surging' },
+  { id: 'calm', label: 'Điềm tĩnh', icon: '😌', hint: 'Mắt hiền, môi thả lỏng', text: 'a serene, tranquil expression, soft steady eyes, relaxed brows and gently closed lips', tone: 'soft balanced light, clear still air, drifting mist, a peaceful atmosphere' },
+  { id: 'smirk', label: 'Nhếch môi tà mị', icon: '😏', hint: 'Cười nhếch một bên, mắt liếc', text: 'a charming smirk with one corner of the lips raised, one eyebrow slightly arched, a knowing sideways glance', tone: 'moody shadows with a bright rim light, silver moonlight, an air of mystery' },
+  { id: 'gentle', label: 'Ôn hòa mỉm cười', icon: '🙂', hint: 'Cười nhẹ, ánh mắt ấm', text: 'a gentle warm smile, kind eyes looking at the viewer, relaxed brows', tone: 'warm soft golden light, gentle drifting light motes, a kind atmosphere' },
+  { id: 'sad', label: 'Trầm buồn', icon: '😔', hint: 'Mắt long lanh, nét buồn nhẹ', text: 'a wistful, sorrowful look, eyes glistening, brows slightly drawn together, lips softly closed with the corners slightly downturned', tone: 'wistful, cool dim blue-grey light, thin mist, a few leaves falling slowly, muted colours' },
 ];
 
 export const HAIR: Opt[] = [
@@ -152,6 +154,7 @@ export function composeScene(p: MalePick): string {
     `Camera: ${by(FRAMES, p.frame).text}, ${by(ANGLES, p.angle).text}.`,
     `View: ${view.text}.`,
     faceless ? '' : `Expression: ${by(EXPRESSIONS, p.expr).text}, clearly readable on his face.`,
+    faceless ? '' : toneLine(by(EXPRESSIONS, p.expr).tone),
     `Pose: ${poseText(p)}.`,
     `Hands: ${hands}.`,
     `Hair: ${by(HAIR, p.hair).text}.`,
@@ -164,6 +167,6 @@ export function composeScene(p: MalePick): string {
 
 // The floating elements and the ornaments are half-transparent and dreamy, and snow is a mist, not flakes (in the prefix, so the scene keeps its length).
 const ATMOS = 'All floating elements (leaves, petals, sparks, embers, light motes) are soft, semi-transparent and dreamy, with gentle motion blur at different depths. Embroidery and ornaments glow faintly and look half-transparent and ethereal. Snow appears as layered snow mist and icy haze. ';
-export const FACE_PREFIX = 'Use the adult man in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a sharper, more handsome face with a defined jawline, clear luminous skin and bright eyes, natural and still clearly the same person. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. His skin, hair and clothing are rendered in the painted style of the artwork and lit by the light of the scene, so he belongs naturally in the setting. ' + ATMOS + 'Cinematic fantasy wallpaper of this man as a xianxia immortal cultivator. ';
+export const FACE_PREFIX = 'Use the adult man in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a sharper, more handsome face with a defined jawline, clear luminous skin and bright eyes, natural and still clearly the same person. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. The face is redrawn with exactly the expression named in the description, whatever expression the photo has. His skin, hair and clothing are rendered in the painted style of the artwork and lit by the light of the scene, so he belongs naturally in the setting. ' + ATMOS + 'Cinematic fantasy wallpaper of this man as a xianxia immortal cultivator. ';
 export const FACELESS_PREFIX = 'Use the adult man in the reference photo only for hair, hair colour and overall look, keeping that look recognisable with natural proportions. His face is not shown. ' + ATMOS + 'Cinematic fantasy wallpaper of this man as a xianxia immortal cultivator. ';
 export const SUFFIX = ' Ultra detailed masterpiece, cinematic dramatic lighting, richly layered background details, handsome, heroic and elegant, fully clothed, modest and non-suggestive.';

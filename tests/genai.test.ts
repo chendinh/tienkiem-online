@@ -25,10 +25,10 @@ test('hands have a natural option, expressions name eyes, brows or mouth', () =>
 
 test('every combination is under the length cap, in proportion and clothed', () => {
   let n = 0;
-  for (const story of STORIES) for (const frame of FRAMES) for (const view of VIEWS) for (const angle of ANGLES) for (const hands of HANDS) {
-    const p = cleanPick({ ...DEFAULT_PICK, story: story.id, frame: frame.id, view: view.id, angle: angle.id, hands: hands.id });
+  for (const story of STORIES) for (const frame of FRAMES) for (const view of VIEWS) for (const angle of ANGLES) for (const hands of HANDS) for (const ex of EXPRESSIONS) {
+    const p = cleanPick({ ...DEFAULT_PICK, story: story.id, frame: frame.id, view: view.id, angle: angle.id, hands: hands.id, expr: ex.id });
     const s = composeScene(p);
-    assert.ok(s.length < SCENE_MAX, `${story.id}/${frame.id}/${view.id}/${angle.id}/${hands.id}: ${s.length}`);
+    assert.ok(s.length < SCENE_MAX, `${story.id}/${frame.id}/${view.id}/${angle.id}/${hands.id}/${ex.id}: ${s.length}`);
     assert.match(s, /one seventh to one eighth/);
     assert.match(s, /layered silk gown/);
     assert.equal(sceneProblem(s), null, `${story.id} ${s.slice(0, 80)}`);
@@ -123,8 +123,8 @@ test('male: three types, each with stories; a story always fits the type', () =>
 
 test('male: every combination is under the cap, in proportion, clothed, and passes the word filter', () => {
   let n = 0;
-  for (const type of M.TYPES) for (const story of M.storiesOf(type.id)) for (const frame of M.FRAMES) for (const view of M.VIEWS) for (const angle of M.ANGLES) for (const hands of M.HANDS) {
-    const s = M.composeScene(M.cleanPick({ type: type.id, story: story.id, frame: frame.id, view: view.id, angle: angle.id, hands: hands.id }));
+  for (const type of M.TYPES) for (const story of M.storiesOf(type.id)) for (const frame of M.FRAMES) for (const view of M.VIEWS) for (const angle of M.ANGLES) for (const hands of M.HANDS) for (const ex of M.EXPRESSIONS) {
+    const s = M.composeScene(M.cleanPick({ type: type.id, story: story.id, frame: frame.id, view: view.id, angle: angle.id, hands: hands.id, expr: ex.id }));
     assert.ok(s.length < SCENE_MAX, `${story.id}/${frame.id}/${view.id}/${angle.id}/${hands.id}: ${s.length}`);
     assert.match(s, /one seventh to one eighth/);
     assert.equal(sceneProblem(s), null, `${story.id}: ${s.slice(0, 60)}`);
@@ -245,4 +245,19 @@ test('male: floating elements are semi-transparent and snow is a mist, in the pr
   const snow = M.composeScene(M.cleanPick({ type: 'cool', story: 'tuyetdinh' }));
   assert.match(snow, /snow mist/); assert.ok(!/snowflake/i.test(snow));
   for (const s of M.STORIES) assert.ok(!/snowflake|\bfalling (snow|leaves|petals)\b/i.test(s.text + ' ' + s.setting), s.id);
+});
+
+test('the scene light follows the chosen expression, for her and for him, and stays under the cap', () => {
+  const a = composeScene(cleanPick({ ...DEFAULT_PICK, expr: 'smile' })), b = composeScene(cleanPick({ ...DEFAULT_PICK, expr: 'sad' }));
+  assert.match(a, /Scene mood: bright and joyful/); assert.match(b, /Scene mood: wistful/);
+  assert.doesNotMatch(composeScene(cleanPick({ ...DEFAULT_PICK, view: 'back', expr: 'sad' })), /Scene mood/);
+  for (const e of EXPRESSIONS) assert.ok(e.tone && e.tone.length > 20, e.id);
+  for (const e of M.EXPRESSIONS) assert.ok(e.tone && e.tone.length > 20, e.id);
+  assert.match(M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, expr: 'fierce' })), /Scene mood: dramatic/);
+});
+
+test('the photo expression is not kept: the prompt asks for the named expression, and sad has no smile', () => {
+  for (const g of ['f', 'm'] as const) assert.match(buildGenPrompt('x'.repeat(30), false, g), /whatever expression the photo has/);
+  assert.doesNotMatch(EXPRESSIONS.find((e) => e.id === 'sad')!.text, /smile/);
+  assert.doesNotMatch(M.EXPRESSIONS.find((e) => e.id === 'sad')!.text, /smile/);
 });
