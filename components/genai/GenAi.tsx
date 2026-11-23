@@ -8,6 +8,7 @@ import { ANGLES, DEFAULT_PICK, EXPRESSIONS, FACELESS_VIEWS, FRAMES, HAIR, HANDS,
 type Status = { enabled: boolean; user: { email: string; guest: boolean } | null; left: number; limit: number };
 type Result = { url: string; ms: number };
 const LEGAL_KEY = 'genai-legal';
+const STYLE_SHORT: Record<string, string> = { donghua: '3D tiên hiệp', painterly: 'Tranh vẽ tay', real: 'Gần như thật' };   // short, so each fits on one line of a phone
 const rnd = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
 
 // A small figure with the part that stays in the picture lit up: shows what "from the waist up" means.
@@ -180,7 +181,7 @@ export function GenAi() {
 
           <Section n={2} title="Chủ đề và phong cách">
             <div className="ga-row"><Label>Phong cách</Label>
-              <div className="ga-seg">{STYLES.map((s) => <button key={s.id} type="button" aria-pressed={pick.style === s.id} onClick={() => set({ style: s.id })}>{s.label}</button>)}</div>
+              <div className="ga-seg">{STYLES.map((s) => <button key={s.id} type="button" aria-pressed={pick.style === s.id} onClick={() => set({ style: s.id })}>{STYLE_SHORT[s.id] || s.label}</button>)}</div>
             </div>
             <div className="ga-row"><Label>Câu chuyện trong tranh</Label>
               <div className="ga-grid2">{STORIES.map((s) => <Card key={s.id} on={pick.story === s.id} onClick={() => set({ story: s.id })} title={s.label} hint={s.mood} />)}</div>
