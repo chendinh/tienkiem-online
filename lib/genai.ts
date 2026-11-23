@@ -185,3 +185,14 @@ export const isUnlimited = (email: unknown, extra = ''): boolean => {
 
 // Turns an account can still use today: what is left of the free turns plus the extra turns the owner granted.
 export const turnsLeft = (limit: number, usedToday: number, bonus: number): number => Math.max(0, limit - usedToday) + Math.max(0, bonus);
+
+// ---- error log (owner page): what is kept about a failed picture. Never the photo; the texts are cut short.
+export interface GenError { ref: string; at: number; acc: string; email: string; gender: string; stage: string; code: string; http: number; fal: number; detail: string; scene: string; ms: number }
+const clip = (v: unknown, n: number) => (typeof v === 'string' ? v : v == null ? '' : String(v)).replace(/\s+/g, ' ').trim().slice(0, n);
+const int = (v: unknown) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : 0);
+export const shapeError = (e: Partial<Record<keyof GenError, unknown>>): Omit<GenError, 'ref' | 'at'> => ({
+  acc: clip(e.acc, 64), email: clip(e.email, 120), gender: e.gender === 'm' ? 'm' : 'f', stage: clip(e.stage, 16) || 'server', code: clip(e.code, 40) || 'E_SERVER',
+  http: int(e.http), fal: int(e.fal), detail: clip(e.detail, 700), scene: clip(e.scene, 500), ms: int(e.ms),
+});
+// States the player is expected to meet (no turns left, one picture at a time, signed out, feature closed): not errors, so they are not logged.
+export const QUIET_CODES = ['E_GENAI_LIMIT', 'E_GENAI_BUSY', 'E_GENAI_LINK', 'E_GENAI_OFF', 'E_AUTH'];

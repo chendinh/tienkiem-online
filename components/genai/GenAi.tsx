@@ -122,22 +122,41 @@ export function GenAi() {
 
   async function generate() {
     setConfirm(false); setErr(''); setBusy(true); setSecs(0);
+    const gender = tab, size = photo.length;
     try {
-      const r = await fetch('/api/gen-ai', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consent: { personal: true, adult: true, terms: LEGAL_VERSION }, photo, noFace, gender: tab, pick: cfg.clean(pick, noFace), scene: custom ?? undefined }),
-      });
-      const j = await r.json().catch(() => ({ ok: false, code: 'E_SERVER' }));
+      let r: Response;
+      try {
+        r = await fetch('/api/gen-ai', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consent: { personal: true, adult: true, terms: LEGAL_VERSION }, photo, noFace, gender, pick: cfg.clean(pick, noFace), scene: custom ?? undefined }),
+        });
+      } catch (e: any) {   // the request never got an answer (lost connection, closed tab, timeout)
+        const ref = await report({ code: 'E_NET', detail: `fetch failed: ${String(e?.message || e)}`, gender, size });
+        setErr(`Mất kết nối khi đang vẽ. Hãy kiểm tra mạng rồi thử lại; nếu ảnh đã vẽ xong thì lượt vẫn bị trừ.${ref ? ` (mã tham chiếu ${ref})` : ''}`);
+        return;
+      }
+      const raw = await r.text();
+      let j: any = null; try { j = JSON.parse(raw); } catch { /* the host answered with a page, not JSON */ }
       if (j?.ok && j.url) {
         setResult({ url: j.url, ms: j.ms || 0 });
         setStatus((s) => (s ? { ...s, left: Number(j.left) || 0 } : s));
         setTimeout(() => resRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      } else if (j) {
+        setErr(`${errText(j.code || 'E_SERVER')}${j.ref ? ` (mã tham chiếu ${j.ref})` : ''}`);
+        if (j.code === 'E_GENAI_LIMIT') setStatus((s) => (s ? { ...s, left: 0 } : s));
       } else {
-        setErr(errText(j?.code || 'E_SERVER'));
-        if (j?.code === 'E_GENAI_LIMIT') setStatus((s) => (s ? { ...s, left: 0 } : s));
+        const ref = await report({ code: 'E_HOST', http: r.status, detail: `not JSON: ${raw.slice(0, 200)}`, gender, size });
+        setErr(`Máy chủ không trả lời đúng (HTTP ${r.status}). ${r.status === 413 ? 'Ảnh gốc quá lớn, hãy chọn ảnh nhỏ hơn. ' : ''}${ref ? `Mã tham chiếu ${ref}.` : ''}`);
       }
-    } catch { setErr('Mất kết nối khi đang vẽ. Hãy kiểm tra mạng rồi thử lại; nếu ảnh đã vẽ xong thì lượt vẫn bị trừ.'); }
-    setBusy(false); setTickPersonal(false); setTickAdult(false);
+    } finally { setBusy(false); setTickPersonal(false); setTickAdult(false); }
+  }
+  // Tells the server about a failure it never saw; answers the reference to show to the player ('' when even that failed).
+  async function report(body: { code: string; http?: number; detail: string; gender: string; size: number }): Promise<string> {
+    try {
+      const r = await fetch('/api/gen-ai/report', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => null);
+      return j?.ok && typeof j.ref === 'string' ? j.ref : '';
+    } catch { return ''; }
   }
   async function save() {
     if (!result) return;

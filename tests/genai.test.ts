@@ -181,3 +181,15 @@ test('turns left = free turns of the day still unused + the bonus granted by the
   assert.equal(turnsLeft(3, 1, 4), 6);
   assert.equal(turnsLeft(3, 0, -2), 3);
 });
+
+import { QUIET_CODES, shapeError } from '../lib/genai';
+test('error log entries are shaped and cut short; expected states are not logged', () => {
+  const e = shapeError({ acc: 'a', email: 'x@y.z', gender: 'weird', stage: 'fal', code: 'E_GENAI_FAIL', http: '502', fal: 422, detail: 'x'.repeat(5000), scene: 'y'.repeat(5000), ms: 1234.6 });
+  assert.equal(e.gender, 'f'); assert.equal(e.http, 502); assert.equal(e.detail.length, 700); assert.equal(e.scene.length, 500); assert.equal(e.ms, 1235);
+  const d = shapeError({});
+  assert.equal(d.code, 'E_SERVER'); assert.equal(d.stage, 'server'); assert.equal(d.http, 0); assert.equal(d.detail, '');
+  assert.equal(shapeError({ detail: 'a \n\n  b' }).detail, 'a b');
+  assert.equal(shapeError({ gender: 'm' }).gender, 'm');
+  for (const c of ['E_GENAI_LIMIT', 'E_GENAI_BUSY', 'E_AUTH']) assert.ok(QUIET_CODES.includes(c));
+  assert.ok(!QUIET_CODES.includes('E_GENAI_FAIL') && !QUIET_CODES.includes('E_SERVER') && !QUIET_CODES.includes('E_BAD_REQUEST'));
+});

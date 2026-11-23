@@ -23,3 +23,12 @@
 .gx-btns { display: inline-flex; gap: 0.35rem; }
 .gx-btns button { padding: 0.25rem 0.6rem; font: inherit; font-size: 0.8rem; color: var(--gold-300); background: transparent; border: 1px solid var(--gold-400); border-radius: var(--r-pill); cursor: pointer; }
 .gx-empty { text-align: center !important; opacity: 0.7; }
+
+.gx-errs { display: grid; gap: var(--sp-3); margin: var(--sp-5) 0 var(--sp-4); }
+.gx-err-item { display: grid; gap: 0.35rem; padding: var(--sp-3) var(--sp-4); background: var(--ink-850); border: 1px solid var(--line-strong); border-left: 3px solid var(--cinnabar-300); border-radius: var(--r-sm); }
+.gx-err-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
+.gx-err-top code { font-size: 0.78rem; opacity: 0.75; }
+.gx-ref { margin-left: auto; font-family: ui-monospace, monospace; color: var(--gold-300); }
+.gx-err-meta { font-size: 0.82rem; opacity: 0.75; }
+.gx-detail { margin: 0; padding: 0.5rem 0.7rem; max-height: 9rem; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.8rem; line-height: 1.4; background: var(--ink-900); border-radius: var(--r-sm); }
+.gx-err-item summary { cursor: pointer; font-size: 0.82rem; color: var(--jade-300); }

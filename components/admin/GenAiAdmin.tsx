@@ -2,10 +2,14 @@
 // /admin/gen-ai: how many pictures each account has drawn, how many turns it still has, and a form to grant more turns.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { errText } from '@/lib/strings';
+import type { GenError } from '@/lib/genai';
 
 const KEY = 'tutien-admin-key';   // the same key the report page keeps for this tab
 type Row = { acc: string; email: string; total: number; today: number; free: number; bonus: number; left: number | null; last: number; unlimited: boolean };
-type Data = { limit: number; budget: number; spent: number; users: Row[] };
+type Data = { limit: number; budget: number; spent: number; users: Row[]; errors: GenError[] };
+const STAGE: Record<string, string> = { input: 'kiểm tra yêu cầu', fal: 'gọi fal vẽ ảnh', server: 'lỗi máy chủ', client: 'trình duyệt báo về' };
+const CLIENT_CODE: Record<string, string> = { E_NET: 'Mất kết nối khi đang vẽ', E_HOST: 'Host trả về trang thay vì JSON (quá lớn, quá thời gian...)' };
+const why = (c: string) => CLIENT_CODE[c] || errText(c);
 const when = (t: number) => (t ? new Date(t).toLocaleString('vi-VN', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 
 export function GenAiAdmin() {
@@ -43,6 +47,13 @@ export function GenAiAdmin() {
       if (j.ok) { setNote(`${j.email}: ${n > 0 ? 'cấp thêm' : 'trừ'} ${Math.abs(n)} lượt. Lượt thưởng còn ${j.bonus}, tổng còn ${j.left}.`); await load(key); }
       else setErr(errText(j.code || 'E_SERVER'));
     } catch { setErr('Mất kết nối tới máy chủ.'); }
+    setBusy(false);
+  }
+
+  async function clear() {
+    if (!key || busy) return;
+    setBusy(true);
+    try { await fetch('/api/admin/gen-ai', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ clearErrors: true }), cache: 'no-store' }); await load(key); } catch { setErr('Mất kết nối tới máy chủ.'); }
     setBusy(false);
   }
 
@@ -98,6 +109,20 @@ export function GenAiAdmin() {
           </tbody>
         </table>
       </div>
+      <section className="gx-errs">
+        <h2>Lỗi gần đây ({data.errors.length})</h2>
+        <p className="gx-sub">Mỗi lần vẽ lỗi được ghi lại ở đây với nguyên nhân thật. Người dùng chỉ thấy câu ngắn kèm mã tham chiếu; tìm mã đó trong danh sách. Lượt vẽ lỗi không bị trừ.</p>
+        {!data.errors.length && <p className="gx-empty">Chưa có lỗi nào.</p>}
+        {data.errors.map((e, i) => (
+          <article className="gx-err-item" key={`${e.ref}-${i}`}>
+            <div className="gx-err-top"><b>{why(e.code)}</b><code>{e.code}</code><span className="gx-ref">#{e.ref}</span></div>
+            <div className="gx-err-meta">{when(e.at)} · {e.email || e.acc.slice(0, 8) || 'chưa rõ'} · {e.gender === 'm' ? 'nam' : 'nữ'} · bước: {STAGE[e.stage] || e.stage} · HTTP {e.http}{e.fal ? ` · fal ${e.fal}` : ''}{e.ms ? ` · ${(e.ms / 1000).toFixed(1)}s` : ''}</div>
+            {e.detail && <pre className="gx-detail">{e.detail}</pre>}
+            {e.scene && <details><summary>Mô tả đã gửi</summary><pre className="gx-detail">{e.scene}</pre></details>}
+          </article>
+        ))}
+        {data.errors.length > 0 && <button type="button" className="gx-ghost" disabled={busy} onClick={clear}>Xóa danh sách lỗi</button>}
+      </section>
       <button type="button" className="gx-ghost" disabled={busy} onClick={() => key && load(key)}>Tải lại</button>
     </main>
   );

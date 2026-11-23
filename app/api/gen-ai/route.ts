@@ -1,12 +1,13 @@
 import { ApiError, sessionUser } from '@/lib/server/auth';
 import { json, guard, checkWrite, cookieOf, requireUser } from '@/lib/server/http';
+import { logError } from '@/lib/server/genaiErrors';
 import { dbConfigured } from '@/lib/server/db';
 import { appendLog } from '@/lib/server/store';
 import { serverNow } from '@/lib/server/service';
 import { claimJob, releaseJobs } from '@/lib/server/images';
 import { addSpent, bonusOf, giveBonusBack, giveTurnBack, recordGen, spentToday, takeTurn, turnsUsed, useBonus } from '@/lib/server/genaiQuota';
 import { FACE_MAX_CHARS, inputOf, isPhotoDataUrl, modelOf } from '@/lib/anh18';
-import { LEGAL_VERSION, buildGenPrompt, consentOk, isGender, isUnlimited, sceneOf, sceneProblem, turnsLeft } from '@/lib/genai';
+import { LEGAL_VERSION, buildGenPrompt, consentOk, QUIET_CODES, isGender, isUnlimited, sceneOf, sceneProblem, turnsLeft } from '@/lib/genai';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -37,12 +38,31 @@ export async function GET(req: Request) {
   });
 }
 
+// What is known about the request when it fails, for the error log (lib/server/genaiErrors.ts).
+interface Ctx { acc?: string; email?: string; gender?: string; scene?: string; stage?: string; detail?: string; fal?: number; t0?: number }
+
 export async function POST(req: Request) {
-  return guard(async () => {
+  const ctx: Ctx = { t0: Date.now() };
+  try { return await run(req, ctx); }
+  catch (e: any) {
+    const api = e instanceof ApiError ? e : null;
+    const code = api ? api.code : 'E_SERVER', http = api ? api.status : 500;
+    if (!api) console.error('[tutien] lỗi máy chủ', e);
+    let ref = '';
+    if (!QUIET_CODES.includes(code)) {
+      ref = await logError({ ...ctx, stage: ctx.stage || (api ? 'input' : 'server'), code, http, detail: ctx.detail || (api ? '' : `${e?.message || e} ${String(e?.stack || '').split('\n').slice(1, 3).join(' | ')}`), ms: Date.now() - (ctx.t0 || Date.now()) });
+    }
+    return json({ ok: false, code, ref }, http);
+  }
+}
+
+async function run(req: Request, ctx: Ctx): Promise<Response> {
+  return (async () => {
     checkWrite(req);
     if (!enabled()) throw new ApiError('E_GENAI_OFF', 503);
     const isDev = dev();
     const user = isDev ? { id: 'dev', email: 'dev@local', guest: false } : await requireUser(req);
+    ctx.acc = user.id; ctx.email = user.email;
     if (user.guest) throw new ApiError('E_GENAI_LINK', 403);
 
     const text = await req.text();
@@ -54,6 +74,7 @@ export async function POST(req: Request) {
     if (b?.gender !== undefined && !isGender(b.gender)) throw new ApiError('E_BAD_REQUEST');
     const gender = b?.gender === 'm' ? 'm' : 'f';
     const { scene, custom } = sceneOf(b?.pick, b?.scene, noFace, gender);
+    ctx.gender = gender; ctx.scene = scene;
     const bad = sceneProblem(scene);
     if (bad === 'short') throw new ApiError('E_BAD_REQUEST');
     if (bad) throw new ApiError('E_PROMPT_BLOCKED', 422);
@@ -92,7 +113,7 @@ export async function POST(req: Request) {
         ]);
       } catch (e: any) {
         const detail = (() => { try { return JSON.stringify(e?.body?.detail ?? e?.body ?? e?.message ?? '').slice(0, 240); } catch { return String(e?.message || '').slice(0, 240); } })();
-        console.error('[gen-ai]', e?.status, detail);
+        ctx.stage = 'fal'; ctx.detail = detail || String(e?.message || ''); ctx.fal = Number(e?.status) || 0;
         await refund();
         const policy = /content_policy|safety|nsfw|flagged/i.test(detail);
         throw new ApiError(policy ? 'E_GENAI_POLICY' : 'E_GENAI_FAIL', policy ? 422 : 502);
@@ -100,6 +121,7 @@ export async function POST(req: Request) {
       if (!isDev) await addSpent(costEach(), now);   // fal bills the call even when its checker blanks the picture
       const img = out?.data?.images?.[0];
       if (!img?.url) {
+        ctx.stage = 'fal'; ctx.detail = `no picture returned: ${JSON.stringify({ keys: Object.keys(out?.data || {}), nsfw: out?.data?.has_nsfw_concepts })}`;
         await refund();
         throw new ApiError('E_GENAI_POLICY', 422);
       }
@@ -114,5 +136,5 @@ export async function POST(req: Request) {
     } finally {
       if (job) await releaseJobs([job]);
     }
-  });
+  })();
 }
