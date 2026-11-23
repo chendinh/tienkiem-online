@@ -44,7 +44,7 @@ const MOOD: Record<string, string> = {
   nguyetmon: 'Khu vườn cổ, hoa mai và chiếc quạt lụa tròn',
   ruouhoa: 'Vườn lê nở rộ dưới trăng, chén ngọc chờ ai đó',
 };
-export interface GenStory extends Opt { setting: string; mood: string }
+export interface GenStory extends Opt { setting: string; mood: string; frame?: string }
 // The lab's texts mention a second person (an empty seat to smile at, someone far away, a beloved in the crowd, two cups): the model draws that person. Here every story is about the character alone.
 const ALONE: Record<string, { text?: string; setting?: string }> = {
   cocam: { text: 'a gentle musician-immortal with a guqin before her, her long sleeves covering her hands, lost in a love song, gazing softly into the distance' },
@@ -53,6 +53,8 @@ const ALONE: Record<string, { text?: string; setting?: string }> = {
   ruouhoa: { text: 'a slightly tipsy immortal beauty with flushed cheeks, a jade wine cup on the low table before her, smiling softly at the cup', setting: 'a pear blossom orchard in full bloom at midnight, a stone table with a wine jar and a single jade cup, a full moon, petals falling like snow' },
 };
 export const STORIES: GenStory[] = ALL_STORIES.filter((s) => !HIDDEN_STORIES.includes(s.id)).map((s) => ({ ...s, ...(ALONE[s.id] || {}), mood: MOOD[s.id] || '' }));
+// Added from the owner's references: the 3D donghua extreme close-up beauty portrait in lavender, with a blurred veil across the foreground. It picks the close-up frame by itself.
+STORIES.push({ id: 'timmong', label: 'Đặc tả tím mộng', text: 'an ethereal lavender-haired immortal beauty in an extreme close-up portrait, jewel-like violet eyes with long lashes and a soft pink eye shadow, glossy luminous skin, red lips, crystal drop earrings, a few strands of hair drifting across her cheek', setting: 'a pearly lavender-violet haze with soft bokeh lights, the pale edge of a translucent fur or silk veil blurred across the foreground, a faint glimmer of crystals', mood: 'Chân dung đặc tả 3D, tóc tím, mắt ngọc, màn voan mờ phía trước', frame: 'close' });
 // Always in the prompt, whatever the switches say: the reference photo only lends a face, and the character is the one and only person.
 export const ONE_PERSON = 'The character is the only person in the whole picture, drawn once, with one head and one body. The reference photo is only a source for the face and does not appear in the image. Everything else is scenery and objects, with no other person, figure, silhouette or face. ';
 
@@ -105,6 +107,7 @@ const PEEK: Record<string, string> = {
 
 // Every picture is built in depth layers: each story names what drifts blurred in front, what fills the middle and what fades behind.
 const LAYERS: Record<string, string> = {
+  timmong: 'Depth layers: front, a blurred translucent veil edge and drifting hair strands; middle, the face in sharp focus with sparkling crystal earrings; back, pearly lavender haze and soft bokeh.',
   lienhoa: 'Depth layers: front, blurred lotus leaves and petals; middle, pond mist and glowing koi; back, a huge hazy moon and the far shore.',
   hoadiep: 'Depth layers: front, blurred red silk and drifting embers; middle, bamboo stalks and lantern glow; back, smoky firelit bamboo depths.',
   hoason: 'Depth layers: front, blurred drifting embers and phoenix feathers; middle, smoke over black stone; back, distant glowing lava rivers.',
@@ -153,9 +156,10 @@ export function cleanPick(raw: unknown, noFace = false): GenPick {
 
 const by = <T extends Opt>(a: T[], id: string): T => a.find((x) => x.id === id) || a[0];
 
+const POSE_OF: Record<string, string> = { ...STORY_POSE, timmong: 'her head tilted slightly with the chin lowered, her gaze reaching the viewer through lowered lashes, one lock of hair drifting across her cheek' };
 export function poseText(p: GenPick): string {
   const chosen = validPoses(p.frame, p.view).find((x) => x.id === p.pose);
-  return chosen ? chosen.text : (STORY_POSE[p.story] || STORY_POSE[STORIES[0].id] || '');
+  return chosen ? chosen.text : (POSE_OF[p.story] || POSE_OF[STORIES[0].id] || '');
 }
 
 // The description the player sees (and may rewrite). Everything stays elegant and clothed: the outfit is always the first level of the lab's table.
@@ -254,7 +258,7 @@ const TABS_VIEW = (gender: Gender, pick: unknown, noFace: boolean): string => (g
 // What the page needs for each tab, so one page serves both (the page only reads this table).
 type Pk = Record<string, string>;
 export interface TabConfig {
-  stories: (Opt & { mood: string; type?: string })[]; frames: Opt[]; angles: Choice[]; views: Opt[]; hands: Choice[]; exprs: Choice[]; hairs: Opt[]; types: Choice[];
+  stories: (Opt & { mood: string; type?: string; frame?: string })[]; frames: Opt[]; angles: Choice[]; views: Opt[]; hands: Choice[]; exprs: Choice[]; hairs: Opt[]; types: Choice[];
   defaults: Pk; clean: (raw: unknown, noFace: boolean) => Pk; compose: (p: Pk) => string; poses: (frame: string, view: string) => Opt[];
 }
 export const TABS: Record<Gender, TabConfig> = {

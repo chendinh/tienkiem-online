@@ -3,7 +3,7 @@
 import { LAYOUT as _L, REFLECTION, STYLES, type Opt, type Pose } from './wallpaper';
 
 export interface MChoice extends Opt { icon: string; hint: string; tone?: string }
-export interface MStory extends Opt { setting: string; mood: string; type: string }
+export interface MStory extends Opt { setting: string; mood: string; type: string; frame?: string }
 
 export const TYPES: (MChoice & { outfit: string })[] = [
   { id: 'strong', label: 'Mạnh mẽ', icon: '💪', hint: 'Vai rộng, khí thế áp đảo', text: 'a powerful adult cultivator with a broad-shouldered athletic build, a strong jawline and a fierce, commanding aura', outfit: 'a layered dark-blue and gold battle robe with armoured shoulder pieces, a wide belt and a long flowing outer robe' },
@@ -23,6 +23,7 @@ export const STORIES: MStory[] = [
   S('cocamnam', 'calm', 'Gảy cổ cầm bên suối', 'a silver-haired immortal playing a guqin beside a stream, a small white rabbit resting at his side', 'a moonlit bamboo grove with a gentle stream, soft glowing fireflies, a few translucent petals drifting, a huge pale moon, blue mist on distant peaks', 'Tiếng đàn bên suối, thỏ trắng dưới trăng'),
   S('tradinh', 'calm', 'Pha trà trong đình núi', 'a scholar-immortal brewing tea in a mountain pavilion, steam curling past his calm face', 'a lantern-lit open pavilion on a misty mountain, a low tea table with a jade teapot, plum blossoms, drifting clouds', 'Hơi trà bay trong đình giữa mây núi'),
   S('thuphapnam', 'calm', 'Thư pháp dưới đèn', 'a scholar-immortal at a stone desk, his brush touching a sheet of white paper where fresh black calligraphy flows, glowing scrolls floating around him', 'a quiet study under a pale moon, an unrolled paper scroll on the stone desk with an inkstone, candlelight, a few plum petals drifting', 'Nét bút trên giấy, cuộn thư bay quanh dưới đèn'),
+  { ...S('datmat', 'cool', 'Đặc tả ánh mắt', 'an extreme close-up of a handsome cool-eyed immortal, half of his face veiled by shimmering crystal beads and glittering water droplets, smoky red eyeliner, a cold sorrowful gaze through a few strands of black hair', 'a deep blue-violet darkness, glittering crystal beads and droplets catching cold light in the foreground, soft blue bokeh, a trailing blue jade tassel', 'Đặc tả ánh mắt, hạt pha lê và giọt nước lấp lánh'), frame: 'close' },
   S('thienlien', 'calm', 'Thiền trên đài sen', 'a serene immortal meditating cross-legged on a lotus platform above a still lake at dawn', 'a mirror-still lake at dawn, giant glowing lotus flowers, soft golden mist', 'Đài sen giữa hồ phẳng lặng lúc bình minh'),
 ];
 const WATER = new Set(['thienlien']);
@@ -71,6 +72,7 @@ export const POSES: Pose[] = [
 export const validPoses = (frame: string, view: string): Pose[] => POSES.filter((x) => x.frames.includes(frame) && x.views.includes(view));
 
 const STORY_POSE: Record<string, string> = {
+  datmat: 'his head turned slightly with the chin lowered, one eye in sharp focus looking at the viewer, strands of hair across his cheek',
   leikiep: 'standing firmly on the cliff edge with feet apart, chin lifted, robes and hair blown by the wind',
   hoaviem: 'standing with one palm open before him holding swirling blue spirit fire, the other arm relaxed, body slightly turned',
   chienthan: 'standing tall in a wide stance, shoulders squared, one hand resting on the hilt of a sheathed sword, the outer robe billowing',
@@ -113,6 +115,7 @@ const PEEK: Record<string, string> = {
 
 // Every picture is built in depth layers: each story names what drifts blurred in front, what fills the middle and what fades behind.
 const LAYERS: Record<string, string> = {
+  datmat: 'Depth layers: front, blurred crystal beads and water droplets; middle, one sharp eye and the face in cold light; back, deep blue-violet darkness and soft bokeh.',
   leikiep: 'Depth layers: front, blurred translucent sparks and rune seals; middle, wind-torn clouds; back, distant lightning in black clouds.',
   hoaviem: 'Depth layers: front, blurred smoke and drifting embers; middle, blue flames among broken pillars; back, far hazy ruins.',
   chienthan: 'Depth layers: front, blurred cranes and banner edges; middle, golden light over the stone steps; back, a vast sea of clouds fading into the sunrise.',

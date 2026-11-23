@@ -208,7 +208,7 @@ export function GenAi() {
               <div className="ga-grid3">{cfg.types.map((t) => <Card key={t.id} on={pick.type === t.id} onClick={() => set({ type: t.id })} icon={t.icon} title={t.label} hint={t.hint} />)}</div>
             </div>}
             <div className="ga-row"><Label>Câu chuyện trong tranh</Label>
-              <div className="ga-grid2">{stories.map((s) => <Card key={s.id} on={pick.story === s.id} onClick={() => set({ story: s.id })} title={s.label} hint={s.mood} />)}</div>
+              <div className="ga-grid2">{stories.map((s) => <Card key={s.id} on={pick.story === s.id} onClick={() => set({ story: s.id, ...(s.frame ? { frame: s.frame } : {}) })} title={s.label} hint={s.mood} />)}</div>
             </div>
             <button type="button" className="ga-dice" onClick={dice}>🎲 Chọn ngẫu nhiên cho tôi</button>
           </Section>

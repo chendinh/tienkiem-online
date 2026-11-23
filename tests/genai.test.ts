@@ -5,7 +5,7 @@ import { ANGLES, DEFAULT_PICK, EXPRESSIONS, FRAMES, HAIR, HANDS, HIDDEN_STORIES,
 test('the five stories are off, and so is the hot spring; the rest stay', () => {
   for (const id of ['daohoa', 'bangtuyet', 'tinhha', 'longcung', 'thuphong']) assert.ok(!STORIES.some((s) => s.id === id), id);
   assert.ok(!STORIES.some((s) => s.id === 'suoinong'));
-  assert.equal(STORIES.length, 15 - HIDDEN_STORIES.length);
+  assert.equal(STORIES.length, 15 - HIDDEN_STORIES.length + 1); // +1: timmong, the lavender close-up
   for (const s of STORIES) assert.ok(s.mood.length > 5, s.id);
 });
 
@@ -281,4 +281,13 @@ test('one person only: every prompt says so, and no story or expression text inv
   for (const g of ['f', 'm'] as const) for (const nf of [false, true]) assert.match(buildGenPrompt('x'.repeat(30), nf, g), /only person in the whole picture[\s\S]*does not appear in the image/);
   const all = [...STORIES.map((x) => x.id + ' ' + composeScene(cleanPick({ ...DEFAULT_PICK, story: x.id }))), ...M.STORIES.map((x) => x.id + ' ' + M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: x.type, story: x.id })))];
   for (const t of all) assert.doesNotMatch(t, /someone|empty seat|two cups|beloved|each other|companion|crowd|disciple|lover|couple/i, t.slice(0, 40));
+});
+
+test('the lavender close-up story (her) and the crystal-eye story (him): present, layered, pick the close-up frame, one person', () => {
+  const f = STORIES.find((x) => x.id === 'timmong')!, m = M.STORIES.find((x) => x.id === 'datmat')!;
+  assert.ok(f && m); assert.equal(f.frame, 'close'); assert.equal(m.frame, 'close');
+  const a = composeScene(cleanPick({ ...DEFAULT_PICK, story: 'timmong', frame: 'close' })), b = M.composeScene(M.cleanPick({ ...M.DEFAULT_PICK, type: 'cool', story: 'datmat', frame: 'close' }));
+  assert.match(a, /lavender/); assert.match(a, /Depth layers/); assert.match(a, /chin lowered/);
+  assert.match(b, /crystal beads/); assert.match(b, /Depth layers/); assert.match(b, /chin lowered/);
+  assert.equal(sceneProblem(a), null); assert.equal(sceneProblem(b), null);
 });
