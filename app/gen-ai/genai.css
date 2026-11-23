@@ -38,6 +38,7 @@
 .ga-seg button[aria-pressed='true'] { color: var(--ink-950); background: var(--gold-leaf); font-weight: 600; }
 
 .ga-grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
+.ga-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
 .ga-grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
 @media (min-width: 520px) { .ga-grid4 { grid-template-columns: repeat(4, 1fr); } }
 .ga-card { position: relative; display: grid; align-content: start; justify-items: start; gap: 0.2rem; padding: 0.75rem 2rem 0.75rem 0.8rem; min-height: 4.2rem; text-align: left; font: inherit; color: var(--ink); background: var(--ink-800); border: 1.5px solid var(--line-strong); border-radius: var(--r-lg); cursor: pointer; }

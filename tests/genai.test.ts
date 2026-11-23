@@ -106,3 +106,55 @@ test('the day of the turns is the Vietnamese day', () => {
   assert.equal(dayKey(Date.UTC(2026, 10, 23, 16, 59)), '2026-11-23');
   assert.equal(dayKey(Date.UTC(2026, 10, 23, 17, 0)), '2026-11-24');
 });
+
+// ---- male tab -------------------------------------------------------------------------------------------------------------------
+import * as M from '../lib/genaiMale';
+import { TABS, isGender } from '../lib/genai';
+
+test('male: three types, each with stories; a story always fits the type', () => {
+  assert.deepEqual(M.TYPES.map((t) => t.id), ['strong', 'cool', 'calm']);
+  for (const t of M.TYPES) assert.ok(M.storiesOf(t.id).length >= 3, t.id);
+  assert.equal(M.cleanPick({ type: 'calm', story: 'kiemlanh' }).story, M.storiesOf('calm')[0].id);
+  assert.equal(M.cleanPick({ type: 'strong', story: 'hoaviem' }).story, 'hoaviem');
+  assert.equal(M.cleanPick({ type: 'nope' }).type, M.DEFAULT_PICK.type);
+  assert.equal(M.cleanPick({ view: 'front' }, true).view, 'back');
+  for (const s of M.STORIES) assert.ok(s.mood.length > 5 && M.TYPES.some((t) => t.id === s.type), s.id);
+});
+
+test('male: every combination is under the cap, in proportion, clothed, and passes the word filter', () => {
+  let n = 0;
+  for (const type of M.TYPES) for (const story of M.storiesOf(type.id)) for (const frame of M.FRAMES) for (const view of M.VIEWS) for (const angle of M.ANGLES) for (const hands of M.HANDS) {
+    const s = M.composeScene(M.cleanPick({ type: type.id, story: story.id, frame: frame.id, view: view.id, angle: angle.id, hands: hands.id }));
+    assert.ok(s.length < SCENE_MAX, `${story.id}/${frame.id}/${view.id}/${angle.id}/${hands.id}: ${s.length}`);
+    assert.match(s, /one seventh to one eighth/);
+    assert.equal(sceneProblem(s), null, `${story.id}: ${s.slice(0, 60)}`);
+    assert.ok(!/\b(she|her|woman|girl|feminine)\b/i.test(s), `${story.id} mentions a woman`);
+    n++;
+  }
+  assert.ok(n > 1000);
+});
+
+test('male: no round-frame camera, a doorway peek exists, hands have natural and hidden, expressions name the face', () => {
+  assert.ok(M.ANGLES.some((a) => a.id === 'peek') && !M.ANGLES.some((a) => a.id === 'moon'));
+  assert.ok(M.HANDS.some((h) => h.id === 'natural') && M.HANDS.some((h) => h.id === 'hidden'));
+  for (const e of M.EXPRESSIONS) assert.match(e.text, /eyes|brow|lips|smile|smirk/, e.id);
+  assert.ok(M.HAIR.length >= 10);
+});
+
+test('male: faceless views have no expression, close-up puts the hands out of frame, poses exist for every frame and view', () => {
+  for (const v of ['back', 'hidden']) assert.ok(!/Expression:/.test(M.composeScene(M.cleanPick({ view: v }))));
+  assert.match(M.composeScene(M.cleanPick({ frame: 'close' })), /hands are outside the frame/);
+  for (const f of M.FRAMES) for (const v of M.VIEWS) assert.ok(M.validPoses(f.id, v.id).length > 0, `${f.id}/${v.id}`);
+});
+
+test('male prompt: man in the photo rule first, clothed rule last; gender picks the scene and the fixed lines', () => {
+  const sc = sceneOf({}, undefined, false, 'm').scene;
+  assert.match(sc, /Character:/);
+  assert.match(buildGenPrompt(sc, false, 'm'), /^Use the adult man in the reference photo as the face/);
+  assert.match(buildGenPrompt(sc, false, 'm'), /fully clothed, modest and non-suggestive\.$/);
+  assert.match(buildGenPrompt(sc, true, 'm'), /^Use the adult man in the reference photo only for hair/);
+  assert.match(buildGenPrompt('x'.repeat(30), false), /^Use the adult person in the reference photo/);
+  assert.ok(isGender('m') && isGender('f') && !isGender('x') && !isGender(undefined));
+  assert.equal(TABS.m.clean({ story: 'kiemlanh' }, false).type, 'cool');
+  assert.ok(TABS.f.types.length === 0 && TABS.m.types.length === 3);
+});

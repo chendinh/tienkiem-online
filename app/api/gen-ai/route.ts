@@ -6,7 +6,7 @@ import { serverNow } from '@/lib/server/service';
 import { claimJob, releaseJobs } from '@/lib/server/images';
 import { addSpent, giveTurnBack, spentToday, takeTurn, turnsUsed } from '@/lib/server/genaiQuota';
 import { FACE_MAX_CHARS, inputOf, isPhotoDataUrl, modelOf } from '@/lib/anh18';
-import { LEGAL_VERSION, buildGenPrompt, cleanPick, consentOk, sceneOf, sceneProblem } from '@/lib/genai';
+import { LEGAL_VERSION, buildGenPrompt, consentOk, isGender, sceneOf, sceneProblem } from '@/lib/genai';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -14,7 +14,7 @@ export const maxDuration = 300;
 // The player-facing picture maker. Signed-in accounts with an e-mail only (guests are refused), Seedream 4.5 "edit" with the player's own photo and nothing else,
 // the fal safety checker always on. The photo goes to fal and is not stored; the picture stays on fal's CDN (the page offers it for download at once).
 // GET   -> { enabled, user, left, limit, terms }                         (user is null when nobody is signed in)
-// POST  { consent: { personal, adult, terms }, photo, noFace?, pick, scene? }  -> { ok, url, w, h, ms, left }
+// POST  { consent: { personal, adult, terms }, photo, gender?: 'f' | 'm', noFace?, pick, scene? }  -> { ok, url, w, h, ms, left }
 // Limits (environment): GENAI_DAILY_LIMIT turns per account per day (default 3), GENAI_DAILY_BUDGET_USD for the whole site per day (default 5),
 // GENAI_COST_USD per picture (default 0.04, Seedream 4.5), GENAI_OFF=1 closes the feature.
 const limitPerDay = () => Math.max(1, Math.floor(Number(process.env.GENAI_DAILY_LIMIT) || 3));
@@ -50,7 +50,9 @@ export async function POST(req: Request) {
     if (!consentOk(b?.consent)) throw new ApiError('E_FACE_CONSENT', 422);
     if (!isPhotoDataUrl(b?.photo)) throw new ApiError('E_GENAI_PHOTO');
     const noFace = b?.noFace === true;
-    const { scene, custom } = sceneOf(b?.pick, b?.scene, noFace);
+    if (b?.gender !== undefined && !isGender(b.gender)) throw new ApiError('E_BAD_REQUEST');
+    const gender = b?.gender === 'm' ? 'm' : 'f';
+    const { scene, custom } = sceneOf(b?.pick, b?.scene, noFace, gender);
     const bad = sceneProblem(scene);
     if (bad === 'short') throw new ApiError('E_BAD_REQUEST');
     if (bad) throw new ApiError('E_PROMPT_BLOCKED', 422);
@@ -70,9 +72,9 @@ export async function POST(req: Request) {
         if (!(await takeTurn(user.id, limit, now))) throw new ApiError('E_GENAI_LIMIT', 429);
         taken = true;
         // what is kept for abuse handling: who, when, which terms were confirmed, the description. Never the photo.
-        try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, custom, noFace, scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
+        try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, gender, custom, noFace, scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
       }
-      const prompt = buildGenPrompt(scene, noFace);
+      const prompt = buildGenPrompt(scene, noFace, gender);
       const input = inputOf('seedreamFace', prompt, '4k', 2, false, b.photo);   // the fal safety checker stays on for this model
       const { fal } = await import('@fal-ai/client');
       const t0 = Date.now();

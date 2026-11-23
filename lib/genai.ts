@@ -6,6 +6,7 @@
 //  - the player sees the whole description (the prompt) and may rewrite it; the server still adds its fixed lines and runs the word filter on it.
 import { FRAMES, HAIR, LAYOUT, LEVELS, REFLECTION, STORIES as ALL_STORIES, STORY_POSE, STYLES, VIEWS, validPoses, POSES, type Opt, type Pose } from './wallpaper';
 import { FACELESS_PREFIX, FACE_SUFFIX, promptProblem } from './anh18';
+import * as M from './genaiMale';
 
 export { FRAMES, HAIR, STYLES, VIEWS, POSES, validPoses, promptProblem };
 export type { Opt, Pose };
@@ -86,7 +87,7 @@ export const ANATOMY = 'exactly two arms and at most two hands in the whole pict
 const WATER = new Set(['lienhoa', 'cocam', 'duthu']);
 
 // ---- the player's choices ----------------------------------------------------------------------------------------------------------
-export interface GenPick { style: string; story: string; frame: string; angle: string; view: string; pose: string; hands: string; hair: string; expr: string }
+export type GenPick = { style: string; story: string; frame: string; angle: string; view: string; pose: string; hands: string; hair: string; expr: string };
 export const DEFAULT_PICK: GenPick = { style: 'donghua', story: 'lienhoa', frame: 'half', angle: 'eye', view: 'front', pose: 'auto', hands: 'natural', hair: 'long', expr: 'tender' };
 
 export const isFaceless = (view: string) => view === 'back' || view === 'hidden';
@@ -146,14 +147,30 @@ export function composeScene(p: GenPick): string {
 export const SCENE_MAX = 2400, SCENE_MIN = 20;
 // Lines the server always puts around the scene, whatever the player wrote. The first one takes ONLY the identity from the photo.
 export const FACE_PREFIX = 'Use the adult person in the reference photo as the face of the character. Keep the identity clearly recognisable, but gently refine it into a slimmer, more elegant face with smooth luminous skin and bright eyes. Take only the identity from the photo: the framing, pose, expression, clothing and background all come from the description below, and the head is drawn at a natural size in proportion to the body. Cinematic fantasy wallpaper of this person as a xianxia immortal cultivator. ';
-export const buildGenPrompt = (scene: string, noFace: boolean): string => (noFace ? FACELESS_PREFIX : FACE_PREFIX) + scene.trim().replace(/\s+/g, ' ').slice(0, SCENE_MAX) + FACE_SUFFIX;
+export type Gender = 'f' | 'm';
+export const isGender = (v: unknown): v is Gender => v === 'f' || v === 'm';
+export const buildGenPrompt = (scene: string, noFace: boolean, gender: Gender = 'f'): string => {
+  const body = scene.trim().replace(/\s+/g, ' ').slice(0, SCENE_MAX);
+  return gender === 'm' ? (noFace ? M.FACELESS_PREFIX : M.FACE_PREFIX) + body + M.SUFFIX : (noFace ? FACELESS_PREFIX : FACE_PREFIX) + body + FACE_SUFFIX;
+};
 
 // The scene that is really used: the player's own text when they rewrote it (custom), otherwise the one made from the choices (never trusted from the browser).
-export function sceneOf(pick: unknown, custom: unknown, noFace: boolean): { scene: string; custom: boolean } {
+export function sceneOf(pick: unknown, custom: unknown, noFace: boolean, gender: Gender = 'f'): { scene: string; custom: boolean } {
   if (typeof custom === 'string' && custom.trim()) return { scene: custom.trim().replace(/\s+/g, ' ').slice(0, SCENE_MAX), custom: true };
-  return { scene: composeScene(cleanPick(pick, noFace)), custom: false };
+  return { scene: gender === 'm' ? M.composeScene(M.cleanPick(pick, noFace)) : composeScene(cleanPick(pick, noFace)), custom: false };
 }
 export const sceneProblem = (scene: string): string | null => (scene.trim().length < SCENE_MIN ? 'short' : promptProblem(scene));
 
 // The day the turns are counted in: the Vietnamese day (UTC+7).
 export const dayKey = (now = Date.now()) => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
+
+// What the page needs for each tab, so one page serves both (the page only reads this table).
+type Pk = Record<string, string>;
+export interface TabConfig {
+  stories: (Opt & { mood: string; type?: string })[]; frames: Opt[]; angles: Choice[]; views: Opt[]; hands: Choice[]; exprs: Choice[]; hairs: Opt[]; types: Choice[];
+  defaults: Pk; clean: (raw: unknown, noFace: boolean) => Pk; compose: (p: Pk) => string; poses: (frame: string, view: string) => Opt[];
+}
+export const TABS: Record<Gender, TabConfig> = {
+  f: { stories: STORIES, frames: FRAMES, angles: ANGLES, views: VIEWS, hands: HANDS, exprs: EXPRESSIONS, hairs: HAIR, types: [], defaults: DEFAULT_PICK, clean: cleanPick, compose: (p) => composeScene(cleanPick(p)), poses: validPoses },
+  m: { stories: M.STORIES, frames: M.FRAMES, angles: M.ANGLES, views: M.VIEWS, hands: M.HANDS, exprs: M.EXPRESSIONS, hairs: M.HAIR, types: M.TYPES, defaults: M.DEFAULT_PICK, clean: M.cleanPick, compose: (p) => M.composeScene(M.cleanPick(p)), poses: M.validPoses },
+};

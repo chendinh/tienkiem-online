@@ -3,7 +3,7 @@
 // The page only shows the rules (lib/genai.ts); the server (/api/gen-ai) is the one that enforces them.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { errText } from '@/lib/strings';
-import { ANGLES, DEFAULT_PICK, EXPRESSIONS, FACELESS_VIEWS, FRAMES, HAIR, HANDS, LEGAL, LEGAL_VERSION, MIN_AGE, SCENE_MAX, STORIES, STYLES, VIEWS, cleanPick, composeScene, isFaceless, sceneProblem, validPoses, type GenPick } from '@/lib/genai';
+import { FACELESS_VIEWS, LEGAL, LEGAL_VERSION, MIN_AGE, SCENE_MAX, STYLES, TABS, isFaceless, sceneProblem, type Gender } from '@/lib/genai';
 
 type Status = { enabled: boolean; user: { email: string; guest: boolean } | null; left: number; limit: number };
 type Result = { url: string; ms: number };
@@ -55,11 +55,14 @@ export function GenAi() {
   const [loadErr, setLoadErr] = useState('');
   const [legalOk, setLegalOk] = useState<boolean | null>(null);   // null until the browser has been asked: nothing is drawn before that, so neither the page nor the popup flashes on reload
   const [legalTick, setLegalTick] = useState(false);
-  const [tab, setTab] = useState<'f' | 'm'>('f');
+  const [tab, setTab] = useState<Gender>('f');
   const [photo, setPhoto] = useState('');
   const [noFace, setNoFace] = useState(false);
-  const [pick, setPick] = useState<GenPick>(DEFAULT_PICK);
-  const [custom, setCustom] = useState<string | null>(null);   // null = the description follows the choices
+  const [picks, setPicks] = useState<Record<Gender, Record<string, string>>>({ f: TABS.f.defaults, m: TABS.m.defaults });
+  const [customs, setCustoms] = useState<Record<Gender, string | null>>({ f: null, m: null });   // null = the description follows the choices
+  const cfg = TABS[tab], pick = picks[tab], custom = customs[tab];
+  const setPick = (fn: (p: Record<string, string>) => Record<string, string>) => setPicks((all) => ({ ...all, [tab]: fn(all[tab]) }));
+  const setCustom = (v: string | null) => setCustoms((all) => ({ ...all, [tab]: v }));
   const [confirm, setConfirm] = useState(false);
   const [tickPersonal, setTickPersonal] = useState(false);
   const [tickAdult, setTickAdult] = useState(false);
@@ -83,11 +86,12 @@ export function GenAi() {
   // while the legal popup is open, the page behind it does not scroll
   useEffect(() => { document.body.style.overflow = !legalOk || confirm || busy ? 'hidden' : ''; return () => { document.body.style.overflow = ''; }; }, [legalOk, confirm, busy]);
 
-  const set = (patch: Partial<GenPick>, nf = noFace) => setPick((p) => cleanPick({ ...p, ...patch }, nf));
-  const views = noFace ? VIEWS.filter((v) => FACELESS_VIEWS.includes(v.id)) : VIEWS;
-  const poses = validPoses(pick.frame, pick.view);
+  const set = (patch: Record<string, string>) => setPick((p) => cfg.clean({ ...p, ...patch }, noFace));
+  const views = noFace ? cfg.views.filter((v) => FACELESS_VIEWS.includes(v.id)) : cfg.views;
+  const poses = cfg.poses(pick.frame, pick.view);
   const faceless = isFaceless(pick.view);
-  const auto = useMemo(() => composeScene(cleanPick(pick, noFace)), [pick, noFace]);
+  const stories = cfg.types.length ? cfg.stories.filter((x) => x.type === pick.type) : cfg.stories;
+  const auto = useMemo(() => cfg.compose(cfg.clean(pick, noFace)), [cfg, pick, noFace]);
   const shown = custom ?? auto;
   const bad = sceneProblem(shown);
   const badText = bad === 'short' ? 'Mô tả quá ngắn.' : bad ? errText('E_PROMPT_BLOCKED') : '';
@@ -109,8 +113,9 @@ export function GenAi() {
     img.src = u;
   }
   function dice() {
-    const v = rnd(views.filter((x) => !isFaceless(x.id) || noFace));
-    setPick((p) => cleanPick({ ...p, story: rnd(STORIES).id, frame: rnd(FRAMES).id, angle: rnd(ANGLES).id, view: v.id, hands: rnd(HANDS).id, hair: rnd(HAIR).id, expr: rnd(EXPRESSIONS).id, pose: 'auto' }, noFace));
+    const v = rnd(views.filter((x) => !isFaceless(x.id) || noFace)), ty = cfg.types.length ? rnd(cfg.types).id : '';
+    const st = (ty ? cfg.stories.filter((x) => x.type === ty) : cfg.stories);
+    setPick((p) => cfg.clean({ ...p, ...(ty ? { type: ty } : {}), story: rnd(st).id, frame: rnd(cfg.frames).id, angle: rnd(cfg.angles).id, view: v.id, hands: rnd(cfg.hands).id, hair: rnd(cfg.hairs).id, expr: rnd(cfg.exprs).id, pose: 'auto' }, noFace));
     setCustom(null);
   }
   function agree() { try { sessionStorage.setItem(LEGAL_KEY, LEGAL_VERSION); } catch { /* private mode: asked again next time */ } setLegalOk(true); }
@@ -120,7 +125,7 @@ export function GenAi() {
     try {
       const r = await fetch('/api/gen-ai', {
         method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consent: { personal: true, adult: true, terms: LEGAL_VERSION }, photo, noFace, pick: cleanPick(pick, noFace), scene: custom ?? undefined }),
+        body: JSON.stringify({ consent: { personal: true, adult: true, terms: LEGAL_VERSION }, photo, noFace, gender: tab, pick: cfg.clean(pick, noFace), scene: custom ?? undefined }),
       });
       const j = await r.json().catch(() => ({ ok: false, code: 'E_SERVER' }));
       if (j?.ok && j.url) {
@@ -161,12 +166,7 @@ export function GenAi() {
       {status && status.enabled && !user && <div className="ga-gate"><b>Bạn cần đăng nhập</b><p>Hãy vào game, đăng nhập tài khoản rồi quay lại trang này.</p><a className="ga-go" href="/">Về game để đăng nhập</a></div>}
       {status && status.enabled && user?.guest && <div className="ga-gate"><b>Cần liên kết email</b><p>Tài khoản khách chưa dùng được tính năng này. Hãy liên kết email trong game rồi quay lại.</p><a className="ga-go" href="/">Về game để liên kết email</a></div>}
 
-      {tab === 'm' && (
-        <div className="ga-soon"><b>Nhân vật nam sắp ra mắt</b><p>Đang chuẩn bị tư thế và bối cảnh riêng cho nam tu tiên. Trong lúc chờ, bạn có thể dùng tab Nhân vật nữ.</p></div>
-      )}
-
-      {tab === 'f' && (
-        <>
+      <>
           <Section n={1} title="Ảnh của bạn" sub="Chỉ dùng ảnh của chính bạn. Ảnh rõ mặt, nhìn thẳng, đủ sáng sẽ giống nhất.">
             <label className={`ga-drop${photo ? ' has' : ''}`}>
               {photo ? <img src={photo} alt="Ảnh bạn đã chọn" /> : <span><b>＋ Chọn ảnh</b><small>JPG, PNG hoặc WebP</small></span>}
@@ -174,7 +174,7 @@ export function GenAi() {
             </label>
             {photo && <button type="button" className="ga-link" onClick={() => setPhoto('')}>Bỏ ảnh này</button>}
             <label className="ga-check">
-              <input type="checkbox" checked={noFace} onChange={(e) => { setNoFace(e.target.checked); setPick((p) => cleanPick(p, e.target.checked)); }} />
+              <input type="checkbox" checked={noFace} onChange={(e) => { const nf = e.target.checked; setNoFace(nf); setPicks((all) => ({ f: TABS.f.clean(all.f, nf), m: TABS.m.clean(all.m, nf) })); }} />
               <span>Ảnh của tôi không thấy mặt<small>Chỉ lấy tóc và dáng; ảnh vẽ sẽ nhìn từ sau lưng, góc nghiêng hoặc che mặt.</small></span>
             </label>
           </Section>
@@ -183,18 +183,21 @@ export function GenAi() {
             <div className="ga-row"><Label>Phong cách</Label>
               <div className="ga-seg">{STYLES.map((s) => <button key={s.id} type="button" aria-pressed={pick.style === s.id} onClick={() => set({ style: s.id })}>{STYLE_SHORT[s.id] || s.label}</button>)}</div>
             </div>
+            {cfg.types.length > 0 && <div className="ga-row"><Label>Bạn muốn là kiểu nam nhân nào?</Label>
+              <div className="ga-grid3">{cfg.types.map((t) => <Card key={t.id} on={pick.type === t.id} onClick={() => set({ type: t.id })} icon={t.icon} title={t.label} hint={t.hint} />)}</div>
+            </div>}
             <div className="ga-row"><Label>Câu chuyện trong tranh</Label>
-              <div className="ga-grid2">{STORIES.map((s) => <Card key={s.id} on={pick.story === s.id} onClick={() => set({ story: s.id })} title={s.label} hint={s.mood} />)}</div>
+              <div className="ga-grid2">{stories.map((s) => <Card key={s.id} on={pick.story === s.id} onClick={() => set({ story: s.id })} title={s.label} hint={s.mood} />)}</div>
             </div>
             <button type="button" className="ga-dice" onClick={dice}>🎲 Chọn ngẫu nhiên cho tôi</button>
           </Section>
 
           <Section n={3} title="Khung hình và góc máy">
             <div className="ga-row"><Label>Lấy bao nhiêu người trong tranh?</Label>
-              <div className="ga-grid4">{FRAMES.map((f) => <Card key={f.id} on={pick.frame === f.id} onClick={() => set({ frame: f.id })} icon={<FrameArt frame={f.id} />} title={({ close: 'Cận mặt', half: 'Nửa người', knee: 'Gần toàn thân', full: 'Toàn thân' } as Record<string, string>)[f.id]} hint={({ close: 'Từ ngực lên', half: 'Từ eo lên', knee: 'Từ đầu gối lên', full: 'Thấy hết bối cảnh' } as Record<string, string>)[f.id]} />)}</div>
+              <div className="ga-grid4">{cfg.frames.map((f) => <Card key={f.id} on={pick.frame === f.id} onClick={() => set({ frame: f.id })} icon={<FrameArt frame={f.id} />} title={({ close: 'Cận mặt', half: 'Nửa người', knee: 'Gần toàn thân', full: 'Toàn thân' } as Record<string, string>)[f.id]} hint={({ close: 'Từ ngực lên', half: 'Từ eo lên', knee: 'Từ đầu gối lên', full: 'Thấy hết bối cảnh' } as Record<string, string>)[f.id]} />)}</div>
             </div>
             <div className="ga-row"><Label>Máy ảnh đặt ở đâu?</Label>
-              <div className="ga-grid2">{ANGLES.map((a) => <Card key={a.id} on={pick.angle === a.id} onClick={() => set({ angle: a.id })} icon={a.icon} title={a.label} hint={a.hint} />)}</div>
+              <div className="ga-grid2">{cfg.angles.map((a) => <Card key={a.id} on={pick.angle === a.id} onClick={() => set({ angle: a.id })} icon={a.icon} title={a.label} hint={a.hint} />)}</div>
             </div>
             <div className="ga-row"><Label>Nhân vật quay về hướng nào?</Label>
               <div className="ga-grid2">{views.map((v) => <Card key={v.id} on={pick.view === v.id} onClick={() => set({ view: v.id })} title={v.label} />)}</div>
@@ -209,17 +212,17 @@ export function GenAi() {
               </div>
             </div>
             <div className="ga-row"><Label>Đôi tay</Label>
-              <div className="ga-grid2">{HANDS.map((h) => <Card key={h.id} on={pick.hands === h.id} onClick={() => set({ hands: h.id })} icon={h.icon} title={h.label} hint={h.hint} disabled={pick.view === 'back' && h.id !== 'natural' && h.id !== 'hidden'} />)}</div>
+              <div className="ga-grid2">{cfg.hands.map((h) => <Card key={h.id} on={pick.hands === h.id} onClick={() => set({ hands: h.id })} icon={h.icon} title={h.label} hint={h.hint} disabled={pick.view === 'back' && h.id !== 'natural' && h.id !== 'hidden'} />)}</div>
               {pick.view === 'back' && <p className="ga-sub">Nhìn từ sau lưng thì không thấy tay.</p>}
             </div>
           </Section>
 
           <Section n={5} title="Biểu cảm" sub={faceless ? 'Ảnh không lộ mặt nên không có biểu cảm.' : 'Chọn một cảm xúc, AI sẽ vẽ rõ trên gương mặt.'}>
-            <div className="ga-grid2">{EXPRESSIONS.map((x) => <Card key={x.id} on={!faceless && pick.expr === x.id} onClick={() => set({ expr: x.id })} icon={x.icon} title={x.label} hint={x.hint} disabled={faceless} />)}</div>
+            <div className="ga-grid2">{cfg.exprs.map((x) => <Card key={x.id} on={!faceless && pick.expr === x.id} onClick={() => set({ expr: x.id })} icon={x.icon} title={x.label} hint={x.hint} disabled={faceless} />)}</div>
           </Section>
 
           <Section n={6} title="Kiểu tóc">
-            <div className="ga-chips">{HAIR.map((h) => <button key={h.id} type="button" aria-pressed={pick.hair === h.id} onClick={() => set({ hair: h.id })}>{h.label}</button>)}</div>
+            <div className="ga-chips">{cfg.hairs.map((h) => <button key={h.id} type="button" aria-pressed={pick.hair === h.id} onClick={() => set({ hair: h.id })}>{h.label}</button>)}</div>
           </Section>
 
           <Section n={7} title="Mô tả gửi cho AI (prompt)" sub="Đây là phần mô tả được tạo từ các lựa chọn của bạn. Muốn tự viết thì sửa thẳng vào ô dưới (viết tiếng Anh sẽ chính xác hơn).">
@@ -232,8 +235,7 @@ export function GenAi() {
             {badText && <p className="ga-err">{badText}</p>}
             <p className="ga-sub">Hệ thống luôn tự thêm: lấy khuôn mặt từ ảnh của bạn, trang phục thanh lịch kín đáo. Mô tả vi phạm điều khoản sẽ bị từ chối.</p>
           </Section>
-        </>
-      )}
+      </>
 
       {result && (
         <div className="ga-result" ref={resRef}>
@@ -247,7 +249,7 @@ export function GenAi() {
         </div>
       )}
 
-      {tab === 'f' && (
+      {(
         <div className="ga-bar">
           {err && <p className="ga-err">{err}</p>}
           <div className="ga-bar-row">
