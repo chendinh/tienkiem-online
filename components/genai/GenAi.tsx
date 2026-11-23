@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { errText } from '@/lib/strings';
 import { FACELESS_VIEWS, LEGAL, LEGAL_VERSION, MIN_AGE, SCENE_MAX, STYLES, TABS, isFaceless, sceneProblem, type Gender } from '@/lib/genai';
 
-type Status = { enabled: boolean; user: { email: string; guest: boolean } | null; left: number; limit: number };
+type Status = { enabled: boolean; user: { email: string; guest: boolean } | null; left: number; limit: number; unlimited: boolean };
 type Result = { url: string; ms: number };
 const LEGAL_KEY = 'genai-legal';
 const STYLE_SHORT: Record<string, string> = { donghua: '3D tiên hiệp', painterly: 'Tranh vẽ tay', real: 'Gần như thật' };   // short, so each fits on one line of a phone
@@ -75,7 +75,7 @@ export function GenAi() {
   useEffect(() => {
     try { setLegalOk(sessionStorage.getItem(LEGAL_KEY) === LEGAL_VERSION); } catch { setLegalOk(false); }
     fetch('/api/gen-ai', { credentials: 'same-origin', cache: 'no-store' }).then((r) => r.json()).then((j) => {
-      if (j?.ok) setStatus({ enabled: !!j.enabled, user: j.user || null, left: Number(j.left) || 0, limit: Number(j.limit) || 0 }); else setLoadErr(errText(j?.code || 'E_SERVER'));
+      if (j?.ok) setStatus({ enabled: !!j.enabled, user: j.user || null, left: Number(j.left) || 0, limit: Number(j.limit) || 0, unlimited: !!j.unlimited }); else setLoadErr(errText(j?.code || 'E_SERVER'));
     }).catch(() => setLoadErr('Không kết nối được máy chủ.'));
   }, []);
   useEffect(() => {
@@ -97,7 +97,7 @@ export function GenAi() {
   const badText = bad === 'short' ? 'Mô tả quá ngắn.' : bad ? errText('E_PROMPT_BLOCKED') : '';
 
   const user = status?.user, canUse = !!status && status.enabled && !!user && !user.guest;
-  const why = !photo ? 'Hãy chọn ảnh của bạn ở bước 1.' : bad ? 'Hãy sửa lại mô tả ở bước 7.' : status && status.left <= 0 ? 'Hôm nay bạn đã dùng hết lượt.' : '';
+  const why = !photo ? 'Hãy chọn ảnh của bạn ở bước 1.' : bad ? 'Hãy sửa lại mô tả ở bước 7.' : status && !status.unlimited && status.left <= 0 ? 'Hôm nay bạn đã dùng hết lượt.' : '';
 
   function pickFile(f?: File) {
     if (!f) return;
@@ -253,7 +253,7 @@ export function GenAi() {
         <div className="ga-bar">
           {err && <p className="ga-err">{err}</p>}
           <div className="ga-bar-row">
-            <span className="ga-left">{status && user && !user.guest ? `Còn ${status.left}/${status.limit} lượt hôm nay` : ''}</span>
+            <span className="ga-left">{status && user && !user.guest ? status.unlimited ? 'Không giới hạn lượt' : `Còn ${status.left}/${status.limit} lượt hôm nay` : ''}</span>
             <button type="button" className="ga-go" disabled={!canUse || !!why || busy} onClick={() => { setErr(''); setConfirm(true); }}>✨ Tạo ảnh</button>
           </div>
           {canUse && why && <small className="ga-why">{why}</small>}

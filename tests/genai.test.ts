@@ -158,3 +158,15 @@ test('male prompt: man in the photo rule first, clothed rule last; gender picks 
   assert.equal(TABS.m.clean({ story: 'kiemlanh' }, false).type, 'cool');
   assert.ok(TABS.f.types.length === 0 && TABS.m.types.length === 3);
 });
+
+import { isUnlimited } from '../lib/genai';
+test('the owner address has no limit (any case, spaces), others do; extra addresses come from the environment', () => {
+  assert.equal(isUnlimited('chendinhit@gmail.com'), true);
+  assert.equal(isUnlimited('  ChenDinhIT@Gmail.com '), true);
+  assert.equal(isUnlimited('chendinhit@gmail.com.evil.com'), false);
+  assert.equal(isUnlimited('someone@gmail.com'), false);
+  assert.equal(isUnlimited(''), false);
+  assert.equal(isUnlimited(undefined), false);
+  assert.equal(isUnlimited('friend@x.com', 'a@b.com, Friend@X.com'), true);
+  assert.equal(isUnlimited('friend@x.com', ''), false);
+});

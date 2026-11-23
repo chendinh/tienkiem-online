@@ -174,3 +174,11 @@ export const TABS: Record<Gender, TabConfig> = {
   f: { stories: STORIES, frames: FRAMES, angles: ANGLES, views: VIEWS, hands: HANDS, exprs: EXPRESSIONS, hairs: HAIR, types: [], defaults: DEFAULT_PICK, clean: cleanPick, compose: (p) => composeScene(cleanPick(p)), poses: validPoses },
   m: { stories: M.STORIES, frames: M.FRAMES, angles: M.ANGLES, views: M.VIEWS, hands: M.HANDS, exprs: M.EXPRESSIONS, hairs: M.HAIR, types: M.TYPES, defaults: M.DEFAULT_PICK, clean: M.cleanPick, compose: (p) => M.composeScene(M.cleanPick(p)), poses: M.validPoses },
 };
+
+// Accounts with no daily limit and no site budget check (the owner). Compared in lower case; more addresses may be added in GENAI_UNLIMITED (comma separated).
+export const UNLIMITED_EMAILS = ['chendinhit@gmail.com'];
+export const isUnlimited = (email: unknown, extra = ''): boolean => {
+  if (typeof email !== 'string') return false;
+  const e = email.trim().toLowerCase();
+  return !!e && [...UNLIMITED_EMAILS, ...extra.split(',')].some((x) => x.trim().toLowerCase() === e);
+};

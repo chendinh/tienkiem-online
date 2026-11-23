@@ -6,7 +6,7 @@ import { serverNow } from '@/lib/server/service';
 import { claimJob, releaseJobs } from '@/lib/server/images';
 import { addSpent, giveTurnBack, spentToday, takeTurn, turnsUsed } from '@/lib/server/genaiQuota';
 import { FACE_MAX_CHARS, inputOf, isPhotoDataUrl, modelOf } from '@/lib/anh18';
-import { LEGAL_VERSION, buildGenPrompt, consentOk, isGender, sceneOf, sceneProblem } from '@/lib/genai';
+import { LEGAL_VERSION, buildGenPrompt, consentOk, isGender, isUnlimited, sceneOf, sceneProblem } from '@/lib/genai';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -31,8 +31,9 @@ export async function GET(req: Request) {
     if (dev()) return json({ ...base, user: { email: 'dev@local', guest: false }, left: base.limit });
     const u = await sessionUser(cookieOf(req), serverNow());
     if (!u) return json({ ...base, user: null, left: 0 });
-    const left = u.guest ? 0 : Math.max(0, base.limit - (await turnsUsed(u.id)));
-    return json({ ...base, user: { email: u.email, guest: u.guest }, left });
+    const unlimited = !u.guest && isUnlimited(u.email, process.env.GENAI_UNLIMITED);
+    const left = u.guest ? 0 : unlimited ? base.limit : Math.max(0, base.limit - (await turnsUsed(u.id)));
+    return json({ ...base, user: { email: u.email, guest: u.guest }, left, unlimited });
   });
 }
 
@@ -60,19 +61,22 @@ export async function POST(req: Request) {
     if (!m) throw new ApiError('E_SERVER', 500);
 
     const limit = limitPerDay(), now = Date.now();
+    const unlimited = !isDev && isUnlimited(user.email, process.env.GENAI_UNLIMITED);   // the owner: no daily limit and no site budget check (his spend is still counted)
     let job = '';
     if (!isDev) {
-      if ((await spentToday(now)) + costEach() > budgetPerDay()) throw new ApiError('E_GENAI_BUDGET', 503);
+      if (!unlimited && (await spentToday(now)) + costEach() > budgetPerDay()) throw new ApiError('E_GENAI_BUDGET', 503);
       job = `genai:${user.id}`;
       if (!(await claimJob(job))) throw new ApiError('E_GENAI_BUSY', 429);
     }
     let taken = false;
     try {
       if (!isDev) {
-        if (!(await takeTurn(user.id, limit, now))) throw new ApiError('E_GENAI_LIMIT', 429);
-        taken = true;
+        if (!unlimited) {
+          if (!(await takeTurn(user.id, limit, now))) throw new ApiError('E_GENAI_LIMIT', 429);
+          taken = true;
+        }
         // what is kept for abuse handling: who, when, which terms were confirmed, the description. Never the photo.
-        try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, gender, custom, noFace, scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
+        try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, gender, custom, noFace, unlimited, scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
       }
       const prompt = buildGenPrompt(scene, noFace, gender);
       const input = inputOf('seedreamFace', prompt, '4k', 2, false, b.photo);   // the fal safety checker stays on for this model
@@ -98,7 +102,7 @@ export async function POST(req: Request) {
         throw new ApiError('E_GENAI_POLICY', 422);
       }
       falHost(img.url);
-      const left = isDev ? limit : Math.max(0, limit - (await turnsUsed(user.id, now)));
+      const left = isDev || unlimited ? limit : Math.max(0, limit - (await turnsUsed(user.id, now)));
       return json({ ok: true, url: img.url, w: img.width || 0, h: img.height || 0, ms: Date.now() - t0, left });
     } catch (e) {
       if (taken && !isDev) await giveTurnBack(user.id, now);   // an unexpected failure after the turn was taken: the player does not pay for it
