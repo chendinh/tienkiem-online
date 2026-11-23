@@ -4,9 +4,9 @@ import { dbConfigured } from '@/lib/server/db';
 import { appendLog } from '@/lib/server/store';
 import { serverNow } from '@/lib/server/service';
 import { claimJob, releaseJobs } from '@/lib/server/images';
-import { addSpent, giveTurnBack, spentToday, takeTurn, turnsUsed } from '@/lib/server/genaiQuota';
+import { addSpent, bonusOf, giveBonusBack, giveTurnBack, recordGen, spentToday, takeTurn, turnsUsed, useBonus } from '@/lib/server/genaiQuota';
 import { FACE_MAX_CHARS, inputOf, isPhotoDataUrl, modelOf } from '@/lib/anh18';
-import { LEGAL_VERSION, buildGenPrompt, consentOk, isGender, isUnlimited, sceneOf, sceneProblem } from '@/lib/genai';
+import { LEGAL_VERSION, buildGenPrompt, consentOk, isGender, isUnlimited, sceneOf, sceneProblem, turnsLeft } from '@/lib/genai';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     const u = await sessionUser(cookieOf(req), serverNow());
     if (!u) return json({ ...base, user: null, left: 0 });
     const unlimited = !u.guest && isUnlimited(u.email, process.env.GENAI_UNLIMITED);
-    const left = u.guest ? 0 : unlimited ? base.limit : Math.max(0, base.limit - (await turnsUsed(u.id)));
+    const left = u.guest ? 0 : unlimited ? base.limit : turnsLeft(base.limit, await turnsUsed(u.id), await bonusOf(u.id));
     return json({ ...base, user: { email: u.email, guest: u.guest }, left, unlimited });
   });
 }
@@ -68,12 +68,14 @@ export async function POST(req: Request) {
       job = `genai:${user.id}`;
       if (!(await claimJob(job))) throw new ApiError('E_GENAI_BUSY', 429);
     }
-    let taken = false;
+    let taken: '' | 'daily' | 'bonus' = '';   // which kind of turn this picture took (given back on a failure)
+    const refund = async () => { const t = taken; taken = ''; if (t === 'daily') await giveTurnBack(user.id, now); else if (t === 'bonus') await giveBonusBack(user.id); };
     try {
       if (!isDev) {
         if (!unlimited) {
-          if (!(await takeTurn(user.id, limit, now))) throw new ApiError('E_GENAI_LIMIT', 429);
-          taken = true;
+          if (await takeTurn(user.id, limit, now)) taken = 'daily';
+          else if (await useBonus(user.id)) taken = 'bonus';   // the free turns of the day are used up: the turns the owner granted come next
+          else throw new ApiError('E_GENAI_LIMIT', 429);
         }
         // what is kept for abuse handling: who, when, which terms were confirmed, the description. Never the photo.
         try { await appendLog('genai', { acc: user.id, at: now, terms: b.consent.terms, gender, custom, noFace, unlimited, scene }); } catch (e: any) { console.warn('[gen-ai] log:', String(e?.message || e).slice(0, 100)); }
@@ -91,21 +93,23 @@ export async function POST(req: Request) {
       } catch (e: any) {
         const detail = (() => { try { return JSON.stringify(e?.body?.detail ?? e?.body ?? e?.message ?? '').slice(0, 240); } catch { return String(e?.message || '').slice(0, 240); } })();
         console.error('[gen-ai]', e?.status, detail);
-        if (taken && !isDev) { await giveTurnBack(user.id, now); taken = false; }
+        await refund();
         const policy = /content_policy|safety|nsfw|flagged/i.test(detail);
         throw new ApiError(policy ? 'E_GENAI_POLICY' : 'E_GENAI_FAIL', policy ? 422 : 502);
       }
       if (!isDev) await addSpent(costEach(), now);   // fal bills the call even when its checker blanks the picture
       const img = out?.data?.images?.[0];
       if (!img?.url) {
-        if (taken && !isDev) { await giveTurnBack(user.id, now); taken = false; }
+        await refund();
         throw new ApiError('E_GENAI_POLICY', 422);
       }
+      taken = '';   // the picture is drawn: the turn is spent whatever happens next
       falHost(img.url);
-      const left = isDev || unlimited ? limit : Math.max(0, limit - (await turnsUsed(user.id, now)));
+      if (!isDev) await recordGen(user.id, user.email, now);
+      const left = isDev || unlimited ? limit : turnsLeft(limit, await turnsUsed(user.id, now), await bonusOf(user.id));
       return json({ ok: true, url: img.url, w: img.width || 0, h: img.height || 0, ms: Date.now() - t0, left });
     } catch (e) {
-      if (taken && !isDev) await giveTurnBack(user.id, now);   // an unexpected failure after the turn was taken: the player does not pay for it
+      await refund();   // an unexpected failure after the turn was taken: the player does not pay for it
       throw e;
     } finally {
       if (job) await releaseJobs([job]);

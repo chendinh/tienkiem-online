@@ -253,7 +253,7 @@ export function GenAi() {
         <div className="ga-bar">
           {err && <p className="ga-err">{err}</p>}
           <div className="ga-bar-row">
-            <span className="ga-left">{status && user && !user.guest ? status.unlimited ? 'Không giới hạn lượt' : `Còn ${status.left}/${status.limit} lượt hôm nay` : ''}</span>
+            <span className="ga-left">{status && user && !user.guest ? status.unlimited ? 'Không giới hạn lượt' : status.left > status.limit ? `Còn ${status.left} lượt (đã được cấp thêm)` : `Còn ${status.left}/${status.limit} lượt hôm nay` : ''}</span>
             <button type="button" className="ga-go" disabled={!canUse || !!why || busy} onClick={() => { setErr(''); setConfirm(true); }}>✨ Tạo ảnh</button>
           </div>
           {canUse && why && <small className="ga-why">{why}</small>}

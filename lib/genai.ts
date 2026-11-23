@@ -182,3 +182,6 @@ export const isUnlimited = (email: unknown, extra = ''): boolean => {
   const e = email.trim().toLowerCase();
   return !!e && [...UNLIMITED_EMAILS, ...extra.split(',')].some((x) => x.trim().toLowerCase() === e);
 };
+
+// Turns an account can still use today: what is left of the free turns plus the extra turns the owner granted.
+export const turnsLeft = (limit: number, usedToday: number, bonus: number): number => Math.max(0, limit - usedToday) + Math.max(0, bonus);

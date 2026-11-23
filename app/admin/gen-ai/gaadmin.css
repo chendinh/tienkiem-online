@@ -1,0 +1,25 @@
+/* /admin/gen-ai: a plain owner page on the game's tokens. */
+.gx { max-width: 960px; margin: 0 auto; padding: var(--sp-5) var(--sp-4) var(--sp-9); color: var(--ink); font-family: var(--font-text); }
+.gx h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; color: var(--gold-300); margin: var(--sp-3) 0 var(--sp-2); }
+.gx h2 { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-300); margin: 0 0 var(--sp-2); }
+.gx-back { font-size: 0.9rem; color: var(--jade-300); text-decoration: none; }
+.gx-sub { margin: 0 0 var(--sp-3); font-size: 0.88rem; line-height: 1.5; color: color-mix(in srgb, var(--ink) 70%, transparent); }
+.gx-card { display: grid; gap: var(--sp-2); padding: var(--sp-4); margin: var(--sp-4) 0; background: var(--ink-850); border: 1px solid var(--line-gold); border-radius: var(--r-lg); }
+.gx-form { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.gx-in { flex: 1 1 14rem; padding: 0.65rem 0.8rem; font: inherit; font-size: 1rem; color: var(--ink); background: var(--ink-800); border: 1px solid var(--line-strong); border-radius: var(--r-sm); }
+.gx-n { flex: 0 0 6rem; }
+.gx-go { padding: 0.65rem 1.4rem; font: inherit; font-weight: 700; color: var(--ink-950); background: var(--gold-leaf); border: 0; border-radius: var(--r-pill); cursor: pointer; }
+.gx-go:disabled { opacity: 0.45; cursor: default; }
+.gx-ghost { padding: 0.55rem 1.1rem; font: inherit; color: var(--ink); background: transparent; border: 1.5px solid var(--line-strong); border-radius: var(--r-pill); cursor: pointer; }
+.gx-ok { margin: 0; font-size: 0.9rem; color: var(--jade-300); }
+.gx-err { margin: 0; font-size: 0.9rem; color: var(--cinnabar-300); }
+.gx-tw { overflow-x: auto; margin-bottom: var(--sp-3); border: 1px solid var(--line-gold); border-radius: var(--r-lg); }
+.gx-t { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.gx-t th, .gx-t td { padding: 0.6rem 0.75rem; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line-strong); }
+.gx-t th { font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-400); background: var(--ink-900); }
+.gx-t .r { text-align: right; }
+.gx-t tr:last-child td { border-bottom: 0; }
+.gx-tag { margin-left: 0.5rem; padding: 0.1rem 0.5rem; font-style: normal; font-size: 0.72rem; color: var(--ink-950); background: var(--jade-300); border-radius: var(--r-pill); }
+.gx-btns { display: inline-flex; gap: 0.35rem; }
+.gx-btns button { padding: 0.25rem 0.6rem; font: inherit; font-size: 0.8rem; color: var(--gold-300); background: transparent; border: 1px solid var(--gold-400); border-radius: var(--r-pill); cursor: pointer; }
+.gx-empty { text-align: center !important; opacity: 0.7; }

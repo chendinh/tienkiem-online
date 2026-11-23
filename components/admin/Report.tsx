@@ -198,6 +198,7 @@ export function ReportView({ r, busy, auto, setAuto, reload, out, adminKey }: { 
           <label className="tg"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /><span>Tự làm mới</span></label>
           <button className="btn sm" onClick={reload} disabled={busy}>Làm mới</button>
           <button className="btn sm ghost" onClick={out}>Khóa lại</button>
+          <a className="btn sm ghost" href="/admin/gen-ai">Gen ảnh AI</a>
           <a className="btn sm ghost" href="/">Về game</a>
         </div>
       </header>

@@ -170,3 +170,14 @@ test('the owner address has no limit (any case, spaces), others do; extra addres
   assert.equal(isUnlimited('friend@x.com', 'a@b.com, Friend@X.com'), true);
   assert.equal(isUnlimited('friend@x.com', ''), false);
 });
+
+import { turnsLeft } from '../lib/genai';
+test('turns left = free turns of the day still unused + the bonus granted by the owner, never negative', () => {
+  assert.equal(turnsLeft(3, 0, 0), 3);
+  assert.equal(turnsLeft(3, 2, 0), 1);
+  assert.equal(turnsLeft(3, 3, 0), 0);
+  assert.equal(turnsLeft(3, 5, 0), 0);
+  assert.equal(turnsLeft(3, 3, 4), 4);
+  assert.equal(turnsLeft(3, 1, 4), 6);
+  assert.equal(turnsLeft(3, 0, -2), 3);
+});

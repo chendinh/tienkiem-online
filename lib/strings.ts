@@ -14,6 +14,7 @@ export const ERR = {
   E_GENAI_LIMIT: 'Hôm nay bạn đã dùng hết lượt vẽ. Mai quay lại nhé.',
   E_GENAI_BUDGET: 'Hôm nay tính năng đã kín chỗ. Hãy quay lại sau.',
   E_GENAI_BUSY: 'Ảnh trước của bạn vẫn đang được vẽ. Hãy đợi nó xong.',
+  E_GENAI_NOUSER: 'Không có tài khoản đã liên kết email này.',
   E_GENAI_PHOTO: 'Không đọc được ảnh này. Hãy chọn ảnh JPG, PNG hoặc WebP khác.',
   E_GENAI_POLICY: 'Ảnh hoặc mô tả này bị bộ lọc nội dung từ chối. Hãy thử ảnh gốc khác hoặc đổi lựa chọn. Lượt vẽ của bạn không bị trừ.',
   E_GENAI_FAIL: 'Chưa vẽ được ảnh. Lượt vẽ của bạn không bị trừ, hãy thử lại sau ít phút.',
