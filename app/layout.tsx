@@ -6,7 +6,8 @@ import { FxProvider } from '@/components/fx/FxProvider';
 import { TooltipHost } from '@/components/ds/TooltipHost';
 import { DialogHost } from '@/components/ds/Dialog';
 
-export const metadata = { title: 'Tiên Kiếm', description: 'Game tu tiên treo máy — bản thử nghiệm trực quan' };
+// Trial build: keep it out of search engines (also enforced by robots.ts and the X-Robots-Tag header in next.config.mjs).
+export const metadata = { title: 'Tiên Kiếm', description: 'Game tu tiên treo máy — bản thử nghiệm trực quan', robots: { index: false, follow: false } };
 export const viewport: Viewport = { themeColor: '#060d14', colorScheme: 'dark' };
 
 // Sets the effects level before the first paint (saved choice, or low when the system asks for reduced motion), so nothing flashes.
