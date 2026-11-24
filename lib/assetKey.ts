@@ -14,3 +14,9 @@ export function itemAssetKey(s: ItemKeyInput): string {
 }
 // Short, URL-safe form of the key (20 hex like picture ids).
 export const assetKeyHash = (key: string) => crypto.createHash('sha1').update(key).digest('hex').slice(0, 20);
+
+// The key of the item icon a drawing request is for (null for every other request). Only wearable-item specs have a stable key.
+export function keyOfSpec(spec: any): string | null {
+  if (!spec || typeof spec !== 'object' || spec.kind !== 'item' || typeof spec.slot !== 'string') return null;
+  return itemAssetKey({ slot: spec.slot, base: typeof spec.base === 'string' ? spec.base : '', tier: Number(spec.tier) | 0, e: typeof spec.e === 'string' ? spec.e : '', v: Number(spec.v) | 0 });
+}

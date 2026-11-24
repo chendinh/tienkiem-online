@@ -1,7 +1,7 @@
 // Which fixed pictures (public/art, see lib/artjobs.ts) are still missing, and which of them the server has drawn since (kept in the database, shown by app/api/art).
 // A fixed picture is "missing" when its file was not shipped with this build and the server has not drawn it either.
 import { query } from './db';
-import { artJobs } from '../artjobs';
+import { artJobs, commonLooks, missingLooks, fixedTodos, type Todo } from '../artjobs';
 import { shippedArt, missingArt, type ArtStatus } from './artfiles';
 export { shippedArt, missingArt, type ArtStatus };
 
@@ -21,3 +21,13 @@ export async function drawnArt(fresh = false): Promise<Map<string, string>> {
 export const forgetDrawnArt = () => { CACHE.at = 0; };
 
 export async function artStatus(fresh = false): Promise<ArtStatus> { return missingArt(artJobs(), shippedArt(), await drawnArt(fresh)); }
+
+// Everything the owner's button can still draw, in the order it draws it: item icons first, then the fixed pictures.
+export interface DrawStatus { looks: number; art: ArtStatus; todo: Todo[] }
+export async function drawStatus(fresh = false): Promise<DrawStatus> {
+  const art = await artStatus(fresh);
+  const have = new Set((await query<{ asset_key: string }>(`SELECT DISTINCT asset_key FROM image_index WHERE starts_with(asset_key, 'item|')`)).rows.map((r) => r.asset_key));
+  const wanted = (await query<{ spec: any }>('SELECT spec FROM image_wanted ORDER BY hits DESC, tier ASC, added ASC')).rows.map((r) => r.spec);
+  const looks = missingLooks(commonLooks(), wanted, have);
+  return { looks: looks.length, art, todo: [...looks, ...fixedTodos(art.missing)] };
+}

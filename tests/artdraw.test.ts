@@ -3,7 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { artJobs, artKey, artKeyOfSpec, ART_BATCH, ART_GROUPS } from '../lib/artjobs';
+import { artJobs, artKey, artKeyOfSpec, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, commonLooks, missingLooks, wantedDrawable, fixedTodos } from '../lib/artjobs';
+import { keyOfSpec } from '../lib/assetKey';
+import * as C from '../lib/content';
 import { missingArt, shippedArt } from '../lib/server/artfiles';
 import * as A from '../lib/arts';
 
@@ -60,4 +62,52 @@ test('the shipped files come from the build list when there is one, from the fol
   } finally { if (was === undefined) delete process.env.ART_FILES; else process.env.ART_FILES = was; }
 });
 
-test('one press draws a bounded number of pictures', () => { assert.ok(ART_BATCH >= 1 && ART_BATCH <= 20); });
+test('every common look of every item base is a look to draw, each with its own key (new weapons included)', () => {
+  const looks = commonLooks();
+  let n = 0;
+  for (const slot of C.SLOTS) n += C.basesOf(slot).length * (2 + C.EO.length);
+  assert.equal(looks.length, n);
+  const keys = looks.map((t) => keyOfSpec(t.spec));
+  assert.ok(keys.every((k) => typeof k === 'string'));
+  assert.equal(new Set(keys).size, n, 'two looks share a key');
+  for (const b of ['Trọng Kiếm', 'Họa Kích', 'Bát Quái Kính']) assert.ok(looks.some((t) => t.spec.base === b && t.spec.tier === 2 && t.spec.e === C.EO[0]), b);
+});
+
+test('item icons are missing when no picture is indexed under their look; the wanted ones follow, Địa and Thiên only when allowed', () => {
+  const looks = commonLooks();
+  const have = new Set(looks.filter((t) => t.spec.base !== 'Trọng Kiếm').map((t) => keyOfSpec(t.spec)!));
+  const miss = missingLooks(looks, [], have);
+  assert.deepEqual(miss.map((t) => t.label), looks.filter((t) => t.spec.base === 'Trọng Kiếm').map((t) => t.label));
+  assert.equal(miss.length, 2 + C.EO.length);
+  // wanted: an unknown look is added once, a look that already has a picture or is asked twice is not, a Thiên look waits for the owner's permission
+  const w1 = { kind: 'item', slot: 'Weapon', base: 'Trọng Kiếm', tier: 2, e: C.EO[0] };   // already a common look: counted once
+  const w2 = { kind: 'item', slot: 'Weapon', base: 'Trọng Kiếm', tier: 3, e: C.EO[1], v: 2 };
+  const w3 = { kind: 'item', slot: 'Weapon', base: 'Trọng Kiếm', tier: 4, e: C.EO[1], v: 1 };
+  const was = [process.env.DRAW_DIA_ART, process.env.DRAW_THIEN_ART];
+  try {
+    delete process.env.DRAW_DIA_ART; delete process.env.DRAW_THIEN_ART;
+    assert.equal(missingLooks(looks, [w1, w1, w2, w3], have).length, miss.length);
+    assert.ok(!wantedDrawable(w2) && !wantedDrawable(w3) && wantedDrawable(w1));
+    process.env.DRAW_DIA_ART = '1';
+    assert.equal(missingLooks(looks, [w1, w2, w2, w3], have).length, miss.length + 1);
+    process.env.DRAW_THIEN_ART = '1';
+    assert.equal(missingLooks(looks, [w1, w2, w3, { kind: 'monster' }, null], have).length, miss.length + 2);
+  } finally {
+    if (was[0] === undefined) delete process.env.DRAW_DIA_ART; else process.env.DRAW_DIA_ART = was[0];
+    if (was[1] === undefined) delete process.env.DRAW_THIEN_ART; else process.env.DRAW_THIEN_ART = was[1];
+  }
+  assert.equal(missingLooks(looks, [], new Set(looks.map((t) => keyOfSpec(t.spec)!))).length, 0);
+});
+
+test('one press draws a bounded number of pictures: item icons are small and count 1, scenes and covers count 2', () => {
+  const looks = commonLooks(), art = fixedTodos(artJobs('books'));
+  assert.equal(pointsOf(looks[0]), 1); assert.equal(pointsOf(art[0]), 2);
+  assert.equal(takeBatch(looks).length, DRAW_POINTS);
+  assert.equal(takeBatch(art).length, DRAW_POINTS / 2);
+  const mixed = takeBatch([...looks.slice(0, 3), ...art]);
+  assert.equal(mixed.reduce((a, t) => a + pointsOf(t), 0) <= DRAW_POINTS, true);
+  assert.deepEqual(mixed.slice(0, 3).map((t) => t.group), ['looks', 'looks', 'looks']);
+  assert.equal(takeBatch([]).length, 0);
+  assert.equal(takeBatch(art, 1).length, 1, 'a press always draws at least one picture');
+  assert.ok(DRAW_POINTS >= 2 && DRAW_POINTS <= 40);
+});

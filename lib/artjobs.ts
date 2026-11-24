@@ -3,11 +3,10 @@
 import { introSpec, monsterSpec, propSpec, placeSpec, bookSpec } from './avatarSpec';
 import * as A from './arts';
 import * as C from './content';
+import { keyOfSpec } from './assetKey';
 
 export const ART_GROUPS = ['intro', 'monsters', 'shop', 'zones', 'arenas', 'books'] as const;
 export type ArtGroup = (typeof ART_GROUPS)[number];
-// How many pictures one press of the owner's button draws. The drawing is one at a time (fal), so a press fits in the five minutes a serverless function may run.
-export const ART_BATCH = 12;
 export interface ArtJob { name: string; spec: any; dest: string; group: ArtGroup }
 
 // every picture of the game that is drawn once and kept: `only` limits it to one group
@@ -36,3 +35,41 @@ export function artKeyOfSpec(spec: any): string | null {
   if (!KEY_OF_SPEC.size) for (const j of artJobs()) KEY_OF_SPEC.set(JSON.stringify(j.spec), artKey(j.dest));
   return KEY_OF_SPEC.get(JSON.stringify(spec)) || null;
 }
+
+// ---- what the owner's button draws: item icons first (every drop shows one), then the fixed pictures --------------------------------------------------------------------------
+export type TodoGroup = ArtGroup | 'looks';
+export interface Todo { spec: any; label: string; group: TodoGroup; dest?: string }   // dest only for a fixed picture (its file path)
+// One press of the button draws up to this many points of pictures: an item icon is 1 (small, quick), a book cover or a scene is 2. One press must fit in the five minutes a serverless
+// function may run, and the drawing is one picture at a time (fal).
+export const DRAW_POINTS = 24;
+export const pointsOf = (t: Todo) => (t.group === 'looks' ? 1 : 2);
+export function takeBatch(todo: Todo[], limit = DRAW_POINTS): Todo[] {
+  const out: Todo[] = [];
+  let used = 0;
+  for (const t of todo) { if (out.length && used + pointsOf(t) > limit) break; out.push(t); used += pointsOf(t); }
+  return out;
+}
+
+// Every common look of every item base: Phàm, Hoàng (no element) and Huyền (one per element), the icons almost every drop shows (the same list as scripts/draw-wanted.ts).
+export function commonLooks(): Todo[] {
+  const out: Todo[] = [];
+  for (const slot of C.SLOTS) for (const base of C.basesOf(slot)) {
+    out.push({ spec: { kind: 'item', slot, base, tier: 0, e: '' }, label: base, group: 'looks' }, { spec: { kind: 'item', slot, base, tier: 1, e: '' }, label: base, group: 'looks' });
+    for (const e of C.EO) out.push({ spec: { kind: 'item', slot, base, tier: 2, e }, label: base, group: 'looks' });
+  }
+  return out;
+}
+// Looks that players asked for while drawing was off or limited (image_wanted): Địa and Thiên are never drawn until the owner allows it (DRAW_DIA_ART, DRAW_THIEN_ART), the rest yes.
+export function wantedDrawable(spec: any): boolean {
+  const t = Number(spec && spec.tier);
+  return t >= 0 && t <= 2 || t === 3 && process.env.DRAW_DIA_ART === '1' || t === 4 && process.env.DRAW_THIEN_ART === '1';
+}
+// The item icons that have no picture yet (`have` = the keys that have one, in any style): the common looks, then the wanted ones. Pure.
+export function missingLooks(common: Todo[], wanted: any[], have: { has(k: string): boolean }): Todo[] {
+  const out: Todo[] = [], seen = new Set<string>();
+  const add = (t: Todo) => { const k = keyOfSpec(t.spec); if (!k || seen.has(k)) return; seen.add(k); if (!have.has(k)) out.push(t); };
+  for (const t of common) add(t);
+  for (const w of wanted) if (w && w.kind === 'item' && wantedDrawable(w)) add({ spec: w, label: String(w.base || w.slot), group: 'looks' });
+  return out;
+}
+export const fixedTodos = (jobs: ArtJob[]): Todo[] => jobs.map((j) => ({ spec: j.spec, label: j.dest.replace(/^\/art\//, ''), group: j.group, dest: j.dest }));

@@ -139,7 +139,7 @@ export function ReportPage() {
   return <ReportView r={data} busy={busy} auto={auto} setAuto={setAuto} reload={() => load(key!, true)} out={() => { try { sessionStorage.removeItem(KEY); } catch {} setData(null); setKey(''); }} adminKey={key!} />;
 }
 
-const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ'], ['art', 'Ảnh cố định'], ['dibien', 'Ảnh Dị Biến']];
+const NAV: [string, string][] = [['ai', 'Chi phí AI'], ['players', 'Người chơi'], ['online', 'Online'], ['items', 'Vật phẩm'], ['beasts', 'Linh thú'], ['quest', 'Nhiệm vụ'], ['art', 'Ảnh còn thiếu'], ['dibien', 'Ảnh Dị Biến']];
 
 // The owner's button to draw the Dị Biến pictures again: it makes the game forget the saved pictures of a look, and each is drawn again (with the current model) the next time a
 // creature of that look needs it. Two taps: the first asks, the second does it.
@@ -182,13 +182,14 @@ function Redraw({ adminKey }: { adminKey: string }) {
   );
 }
 
-// The owner's button to draw the fixed pictures that are still missing (book covers, scenes ... the files of public/art): the server draws them with the image service of the game
-// (same style, same spend cap) a dozen at a time and keeps them in the database; the game shows them in place of the missing files. `npm run pregen` later turns them into files for free.
+// The owner's button to draw the pictures that are still missing: item icons (new weapons and gear) first, then the fixed pictures (book covers, scenes ... the files of public/art).
+// The server draws them with the image service of the game (same style, same spend cap) a few dozen at a time and keeps them in the database; the game shows them in place of the
+// missing ones. `npm run pregen` later turns the fixed pictures into files for free.
 interface ArtStat {
   total: number; shipped: number; drawn: number; missing: number; listOk: boolean; groups: { group: string; missing: number }[]; names: string[];
   batch: number; batchCost: number; totalCost: number; provider: { name: string; enabled: boolean; paid: boolean; locked?: string }; budget: { spent: number; cap: number } | null; queued: number; running: number;
 }
-const ART_GROUP_VN: Record<string, string> = { intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp' };
+const ART_GROUP_VN: Record<string, string> = { looks: 'Biểu tượng vũ khí và trang bị', intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp' };
 const ART_ERR: Record<string, string> = { E_IMAGE_OFF: 'Dịch vụ vẽ ảnh đang tắt (đặt IMAGE_PROVIDER và khóa của nhà cung cấp).', E_NO_ART_LIST: 'Không đọc được danh sách ảnh có sẵn nên không vẽ, để khỏi trả tiền vẽ lại ảnh đã có.', E_AUTH: 'Sai khóa.', E_RATE_LIMIT: 'Nhập sai quá nhiều lần, chờ một lát.' };
 function ArtDraw({ adminKey }: { adminKey: string }) {
   const [st, setSt] = useState<ArtStat | null>(null), [sure, setSure] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState(''), [err, setErr] = useState('');
@@ -219,13 +220,13 @@ function ArtDraw({ adminKey }: { adminKey: string }) {
   }
   const drawing = !!st && (st.queued > 0 || st.running > 0 || watch > Date.now());
   return (
-    <Card id="art" title="Ảnh cố định còn thiếu" sub="máy chủ tự vẽ các ảnh chưa có file trong public/art, vẽ xong game hiện ngay; sau này npm run pregen đổi chúng thành file miễn phí">
+    <Card id="art" title="Ảnh còn thiếu" sub="máy chủ tự vẽ biểu tượng vũ khí, trang bị mới và các ảnh cố định chưa có file; vẽ xong game hiện ngay">
       {err && <p className="formErr" role="alert">{err}</p>}
       {msg && <p className="muted" role="status">{msg}</p>}
       {!st ? <p className="rp-empty">Đang đọc…</p> : (
         <>
           <div className="rp-kpis">
-            <Kpi label="Còn thiếu" value={num(st.missing)} sub={`${num(st.shipped)} có file · ${num(st.drawn)} máy chủ đã vẽ / ${num(st.total)}`} tone={st.missing ? 'warn' : 'jade'} />
+            <Kpi label="Còn thiếu" value={num(st.missing)} sub={`${num(st.looks)} biểu tượng vũ khí, trang bị · ${num(st.missing - st.looks)} ảnh cố định`} tone={st.missing ? 'warn' : 'jade'} />
             <Kpi label="Ước tính tiền vẽ hết" value={usd(st.totalCost)} sub={st.budget ? `còn ${usd(Math.max(0, st.budget.cap - st.budget.spent))} trong hạn mức` : st.provider.paid ? '' : 'nhà cung cấp miễn phí'} />
           </div>
           {st.groups.length > 0 && <Table head={['Nhóm', 'Còn thiếu']} rows={st.groups.map((g) => [ART_GROUP_VN[g.group] || g.group, num(g.missing)])} />}
@@ -235,7 +236,7 @@ function ArtDraw({ adminKey }: { adminKey: string }) {
           <p><button className="btn big" disabled={busy || !st.missing || !st.provider.enabled || !st.listOk} onClick={go}>
             {st.missing === 0 ? 'Không còn ảnh nào thiếu' : sure ? `Bấm lần nữa: vẽ ${num(st.batch)} ảnh (khoảng ${usd(st.batchCost)})` : `Vẽ ${num(st.batch)} ảnh còn thiếu`}
           </button></p>
-          <small className="muted">Mỗi lần bấm vẽ tối đa {num(st.batch)} ảnh, bấm tiếp cho tới khi hết. Tiền tính vào hạn mức ảnh AI (IMAGE_BUDGET_USD); hết hạn mức thì dừng. Ví dụ ảnh thiếu: {st.names.join(', ') || 'không có'}.</small>
+          <small className="muted">Mỗi lần bấm vẽ khoảng 24 biểu tượng nhỏ hoặc 12 ảnh lớn, bấm tiếp cho tới khi hết. Tiền tính vào hạn mức ảnh AI (IMAGE_BUDGET_USD); hết hạn mức thì dừng. Ví dụ đang thiếu: {st.names.join(', ') || 'không có'}.</small>
         </>
       )}
     </Card>

@@ -1,13 +1,9 @@
 // Stable lookup of item pictures by item look (lib/assetKey.ts), independent of prompt, model and provider.
 // Only reads and adds rows: nothing here changes or deletes a picture.
 import { query } from './db';
-import { itemAssetKey, type ItemKeyInput } from '../assetKey';
+import { keyOfSpec, type ItemKeyInput } from '../assetKey';
 
-// Only wearable-item specs have a stable key.
-export function keyOfSpec(spec: any): string | null {
-  if (!spec || typeof spec !== 'object' || spec.kind !== 'item' || typeof spec.slot !== 'string') return null;
-  return itemAssetKey({ slot: spec.slot, base: typeof spec.base === 'string' ? spec.base : '', tier: Number(spec.tier) | 0, e: typeof spec.e === 'string' ? spec.e : '', v: Number(spec.v) | 0 });
-}
+export { keyOfSpec };
 
 export async function indexImage(key: string, imageId: string, style: number) {
   await query('INSERT INTO image_index (asset_key, image_id, style) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [key, imageId, style]);
