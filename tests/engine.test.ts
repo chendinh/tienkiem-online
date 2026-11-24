@@ -608,6 +608,33 @@ test('a Tu Sĩ fights with the môn of its title and a bow shoots two strikes', 
   const shots = st.feed.flatMap((e) => e.log || []).filter((l) => l[0] === '~').map((l) => JSON.parse(l.slice(1))).filter((j) => j.w === 'p' && !j.f);
   assert.ok(shots.length > 0 && shots.every((j) => j.u === 2));
 });
+test('every môn has the same number of weapon mẫu and a weapon is equally likely to be of any môn, at every rarity', () => {
+  const per: Record<string, number> = {};
+  for (const b of C.SLOT_BASE.Weapon) per[C.WEAPON_CLASS[b]] = (per[C.WEAPON_CLASS[b]] || 0) + 1;
+  assert.equal(Object.keys(per).length, A.ARTS.length);
+  assert.ok(Object.values(per).every((n) => n === 3), JSON.stringify(per));
+  const share = (tier: number, n: number, seed: number) => {
+    const st = fresh(seed), seen: Record<string, number> = {};
+    for (let i = 0; i < n; i++) { const c = C.WEAPON_CLASS[G.genItem(st, 5, tier, 'Weapon').base]; seen[c] = (seen[c] || 0) + 1; }
+    for (const a of A.ARTS) assert.ok(Math.abs((seen[a.id] || 0) / n - 1 / A.ARTS.length) < 0.02, `tier ${tier}: ${a.id} ${((seen[a.id] || 0) / n).toFixed(3)}`);
+  };
+  share(0, 16000, 95); share(3, 8000, 96);
+  // Địa: a mẫu with no picture yet takes a mẫu of its own môn that has one (kiếm + Hỏa has a picture for Trường Kiếm only); the môn does not change
+  D.setDiaLooks([{ slot: 'Weapon', base: 'Trường Kiếm', el: 'Hỏa', art: 5 }]);
+  try {
+    share(3, 8000, 97);
+    const st = fresh(98);
+    const kiem = Array.from({ length: 4000 }, () => G.genItem(st, 5, 3, 'Weapon')).filter((it) => C.WEAPON_CLASS[it.base] === 'kiem' && it.el === 'Hỏa');
+    assert.ok(kiem.length > 20 && kiem.every((it) => it.base === 'Trường Kiếm' && it.art === 5 && it.name.includes('Trường Kiếm')));
+  } finally { D.setDiaLooks([]); }
+  // Thiên: three pictures of kiếm but one of each other môn must not make kiếm three times as common
+  D.setThienLooks([
+    { slot: 'Weapon', base: 'Trường Kiếm', el: 'Hỏa', art: 1 }, { slot: 'Weapon', base: 'Đoản Kiếm', el: 'Kim', art: 2 }, { slot: 'Weapon', base: 'Trường Kiếm', el: 'Mộc', art: 3 },
+    { slot: 'Weapon', base: 'Trường Thương', el: 'Hỏa', art: 4 }, { slot: 'Weapon', base: 'Trường Cung', el: 'Hỏa', art: 5 }, { slot: 'Weapon', base: 'Trảm Đao', el: 'Hỏa', art: 6 },
+    { slot: 'Weapon', base: 'Quyền Sáo', el: 'Hỏa', art: 7 }, { slot: 'Weapon', base: 'Cổ Cầm', el: 'Hỏa', art: 8 }, { slot: 'Weapon', base: 'Ngọc Tiêu', el: 'Hỏa', art: 9 }, { slot: 'Weapon', base: 'Phất Trần', el: 'Hỏa', art: 10 },
+  ]);
+  try { share(4, 8000, 99); } finally { D.setThienLooks([]); }
+});
 test('the new weapons and the Bí Công books have picture prompts', () => {
   for (const b of C.SLOT_BASE.Weapon) {
     const p = buildPlan({ kind: 'item', slot: 'Weapon', base: b, tier: 1, e: '' });

@@ -260,11 +260,19 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
   let rel: string | undefined;
   let art = tier >= 5 ? int(g, 'gen', 1000, 2 ** 30) : tier === 3 ? int(g, 'gen', 1, B.artVariantsDia) : undefined;
   if (tier === 3) {   // only the looks of this kind and element that already have a picture (no extra draw: the rolled number picks among them)
-    const have = D.diaArtsFor(slot, base, el);
+    let have = D.diaArtsFor(slot, base, el);
+    if (!have.length && slot === 'Weapon' && art !== undefined) {   // a mẫu with no picture yet (a new one): a mẫu of the same môn that has one stands in, so the môn keeps its even chance and no Địa weapon is left without a picture
+      const kin = C.basesOf(slot).filter((b) => b !== base && C.WEAPON_CLASS[b] === C.WEAPON_CLASS[base] && D.diaArtsFor(slot, b, el).length);
+      if (kin.length) { const nb = kin[(art - 1) % kin.length]; name = name.split(base).join(nb); base = nb; have = D.diaArtsFor(slot, nb, el); }
+    }
     if (have.length && art !== undefined) art = have[(art - 1) % have.length];
   }
   if (tier === 4) {   // one draw, only while such pictures exist: the name keeps its two proper words, the kind, element and picture are the existing one's, the numbers stay rolled above
-    const pool = D.thienLooksFor(slot);
+    let pool = D.thienLooksFor(slot);
+    if (slot === 'Weapon' && pool.length) {   // the môn that was rolled stays (every môn is equally likely): the same mẫu first, else the same môn, else any picture
+      const cls = C.WEAPON_CLASS[base], same = pool.filter((l) => l.base === base), kin = pool.filter((l) => C.WEAPON_CLASS[l.base] === cls);
+      pool = same.length ? same : kin.length ? kin : pool;
+    }
     if (pool.length) { const l = pool[int(g, 'gen', 0, pool.length - 1)]; name = name.slice(0, name.length - base.length) + l.base; base = l.base; el = l.el; art = l.art; }
   }
   // A Tiên item may be a dissolved one found again: it takes that item's name and picture (already drawn), never its numbers.

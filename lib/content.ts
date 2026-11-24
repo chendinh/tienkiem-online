@@ -163,7 +163,9 @@ export const BODY_AT: Record<string, { x: number; y: number; w: number; h: numbe
   Accessory: { x: 50, y: 38, w: 34, h: 8 }, Weapon: { x: 77, y: 56, w: 24, h: 30 }, Ring: { x: 24, y: 52, w: 20, h: 14 }, Footwear: { x: 50, y: 88, w: 44, h: 16 },
 };
 export const SLOT_BASE: Record<string, string[]> = {
-  Weapon: ['Trường Kiếm', 'Đoản Kiếm', 'Phất Trần', 'Cổ Cầm', 'Ngọc Tiêu', 'Trường Thương', 'Trường Cung', 'Linh Cung', 'Tỳ Bà', 'Trảm Đao', 'Liễu Diệp Đao', 'Quyền Sáo', 'Hổ Trảo'],
+  Weapon: ['Trường Kiếm', 'Đoản Kiếm', 'Phất Trần', 'Cổ Cầm', 'Ngọc Tiêu', 'Trường Thương', 'Trường Cung', 'Linh Cung', 'Tỳ Bà', 'Trảm Đao', 'Liễu Diệp Đao', 'Quyền Sáo', 'Hổ Trảo',
+    // Every môn has exactly three mẫu, so each môn is as likely to drop as any other (the base is drawn evenly from this list). Keep it that way when adding more.
+    'Trọng Kiếm', 'Họa Kích', 'Xà Mâu', 'Liên Nỗ', 'Quan Đao', 'Hộ Uyển', 'Không Hầu', 'Trúc Địch', 'Đào Huân', 'Chu Sa Bút', 'Bát Quái Kính'],
   Headwear: ['Ngọc Quan', 'Kim Quan', 'Phát Trâm', 'Đấu Lạp', 'Khăn Vân'],
   Robe: ['Đạo Bào', 'Vũ Y', 'Hạc Sưởng', 'Pháp Bào', 'Tiên Quần', 'Thanh Sam'],
   Footwear: ['Vân Hài', 'Phong Ngoa', 'Tuyết Ngoa'],
@@ -176,6 +178,8 @@ export const SLOT_BASE: Record<string, string[]> = {
 export const WEAPON_CLASS: Record<string, string> = {
   'Trường Kiếm': 'kiem', 'Đoản Kiếm': 'kiem', 'Trường Thương': 'thuong', 'Trường Cung': 'cung', 'Linh Cung': 'cung', 'Trảm Đao': 'dao', 'Liễu Diệp Đao': 'dao',
   'Quyền Sáo': 'quyen', 'Hổ Trảo': 'quyen', 'Cổ Cầm': 'cam', 'Tỳ Bà': 'cam', 'Ngọc Tiêu': 'tieu', 'Phất Trần': 'phat',
+  'Trọng Kiếm': 'kiem', 'Họa Kích': 'thuong', 'Xà Mâu': 'thuong', 'Liên Nỗ': 'cung', 'Quan Đao': 'dao', 'Hộ Uyển': 'quyen',
+  'Không Hầu': 'cam', 'Trúc Địch': 'tieu', 'Đào Huân': 'tieu', 'Chu Sa Bút': 'phat', 'Bát Quái Kính': 'phat',
 };
 export const SLOT_IMPL: Record<string, { stat: string; r: [number, number] }> = {
   Weapon: { stat: 'atk', r: [6, 12] }, Headwear: { stat: 'def', r: [3, 6] }, Robe: { stat: 'hp', r: [40, 80] }, Footwear: { stat: 'spd', r: [1, 3] },
@@ -290,6 +294,17 @@ export const BASE_EN: Record<string, string> = {
   'Trường Cung': 'ancient Chinese recurve longbow of dark lacquered wood with a taut silk string and a small jade ornament at the grip, with one slender arrow beside it', 'Linh Cung': 'ornate ancient Chinese spirit bow of pale wood and gold, with a glowing string of light and a small jade ornament at the grip',
   'Tỳ Bà': 'ancient Chinese pipa lute with a pear-shaped wooden body, a bent neck and four silk strings', 'Trảm Đao': 'ancient Chinese broad single-edged saber (dao) with a curved blade, a guard and a tasseled hilt', 'Liễu Diệp Đao': 'slender ancient Chinese willow-leaf saber (liuyedao) with a gently curved narrow blade and a tasseled hilt',
   'Quyền Sáo': 'pair of ornate ancient Chinese iron-knuckled fighting gauntlets with wrapped leather straps and bronze studs', 'Hổ Trảo': 'pair of ancient Chinese tiger-claw fighting gauntlets with curved steel claws on the fingers and leather straps',
+  'Trọng Kiếm': 'broad heavy straight double-edged sword (jian) with a thick wide plain blade, a sturdy guard and a tasseled hilt',
+  'Họa Kích': 'ancient Chinese halberd (ji) with a long shaft, a straight spear tip and a single crescent-shaped blade at its side, with a red tassel',
+  'Xà Mâu': 'ancient Chinese serpent spear with a wavy flame-shaped blade like a coiling snake, a long dark shaft and a red tassel',
+  'Liên Nỗ': 'ancient Chinese repeating crossbow of dark lacquered wood with a box-shaped magazine on top and a small jade ornament, with one slender bolt beside it',
+  'Quan Đao': 'ancient Chinese guandao glaive with a long shaft and a broad curved crescent blade ending in a pointed tip, a dragon-head ornament at the blade base and a red tassel',
+  'Hộ Uyển': 'pair of ornate ancient Chinese steel forearm bracers (vambraces) with engraved cloud patterns, bronze studs and leather straps',
+  'Không Hầu': 'ancient Chinese konghou, a vertical harp with a curved wooden frame, a carved dragon-head top and many silk strings',
+  'Trúc Địch': 'ancient Chinese dizi, a slender transverse bamboo flute with finger holes, wrapped silk bands at both ends and a tassel',
+  'Đào Huân': 'ancient Chinese xun, a small egg-shaped glazed clay ocarina with finger holes, hanging from a silk cord with a tassel',
+  'Chu Sa Bút': 'ancient Chinese talisman brush with a long slender bamboo handle and a tip dipped in bright red cinnabar, with a small jade ornament',
+  'Bát Quái Kính': 'ancient Chinese bagua mirror, a round bronze mirror with an octagonal border of eight trigram symbols, a polished face and a short ornate handle with a tassel',
   'Ngọc Quan': 'small ornate jade topknot hair crown (guan)', 'Kim Quan': 'small ornate golden topknot hair crown (guan)', 'Phát Trâm': 'ornate ancient Chinese hairpin with dangling ornaments', 'Đấu Lạp': 'bamboo hat with a light veil', 'Khăn Vân': 'ornate cloud-patterned forehead headband',
   'Đạo Bào': 'daoist robe', 'Vũ Y': 'feather robe', 'Hạc Sưởng': 'crane-feather coat', 'Pháp Bào': 'spell robe', 'Tiên Quần': 'immortal gown', 'Thanh Sam': 'azure long shirt',
   'Vân Hài': 'pair of slim elegant ancient Chinese cloth slippers with upturned pointed scroll-shaped toe tips and embroidered cloud patterns, thin flat soles, not sneakers, not boots', 'Phong Ngoa': 'pair of tall ancient Chinese boots with winged side embroidery', 'Tuyết Ngoa': 'pair of ancient Chinese fur-trimmed winter boots', 'Đấu Bồng': 'flowing cloak', 'Vũ Dực': 'pair of feather wings', 'Kiếm Hạp': 'ornate ancient Chinese sword case with straps', 'Phi Y': 'long flowing silk ribbon scarf (piaodai)',
@@ -311,6 +326,11 @@ export const PLACE_WEAPON: Record<string, string> = {
   'Trường Cung': 'It is held in the left hand at the side, the bow standing beside the body with its string facing inward.', 'Linh Cung': 'It is held in the left hand at the side, the bow standing beside the body with its string facing inward.',
   'Tỳ Bà': 'It is carried in both arms in front of the body.', 'Trảm Đao': 'It is held in the right hand with the tip pointing down.', 'Liễu Diệp Đao': 'It is held in the right hand with the tip pointing down.',
   'Quyền Sáo': 'They are worn on both hands as fighting gauntlets, the fists relaxed at the sides.', 'Hổ Trảo': 'They are worn on both hands as claw gauntlets, the hands relaxed at the sides.',
+  'Trọng Kiếm': 'It is held in the right hand with the tip pointing down.', 'Họa Kích': 'It is held upright in the right hand, standing beside the body.',
+  'Xà Mâu': 'It is held upright in the right hand, standing beside the body.', 'Liên Nỗ': 'It is held in both hands in front of the body, pointing slightly down.',
+  'Quan Đao': 'It is held upright in the right hand, standing beside the body with the blade up.', 'Hộ Uyển': 'They are worn on both forearms as bracers, the hands relaxed at the sides.',
+  'Không Hầu': 'It is carried in both arms in front of the body.', 'Trúc Địch': 'It is held in the right hand.', 'Đào Huân': 'It is held in the right hand in front of the chest.',
+  'Chu Sa Bút': 'It is held in the right hand.', 'Bát Quái Kính': 'It is held in the right hand, raised in front of the chest with the mirror face outward.',
 };
 export const EL_EN: Record<string, { color: string; energy: string }> = {
   Kim: { color: 'gold and silver', energy: 'metallic golden light' }, Mộc: { color: 'emerald green', energy: 'living vines and green leaves' },
