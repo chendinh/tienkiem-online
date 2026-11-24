@@ -10,7 +10,7 @@ import { ElIcon, SlotIcon } from './Icons';
 import { Img, ItemIcon, fmt } from './ui';
 import type { Act } from './Panels';
 
-// Khách Cầu Mua: a tab of Phường Thị. A buyer stays until everything asked has been handed over, and the player gives what there is ("có bao nhiêu đưa bấy nhiêu").
+// Tìm đồ: the first kind of job in Công việc (components/Jobs.tsx). A buyer stays until everything asked has been handed over, and the player gives what there is ("có bao nhiêu đưa bấy nhiêu").
 // Every piece is paid at once, so nothing is lost by stopping half way. Everything runs on the screen at once (the same rule as on the server, lib/game.ts fillOrder) and
 // nothing pops up when it worked. `isUp`: the piece would be an upgrade (the slot is empty or it is stronger than what is worn), so it is never put forward by itself.
 const isUp = (st: GS, it: Item) => { const w = st.eq[it.slot]; return !w || it.power > w.power; };
@@ -61,7 +61,7 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
   if (!list.length) return <div className="empty">Khách đang tới Phường Thị, đợi vài giây rồi xem lại.</div>;
   return (
     <div className="ordPanel">
-      <div className="hint">Khách ở lại đến khi ngươi giao đủ, có món nào đưa món đó, mỗi món được trả ngay gấp nhiều lần giá phân giải. Giao đủ thì thưởng thêm và có khách mới tới. Món nào khách cần sẽ có nhãn <Icon name="scroll" size={12} /> trong túi, và Dọn túi hay tự phân giải sẽ chừa lại một món cho mỗi phần khách cần.</div>
+      <div className="hint">Khách ở lại đến khi ngươi giao đủ. Mỗi món giao được trả ngay gấp nhiều lần giá phân giải, giao đủ thì thưởng thêm và có khách mới tới. Món khách cần có nhãn <Icon name="scroll" size={12} /> trong túi. Dọn túi và tự phân giải sẽ chừa lại một món cho mỗi phần khách cần.</div>
       {wasted && <div className="hint ordWarn">Ngươi đang cài tự phân giải đồ hạng {C.RARITY[st.set.dissolveMax]} trở xuống. Món khách đang cần vẫn được chừa lại một cái cho mỗi phần, nhưng các món thừa khác thì mất.</div>}
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">

@@ -88,7 +88,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     say(r.msg || errText(r.code || 'E_SERVER'), r.ok);
     re();
   }, [act, say, re]);
-  // Hand a piece to the buyer who waits for it (Phường Thị, Khách cầu mua): the same instant path.
+  // Hand a piece to the buyer who waits for it (Công việc, Tìm đồ): the same instant path.
   const give = useCallback(async (orderId: string, id: number) => {
     const st = stRef.current; if (!st) return false;
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id), cur = it ? st.eq[it.slot] : null;
@@ -201,7 +201,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
           {where === 'stash' && <button className="btn" onClick={() => eqx.moveToBag(it.id)}>Chuyển vào túi</button>}
           <button className="btn" title="Món đã khóa: game không tự thay và không tự phân giải" onClick={() => eqx.lock(it.id)}><Icon name={it.locked ? 'unlock' : 'lock'} size={15} /> {it.locked ? 'Mở khóa' : 'Khóa'}</button>
           <button className="btn" title={framed ? 'Gỡ món này khỏi khung trưng bày' : 'Treo món này trong khung trên trang nhân vật (món được khóa để không bị tự phân giải)'} onClick={() => eqx.frame(it.id, !framed)}><Icon name="sparkle" size={15} /> {framed ? 'Gỡ khỏi khung' : 'Trưng bày'}</button>
-          {buyer.length > 0 && !it.locked && <button className="btn" title={`Giao cho ${buyer[0].order.who.name} ở Phường Thị (khách cầu mua)`} onClick={() => eqx.give(buyer[0].order.id, it.id)}><Icon name="scroll" size={15} /> Giao cho khách +{fmt(O.payFor(buyer[0].order.mult, dissolveValue(it)))} <Icon name="stone" size={14} /></button>}
+          {buyer.length > 0 && !it.locked && <button className="btn" title={`Giao cho ${buyer[0].order.who.name} (công việc Tìm đồ)`} onClick={() => eqx.give(buyer[0].order.id, it.id)}><Icon name="scroll" size={15} /> Giao cho khách +{fmt(O.payFor(buyer[0].order.mult, dissolveValue(it)))} <Icon name="stone" size={14} /></button>}
           {where !== 'eq' && <button className="btn" disabled={!!it.locked} title={it.locked ? 'Mở khóa trước khi phân giải' : 'Đổi món này thành Linh Thạch'} onClick={() => eqx.dissolve(it.id)}>Phân giải +{fmt(dissolveValue(it))} <Icon name="stone" size={15} /></button>}
           <button className="btn ghost" onClick={eqx.close}>Đóng</button>
         </div>
@@ -244,7 +244,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
         <b className={`cmpb ${cls}`}>{mark}</b>
         {tooHigh && <u className="lvb">Lv{it.level}</u>}
         {it.locked && <em className="lockB"><Icon name="lock" size={11} /></em>}
-        {asked && <i className="reqMark" title="Khách cầu mua đang cần món này"><Icon name="scroll" size={10} /></i>}
+        {asked && <i className="reqMark" title="Công việc Tìm đồ đang cần món này"><Icon name="scroll" size={10} /></i>}
       </div>
     );
   };
@@ -266,7 +266,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
           <div className="cleanSum">
             <span className="cs go"><b>{plan.n}</b> món sẽ phân giải{plan.n > 0 && <> · <Icon name="stone" size={12} /> ≈ {fmt(plan.stones)} Linh Thạch</>}</span>
             <span className="cs keep" title="Mạnh hơn món đang mặc ở cùng ô, hoặc ô còn trống: luôn được giữ để ngươi tự quyết"><b>{plan.kept}</b> món mũi tên xanh được giữ lại</span>
-            {plan.asked > 0 && <span className="cs keep" title="Khách cầu mua ở Phường Thị đang chờ những món này"><Icon name="scroll" size={11} /> <b>{plan.asked}</b> món khách cầu mua đang cần được giữ lại</span>}
+            {plan.asked > 0 && <span className="cs keep" title="Công việc Tìm đồ đang chờ những món này"><Icon name="scroll" size={11} /> <b>{plan.asked}</b> món công việc Tìm đồ đang cần được giữ lại</span>}
             {plan.locked > 0 && <span className="cs lock"><Icon name="lock" size={11} /> {plan.locked} món đã khóa được giữ</span>}
           </div>
           <div className="cleanAct">

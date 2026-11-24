@@ -259,7 +259,7 @@ test('keeping what buyers wait for: Dọn túi leaves the weakest piece for each
   const r = G.dissolveMany(st, 1);
   assert.ok(r.ok, r.msg);
   assert.deepEqual(st.bag.map((x) => x.id), [602]);
-  assert.match(r.msg, /khách cầu mua/);
+  assert.match(r.msg, /Tìm đồ/);
 });
 
 test('keeping what buyers wait for: auto-dissolve spares one piece for an open part, not the rest', () => {

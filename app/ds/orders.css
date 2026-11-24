@@ -1,7 +1,11 @@
 @layer game {
-  /* Phường Thị, tab "Khách cầu mua" (components/Orders.tsx): one card per buyer */
-  .marketTabs { display: flex; justify-content: center; margin-bottom: var(--sp-3); }
-  .tabBadge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: var(--r-pill); font-size: 0.68rem; line-height: 1; color: var(--ink-900, #0b1117); background: var(--gold-300); }
+  /* Công việc (components/Jobs.tsx) and its first kind, Tìm đồ (components/Orders.tsx): one card per buyer */
+  .jobsPanel { display: grid; gap: var(--sp-3); }
+  .jobKind { display: flex; align-items: center; gap: 6px; margin: 0; font-family: var(--font-display); color: var(--gold-200); }
+  .jobBadge, .navDot { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--r-pill); font-style: normal; font-size: 0.68rem; line-height: 1; color: var(--ink-900, #0b1117); background: var(--gold-300); }
+  .jobBadge { margin-left: 6px; }
+  .nav.jobs { position: relative; }
+  .nav .navDot { position: absolute; top: 2px; right: 2px; z-index: 2; box-shadow: 0 0 8px -1px var(--gold-300); }
   .ordPanel { display: grid; gap: var(--sp-3); }
   .ordWarn { color: var(--gold-200); }
   .ordList { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--sp-3); align-items: start; }

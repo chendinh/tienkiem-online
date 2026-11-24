@@ -585,7 +585,7 @@ export function dissolveMany(st: GameState, maxTier: number): Res {
       list.splice(i, 1); shareRelic(st, it); gain += earn(st, dissolveValue(it), 'dissolve'); n++;
     }
   }
-  const keepNote = (kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '') + (asked > 0 ? ` Giữ lại ${asked} món khách cầu mua đang cần.` : '');
+  const keepNote = (kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '') + (asked > 0 ? ` Giữ lại ${asked} món công việc Tìm đồ đang cần.` : '');
   return n === 0 ? fail('E_NOT_FOUND', `Không có món nào phù hợp để phân giải.${keepNote}`) : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain, kept, asked });
 }
 // Sell every Linh Thú that is not in the Party and not a Dị Biến.

@@ -1,8 +1,14 @@
-# Khách Cầu Mua (Phường Thị)
+# Công việc
 
-Vài tu sĩ đến Phường Thị hỏi mua đồ cụ thể. Người chơi có đồ thừa đúng loại thì giao, nhận Linh Thạch gấp nhiều lần giá phân giải, có khi kèm vật phẩm. Đây là cách để đồ thừa có giá trị mà vẫn là việc người chơi tự chọn, không tự bán.
+Mục riêng của game cho những việc người chơi muốn làm thì làm, không bắt buộc, bỏ đó cũng không mất gì. Không phải nhiệm vụ ngày (nhiệm vụ ngày và Nhập Môn giữ nguyên chỗ cũ).
 
-## Luật
+Mở từ nút "Công việc" (thanh trên, menu, Kho báu). Chấm vàng cho biết có bao nhiêu việc làm được ngay. Mỗi loại việc là một mục trong `JOB_KINDS` ở `components/Jobs.tsx` (tên, một dòng giới thiệu, hàm đếm việc làm được ngay, bảng hiển thị). Thêm loại việc mới là viết bảng của nó rồi thêm một mục vào đó, cửa sổ, tab và chấm vàng tự theo. Khi có từ hai loại trở lên, đầu cửa sổ hiện tab chọn loại.
+
+## Loại 1: Tìm đồ
+
+Vài tu sĩ đến Phường Thị nhờ tìm đồ cụ thể. Người chơi có đồ thừa đúng loại thì giao, nhận Linh Thạch gấp nhiều lần giá phân giải, có khi kèm vật phẩm. Đây là cách để đồ thừa có giá trị mà vẫn là việc người chơi tự chọn, không tự bán.
+
+### Luật
 
 Bảng khách luôn có 6 chỗ: 3 khách lẻ, 2 khách gom bộ, 1 khách quý.
 
@@ -18,25 +24,26 @@ Bảng khách luôn có 6 chỗ: 3 khách lẻ, 2 khách gom bộ, 1 khách quý
 - Đồ đang mặc và đồ đã khóa không giao được. Đồ trong túi và kho đều dùng được. Món mạnh hơn đồ đang mặc (▲) không được chọn sẵn.
 - Không có trần Linh Thạch riêng cho đơn. Mức kiếm được bị giới hạn bởi việc món rơi ra phải trùng đúng với một phần khách đang cần.
 
-## Chừa đồ cho khách
+### Chừa đồ cho khách
 
 Đồ khách cần không bị phân giải mất:
 
 - **Nhãn trong túi.** Món hợp với một phần khách đang cần có biểu tượng cuộn giấy ở góc ô. Mở món lên có nút "Giao cho khách" (giao ngay, hỏi lại nếu món đó mạnh hơn đồ đang mặc).
 - **Tự phân giải** (`dissolveMax`) chừa lại món vừa nhặt nếu khách đang cần và trong túi/kho chưa có món nào hợp phần đó.
-- **Dọn túi** chừa lại món yếu nhất hợp với mỗi phần khách đang cần (`keepIds` trong `lib/orders.ts`), và thông báo "giữ lại N món khách cầu mua đang cần".
+- **Dọn túi** chừa lại món yếu nhất hợp với mỗi phần khách đang cần (`keepIds` trong `lib/orders.ts`), và thông báo "giữ lại N món công việc Tìm đồ đang cần".
 - Phân giải tay từng món thì không bị chặn.
 
-## Cách chạy
+### Cách chạy
 
 - `lib/orders.ts`: phần thuần, không dùng số ngẫu nhiên có trạng thái. `Board = { v: 2, n, list }` lưu trong save (`st.orders`). `makeOrder(i, n, seed, others, opt)` sinh khách cho chỗ `i` từ băm của seed và số thứ tự `n`, nên cùng seed luôn ra cùng khách. `others` giúp hai khách đang chờ không hỏi giống nhau. Save của phiên bản đầu (danh sách theo ngày) bị thay bằng bảng mới.
 - `lib/game.ts`: `ensureOrders` (gọi trong `tick`, chỉ chạy ở máy chủ vì cần seed; tạo bảng, hoặc thay khách đã xong hay đã rời), `fillOrder`, `dismissOrder`. `giveItem` (xuất ra để test) và `dissolveMany` dùng `keepNew` và `keepIds`.
 - `lib/intents.ts`: `fillOrder` và `dismissOrder` là intent thuần, trình duyệt chạy ngay như máy chủ, máy chủ có tiếng nói cuối. Trình duyệt chỉ đánh dấu khách xong, khách mới xuất hiện ở lần cập nhật kế tiếp từ máy chủ. `forkState` trong `components/Game.tsx` sao chép cả `orders`.
-- `components/Orders.tsx`: tab "Khách cầu mua" trong `ShopPanel`. Mỗi thẻ có các ô cần giao (có dấu ✓ khi đã giao, số món hợp trong túi), "Giao nộp" mở danh sách món hợp từng phần (món yếu nhất, không phải đồ nâng cấp, được chọn sẵn), bấm Giao. Thành công không hiện thông báo.
+- `components/Jobs.tsx`: cửa sổ Công việc và danh sách `JOB_KINDS`.
+- `components/Orders.tsx`: bảng của loại Tìm đồ. Mỗi thẻ có các ô cần giao (có dấu ✓ khi đã giao, số món hợp trong túi), "Giao nộp" mở danh sách món hợp từng phần (món yếu nhất, không phải đồ nâng cấp, được chọn sẵn), bấm Giao. Thành công không hiện thông báo.
 - `components/Equip.tsx`: nhãn trên ô túi, nút "Giao cho khách" trong cửa sổ món, và `Dọn túi` chừa món khách cần.
 - Test: `tests/orders.test.ts`.
 
-## Chân dung khách
+### Chân dung khách
 
 Mỗi loại tu sĩ (`C.NPC_TITLES`, 6 loại) có một ảnh nữ và một ảnh nam, vẽ một lần bằng AI và dùng chung cho mọi người chơi: `public/art/buyers/{loại}_{f|m}.jpg` (12 ảnh, 768×768, bán thân).
 

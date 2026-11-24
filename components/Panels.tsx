@@ -20,8 +20,6 @@ import { askConfirm, Toast } from './ds/Dialog';
 import { ERR } from '@/lib/strings';
 import { BeastArt, ElChip, Img, ItemCard, PanZoom, SizeMeter, fmt, useZoom } from './ui';
 import { ElIcon } from './Icons';
-import { Seg } from './ds/Seg';
-import { OrdersPanel, fillableCount } from './Orders';
 
 export type ActRes = { ok: boolean; msg: string; data?: any; code?: string };
 export type Act = (type: string, payload?: any) => Promise<ActRes>;
@@ -56,8 +54,6 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
   const zoom = useZoom();
   const [qty, setQty] = useState<Record<string, number>>({});
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
-  const [tab, setTab] = useState<'shop' | 'orders'>('shop');   // Hàng hóa, or the buyers of the day (components/Orders.tsx)
-  const waiting = fillableCount(st);
   const q = (id: string) => qty[id] || 1;
   const set = (id: string, n: number, max: number) => setQty((o) => ({ ...o, [id]: Math.min(Math.max(1, max), Math.max(1, Math.floor(n) || 1)) }));
   const run = async (type: 'buy' | 'sell', item: string, price: number, n = q(item)) => {
@@ -86,8 +82,6 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
         <b>{fmt(st.stones)}</b>
       </div>
       <div className="marketBanner" style={{ backgroundImage: `url(${C.MARKET_ART})` }}><b>Phường Thị</b><span>Hàng bán không giới hạn, mua bán công khai</span></div>
-      <div className="marketTabs"><Seg<'shop' | 'orders'> label="Phường Thị" value={tab} onChange={setTab} options={[{ v: 'shop', label: 'Hàng hóa' }, { v: 'orders', label: <>Khách cầu mua{waiting > 0 && <b className="tabBadge">{waiting}</b>}</>, title: 'Khách của ngày: bán đồ thừa theo yêu cầu' }]} /></div>
-      {tab === 'orders' ? <div className="shopScroll"><OrdersPanel st={st} act={act} /></div> : (<>
       <div className="hint">Giá bán lại bằng {Math.round((st.shop[0].sell / st.shop[0].price) * 100)}% giá mua.</div>
       <Toast msg={msg} />
       <div className="shopScroll">
@@ -123,7 +117,6 @@ export function ShopPanel({ st, act }: { st: GS; act: Act }) {
           ))}
         </div>
       </div>
-      </>)}
     </div>
   );
 }
@@ -393,7 +386,7 @@ export function Window({ title, icon, sub, wide, onClose, children }: { title: s
   );
 }
 export function MarketModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
-  return <Window title="Phường Thị" icon="stone" sub="Mua Khế Ước Phù, Đan Dược; bán nguyên liệu; giao hàng cho khách cầu mua" onClose={onClose}><ShopPanel st={st} act={act} /></Window>;
+  return <Window title="Phường Thị" icon="stone" sub="Mua Khế Ước Phù, Đan Dược; bán nguyên liệu" onClose={onClose}><ShopPanel st={st} act={act} /></Window>;
 }
 // Luyện Đan: materials become Hồi Khí Đan. Free; only the materials are used.
 export function AlchemyModal({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {

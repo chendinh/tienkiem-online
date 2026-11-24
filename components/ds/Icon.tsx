@@ -49,6 +49,7 @@ const P: Record<string, ReactNode> = {
   menu: <path d="M4.5 7h15M4.5 12h15M4.5 17h15" />,
   chest: <><rect x="3.5" y="8" width="17" height="11.5" rx="2" {...F} /><path d="M3.5 12.5h17M4.5 8c0-2.4 3-4 7.5-4s7.5 1.6 7.5 4" /><path d="M12 11.2v3.2" /></>,
   back: <path d="M15 6l-6 6 6 6" />,
+  job: <><rect x="5.5" y="4.5" width="13" height="16.5" rx="2" {...F} /><path d="M9.5 4.5h5v2.6h-5z" /><path d="M8.5 11.2h7M8.5 14.6h7M8.5 18h4" /></>,
   scroll: <><path d="M7 4.5h11a2 2 0 012 2v1.5H9V6.5a2 2 0 00-2-2z" {...F} /><path d="M7 4.5a2 2 0 00-2 2V18a2 2 0 002 2h10a2 2 0 002-2V8" /><path d="M9 12h7M9 15.5h5" /></>,
   wind: <><path d="M3 9h10.5a2.5 2.5 0 10-2.5-2.5" /><path d="M3 13h14.5a2.5 2.5 0 11-2.5 2.5" /></>,
   cloud: <><path d="M7 18h10.2a4 4 0 00.5-7.97A6 6 0 006.2 8.7 4.7 4.7 0 007 18z" {...F} /><path d="M9 14.2c.8-1 2-1.4 3-1" /></>,
