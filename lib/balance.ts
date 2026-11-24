@@ -54,7 +54,7 @@ export const BALANCE = {
   damageVariance: 0.1,
   skillSlotsByRealm: [3, 3, 3, 3, 4, 4, 5, 5, 6],   // Skill_Slots_By_Realm (Requirement 18.9): technique slots of each môn pháp, by Realm
   bookTierWeights: [8, 4, 2 / 3, 1 / 3],   // how often a Bí Công of each tier (Hoàng to Thiên) is the one that drops
-  bookDropP: 0.10, bookEliteMult: 1.5,   // chance of a Bí Công after a win; Tinh Anh and Dị Biến foes are likelier
+  bookDropP: 0.04, bookEliteMult: 1.5,   // chance of a Bí Công after a win (was 0.10, cut to 40%); Tinh Anh and Dị Biến foes are likelier. The same chance for every môn and tier: bookTierWeights only splits it
   keepDupBookTier: 3,                    // a Bí Công or Công Pháp of this tier or above (3 = Thiên) that the player already knows is kept in the bag, not turned into Linh Thạch: it can be traded at Chợ Đêm
   dupBookStones: [10, 25, 60, 150],      // Linh Thạch for a Bí Công of a technique the player already knows, by tier (Hoàng, Huyền, Địa, Thiên)
   minRetreatPct: 30,             // the character never goes out to fight with less than this share of health, and the retreat setting cannot go below it
@@ -67,7 +67,7 @@ export const BALANCE = {
   healScale: 1.0,                // a healing skill restores attack x power x this x the combat pace
   methodAffinityBonus: 0.10,     // Method_Affinity_Bonus: a Công Pháp whose element is in the Linh Căn cultivates faster
   methodStatBias: 0.06,          // Method_Stat_Bias: share of the base stat added to each stat a Công Pháp favours
-  methodDropP: 0.015,            // chance of a Công Pháp scroll after a win
+  methodDropP: 0.006,            // chance of a Công Pháp scroll after a win (was 0.015, cut to 40% together with bookDropP)
   spiritRegenPct: 0.08,        // Spirit that comes back each round, as a share of the maximum
   offElementPenalty: 0.7,      // Off_Element_Penalty (Requirement 18.2): a skill of an element the user does not have
   foeCoefScale: 0.85, beastCoefScale: 0.65,   // keep the damage of foes and Linh Thú near what they did before skills had power, cost and cooldown
