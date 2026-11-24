@@ -1,12 +1,12 @@
-// Khách Cầu Mua (Phường Thị): every UTC day a few cultivators ask for something to buy, and the player sells it to them if there is a spare one in the bag.
-// Three kinds of order:
-//   one  a single item (a kind of item and a rarity; Huyền also names an element), paid 3 times what dissolving it gives
-//   set  3 or 5 items that look the SAME (same picture: same kind of item and rarity, Phàm or Hoàng), paid 4 or 6 times what dissolving gives, plus goods
-//   vip  a guest who wants one Địa (rarely Thiên) item of an element, paid 2.5 times, plus better goods; only on some days
-// "The same picture" is the rule of the game's own picture keys (lib/assetKey.ts, itemSpec in lib/avatarSpec.ts): Phàm and Hoàng have one picture per kind of item,
-// Huyền one per kind and element, Địa and Thiên a few looks, only Tiên its own. Names are no help: they are put together at random (Thiên and Tiên) or carry the element (Hoàng).
-// Which orders a day brings is a pure function of the day, the world seed and the week's theme (no random number is drawn from the game's streams), and the day's list is
-// written into the save on the first tick of the day, so server, browser and offline settling agree and the browser needs no seed.
+// Khách Cầu Mua (Phường Thị): cultivators come to the market asking for something, and the player hands over what is spare in the bag, a piece at a time.
+// A buyer stays until everything asked for has been handed over; only then does a new buyer take the place. There are six places on the board:
+//   one  x3  a single item (a kind of item and a rarity; Huyền names a slot and an element instead of a kind), paid 3 times what dissolving it gives
+//   set  x2  a set of 3 or 5 DIFFERENT pieces, one for each of the slots named, all of one rarity (Phàm or Hoàng), any kind of item; every piece is paid 3 times
+//            what dissolving gives as it is handed over, and when the set is complete there is a bonus (1 or 3 times the whole) and goods on top
+//   vip  x1  a guest who wants one Địa (rarely Thiên) item of an element, any slot, paid 2.5 times, plus better goods
+// Handing over is "có bao nhiêu đưa bấy nhiêu": each piece is paid on the spot and ticked off, so nothing is lost if the player stops half way or sends the buyer away.
+// The buyers are made from the world seed and a running number alone (no random number is drawn from the game's streams), and they are written into the save,
+// so server, browser and offline settling agree and the browser needs no seed. A finished buyer is replaced on the server's next tick (lib/game.ts ensureOrders).
 import * as C from './content';
 import * as A from './arts';
 import type { Item } from './game';
@@ -17,65 +17,48 @@ export interface Want { tier: number; slot?: string; base?: string; cls?: string
 // Goods paid on top of the Linh Thạch (they are the shop's own goods: Khế Ước Phù, Hồi Khí Đan, Phá Cảnh Đan, Độ Kiếp Phù, or a material).
 export type Extra = { kind: 'taming' | 'hp' | 'bt'; idx: number; n: number } | { kind: 'trib'; n: number } | { kind: 'mat'; id: string; n: number };
 export interface Buyer { name: string; g: 'f' | 'm'; arch: string }
-// `mult` is the pay as a percentage of what dissolving the delivered items would give (300 = three times). `paid` is the Linh Thạch that was paid once the order is done.
-export interface Order { id: string; kind: OrderKind; who: Buyer; line: number; want: Want; need: number; mult: number; extra?: Extra; done: boolean; paid?: number }
-export interface DayOrders { day: string; list: Order[] }
+export interface Part { want: Want; got?: boolean }
+// `mult` is the pay for each piece as a percentage of what dissolving it would give (300 = three times); `bonus` the same for the whole of what was handed over, paid when the last piece comes.
+// `sum` is the dissolve worth handed over so far and `paid` the Linh Thạch paid so far. `done`: everything handed over; `left`: sent away. Either one means the place is given to a new buyer.
+export interface Order { id: string; kind: OrderKind; who: Buyer; line: number; parts: Part[]; mult: number; bonus: number; sum: number; paid: number; extra?: Extra; done: boolean; left?: boolean }
+export interface Board { v: 2; n: number; list: Order[] }
 
-export const ONE_COUNT = 3, SET_COUNT = 2, VIP_DAYS_PERCENT = 50;
-export const MULT = { one: 300, set3: 400, set5: 600, vip: 250 } as const;
-// the sets are asked of the slots that have only a few kinds (every slot but the weapon), so a set is something a player can really gather
-const SET_SLOTS = C.SLOTS.filter((s) => C.SLOT_BASE[s].length <= 6);
+export const LAYOUT: OrderKind[] = ['one', 'one', 'one', 'set', 'set', 'vip'];
+export const MULT = { part: 300, vip: 250, bonus3: 100, bonus5: 300 } as const;
+export const BOARD_VERSION = 2;
 
 const hash32 = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 2246822507); h ^= h >>> 13; h = Math.imul(h, 3266489909); h ^= h >>> 16; return h >>> 0; };
 const pick = <T,>(arr: T[], key: string): T => arr[hash32(key) % arr.length];
+/** `n` different members of `arr`, in an order that depends only on the key. */
+const distinct = <T,>(arr: T[], n: number, key: string): T[] => arr.map((x, i) => ({ x, h: hash32(`${key}|${i}`) })).sort((a, b) => a.h - b.h).slice(0, n).map((e) => e.x);
 
 // ---- who asks. The kind of cultivator follows what is asked for; each of the six kinds has a portrait of a woman and of a man (lib/content.ts buyerArt)
 const SYL_M1 = ['Hạo', 'Thiên', 'Vân', 'Kiệt', 'Phong', 'Lăng', 'Tuấn', 'Minh', 'Trạch', 'Dật', 'Hàn', 'Mặc'];
 const SYL_M2 = ['Vũ', 'Dương', 'Hiên', 'Thần', 'Phàm', 'Nhiên', 'Quân', 'Khải', 'Bách', 'Lâm', 'Sơn', 'Nghị'];
 const ARCH_OF_SLOT: Record<string, string> = { Headwear: 'Phù Sư', Robe: 'Đan Sư', Footwear: 'Tán Tu', Back: 'Thể Tu', Accessory: 'Đan Sư', Ring: 'Ma Tu', Talisman: 'Phù Sư' };
 const ARCH_OF_CLS: Record<string, string> = { kiem: 'Kiếm Tu', thuong: 'Kiếm Tu', cung: 'Kiếm Tu', dao: 'Kiếm Tu', quyen: 'Thể Tu', cam: 'Tán Tu', tieu: 'Tán Tu', phat: 'Phù Sư' };
-const archOf = (w: Want, key: string): string => (w.slot === 'Weapon' ? ARCH_OF_CLS[w.cls || ''] : w.slot ? ARCH_OF_SLOT[w.slot] : '') || pick(C.NPC_TITLES, `ordarch|${key}`);
-function buyerFor(key: string, want: Want): Buyer {
+const archOf = (kind: OrderKind, w: Want, key: string): string => (kind === 'one' ? (w.slot === 'Weapon' ? ARCH_OF_CLS[w.cls || ''] : w.slot ? ARCH_OF_SLOT[w.slot] : '') : '') || pick(C.NPC_TITLES, `ordarch|${key}`);
+function buyerFor(key: string, kind: OrderKind, want: Want): Buyer {
   const g: 'f' | 'm' = hash32(`ordg|${key}`) % 2 ? 'f' : 'm';
   const fam = pick(C.FAMILY, `ordfam|${key}`);
   const name = g === 'f' ? `${fam} ${pick(C.SYL1, `ords1|${key}`)} ${pick(C.SYL2, `ords2|${key}`)}` : `${fam} ${pick(SYL_M1, `ordm1|${key}`)} ${pick(SYL_M2, `ordm2|${key}`)}`;
-  return { name, g, arch: archOf(want, key) };
+  return { name, g, arch: archOf(kind, want, key) };
 }
-export const ONE_LINES = [
-  'Ta còn thiếu đúng một món cho đủ bộ, ngươi có thì nhường lại, ta trả hậu.',
-  'Gấp lắm, ai có xin nhượng giúp, ta không cò kè.',
-  'Tìm mãi chưa thấy món này, ngươi mà có là cứu ta một phen.',
-  'Sư phụ dặn phải tìm cho bằng được, giá cả cứ nói.',
-  'Phường Thị hết hàng món này rồi, ngươi có thì bán lại cho ta.',
-];
-export const SET_LINES = [
-  'Cả đội ta cần mặc cùng một kiểu, ngươi gom đủ cả lô thì ta trả giá lô.',
-  'Ta mở sạp cần một lô giống hệt nhau, đủ số là ta không tiếc linh thạch.',
-  'Cần mấy món giống nhau để luyện khí, ngươi có đủ thì bán cả lô.',
-];
-export const VIP_LINES = [
-  'Ta là khách của một thế gia, chỉ nhận món quý, đúng ý thì ta không tiếc linh thạch.',
-  'Món này chủ nhân ta tìm đã nhiều năm, ngươi mà có thì mọi chuyện đều dễ nói.',
-  'Hôm nay ta chỉ ghé Phường Thị một lúc, có món quý nào đúng ý là ta mua ngay.',
-];
-export const lineOf = (o: Pick<Order, 'kind' | 'line'>): string => { const l = o.kind === 'set' ? SET_LINES : o.kind === 'vip' ? VIP_LINES : ONE_LINES; return l[o.line % l.length]; };
 
 // ---- what is asked
-const wantKey = (w: Want) => [w.tier, w.slot, w.base, w.cls, w.el].join('|');
 const elFor = (key: string, week?: string) => (week && C.EO.includes(week) ? week : pick(C.EO, `ordel|${key}`));
 function wantOne(key: string, week?: string): Want {
-  const r = hash32(`ordt|${key}`) % 100, tier = r < 30 ? 0 : r < 80 ? 1 : 2;
+  const r = hash32(`ordt|${key}`) % 100, tier = r < 40 ? 0 : r < 90 ? 1 : 2;
   const slot = pick(C.SLOTS, `ordslot|${key}`);
-  const w: Want = { tier, slot };
-  if (slot === 'Weapon') w.cls = pick(A.ARTS, `ordcls|${key}`).id; else w.base = pick(C.SLOT_BASE[slot], `ordbase|${key}`);
-  if (tier === 2) w.el = elFor(key, week);   // the week's element is asked for more: the theme of the week is what the market wants
-  return w;
+  if (tier === 2) return { tier, slot, el: elFor(key, week) };   // a Huyền piece is asked by slot and element only (the week's element more often: the theme of the week is what the market wants)
+  return slot === 'Weapon' ? { tier, slot, cls: pick(A.ARTS, `ordcls|${key}`).id } : { tier, slot, base: pick(C.SLOT_BASE[slot], `ordbase|${key}`) };
 }
-function wantSet(key: string): Want {
-  const slot = pick(SET_SLOTS, `ordslot|${key}`);
-  return { tier: hash32(`ordt|${key}`) % 100 < 60 ? 0 : 1, slot, base: pick(C.SLOT_BASE[slot], `ordbase|${key}`) };
+function wantSet(key: string): Want[] {
+  const tier = hash32(`ordt|${key}`) % 100 < 60 ? 0 : 1, n = hash32(`ordn|${key}`) % 2 ? 5 : 3;
+  return distinct(C.SLOTS, n, `ordslots|${key}`).map((slot) => ({ tier, slot }));
 }
-function wantVip(key: string, week?: string): Want { return { tier: hash32(`ordt|${key}`) % 100 < 90 ? 3 : 4, el: elFor(key, week) }; }
+const wantVip = (key: string, week?: string): Want => ({ tier: hash32(`ordt|${key}`) % 100 < 90 ? 3 : 4, el: elFor(key, week) });
+const wantsKey = (parts: Part[]) => parts.map((p) => [p.want.tier, p.want.slot, p.want.base, p.want.cls, p.want.el].join('|')).sort().join(';');
 
 // ---- goods on top (all are things the shop sells; the worth stays small next to the shop price of the same thing)
 const ONE_EXTRA: Extra[] = [{ kind: 'hp', idx: 0, n: 2 }, { kind: 'taming', idx: 0, n: 2 }, { kind: 'mat', id: 'linhthao', n: 3 }];
@@ -89,27 +72,53 @@ export function extraName(x: Extra): string {
 }
 export const extraArt = (x: Extra): string => (x.kind === 'mat' ? C.matArt(x.id) : C.shopArt(extraId(x)));
 
-/** The orders of a UTC day. `week` is the element the week's theme favours (if any); `realm` is the player's realm (a Phá Cảnh Đan is only offered for the first two). */
-export function pickOrders(day: string, seed: number | string, opt: { week?: string; realm?: number } = {}): Order[] {
-  const out: Order[] = [], seen = new Set<string>();
-  const add = (kind: OrderKind, i: number, make: (key: string) => Want) => {
-    let want!: Want, key = '';
-    for (let a = 0; a < 8; a++) { key = `${day}|${seed}|${kind}${i}|${a}`; want = make(key); if (!seen.has(wantKey(want))) break; }
-    seen.add(wantKey(want));
-    const o: Order = { id: `${kind}${i}`, kind, who: buyerFor(key, want), line: hash32(`ordline|${key}`), want, need: 1, mult: MULT.one, done: false };
-    if (kind === 'set') { o.need = hash32(`ordn|${key}`) % 2 ? 5 : 3; o.mult = o.need === 5 ? MULT.set5 : MULT.set3; o.extra = pick(SET_EXTRA, `ordx|${key}`); }
-    if (kind === 'one' && hash32(`ordx?|${key}`) % 100 < 25) o.extra = pick(ONE_EXTRA, `ordx|${key}`);
-    if (kind === 'vip') { o.mult = MULT.vip; o.extra = pick(vipExtras(opt.realm ?? 9), `ordx|${key}`); }
-    out.push(o);
-  };
-  for (let i = 0; i < ONE_COUNT; i++) add('one', i, (k) => wantOne(k, opt.week));
-  for (let i = 0; i < SET_COUNT; i++) add('set', i, (k) => wantSet(k));
-  if (hash32(`ordvip|${day}|${seed}`) % 100 < VIP_DAYS_PERCENT) add('vip', 0, (k) => wantVip(k, opt.week));
-  return out;
-}
+// ---- the words of a buyer: a line for each kind, one of them is chosen by the key
+export const ONE_LINES = [
+  'Ta còn thiếu đúng một món cho đủ bộ, ngươi có thì nhường lại, ta trả hậu.',
+  'Gấp lắm, ai có xin nhượng giúp, ta không cò kè.',
+  'Tìm mãi chưa thấy món này, ngươi mà có là cứu ta một phen.',
+  'Sư phụ dặn phải tìm cho bằng được, giá cả cứ nói.',
+  'Phường Thị hết hàng món này rồi, ngươi có thì bán lại cho ta.',
+];
+export const SET_LINES = [
+  'Ta đang gom một bộ, mỗi ô một món. Ngươi có món nào cứ đưa trước, đủ bộ ta thưởng thêm.',
+  'Đội ta thiếu đủ thứ. Có món nào đưa món đó, ta trả ngay, gom đủ bộ thì ta không tiếc.',
+  'Ta mở sạp cần cả bộ đồ. Ngươi tích góp dần cũng được, ta chờ.',
+];
+export const VIP_LINES = [
+  'Ta là khách của một thế gia, chỉ nhận món quý, đúng ý thì ta không tiếc linh thạch.',
+  'Món này chủ nhân ta tìm đã nhiều năm, ngươi mà có thì mọi chuyện đều dễ nói.',
+  'Ta ở lại Phường Thị chờ món quý này, bao lâu cũng được.',
+];
+export const lineOf = (o: Pick<Order, 'kind' | 'line'>): string => { const l = o.kind === 'set' ? SET_LINES : o.kind === 'vip' ? VIP_LINES : ONE_LINES; return l[o.line % l.length]; };
 
-// ---- matching. `lookKey` is the identity of an item's picture (the same fields as itemSpec in lib/avatarSpec.ts: element only from Huyền up, the look number if it has one).
-export const lookKey = (it: Pick<Item, 'slot' | 'base' | 'tier' | 'el' | 'art'>): string => [it.slot, it.base, it.tier, it.tier >= 2 ? it.el : '', it.art || 0].join('|');
+// ---- the board
+export const isOpen = (o: Order): boolean => !o.done && !o.left;
+/** One new buyer for place `i` of the board; `n` is the running number of buyers made so far (it is what makes every buyer different). `others` are the buyers there now, none of them is asked the same thing. */
+export function makeOrder(i: number, n: number, seed: number | string, others: Order[], opt: { week?: string; realm?: number } = {}): Order {
+  const kind = LAYOUT[i % LAYOUT.length];
+  let parts: Part[] = [], key = '';
+  for (let a = 0; a < 8; a++) {
+    key = `${seed}|${i}|${n}|${a}`;
+    parts = (kind === 'set' ? wantSet(key) : [kind === 'vip' ? wantVip(key, opt.week) : wantOne(key, opt.week)]).map((want) => ({ want }));
+    if (!others.some((o) => isOpen(o) && wantsKey(o.parts) === wantsKey(parts))) break;
+  }
+  const o: Order = { id: `${kind}${i}-${n}`, kind, who: buyerFor(key, kind, parts[0].want), line: hash32(`ordline|${key}`), parts, mult: MULT.part, bonus: 0, sum: 0, paid: 0, done: false };
+  if (kind === 'set') { o.bonus = parts.length === 5 ? MULT.bonus5 : MULT.bonus3; o.extra = pick(SET_EXTRA, `ordx|${key}`); }
+  if (kind === 'one' && hash32(`ordx?|${key}`) % 100 < 25) o.extra = pick(ONE_EXTRA, `ordx|${key}`);
+  if (kind === 'vip') { o.mult = MULT.vip; o.extra = pick(vipExtras(opt.realm ?? 9), `ordx|${key}`); }
+  return o;
+}
+export function newBoard(seed: number | string, opt: { week?: string; realm?: number } = {}): Board {
+  const list: Order[] = [];
+  LAYOUT.forEach((_, i) => list.push(makeOrder(i, i, seed, list, opt)));
+  return { v: BOARD_VERSION, n: LAYOUT.length, list };
+}
+/** Is this a board of the present kind? (A save from the first version of the feature kept a list of the day instead.) */
+export const isBoard = (b: any): b is Board => !!b && b.v === BOARD_VERSION && Array.isArray(b.list) && typeof b.n === 'number';
+export const progress = (o: Order): { got: number; total: number } => ({ got: o.parts.filter((p) => p.got).length, total: o.parts.length });
+
+// ---- matching
 export function matchesWant(w: Want, it: Pick<Item, 'slot' | 'base' | 'tier' | 'el'>): boolean {
   if (it.tier !== w.tier) return false;
   if (w.slot && it.slot !== w.slot) return false;
@@ -118,25 +127,59 @@ export function matchesWant(w: Want, it: Pick<Item, 'slot' | 'base' | 'tier' | '
   if (w.el && it.el !== w.el) return false;
   return true;
 }
-/** Can these items be handed to the order (the right number, all unique, all matching, and for a set all of the same picture)? Returns the reason in words when they cannot. */
-export function checkItems(o: Order, items: Item[]): string | null {
-  if (items.length !== o.need) return `Đơn này cần đúng ${o.need} món.`;
-  if (new Set(items.map((x) => x.id)).size !== items.length) return 'Một món bị chọn hai lần.';
-  if (!items.every((x) => matchesWant(o.want, x))) return 'Có món không đúng yêu cầu của khách.';
-  if (o.kind === 'set' && new Set(items.map(lookKey)).size !== 1) return 'Các món phải giống hệt nhau (cùng hình).';
-  return null;
+/** For each item, the part of the order it would fill (a part takes one item), or the reason in words when some item cannot be handed over. */
+export function assign(o: Order, items: Item[]): number[] | string {
+  const used = new Set<number>(), out: number[] = [];
+  for (const it of items) {
+    const k = o.parts.findIndex((p, j) => !p.got && !used.has(j) && matchesWant(p.want, it));
+    if (k < 0) return `${it.name}: khách không cần món này, hoặc phần này đã đủ.`;
+    used.add(k); out.push(k);
+  }
+  return out;
+}
+/** The open parts that this item would fill. */
+export function wantedBy(b: Board | undefined, it: Pick<Item, 'slot' | 'base' | 'tier' | 'el'>): { order: Order; part: number }[] {
+  const out: { order: Order; part: number }[] = [];
+  if (!isBoard(b)) return out;
+  for (const o of b.list) if (isOpen(o)) o.parts.forEach((p, part) => { if (!p.got && matchesWant(p.want, it)) out.push({ order: o, part }); });
+  return out;
+}
+/** What the buyers wait for is kept from the cleaning ("Dọn túi"): for every open part, the weakest of the pieces held that fit it (a locked piece is kept anyway). */
+export function keepIds(b: Board | undefined, held: Item[]): Set<number> {
+  const keep = new Set<number>();
+  if (!isBoard(b)) return keep;
+  for (const o of b.list) if (isOpen(o)) for (const p of o.parts) {
+    if (p.got) continue;
+    const fit = held.filter((x) => matchesWant(p.want, x));
+    if (!fit.length || fit.some((x) => x.locked)) continue;
+    keep.add(fit.reduce((a, x) => (x.power < a.power || (x.power === a.power && x.id < a.id) ? x : a)).id);
+  }
+  return keep;
+}
+/** A new item arrives: does a buyer wait for it, and nothing held fits that part yet? Then auto-dissolve leaves it alone. */
+export function keepNew(b: Board | undefined, held: Item[], x: Item): boolean {
+  if (!isBoard(b)) return false;
+  for (const o of b.list) if (isOpen(o)) for (const p of o.parts) if (!p.got && matchesWant(p.want, x) && !held.some((h) => matchesWant(p.want, h))) return true;
+  return false;
 }
 export const payFor = (mult: number, dissolveSum: number): number => Math.floor((dissolveSum * mult) / 100);
 
 // ---- words
-export function wantText(o: Pick<Order, 'want' | 'need' | 'kind'>): string {
-  const w = o.want;
+/** What one part asks for, in words. */
+export function partText(w: Want): string {
   const what = w.base || (w.cls ? `vũ khí ${A.ART(w.cls).name}` : w.slot ? C.SLOT_VI[w.slot] : 'pháp khí');
-  return `${o.need} ${what} hạng ${C.RARITY[w.tier]}${w.el ? `, hệ ${w.el}` : ''}${o.kind === 'set' ? ' (giống hệt nhau)' : ''}`;
+  return `${what} hạng ${C.RARITY[w.tier]}${w.el ? `, hệ ${w.el}` : ''}`;
 }
-/** An item that shows the picture asked for (for the card), or null when any kind of item will do. */
+/** The short name of what one part asks for (under its picture on a card). */
+export const partShort = (w: Want): string => w.base || (w.cls ? `Vũ khí ${A.ART(w.cls).name}` : w.slot ? C.SLOT_VI[w.slot] : 'Pháp khí');
+/** What the buyer asks for, in words. */
+export function wantText(o: Pick<Order, 'parts' | 'kind'>): string {
+  if (o.kind !== 'set') return partText(o.parts[0].want);
+  return `Bộ ${o.parts.length} món hạng ${C.RARITY[o.parts[0].want.tier]}, mỗi ô một món khác nhau`;
+}
+/** An item that shows the picture asked for (for the card), or null when there is no one picture for it (any kind of item will do). */
 export function sampleItem(w: Want): Item | null {
-  if (!w.slot) return null;
-  const base = w.base || (w.cls ? Object.keys(C.WEAPON_CLASS).find((b) => C.WEAPON_CLASS[b] === w.cls) : '') || C.SLOT_BASE[w.slot][0];
+  const base = w.base || (w.cls ? Object.keys(C.WEAPON_CLASS).find((b) => C.WEAPON_CLASS[b] === w.cls) : '');
+  if (!w.slot || !base) return null;
   return { id: -1, base, slot: w.slot, name: base, tier: w.tier, level: 1, el: w.el || 'Kim', impl: { stat: C.SLOT_IMPL[w.slot].stat, value: 0 }, affixes: [], power: 0 };
 }

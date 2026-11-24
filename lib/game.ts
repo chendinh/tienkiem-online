@@ -67,7 +67,7 @@ export interface GameState {
   tasks?: T.DayTasks;   // the three extra jobs of today (Easy, Medium, Hard; lib/tasks.ts), made on the first tick of the UTC day
   starter?: { done: string[] };   // Nhập Môn (lib/starter.ts): the first jobs already finished and paid. A save older than the feature gets it in the server's upgrade()
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
-  orders?: O.DayOrders;   // Khách Cầu Mua (lib/orders.ts): today's buyers, made on the first tick of the UTC day; a save older than the feature simply has none until its next tick
+  orders?: O.Board;   // Khách Cầu Mua (lib/orders.ts): the buyers waiting at Phường Thị. They stay until everything they ask is handed over; a save older than the feature, or from its first version, simply gets a new board on its next tick
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -334,7 +334,7 @@ export function noteAlbum(st: GameState, it: Item) { X.noteItem(st, it); }
 // Put an Item_Instance away: auto-dissolve, bag, stash, or the rule for when both are full (Requirement 21.2 to 21.5). `x` is never locked.
 function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissolved' | 'auto' {
   const cur = st.eq[x.slot];
-  if (!x.locked && st.set.dissolveMax >= 0 && x.tier <= st.set.dissolveMax && cur) { dissolveItem(st, x, rep); return 'auto'; }
+  if (!x.locked && st.set.dissolveMax >= 0 && x.tier <= st.set.dissolveMax && cur && !O.keepNew(st.orders, [...st.bag, ...st.stash], x)) { dissolveItem(st, x, rep); return 'auto'; }   // a piece a buyer is waiting for (and nothing held fits yet) is not dissolved
   if (st.bag.length < B.bagCapacity) { st.bag.push(x); return 'bag'; }
   if (st.stash.length < B.overflowCapacity) { st.stash.push(x); if (rep) rep.stashed++; return 'stash'; }
   // both full: dissolve the weakest of {x} plus the unlocked stash items (lowest tier, then lowest power, then earliest in the stash; x counts as the latest)
@@ -351,7 +351,7 @@ function shelve(st: GameState, x: Item, rep?: Report): 'bag' | 'stash' | 'dissol
   dissolveItem(st, x, rep, true); return 'dissolved';
 }
 // A new Item_Instance is given to the player: auto-equip first, then the shelving rules.
-function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
+export function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
   X.noteItem(st, it);
   const L = levelOf(st.player), cur = st.eq[it.slot];
   const tot = st.tot || (st.tot = { items: [0, 0, 0, 0, 0, 0] }); tot.items[it.tier]++;
@@ -573,18 +573,20 @@ export function releaseBeast(st: GameState, id: number): Res {
 // "Dọn túi": dissolves what is not locked up to a rarity, but always keeps an upgrade (the green arrow: stronger than what is worn in that slot, or the slot is empty), so the player decides about those by hand.
 export function dissolveMany(st: GameState, maxTier: number): Res {
   if (!Number.isInteger(maxTier) || maxTier < 0 || maxTier > 5) return fail('E_BAD_REQUEST');
-  let n = 0, gain = 0, kept = 0;
+  let n = 0, gain = 0, kept = 0, asked = 0;
+  const wait = O.keepIds(st.orders, [...st.bag, ...st.stash]);   // what the buyers wait for stays (the weakest piece that fits each open part)
   for (const list of [st.bag, st.stash]) {
     for (let i = list.length - 1; i >= 0; i--) {
       const it = list[i];
       if (it.locked || it.tier > maxTier) continue;
       const cur = st.eq[it.slot];
       if (!cur || it.power > cur.power) { kept++; continue; }
+      if (wait.has(it.id)) { asked++; continue; }
       list.splice(i, 1); shareRelic(st, it); gain += earn(st, dissolveValue(it), 'dissolve'); n++;
     }
   }
-  const keepNote = kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '';
-  return n === 0 ? fail('E_NOT_FOUND', `Không có món nào phù hợp để phân giải.${keepNote}`) : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain, kept });
+  const keepNote = (kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '') + (asked > 0 ? ` Giữ lại ${asked} món khách cầu mua đang cần.` : '');
+  return n === 0 ? fail('E_NOT_FOUND', `Không có món nào phù hợp để phân giải.${keepNote}`) : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain, kept, asked });
 }
 // Sell every Linh Thú that is not in the Party and not a Dị Biến.
 export function releaseMany(st: GameState): Res {
@@ -1054,12 +1056,14 @@ function taskHit(st: GameState, h: T.Hit, rep?: Report) {
     advance(st, rep);
   }
 }
-// Khách Cầu Mua (lib/orders.ts): today's buyers are picked from the day, the world seed and the week's theme alone (no random number is drawn) and kept in the save from the first tick of the day.
-function ensureOrders(st: GameState): O.DayOrders {
-  const day = D.dayKey(st.clock);
-  if (st.orders && st.orders.day === day) return st.orders;
-  const theme = W.weekAt(Date.parse(`${day}T00:00:00Z`));
-  return (st.orders = { day, list: O.pickOrders(day, st.seed, { week: theme.el, realm: st.player.realm }) });
+// Khách Cầu Mua (lib/orders.ts): the board is made on the first tick (or when it is of an older kind), and a buyer that is done or sent away is replaced on a later tick. The new buyer comes from the world seed and a
+// running number alone (no random number is drawn), so this runs on the server only: the browser has no seed, it just marks the buyer done and waits for the server's next tick.
+function ensureOrders(st: GameState): O.Board {
+  const opt = { week: W.weekAt(st.clock).el, realm: st.player.realm };
+  if (!O.isBoard(st.orders)) return (st.orders = O.newBoard(st.seed, opt));
+  const b = st.orders;
+  b.list.forEach((o, i) => { if (!O.isOpen(o)) b.list[i] = O.makeOrder(i, b.n++, st.seed, b.list, opt); });
+  return b;
 }
 // Give the goods that come on top of an order's Linh Thạch (never past the stack cap: the part that does not fit is lost, as with a shop purchase that would overflow).
 function giveExtra(st: GameState, x: O.Extra) {
@@ -1070,23 +1074,37 @@ function giveExtra(st: GameState, x: O.Extra) {
   else if (x.kind === 'trib') st.inv.trib += cap(st.inv.trib);
   else if (x.kind === 'mat') st.inv.mat[x.id] = (st.inv.mat[x.id] || 0) + cap(st.inv.mat[x.id] || 0);
 }
-// Hand the chosen items of the bag or the stash to a buyer. The items must be exactly what the order asks for, not worn and not locked; the pay is a multiple of what dissolving them would give, plus the order's goods.
+// Hand over some pieces (one or more, from the bag or the stash) to a buyer: "có bao nhiêu đưa bấy nhiêu". Each piece must fit a part that is not yet filled, and must not be worn or locked.
+// Every piece is paid at once (a multiple of what dissolving it would give); when the last part is filled the buyer is done, pays the bonus and gives the goods, and a new buyer takes the place on the server's next tick.
 // No random number is drawn, so the browser runs the same rule at once (lib/intents.ts) and the server has the last word.
 export function fillOrder(st: GameState, id: any, ids: any): Res {
-  const o = st.orders && st.orders.day === D.dayKey(st.clock) ? st.orders.list.find((x) => x.id === id) : undefined;
-  if (!o || o.done) return fail('E_ORDER_GONE');
-  if (!Array.isArray(ids) || ids.length !== o.need || !ids.every((x) => Number.isInteger(x))) return fail('E_BAD_REQUEST');
+  const o = O.isBoard(st.orders) ? st.orders.list.find((x) => x.id === id) : undefined;
+  if (!o || !O.isOpen(o)) return fail('E_ORDER_GONE');
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > o.parts.length || !ids.every((x) => Number.isInteger(x)) || new Set(ids).size !== ids.length) return fail('E_BAD_REQUEST');
   const found = ids.map((x: number) => findIn(st, x));
   for (const f of found) { if (!f) return fail('E_NOT_FOUND'); if (f.where === 'eq') return fail('E_WORN'); if (f.it.locked) return fail('E_LOCKED'); }
-  const why = O.checkItems(o, found.map((f) => f!.it));
-  if (why) return fail('E_ORDER_ITEMS', why);
-  const items = found.map((f) => f!.it);
-  const sum = items.reduce((a, it) => a + dissolveValue(it), 0);
-  for (const it of items) { const list = st.bag.some((x) => x.id === it.id) ? st.bag : st.stash; list.splice(list.findIndex((x) => x.id === it.id), 1); shareRelic(st, it); }
-  const paid = earn(st, O.payFor(o.mult, sum), 'order');
-  if (o.extra) giveExtra(st, o.extra);
-  o.done = true; o.paid = paid;
-  return ok(`${o.who.name} nhận ${items.length} món, trả ${paid} Linh Thạch${o.extra ? ` và ${o.extra.n} ${O.extraName(o.extra)}` : ''}.`, { stones: paid });
+  const items = found.map((f) => f!.it), at = O.assign(o, items);
+  if (typeof at === 'string') return fail('E_ORDER_ITEMS', at);
+  let sum = 0, pay = 0;
+  items.forEach((it, k) => {
+    const v = dissolveValue(it); sum += v; pay += O.payFor(o.mult, v);
+    const list = st.bag.some((x) => x.id === it.id) ? st.bag : st.stash; list.splice(list.findIndex((x) => x.id === it.id), 1); shareRelic(st, it);
+    o.parts[at[k]].got = true;
+  });
+  o.sum += sum;
+  const complete = o.parts.every((p) => p.got);
+  if (complete) { pay += O.payFor(o.bonus, o.sum); o.done = true; if (o.extra) giveExtra(st, o.extra); }
+  const paid = earn(st, pay, 'order');
+  o.paid += paid;
+  const end = complete ? ` Khách đã đủ đồ${o.bonus ? ', thưởng thêm cho cả bộ' : ''}${o.extra ? ` và ${o.extra.n} ${O.extraName(o.extra)}` : ''}.` : '';
+  return ok(`${o.who.name} nhận ${items.length} món, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete });
+}
+// Send a buyer away (the place goes to a new buyer on the server's next tick). What was already handed over stays paid; only the bonus and the goods are lost.
+export function dismissOrder(st: GameState, id: any): Res {
+  const o = O.isBoard(st.orders) ? st.orders.list.find((x) => x.id === id) : undefined;
+  if (!o || !O.isOpen(o)) return fail('E_ORDER_GONE');
+  o.left = true;
+  return ok(`${o.who.name} đã rời Phường Thị.`);
 }
 // Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
 export function starterCheck(st: GameState, rep?: Report) {
@@ -1307,7 +1325,7 @@ export function tick(st: GameState, rep?: Report) {
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
   ensureTasks(st);
-  ensureOrders(st);   // today's buyers (lib/orders.ts), no random numbers
+  ensureOrders(st);   // the buyers of Phường Thị (lib/orders.ts): a new board, or a new buyer for each place that is finished (no random numbers are drawn)
   ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
   if (!st.decision) {

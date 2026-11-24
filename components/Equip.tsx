@@ -12,6 +12,7 @@ import { ElChip, GenImg, ItemIcon, PanZoom, STAT_VI, fmt } from './ui';
 import { ElIcon } from './Icons';
 import { itemSpec } from '@/lib/avatarSpec';
 import { SlotIcon } from './Icons';
+import * as O from '@/lib/orders';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
 
@@ -87,9 +88,17 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     say(r.msg || errText(r.code || 'E_SERVER'), r.ok);
     re();
   }, [act, say, re]);
+  // Hand a piece to the buyer who waits for it (Phường Thị, Khách cầu mua): the same instant path.
+  const give = useCallback(async (orderId: string, id: number) => {
+    const st = stRef.current; if (!st) return false;
+    const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id), cur = it ? st.eq[it.slot] : null;
+    // a piece that would be an upgrade is not handed over by a single tap
+    if (it && (!cur || it.power > cur.power) && !(await askConfirm({ title: 'Giao cho khách', body: `${it.name} ${cur ? `mạnh hơn ${cur.name} đang mặc` : `có thể mặc vào ô ${C.SLOT_VI[it.slot]} đang trống`}. Vẫn giao cho khách?`, ok: 'Giao', danger: true }))) return false;
+    return go('fillOrder', { id: orderId, items: [id] });
+  }, [stRef, go]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
-  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close };
+  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, give, cleanBusy, sel, open, close };
 }
 
 const keyAct = (fn: () => void) => (e: RKey) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -158,6 +167,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
   const { it, where } = found, L = levelOf(st.player), rc = C.RCOLOR[it.tier], cur = where === 'eq' ? null : st.eq[it.slot];
   const delta = cur ? it.power - cur.power : null;
   const tooHigh = it.level > L;
+  const buyer = where === 'eq' ? [] : O.wantedBy(st.orders, it);   // the buyers that wait for this piece (Phường Thị)
   const framed = !!st.player.showcase && st.player.showcase.kind === 'item' && st.player.showcase.id === it.id;
   return (
     <div className="modal zoom" onClick={eqx.close} role="dialog" aria-modal="true" aria-label={it.name}>
@@ -191,6 +201,7 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
           {where === 'stash' && <button className="btn" onClick={() => eqx.moveToBag(it.id)}>Chuyển vào túi</button>}
           <button className="btn" title="Món đã khóa: game không tự thay và không tự phân giải" onClick={() => eqx.lock(it.id)}><Icon name={it.locked ? 'unlock' : 'lock'} size={15} /> {it.locked ? 'Mở khóa' : 'Khóa'}</button>
           <button className="btn" title={framed ? 'Gỡ món này khỏi khung trưng bày' : 'Treo món này trong khung trên trang nhân vật (món được khóa để không bị tự phân giải)'} onClick={() => eqx.frame(it.id, !framed)}><Icon name="sparkle" size={15} /> {framed ? 'Gỡ khỏi khung' : 'Trưng bày'}</button>
+          {buyer.length > 0 && !it.locked && <button className="btn" title={`Giao cho ${buyer[0].order.who.name} ở Phường Thị (khách cầu mua)`} onClick={() => eqx.give(buyer[0].order.id, it.id)}><Icon name="scroll" size={15} /> Giao cho khách +{fmt(O.payFor(buyer[0].order.mult, dissolveValue(it)))} <Icon name="stone" size={14} /></button>}
           {where !== 'eq' && <button className="btn" disabled={!!it.locked} title={it.locked ? 'Mở khóa trước khi phân giải' : 'Đổi món này thành Linh Thạch'} onClick={() => eqx.dissolve(it.id)}>Phân giải +{fmt(dissolveValue(it))} <Icon name="stone" size={15} /></button>}
           <button className="btn ghost" onClick={eqx.close}>Đóng</button>
         </div>
@@ -206,17 +217,20 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
   const [clean, setClean] = useState(1);         // "Dọn túi": rarity up to which everything not locked is dissolved
   const [cleaning, setCleaning] = useState(false);
   // what the cleaning would do, the same rule as the server (lib/game.ts dissolveMany): an upgrade (stronger than what is worn there, or an empty slot) is always kept
+  const wait = O.keepIds(st.orders, [...st.bag, ...st.stash]);   // the weakest piece for each part a buyer waits for stays (lib/game.ts dissolveMany)
   const plan = [...st.bag, ...st.stash].reduce((p, it) => {
     if (it.locked) { p.locked++; return p; }
     if (it.tier > clean) return p;
     const cur = st.eq[it.slot];
     if (!cur || it.power > cur.power) { p.kept++; return p; }
+    if (wait.has(it.id)) { p.asked++; return p; }
     p.n++; p.stones += dissolveValue(it); return p;
-  }, { n: 0, kept: 0, locked: 0, stones: 0 });
+  }, { n: 0, kept: 0, asked: 0, locked: 0, stones: 0 });
   const fromEq = !!held && held.from === 'eq';
   const tile = (it: Item, from: 'bag' | 'stash') => {
     const cur = st.eq[it.slot], d = cur ? it.power - cur.power : null, tooHigh = it.level > L;
     const mark = d === null ? '+' : d > 0 ? '▲' : d < 0 ? '▼' : '=', cls = d === null || d > 0 ? 'up' : d < 0 ? 'down' : '';
+    const asked = O.wantedBy(st.orders, it).length > 0;
     return (
       <div key={it.id} className={`bagTile t${it.tier} ${hot && hot === it.slot ? 'match' : ''} ${tooHigh ? 'toohigh' : ''}`}
         role="button" tabIndex={0} draggable style={{ '--rc': C.RCOLOR[it.tier] } as CSSProperties}
@@ -230,6 +244,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
         <b className={`cmpb ${cls}`}>{mark}</b>
         {tooHigh && <u className="lvb">Lv{it.level}</u>}
         {it.locked && <em className="lockB"><Icon name="lock" size={11} /></em>}
+        {asked && <i className="reqMark" title="Khách cầu mua đang cần món này"><Icon name="scroll" size={10} /></i>}
       </div>
     );
   };
@@ -251,6 +266,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
           <div className="cleanSum">
             <span className="cs go"><b>{plan.n}</b> món sẽ phân giải{plan.n > 0 && <> · <Icon name="stone" size={12} /> ≈ {fmt(plan.stones)} Linh Thạch</>}</span>
             <span className="cs keep" title="Mạnh hơn món đang mặc ở cùng ô, hoặc ô còn trống: luôn được giữ để ngươi tự quyết"><b>{plan.kept}</b> món mũi tên xanh được giữ lại</span>
+            {plan.asked > 0 && <span className="cs keep" title="Khách cầu mua ở Phường Thị đang chờ những món này"><Icon name="scroll" size={11} /> <b>{plan.asked}</b> món khách cầu mua đang cần được giữ lại</span>}
             {plan.locked > 0 && <span className="cs lock"><Icon name="lock" size={11} /> {plan.locked} món đã khóa được giữ</span>}
           </div>
           <div className="cleanAct">
