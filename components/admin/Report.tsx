@@ -186,7 +186,7 @@ function Redraw({ adminKey }: { adminKey: string }) {
 // The server draws them with the image service of the game (same style, same spend cap) a few dozen at a time and keeps them in the database; the game shows them in place of the
 // missing ones. `npm run pregen` later turns the fixed pictures into files for free.
 interface ArtStat {
-  total: number; shipped: number; drawn: number; missing: number; listOk: boolean; groups: { group: string; missing: number }[]; names: string[];
+  total: number; shipped: number; drawn: number; missing: number; looks: number; listOk: boolean; groups: { group: string; missing: number }[]; names: string[];
   batch: number; batchCost: number; totalCost: number; provider: { name: string; enabled: boolean; paid: boolean; locked?: string }; budget: { spent: number; cap: number } | null; queued: number; running: number;
 }
 const ART_GROUP_VN: Record<string, string> = { looks: 'Biểu tượng vũ khí và trang bị', intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp' };
