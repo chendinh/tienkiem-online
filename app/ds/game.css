@@ -239,18 +239,23 @@
   .itLines { margin: var(--sp-1) 0 0; padding-left: 16px; font-size: var(--fs-xs); line-height: 1.55; color: var(--text-2); }
   .itLines .tien { color: #ff9ccb; }
   .itLines.big { font-size: var(--fs-md); line-height: 1.75; }
-  .item.t5 .itName { background: linear-gradient(90deg, #ff6ea8, #ffd36e, #6fd0b0, #5ab4ff, #b78bff, #ff6ea8) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: hue-shift 5s linear infinite; animation-play-state: var(--amb); }
+  .item.t5 .itName { background: linear-gradient(90deg, #ff6ea8, #ffd36e, #6fd0b0, #5ab4ff, #b78bff, #ff6ea8) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: hue-shift 5s steps(75) infinite; animation-play-state: var(--amb); }   /* 15 steps a second: a slow colour flow does not need 60 repaints a second */
   .itIcon { position: relative; flex: none; overflow: hidden; border-radius: var(--r-sm); border: 1.5px solid var(--line); background: #0a1319; transition: transform var(--dur-base) var(--ease-out), filter var(--dur-base); }
   .itIcon .imgfb { font-size: 22px; }
   .itIcon.fit { position: absolute; inset: 0; }
   .zoomable:hover { filter: brightness(1.14); }
   .genimg { animation: enter-fade 0.9s var(--ease-out) both; }
-  .item:is(.t3, .t4, .t5)::before, .bagTile:is(.t3, .t4, .t5)::before {
-    content: ''; position: absolute; inset: -1px; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none;
-    background: conic-gradient(from var(--angle), transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-    animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb-heavy);
-  }
+  /* The bright arc that runs around the border of rarity 3 and up. `.rim` is the ring: a fixed box with the ring-shaped mask, and its ::before is a conic gradient wider
+     than the box that TURNS (transform), which the compositor does without painting anything. The old arc animated the angle inside the gradient (--angle), which repainted
+     the whole card on every frame: the main source of heat at the highest effect level. */
+  .rim { display: none; position: absolute; inset: -1px; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none; overflow: hidden;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  .rim::before { content: ''; position: absolute; left: 50%; top: 50%; width: 175%; aspect-ratio: 1; margin: -87.5% 0 0 -87.5%;   /* a square 175% of the box wide, centred (margins in % follow the width) */
+    background: conic-gradient(transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%);
+    animation: spin 4.5s linear infinite; animation-play-state: var(--amb-heavy); }
+  .item:is(.t3, .t4, .t5) > .rim, .bagTile:is(.t3, .t4, .t5) > .rim, .slotTile:is(.t3, .t4, .t5) .itIcon > .rim { display: block; }
+  .itIcon > .rim { inset: 0; }
+  .slotTile.tall .rim::before { width: 260%; margin: -130% 0 0 -130%; }   /* a tall tile needs a longer square to stay covered while it turns */
 
   .pity { margin: var(--sp-3) 0; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); line-height: 1.55; color: var(--text-3); border-left: 2px solid var(--line-gold); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-400) 6%, transparent), transparent); }
   .pity b { color: var(--gold-300); font-variant-numeric: tabular-nums; }
@@ -292,7 +297,6 @@
   .slotTile.no.over { opacity: 0.9; border-color: rgb(255 120 100 / 0.7); }
   .slotTile.sel { border-color: var(--jade-300); background: color-mix(in srgb, var(--jade-400) 13%, rgb(5 12 18 / 0.5)); }
   .slotTile.filled .itIcon { box-shadow: 0 0 16px -4px var(--rc, transparent); }
-  .slotTile:is(.t3, .t4, .t5) .itIcon::after { content: ''; position: absolute; inset: 0; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--angle), transparent 0 52%, color-mix(in srgb, var(--rc) 75%, transparent) 72%, #fff 80%, transparent 90%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: spin-angle 4.5s linear infinite; animation-play-state: var(--amb-heavy); }
   .lockB { position: absolute; top: 0; right: 0; z-index: 4; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; font-style: normal; color: var(--gold-200); background: rgb(0 0 0 / 0.7); border: 1px solid var(--line-gold); }
 }
 @layer game {

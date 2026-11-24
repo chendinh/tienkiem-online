@@ -174,7 +174,8 @@ export function ElChip({ el }: { el: string }) {
 
 // The picture only depends on (slot, base, tier); the element is shown as a glow around it.
 // size 'fit' fills its (square, positioned) parent instead of using a fixed number of pixels.
-export function ItemIcon({ it, equipped = false, size = 46, zoom = false, full = false }: { it: Item; equipped?: boolean; size?: number | 'fit'; zoom?: boolean; full?: boolean }) {
+// rim: the bright arc around the border of a slot tile (see .rim in game.css)
+export function ItemIcon({ it, equipped = false, size = 46, zoom = false, full = false, rim = false }: { it: Item; equipped?: boolean; size?: number | 'fit'; zoom?: boolean; full?: boolean; rim?: boolean }) {
   const open = useZoom();
   const col = C.EL[it.el].color;
   const box = size === 'fit' ? {} : { width: size, height: size };
@@ -184,6 +185,7 @@ export function ItemIcon({ it, equipped = false, size = 46, zoom = false, full =
       <GenImg spec={itemSpec(it)} pri={equipped ? 1 : 3} size={!full && (size === 'fit' || size <= 72) ? 'sm' : undefined} fb={<ElIcon el={it.el} size={22} />} />
       {mk.isNew && <i className="itMark isNew" title="Loại pháp khí mới ra mắt"><Icon name="sparkle" size={11} /></i>}
       {mk.exclusive && <i className={`itMark excl t${it.tier}`} title="Pháp khí Tiên: mỗi món một dáng riêng"><Icon name="crown" size={11} /></i>}
+      {rim && <i className="rim" aria-hidden="true" />}
     </div>
   );
 }
@@ -204,6 +206,7 @@ export function ItemCard({ it, compact = false, equipped = false }: { it: Item; 
           </ul>
         )}
       </div>
+      <i className="rim" aria-hidden="true" />
     </div>
   );
 }

@@ -124,7 +124,7 @@ function SlotMold({ st, eqx, slot, tall }: { st: GS; eqx: Eqx; slot: string; tal
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setOver(false); if (hold && hold.from !== 'eq') eqx.equipItem(hold.id, slot); else setHeld(null); }}
       onMouseEnter={() => eqx.setHot(slot)} onMouseLeave={() => eqx.setHot('')}
       onClick={click} onKeyDown={keyAct(click)}>
-      {it ? <ItemIcon it={it} size={50} equipped /> : <div className="mold"><b><SlotIcon slot={slot} size={26} /></b></div>}
+      {it ? <ItemIcon it={it} size={50} equipped rim /> : <div className="mold"><b><SlotIcon slot={slot} size={26} /></b></div>}
       <span className="sname">{C.SLOT_VI[slot]}<small>{C.SLOT_SHORT[slot]}</small></span>
       {it && it.locked && <em className="lockB"><Icon name="lock" size={11} /></em>}
     </div>
@@ -226,6 +226,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
         onMouseEnter={() => eqx.setHot(it.slot)} onMouseLeave={() => eqx.setHot('')}
         onClick={() => eqx.open(it.id)} onKeyDown={keyAct(() => eqx.open(it.id))}>
         <ItemIcon it={it} size="fit" />
+        <i className="rim" aria-hidden="true" />
         <b className={`cmpb ${cls}`}>{mark}</b>
         {tooHigh && <u className="lvb">Lv{it.level}</u>}
         {it.locked && <em className="lockB"><Icon name="lock" size={11} /></em>}

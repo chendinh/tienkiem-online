@@ -98,6 +98,7 @@ export function Tiers() {
       <div key={r} className={`item t${i}`} style={{ '--rc': C.RCOLOR[i] } as CSSProperties}>
         <div className="itIcon" style={{ width: 52, height: 52, borderColor: C.RCOLOR[i], display: 'grid', placeItems: 'center', color: C.RCOLOR[i] }}><SlotIcon slot={C.SLOTS[i]} size={26} /></div>
         <div className="itBody"><div className="itName">Phẩm {r}</div><div className="itSub">{C.SLOTS[i]} · Lv{i * 6 + 1}</div><div className="itSub">{fx[i] || (i ? 'Viền màu phẩm' : 'Không hiệu ứng')}</div></div>
+        <i className="rim" aria-hidden="true" />
       </div>))}
     </div>
   );
