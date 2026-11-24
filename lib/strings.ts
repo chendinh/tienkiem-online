@@ -23,6 +23,8 @@ export const ERR = {
   E_SERVER: 'Máy chủ gặp lỗi. Hãy thử lại sau ít phút.',
   E_RATE_LIMIT: 'Thử quá nhiều lần. Hãy đợi vài phút rồi thử lại.',
   E_NO_ADMIN_KEY: 'Trang báo cáo chưa mở: chưa đặt ADMIN_KEY trong môi trường máy chủ.',
+  E_IMAGE_OFF: 'Dịch vụ vẽ ảnh đang tắt.',
+  E_NO_ART_LIST: 'Không đọc được danh sách ảnh có sẵn nên chưa vẽ ảnh còn thiếu.',
   E_EMAIL: 'Địa chỉ email không hợp lệ.',
   E_EMAIL_TAKEN: 'Email này đã được dùng.',
   E_PASSWORD: 'Mật khẩu quá ngắn.',

@@ -6,6 +6,7 @@ import { ask, llmEnabled, parseJson, imageBudget, addImageCost } from './llm';
 import { hasImage, getImage, putImage, claimJob, releaseJobs } from './server/images';
 import { keyOfSpec, indexImage, lookupKey, nearestLook, wantImage, dropWanted } from './server/imageindex';
 import { falBalance } from './server/falbalance';
+import { artKeyOfSpec } from './artjobs';
 
 // Server-side image service: one art direction, a shared picture cache, a small priority queue, spend caps.
 // Subjects that must stay identical (outfit changes, mutated monsters) are drawn by EDITING a reference image.
@@ -301,7 +302,7 @@ async function run(j: Job) {
       id: j.id, kind: kindFolder(j.kind), folder, ext, data: out.buf,
       meta: { crop: P.crop, spec: j.spec, provider: P.name, model: out.model, kind: j.kind, prompt: j.prompt, editPrompt: j.editPrompt, ref: j.refIds ? j.refIds.join(',') : undefined, seed: j.seed, requestId: out.requestId, cost: out.cost, attempt: j.attempt, date: new Date().toISOString() },
     });
-    const ik = keyOfSpec(j.spec);
+    const ik = keyOfSpec(j.spec) || artKeyOfSpec(j.spec);   // an item icon by its look, a fixed picture (public/art) by its file path
     // the picture is already saved: a failure of the index must not turn it into a failed job (the backfill script adds missing rows)
     if (ik) { try { await indexImage(ik, j.id, STYLE_VERSION); await dropWanted(ik); } catch (e: any) { console.warn('[imagegen] could not index', j.id, String(e?.message || e).slice(0, 100)); } }
   } catch (err: any) {

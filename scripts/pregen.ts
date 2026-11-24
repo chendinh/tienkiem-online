@@ -18,9 +18,7 @@ import path from 'node:path';
 import { request, provider, idFromUrl, info, estimateCost } from '../lib/imagegen';
 import { getImage } from '../lib/server/images';
 import { buildPlan } from '../lib/imageprompt';
-import { introSpec, monsterSpec, propSpec, placeSpec, bookSpec } from '../lib/avatarSpec';
-import * as A from '../lib/arts';
-import * as C from '../lib/content';
+import { artJobs, type ArtJob } from '../lib/artjobs';
 
 const args = process.argv.slice(2);
 const flag = (n: string) => args.includes(n);
@@ -28,16 +26,8 @@ const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : '';
 const PUB = path.join(process.cwd(), 'public');
 const MANIFEST = path.join(PUB, 'art', '_manifest.json');
 
-interface Job { name: string; spec: any; dest: string }
-const jobs: Job[] = [];
-const want = (group: string) => !only || only === group;
-if (want('intro')) for (const g of ['f', 'm'] as const) jobs.push({ name: `intro_${g}`, spec: introSpec(g), dest: C.introArt(g) });
-if (want('monsters')) for (const s of C.SPECIES) jobs.push({ name: s.id, spec: monsterSpec(s.id), dest: C.monsterArt(s.id) }, { name: `${s.id}_mut`, spec: monsterSpec(s.id, true), dest: C.monsterArt(s.id, true) });
-// Phường Thị goods and materials (inventory icons) and the zone and market scenes
-if (want('shop')) for (const id of Object.keys(C.PROP_EN)) jobs.push({ name: id, spec: propSpec(id), dest: id.startsWith('mat_') ? C.matArt(id.slice(4)) : id.startsWith('ui_') ? C.uiArt(id.slice(3)) : C.shopArt(id) });
-if (want('zones')) for (const id of Object.keys(C.PLACE_EN).filter((k) => !k.startsWith('arena_'))) jobs.push({ name: `zone_${id}`, spec: placeSpec(id), dest: C.zoneArt(id) });
-if (want('arenas')) for (const a of C.ARENAS) jobs.push({ name: `arena_${a.id}`, spec: placeSpec(`arena_${a.id}`), dest: C.arenaArt(a.id) });
-if (want('books')) for (const n of [...Object.values(A.TECHS).filter((t) => !t.basic).map((t) => t.name), ...A.METHODS.map((m) => m.name)]) jobs.push({ name: `book_${C.slug(n)}`, spec: bookSpec(n), dest: C.techArt(n) });
+type Job = ArtJob;
+const jobs: Job[] = artJobs(only);
 const abs = (dest: string) => path.join(PUB, dest);
 const todo = jobs.filter((j) => flag('--force') || !fs.existsSync(abs(j.dest)));
 const est = (j: Job) => estimateCost(j.spec);
