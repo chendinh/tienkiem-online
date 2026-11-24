@@ -343,7 +343,8 @@ function pump() {
   }
 }
 
-export type Result = { status: 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid'; url?: string; crop?: number };
+// near: the picture is a stand-in (the closest look that exists), not this look's own. held: another instance holds the database claim, nothing is drawn here.
+export type Result = { status: 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid'; url?: string; crop?: number; near?: boolean; held?: boolean };
 // When several reference pictures are not ready, the client is told the most serious state (a failed icon must not look like "still drawing").
 const RANK: Record<string, number> = { pending: 1, failed: 2, limited: 3, disabled: 4, invalid: 4 };
 const worse = (a: string, b: string) => ((RANK[b] || 0) > (RANK[a] || 0) ? b : a);
@@ -363,6 +364,7 @@ async function refPicture(r: any, pri: number): Promise<{ status: Result['status
 }
 // How many pictures of one kind (item icons, or everything else) one server instance starts per hour.
 const hourMax = (isItem: boolean, paid: boolean) => Number(isItem ? process.env.IMAGE_ITEM_MAX_PER_HOUR || (paid ? 150 : 200) : process.env.IMAGE_MAX_PER_HOUR || (paid ? 40 : 200));
+const HEALED = new Set<string>();   // looks already pointed at their picture by this instance, so a list of icons does not write the index again and again
 export async function request(spec: any): Promise<Result> {
   const P = provider();
   let plan: Plan;
@@ -370,9 +372,9 @@ export async function request(spec: any): Promise<Result> {
   // Item icons are found by their look (never by prompt), so they keep showing when the AI is off or the prompt was reworded.
   // A look that has no picture yet is noted in image_wanted and drawn later.
   const key = keyOfSpec(spec);
-  const found = (f: { id: string; crop: number }): Result => ({ status: 'ready', url: `/api/img/${f.id}`, crop: f.crop });
+  const found = (f: { id: string; crop: number }, near = false): Result => ({ status: 'ready', url: `/api/img/${f.id}`, crop: f.crop, ...(near ? { near: true } : {}) });
   // No picture for this exact look and none will be drawn now: show the closest one that exists (same kind of item, nearest rarity) instead of an empty tile.
-  const instead = async (status: Result['status']): Promise<Result> => { if (key) { const n = await nearestLook(spec).catch(() => null); if (n) return found(n); } return { status }; };
+  const instead = async (status: Result['status']): Promise<Result> => { if (key) { const n = await nearestLook(spec).catch(() => null); if (n) return found(n, true); } return { status }; };
   const limited = async (): Promise<Result> => { if (key) await wantImage(key, spec); return instead('limited'); };
   if (!P.enabled) {
     if (key) { const f = await lookupKey(key); if (f) return found(f); await wantImage(key, spec); }
@@ -393,7 +395,11 @@ export async function request(spec: any): Promise<Result> {
   // The id of a picture must stay exactly what it was in the file version: saved games remember it.
   const id = crypto.createHash('sha1').update(`${STYLE_VERSION}|${P.name}|${tag}|${plan.prompt}|${refIds.length ? plan.editPrompt : ''}|${refIds.join(',')}|${plan.width}x${plan.height}|${plan.seed}`).digest('hex').slice(0, 20);
   const hit = await hasImage(id);
-  if (hit) return { status: 'ready', url: `/api/img/${id}`, crop: hit.crop };
+  if (hit) {
+    // This exact picture exists: make sure the look points to it (a picture saved before the index existed has no row, and would stay "missing" for ever).
+    if (key && !HEALED.has(key)) { await indexImage(key, id, STYLE_VERSION).then(() => { if (HEALED.size > 5000) HEALED.clear(); HEALED.add(key); }, () => {}); }
+    return { status: 'ready', url: `/api/img/${id}`, crop: hit.crop };
+  }
   // Same look drawn under an older prompt or style: it is still a valid picture of this item, so show it instead of paying for a new one.
   if (key) { const f = await lookupKey(key); if (f) return found(f); }
   if (S.inflight.has(id)) { const q = S.queue.find((x) => x.id === id); if (q) q.seen = Date.now(); return { status: 'pending' }; }
@@ -412,7 +418,7 @@ export async function request(spec: any): Promise<Result> {
   const max = hourMax(isItem, P.paid);
   if (S.started.filter((x) => x.item === isItem).length + S.queue.filter((x) => (x.kind === 'item') === isItem).length >= max) return limited();
   // Another server instance may already be drawing this picture (the claim is in the database): then it is simply "pending" here too.
-  if (!(await claimJob(id))) return { status: 'pending' };
+  if (!(await claimJob(id))) return { status: 'pending', held: true };
   // The picture may have been finished and its claim released between the first look and the claim: never pay for it twice.
   const late = await hasImage(id);
   if (late) { await releaseJobs([id]); return { status: 'ready', url: `/api/img/${id}`, crop: late.crop }; }

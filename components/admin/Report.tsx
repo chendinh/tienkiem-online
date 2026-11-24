@@ -192,9 +192,9 @@ interface ArtStat {
 }
 const ART_GROUP_VN: Record<string, string> = { looks: 'Biểu tượng vũ khí và trang bị', intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp' };
 const ART_ERR: Record<string, string> = { E_IMAGE_OFF: 'Dịch vụ vẽ ảnh đang tắt (đặt IMAGE_PROVIDER và khóa của nhà cung cấp).', E_NO_ART_LIST: 'Không đọc được danh sách ảnh có sẵn nên không vẽ, để khỏi trả tiền vẽ lại ảnh đã có.', E_AUTH: 'Sai khóa.', E_RATE_LIMIT: 'Nhập sai quá nhiều lần, chờ một lát.' };
-// Why the server will not draw right now, in words (the image budget is per day, UTC: it starts again at 7 o'clock in the morning in Vietnam).
+// Why the server will not draw right now, in words (IMAGE_BUDGET_USD is a running total of everything ever spent on pictures, it never resets by itself).
 function whyNot(b: { why: string; detail?: string }, st: Pick<ArtStat, 'budget' | 'hour'>): string {
-  if (b.why === 'budget') return `Hôm nay đã dùng hết hạn mức vẽ ảnh${st.budget ? ` (${usd(st.budget.spent)} trên ${usd(st.budget.cap)})` : ''}. Hạn mức tính theo ngày và làm mới lúc 7 giờ sáng giờ Việt Nam. Muốn vẽ tiếp ngay thì nâng IMAGE_BUDGET_USD trên Vercel rồi deploy lại.`;
+  if (b.why === 'budget') return `Đã dùng hết hạn mức vẽ ảnh${st.budget ? ` (${usd(st.budget.spent)} trên ${usd(st.budget.cap)})` : ''}. Hạn mức cộng dồn cả đời game, không tự làm mới. Muốn vẽ tiếp thì nâng IMAGE_BUDGET_USD trên Vercel rồi deploy lại.`;
   if (b.why === 'locked') return `Nhà cung cấp ảnh đang tạm khóa${b.detail ? `: ${b.detail}` : ''}. Chờ ít phút hoặc kiểm tra số dư fal.`;
   if (b.why === 'off') return 'Dịch vụ vẽ ảnh đang tắt (đặt IMAGE_PROVIDER và khóa của nhà cung cấp).';
   return `Máy chủ này đã bắt đầu vẽ ${st.hour ? `${num(st.hour.items)} trên ${num(st.hour.itemMax)}` : 'tối đa'} biểu tượng trong một giờ qua. Chờ vài phút rồi bấm lại, hoặc nâng IMAGE_ITEM_MAX_PER_HOUR trên Vercel.`;
@@ -219,7 +219,7 @@ function ArtDraw({ adminKey }: { adminKey: string }) {
       const r = await fetch('/api/admin/art', { method: 'POST', headers: hdr, body: '{}' });
       const j = await r.json().catch(() => ({}));
       if (r.ok && j.ok) {
-        const parts = [j.started ? `Đang vẽ ${j.started} ảnh (mỗi ảnh vài giây, trang tự cập nhật; có thể rời trang, máy chủ vẫn vẽ tiếp)` : '', j.linked ? `${j.linked} ảnh đã vẽ từ trước, đã nối vào` : '', j.limited ? `dừng: ${j.reason ? whyNot(j.reason, st || { budget: null }) : 'hết hạn mức vẽ'}` : '', j.failed ? `${j.failed} ảnh lỗi, bấm lại sau` : ''].filter(Boolean);
+        const parts = [j.started ? `Đang vẽ ${j.started} ảnh (mỗi ảnh vài giây, trang tự cập nhật; có thể rời trang, máy chủ vẫn vẽ tiếp)` : '', j.linked ? `${j.linked} ảnh đã có sẵn, đã nối vào` : '', j.held ? `${j.held} ảnh đang bị lượt vẽ khác giữ (tối đa 8 phút), bỏ qua` : '', j.near ? `${j.near} ảnh chưa vẽ được, đang dùng tạm ảnh gần giống` : '', j.reason ? `dừng: ${whyNot(j.reason, st || { budget: null })}` : j.limited ? 'dừng: hết hạn mức vẽ' : '', j.failed ? `${j.failed} ảnh lỗi, bấm lại sau` : '', !j.started && !j.reason && !j.limited && j.looked ? `đã xem ${j.looked} ảnh, chưa ảnh nào vẽ được` : ''].filter(Boolean);
         setMsg(parts.length ? parts.join('. ') + '.' : 'Không có gì để vẽ.');
         if (j.started) setWatch(Date.now() + 6 * 60e3);
       } else setErr(ART_ERR[j.code] || 'Không làm được. Thử lại.');
@@ -243,7 +243,7 @@ function ArtDraw({ adminKey }: { adminKey: string }) {
           <p><button className="btn big" disabled={busy || !st.missing || !st.provider.enabled || !st.listOk || (!!st.blocked && st.blocked.why !== 'hour')} onClick={go}>
             {st.missing === 0 ? 'Không còn ảnh nào thiếu' : sure ? `Bấm lần nữa: vẽ ${num(st.batch)} ảnh (khoảng ${usd(st.batchCost)})` : `Vẽ ${num(st.batch)} ảnh còn thiếu`}
           </button></p>
-          <small className="muted">Mỗi lần bấm vẽ khoảng 24 biểu tượng nhỏ hoặc 12 ảnh lớn, bấm tiếp cho tới khi hết. Tiền tính vào hạn mức ảnh AI (IMAGE_BUDGET_USD); hết hạn mức thì dừng. Ví dụ đang thiếu: {st.names.join(', ') || 'không có'}.</small>
+          <small className="muted">Mỗi lần bấm vẽ khoảng 36 biểu tượng nhỏ hoặc 18 ảnh lớn, bấm tiếp cho tới khi hết. Tiền tính vào hạn mức ảnh AI (IMAGE_BUDGET_USD); hết hạn mức thì dừng. Ví dụ đang thiếu: {st.names.join(', ') || 'không có'}.</small>
         </>
       )}
     </Card>

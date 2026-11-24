@@ -41,7 +41,7 @@ export type TodoGroup = ArtGroup | 'looks';
 export interface Todo { spec: any; label: string; group: TodoGroup; dest?: string }   // dest only for a fixed picture (its file path)
 // One press of the button draws up to this many points of pictures: an item icon is 1 (small, quick), a book cover or a scene is 2. One press must fit in the five minutes a serverless
 // function may run, and the drawing is one picture at a time (fal).
-export const DRAW_POINTS = 24;
+export const DRAW_POINTS = 36;
 export const pointsOf = (t: Todo) => (t.group === 'looks' ? 1 : 2);
 export function takeBatch(todo: Todo[], limit = DRAW_POINTS): Todo[] {
   const out: Todo[] = [];

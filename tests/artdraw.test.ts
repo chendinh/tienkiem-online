@@ -124,3 +124,18 @@ test('the owner is told why drawing is refused, in the order the image service c
   assert.deepEqual(blockedBy({ enabled: true }, { hour: { items: 200, itemMax: 200 } }), { why: 'hour' });
   assert.equal(blockedBy({ enabled: true }, {}), null);
 });
+
+test('a press skips pictures that cannot be drawn: only really queued ones use up the batch', () => {
+  // the rule the route follows: points are added only for a picture that was queued, so ten stuck ones at the head cannot use up a press
+  const looks = commonLooks().slice(0, 60);
+  const stuck = new Set(looks.slice(0, 10).map((t) => t.spec.base + t.spec.tier + t.spec.e));
+  let used = 0, queued = 0, looked = 0;
+  for (const t of looks) {
+    if (used + pointsOf(t) > DRAW_POINTS) break;
+    looked++;
+    if (stuck.has(t.spec.base + t.spec.tier + t.spec.e)) continue;
+    used += pointsOf(t); queued++;
+  }
+  assert.equal(queued, DRAW_POINTS);
+  assert.equal(looked, DRAW_POINTS + 10);
+});

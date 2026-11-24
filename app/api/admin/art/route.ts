@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import { idFromUrl, info, provider, request, estimateCost } from '@/lib/imagegen';
 import { indexImage } from '@/lib/server/imageindex';
 import { drawStatus, forgetDrawnArt } from '@/lib/server/artstatus';
-import { artKey, ART_GROUPS, DRAW_POINTS, takeBatch, blockedBy, type Blocked, type Todo, type TodoGroup } from '@/lib/artjobs';
+import { artKey, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, blockedBy, type Blocked, type Todo, type TodoGroup } from '@/lib/artjobs';
 import { STYLE_VERSION } from '@/lib/imageprompt';
 import { json, readBody, guard } from '@/lib/server/http';
 import { ApiError } from '@/lib/server/auth';
@@ -51,15 +51,28 @@ export async function POST(req: Request) {
     // the list of shipped files could not be read: drawing the fixed pictures now could pay for pictures that already exist (item icons do not depend on it)
     const todo = s.art.listOk ? s.todo : s.todo.filter((t) => t.group === 'looks');
     if (!todo.length && !s.art.listOk) throw new ApiError('E_NO_ART_LIST', 409);
-    const out = { linked: 0, started: 0, limited: 0, failed: 0 }, live: Todo[] = [];
-    let reason: Blocked = null;
-    for (const t of takeBatch(todo)) {
+    // Walk down the list until enough pictures are really queued. A picture that cannot be drawn now (it already exists, another instance holds it, it only has a stand-in,
+    // it failed) is skipped and does not use up the batch: otherwise the same few at the head of the list would block every press.
+    const out = { linked: 0, started: 0, near: 0, held: 0, limited: 0, failed: 0, looked: 0 }, live: Todo[] = [];
+    let reason: Blocked = null, used = 0;
+    const t0 = Date.now();
+    for (const t of todo) {
+      if (used + pointsOf(t) > DRAW_POINTS || Date.now() - t0 > 30000) break;
+      out.looked++;
       const res = await request(specOf(t));
-      if (res.status === 'ready' && res.url) { try { await link(t, res.url); out.linked++; } catch { out.failed++; } }
-      else if (res.status === 'pending') { out.started++; live.push(t); }
-      else if (res.status === 'limited' || res.status === 'disabled') { out.limited++; reason = blockedBy(P, await info()) || { why: 'hour' }; break; }   // no credit, a locked provider or the hourly cap: the rest would be refused too
+      if (res.status === 'ready' && res.url) {
+        if (res.near) {   // only a stand-in exists and none is drawn now: find out why (no credit, locked, hourly cap) and stop if every other one would be refused too
+          reason = blockedBy(P, await info());
+          if (reason) break;
+          out.near++; continue;
+        }
+        try { await link(t, res.url); out.linked++; } catch { out.failed++; }
+      }
+      else if (res.status === 'pending') { if (res.held) { out.held++; continue; } out.started++; used += pointsOf(t); live.push(t); }
+      else if (res.status === 'limited' || res.status === 'disabled') { out.limited++; reason = blockedBy(P, await info()) || { why: 'hour' }; break; }
       else out.failed++;
     }
+    console.log('[admin/art]', JSON.stringify({ ...out, reason, todo: todo.length, ms: Date.now() - t0 }));
     forgetDrawnArt();
     // Serverless hosting freezes the function once the answer is sent: keep it running until the queued pictures are drawn and saved. The queue forgets a picture nobody has asked
     // about for 90 seconds (its page is gone), and the pictures wait one behind the other, so each one is asked about again every 15 seconds until it is finished.
@@ -72,7 +85,7 @@ export async function POST(req: Request) {
         for (const t of left) {
           const r = await request(specOf(t)).catch(() => null);
           if (r && r.status === 'pending') next.push(t);
-          else if (r && r.status === 'ready' && r.url) await link(t, r.url).catch(() => {});
+          else if (r && r.status === 'ready' && r.url && !r.near) await link(t, r.url).catch(() => {});
         }
         left = next;
       }
