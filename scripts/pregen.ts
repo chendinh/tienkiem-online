@@ -5,11 +5,12 @@
 //   zones/{zone}.jpg, zones/market.jpg  one wide scene per zone and one for the market
 //   arenas/{arena}.jpg                 the 10 fight backgrounds (two per zone)
 //   books/{name}.jpg                   one picture per technique (Bí Kíp) and per Công Pháp scripture, shared by all players
+//   buyers/{arch}_{f|m}.jpg            the portraits of the Khách Cầu Mua of Phường Thị: a woman and a man for each kind of cultivator
 // It goes through the same service as the game (lib/imagegen.ts): same style block, seeds, cache, spend caps and
 // Claude review. Safe to stop and run again: finished files are skipped.
 //   npm run pregen                       draw everything that is missing
 //   npx tsx scripts/pregen.ts --dry      list what would be drawn and the estimated cost (no API calls)
-//   npx tsx scripts/pregen.ts --only intro | monsters | shop | zones
+//   npx tsx scripts/pregen.ts --only intro | monsters | shop | zones | arenas | books | buyers
 //   npx tsx scripts/pregen.ts --force    redraw even when the file exists (unchanged prompts are free: the picture cache in the database)
 // Needs DATABASE_URL (the pictures are cached there): for a local run see "npm run db:dev" in the README.
 try { (process as any).loadEnvFile('.env.local'); } catch {}

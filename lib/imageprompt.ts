@@ -27,7 +27,7 @@ const TIER_ADJ = ['plain', 'neat jade-green trimmed', 'refined silver-trimmed', 
 
 export const HQ_TIER = 4;   // from Thiên up an item icon is drawn by the finer model
 export interface Plan {
-  kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'item' | 'place' | 'label';
+  kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'item' | 'place' | 'label' | 'portrait';
   prompt: string;       // full text-to-image description (no reference, or a provider that cannot edit)
   editPrompt?: string;  // instruction for the editing model when references exist
   refs?: any[];         // pictures the editing model must see, in order; the first one is the picture being edited
@@ -259,6 +259,13 @@ export function buildPlan(spec: any): Plan {
     const accent = el ? `${C.EL_ACCENT[el]} glow and magical particles` : 'soft white-gold glow';
     return { kind: 'item', prompt: `${ITEM_CORE}. Premium 3D RPG item render with magical glowing details, an inventory icon of a single ${mt ? 'cultivation scripture' : 'martial secret manual'}: ${cover}, the cover embossed with an abstract emblem of ${mark}, ${accent}, isolated and centered, three-quarter front view, dramatic rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: 9000 + names.indexOf(id) * 31, pri: 3 };
   }
+  // The portrait of a buyer (Khách Cầu Mua, lib/orders.ts): one adult woman or man for each kind of cultivator, a bust shot drawn once and shared by every player.
+  if (spec.kind === 'buyer') {
+    const arch = oneOf(spec.arch, Object.keys(C.BUYER_EN)), g = oneOf(spec.g, ['f', 'm']);
+    const who = g === 'f' ? 'an adult young woman in her late twenties, a classical Chinese beauty with a poised, graceful look' : 'an adult young man in his late twenties, a handsome, refined Chinese man with a composed, noble look';
+    return { kind: 'portrait', prompt: `${PERSON}. Bust portrait from the chest up, centered, of ${who}, ${C.BUYER_EN[arch]}. ${CHINESE}, natural realistic skin, looking directly at the viewer, soft warm lantern light on the face, an out-of-focus xianxia market street at dusk behind. ${NEG}`, width: 768, height: 768, seed: hash(`buyer|${arch}|${g}`), pri: 2 };
+  }
+
   if (spec.kind === 'place') {
     const id = oneOf(spec.id, Object.keys(C.PLACE_EN));
     const tall = id.endsWith('_v');   // the phone version: a vertical picture, sky above and ground below, the interesting part in the middle third

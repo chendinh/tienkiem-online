@@ -52,6 +52,7 @@ export const itemSpec = (it: Item) => ({ kind: 'item', slot: it.slot, base: it.b
 export const propSpec = (id: string) => ({ kind: 'prop', id });
 export const bookSpec = (id: string) => ({ kind: 'book', id });
 export const placeSpec = (id: string) => ({ kind: 'place', id });
+export const buyerSpec = (arch: string, g: 'f' | 'm') => ({ kind: 'buyer', arch, g });
 
 // Fixed pictures drawn once by scripts/pregen.ts and shipped in public/art.
 export const monsterSpec = (sp: string, mut = false) => ({ kind: 'monster', sp, mut });

@@ -503,6 +503,17 @@ export const bookArt = (cls: string) => `/art/shop/book_${cls}.jpg`;
 // One picture per technique (Bí Kíp) and per Công Pháp scroll, shared by every player: drawn once by scripts/pregen.ts into public/art/books.
 export const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 export const techArt = (name: string) => `/art/books/${slug(name)}.jpg`;
+// The portraits of the Khách Cầu Mua (lib/orders.ts): one woman and one man for each of the six kinds of cultivator in NPC_TITLES. They are drawn once by `npm run pregen -- --only buyers`
+// and shared by every player; a card without its file shows the kind's icon instead.
+export const buyerArt = (arch: string, g: 'f' | 'm') => `/art/buyers/${slug(arch)}_${g}.jpg`;
+export const BUYER_EN: Record<string, string> = {
+  'Tán Tu': 'a wandering rogue cultivator in a clean but well-worn travelling robe of grey-blue linen with a bamboo hat slung on the back and a small gourd at the belt, warm friendly eyes and a relaxed half-smile',
+  'Kiếm Tu': 'a sword cultivator in sleek dark-blue and silver robes with a sword hilt rising over one shoulder, a sharp composed gaze and a calm, proud bearing',
+  'Đan Sư': 'an alchemist in layered jade-green and cream robes with a small jade pill gourd and a herb pouch at the belt, gentle clever eyes and a kind smile',
+  'Phù Sư': 'a talisman master in deep violet and white robes with blank paper talismans tucked into a sleeve and a calligraphy brush resting in the hair, a calm mysterious look',
+  'Thể Tu': 'a body cultivator in a short martial robe with bare strong forearms wrapped in leather bracers, a healthy glow and a confident, cheerful grin',
+  'Ma Tu': 'a dark-path cultivator in elegant black and crimson robes with silver filigree and a faint violet aura around the shoulders, a graceful, slightly dangerous smile',
+};
 // ---------- Chiến trường: every fight happens on one of 12 arenas (two per zone, chosen by the tick). An arena strengthens the techniques of some
 // elements and weakens those of others, for everybody on it (the player, Linh Thú and the foe). Pictures: public/art/arenas (scripts/pregen.ts).
 export interface Arena { id: string; zone: string; name: string; note: string; boost: string[]; weaken: string[] }

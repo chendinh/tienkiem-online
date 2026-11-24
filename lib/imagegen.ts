@@ -14,7 +14,7 @@ import { artKeyOfSpec } from './artjobs';
 // The id (a hash of everything that went into the picture) is all a saved game remembers, so /api/img/<id> never has to know where it is kept.
 // GEN_ROOT is the old data/gen folder: only the scripts that move old files (gen:organize, db:migrate) still read it.
 export const GEN_ROOT = path.join(process.cwd(), 'data', 'gen');
-export const GEN_KINDS = ['avatar', 'pose', 'outfit', 'item', 'monster', 'place', 'prop', 'label'] as const;
+export const GEN_KINDS = ['avatar', 'portrait', 'pose', 'outfit', 'item', 'monster', 'place', 'prop', 'label'] as const;
 export const GEN_OTHER = 'other';   // a kind this code does not know, and pictures whose description file is missing
 export const kindFolder = (kind: unknown) => ((GEN_KINDS as readonly string[]).includes(kind as string) ? (kind as string) : GEN_OTHER);
 // Item icons are the biggest group (hundreds), so they are split again by the slot they are worn in: item/Weapon, item/Robe ...
@@ -57,7 +57,7 @@ export function provider(): { name: Provider; enabled: boolean; concurrency: num
 // from its base picture plus the icon of every worn item (needs a model that accepts several pictures: `image_urls`).
 export const falModels = () => ({ t2i: process.env.FAL_MODEL || 'fal-ai/flux/dev', edit: process.env.FAL_EDIT_MODEL || 'fal-ai/flux-pro/kontext', item: process.env.FAL_ITEM_MODEL || 'fal-ai/flux/schnell', itemHq: process.env.FAL_ITEM_HQ_MODEL || 'google/nano-banana-2.1', outfit: process.env.FAL_OUTFIT_MODEL || 'google/nano-banana-2.1/edit', outfitRes: process.env.FAL_OUTFIT_RES || '1K', avatar: process.env.FAL_AVATAR_MODEL || 'google/nano-banana-2.1', avatarRes: process.env.FAL_AVATAR_RES || '1K', creature: process.env.FAL_CREATURE_MODEL || 'google/nano-banana-2.1', creatureRes: process.env.FAL_CREATURE_RES || '1K' });
 // Cache key part: item icons depend only on the icon model, outfits and standing poses (both edits of the character's picture) only on the outfit model, everything else on the t2i and edit models.
-const modelTag = (kind: string) => { const m = falModels(); return JSON.stringify(kind === 'item' ? { item: m.item } : kind === 'outfit' || kind === 'pose' ? { outfit: m.outfit, res: m.outfitRes } : kind === 'avatar' ? { avatar: m.avatar, res: m.avatarRes } : kind === 'monster' || kind === 'place' || kind === 'label' ? { creature: m.creature, res: m.creatureRes, edit: m.edit } : { t2i: m.t2i, edit: m.edit }); };
+const modelTag = (kind: string) => { const m = falModels(); return JSON.stringify(kind === 'item' ? { item: m.item } : kind === 'outfit' || kind === 'pose' ? { outfit: m.outfit, res: m.outfitRes } : kind === 'avatar' || kind === 'portrait' ? { avatar: m.avatar, res: m.avatarRes } : kind === 'monster' || kind === 'place' || kind === 'label' ? { creature: m.creature, res: m.creatureRes, edit: m.edit } : { t2i: m.t2i, edit: m.edit }); };
 // Prices as published on fal.ai (USD). Per-megapixel prices are rounded up to whole megapixels, so the ledger errs high.
 // The Nano Banana 2 / 2.1 and FLUX.2 pro entries are rounded-up estimates: check fal.ai before using them as FAL_OUTFIT_MODEL.
 const FAL_FLAT: Record<string, number> = { 'fal-ai/flux-pro/kontext': 0.04, 'fal-ai/nano-banana/edit': 0.04, 'fal-ai/nano-banana-pro/edit': 0.15, 'fal-ai/nano-banana-2/edit': 0.08, 'google/nano-banana-2.1/edit': 0.07, 'fal-ai/flux-2-pro/edit': 0.08 };
@@ -80,7 +80,7 @@ export function estimateCost(spec: any): number {
   if (plan.refs && plan.refs.length) return plan.editor === 'multi' ? falCost(m.outfit, plan.width, plan.height, m.outfitRes) : falCost(m.edit, plan.width, plan.height);
   if (plan.kind === 'item') return plan.hq ? falCost(m.itemHq, plan.width, plan.height, /nano-banana/.test(m.itemHq) ? '1K' : '') : falCost(m.item, plan.width, plan.height);
   if (plan.kind === 'monster' || plan.kind === 'place' || plan.kind === 'label') return falCost(m.creature, plan.width, plan.height, /nano-banana/.test(m.creature) ? m.creatureRes : '');
-  return plan.kind === 'avatar' ? falCost(m.avatar, plan.width, plan.height, /nano-banana/.test(m.avatar) ? m.avatarRes : '') : falCost(m.t2i, plan.width, plan.height);
+  return plan.kind === 'avatar' || plan.kind === 'portrait' ? falCost(m.avatar, plan.width, plan.height, /nano-banana/.test(m.avatar) ? m.avatarRes : '') : falCost(m.t2i, plan.width, plan.height);
 }
 const sniff = (b: Buffer) => (b[0] === 0xff && b[1] === 0xd8 ? 'jpg' : b[0] === 0x89 && b[1] === 0x50 ? 'png' : b.slice(0, 4).toString() === 'RIFF' ? 'webp' : '');
 const falHost = (u: string) => { if (!/(^|\.)fal\.(media|ai|run)$/.test(new URL(u).hostname)) throw new Error('fal: unexpected host'); };
@@ -142,7 +142,7 @@ async function generate(name: Provider, j: Job, refs: Pic[]): Promise<Gen> {
       // official client, server side only (FAL_KEY comes from the environment); subscribe() handles queue + polling
       const { fal } = await import('@fal-ai/client');
       const m = falModels();
-      let model = j.kind === 'item' ? (j.hq ? m.itemHq : m.item) : j.kind === 'avatar' ? m.avatar : j.kind === 'monster' || j.kind === 'place' || j.kind === 'label' ? m.creature : m.t2i, input: any, qual = '';
+      let model = j.kind === 'item' ? (j.hq ? m.itemHq : m.item) : j.kind === 'avatar' || j.kind === 'portrait' ? m.avatar : j.kind === 'monster' || j.kind === 'place' || j.kind === 'label' ? m.creature : m.t2i, input: any, qual = '';
       if (refs.length && j.editPrompt) {
         // every reference picture goes up first, all at once
         const urls = await withTimeout(Promise.all(refs.map(async (p) => {
@@ -155,7 +155,7 @@ async function generate(name: Provider, j: Job, refs: Pic[]): Promise<Gen> {
         else { model = m.edit; input = { prompt: j.editPrompt, image_url: urls[0], seed: j.seed, guidance_scale: 3.5, num_images: 1, output_format: 'jpeg', safety_tolerance: '2' }; }
       } else if (/nano-banana/.test(model)) {
         // Gemini-based text-to-image (the character's base picture, and creatures): aspect ratio and resolution instead of a pixel size
-        qual = j.kind === 'avatar' ? m.avatarRes : j.kind === 'monster' || j.kind === 'place' || j.kind === 'label' ? m.creatureRes : '1K';
+        qual = j.kind === 'avatar' || j.kind === 'portrait' ? m.avatarRes : j.kind === 'monster' || j.kind === 'place' || j.kind === 'label' ? m.creatureRes : '1K';
         input = { prompt: j.prompt, aspect_ratio: aspect(j.width, j.height), resolution: qual, seed: j.seed, num_images: 1, output_format: 'jpeg', ...(/nano-banana-2\.1/.test(model) ? { thinking_level: process.env.FAL_THINKING || 'medium' } : {}) };
       } else {
         input = { prompt: j.prompt, image_size: { width: j.width, height: j.height }, seed: j.seed, num_images: 1, output_format: 'jpeg', enable_safety_checker: true };
@@ -197,6 +197,7 @@ const QA: Record<string, string> = {
   outfit: 'Is this ONE person in East Asian fantasy clothing, drawn as a high-quality fantasy illustration or a realistic 3D game render (a realistic look is wanted; not pixel art, not a collage, not a snapshot of a real person in modern clothes), with the face visible and natural balanced adult body proportions (not chibi, no oversized head, no very short legs)?',
 };
 QA.place = 'Is this a scenic fantasy landscape or town view with no person in the foreground, drawn as a high-quality fantasy illustration or realistic 3D game render (not pixel art, not a collage, not a photo of the real world)?';
+QA.portrait = 'Is this ONE person shown from the chest or waist up, drawn as a high-quality fantasy illustration or a realistic 3D game render (a realistic look is wanted; not pixel art, not a collage, not a snapshot of a real person in modern clothes), with the face clearly visible and turned toward the viewer (front or three-quarter view), an adult in East Asian fantasy clothing, and natural proportions?';
 QA.pose = QA.avatar; // a standing pose drawn without its base picture (a provider that cannot edit) is judged like a base picture
 const QA_SAME: Record<string, string> = {
   monster: 'Image 2 should show the SAME creature as image 1, recolored with a glowing rainbow-like look. Differences in color, glow and lighting are expected: ignore them. Answer false ONLY if image 2 is clearly a different kind of animal, or has a human in it.',
@@ -246,7 +247,7 @@ export async function review(kind: string, buf: Buffer, ext: string, refs?: Pic[
       return { ok: true, why: 'review unreadable' };
     }
     // Pictures of a person are also checked for a third arm: the reviewer counts arms and hands (a number is harder to wave through than a yes).
-    const people = kind === 'avatar' || kind === 'pose' || kind === 'outfit';
+    const people = kind === 'avatar' || kind === 'pose' || kind === 'outfit' || kind === 'portrait';
     const fmt = people ? '{"arms":<number of distinct human arms visible in the picture to check>,"hands":<number of distinct human hands visible>,"ok":true|false,"why":"short reason"}' : '{"ok":true|false,"why":"short reason"}';
     const count = people ? ' Count the arms and hands of the person in the picture to check (image 2 when there are two images): each arm ends in a hand, sleeves, ribbons and swords are not arms, a normal person has exactly 2 arms and 2 hands, and a count above 2 is a drawing error.' : '';
     const out = await ask({

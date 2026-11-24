@@ -70,6 +70,8 @@ export const ERR = {
   E_MARKET_FULL: 'Quầy này đã nhận đủ đề nghị. Hãy quay lại sau.',
   E_MARKET_LIMIT: 'Ngươi chỉ được bày tối đa 5 món cùng lúc ở Chợ Đêm.',
   E_MARKET_EMPTY: 'Hòm thư Chợ Đêm đang trống.',
+  E_ORDER_GONE: 'Khách này đã đi rồi hoặc đơn đã giao.',
+  E_ORDER_ITEMS: 'Những món này không đúng yêu cầu của khách.',
   E_BAD_COSMETIC: 'Dữ liệu hình ảnh hoặc tiểu sử không hợp lệ.',
 } as const;
 export type ErrCode = keyof typeof ERR;

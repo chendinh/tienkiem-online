@@ -7,6 +7,7 @@ import * as ST from './starter';
 import * as X from './codex';
 import * as W from './weekly';
 import * as T from './tasks';
+import * as O from './orders';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -66,6 +67,7 @@ export interface GameState {
   tasks?: T.DayTasks;   // the three extra jobs of today (Easy, Medium, Hard; lib/tasks.ts), made on the first tick of the UTC day
   starter?: { done: string[] };   // Nhập Môn (lib/starter.ts): the first jobs already finished and paid. A save older than the feature gets it in the server's upgrade()
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
+  orders?: O.DayOrders;   // Khách Cầu Mua (lib/orders.ts): today's buyers, made on the first tick of the UTC day; a save older than the feature simply has none until its next tick
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -1052,6 +1054,40 @@ function taskHit(st: GameState, h: T.Hit, rep?: Report) {
     advance(st, rep);
   }
 }
+// Khách Cầu Mua (lib/orders.ts): today's buyers are picked from the day, the world seed and the week's theme alone (no random number is drawn) and kept in the save from the first tick of the day.
+function ensureOrders(st: GameState): O.DayOrders {
+  const day = D.dayKey(st.clock);
+  if (st.orders && st.orders.day === day) return st.orders;
+  const theme = W.weekAt(Date.parse(`${day}T00:00:00Z`));
+  return (st.orders = { day, list: O.pickOrders(day, st.seed, { week: theme.el, realm: st.player.realm }) });
+}
+// Give the goods that come on top of an order's Linh Thạch (never past the stack cap: the part that does not fit is lost, as with a shop purchase that would overflow).
+function giveExtra(st: GameState, x: O.Extra) {
+  const cap = (cur: number) => Math.max(0, Math.min(x.n, B.stackMax - cur));
+  if (x.kind === 'taming') st.inv.taming[x.idx] += cap(st.inv.taming[x.idx]);
+  else if (x.kind === 'hp') st.inv.hp[x.idx] += cap(st.inv.hp[x.idx]);
+  else if (x.kind === 'bt') st.inv.bt[x.idx] += cap(st.inv.bt[x.idx]);
+  else if (x.kind === 'trib') st.inv.trib += cap(st.inv.trib);
+  else if (x.kind === 'mat') st.inv.mat[x.id] = (st.inv.mat[x.id] || 0) + cap(st.inv.mat[x.id] || 0);
+}
+// Hand the chosen items of the bag or the stash to a buyer. The items must be exactly what the order asks for, not worn and not locked; the pay is a multiple of what dissolving them would give, plus the order's goods.
+// No random number is drawn, so the browser runs the same rule at once (lib/intents.ts) and the server has the last word.
+export function fillOrder(st: GameState, id: any, ids: any): Res {
+  const o = st.orders && st.orders.day === D.dayKey(st.clock) ? st.orders.list.find((x) => x.id === id) : undefined;
+  if (!o || o.done) return fail('E_ORDER_GONE');
+  if (!Array.isArray(ids) || ids.length !== o.need || !ids.every((x) => Number.isInteger(x))) return fail('E_BAD_REQUEST');
+  const found = ids.map((x: number) => findIn(st, x));
+  for (const f of found) { if (!f) return fail('E_NOT_FOUND'); if (f.where === 'eq') return fail('E_WORN'); if (f.it.locked) return fail('E_LOCKED'); }
+  const why = O.checkItems(o, found.map((f) => f!.it));
+  if (why) return fail('E_ORDER_ITEMS', why);
+  const items = found.map((f) => f!.it);
+  const sum = items.reduce((a, it) => a + dissolveValue(it), 0);
+  for (const it of items) { const list = st.bag.some((x) => x.id === it.id) ? st.bag : st.stash; list.splice(list.findIndex((x) => x.id === it.id), 1); shareRelic(st, it); }
+  const paid = earn(st, O.payFor(o.mult, sum), 'order');
+  if (o.extra) giveExtra(st, o.extra);
+  o.done = true; o.paid = paid;
+  return ok(`${o.who.name} nhận ${items.length} món, trả ${paid} Linh Thạch${o.extra ? ` và ${o.extra.n} ${O.extraName(o.extra)}` : ''}.`, { stones: paid });
+}
 // Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
 export function starterCheck(st: GameState, rep?: Report) {
   const s = st.starter;
@@ -1271,6 +1307,7 @@ export function tick(st: GameState, rep?: Report) {
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
   ensureTasks(st);
+  ensureOrders(st);   // today's buyers (lib/orders.ts), no random numbers
   ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)
   if (!st.decision) {

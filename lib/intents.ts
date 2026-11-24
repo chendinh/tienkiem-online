@@ -20,6 +20,7 @@ export const PURE_INTENTS: Record<string, PureHandler> = {
   releaseMany: (st) => G.releaseMany(st),
   release: (st, b) => (int(b.id) ? G.releaseBeast(st, b.id) : bad()),
   buy: (st, b) => (typeof b.item === 'string' ? G.buy(st, b.item, b.qty) : bad()),
+  fillOrder: (st, b) => (typeof b.id === 'string' && Array.isArray(b.items) && b.items.length <= 10 ? G.fillOrder(st, b.id, b.items) : bad()),
   sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : bad()),
   pill: (st, b) => G.useHpPill(st, b.grade),
   craft: (st, b) => G.craft(st, b.id, b.qty),
