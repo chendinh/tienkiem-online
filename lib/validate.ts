@@ -74,8 +74,13 @@ export function validateCatalog(): string[] {
   for (const a of A.ARTS) {
     need(C.SLOT_BASE.Weapon.some((b) => C.WEAPON_CLASS[b] === a.id), `Môn ${a.id} chưa có pháp khí nào`);
     need(`book_${a.id}` in C.PROP_EN, `Môn ${a.id} chưa có mô tả ảnh sách Bí Công (PROP_EN.book_${a.id})`);
-    need(A.attackTechs(a.id).length === 4 && A.attackTechs(a.id).every((t) => C.EO.includes(t.el) && t.coef > 0 && t.spirit >= 0 && t.cd >= 0 && t.hits >= 1), `Môn ${a.id}: chiêu thức không hợp lệ`);
+    need(A.attackTechs(a.id).length >= 4 && A.attackTechs(a.id).every((t) => C.EO.includes(t.el) && t.coef > 0 && t.spirit >= 0 && t.cd >= 0 && t.hits >= 1), `Môn ${a.id}: chiêu thức không hợp lệ`);
+    need(C.EO.every((e) => A.attackTechs(a.id).some((t) => t.el === e)), `Môn ${a.id}: chưa có chiêu đánh đủ tám hệ`);
+    need([0, 1, 2, 3].every((tier) => A.attackTechs(a.id).some((t) => t.tier === tier)), `Môn ${a.id}: thiếu chiêu đánh ở một hạng`);
   }
+  // A name that repeats would silently replace a technique, and two names with the same picture file would share one book picture.
+  need(new Set([...Object.values(A.TECHS).filter((t) => !t.basic).map((t) => t.name), ...A.METHODS.map((x) => x.name)].map(C.slug)).size === Object.values(A.TECHS).filter((t) => !t.basic).length + A.METHODS.length, 'Tên Bí Công hoặc Công Pháp trùng nhau (hoặc cùng tên file ảnh)');
+  need(A.ARTS.every((a) => A.techsOf(a.id).length === A.techsOf(a.id).filter((t, i, l) => l.findIndex((u) => u.name === t.name) === i).length), 'Một môn có hai Bí Công cùng tên');
   for (const t of Object.values(A.TECHS)) {
     const atk = t.group === 'Tấn Công', heal = t.group === 'Hồi Phục';
     need(A.GROUPS.includes(t.group), `Chiêu ${t.name}: nhóm không hợp lệ`);

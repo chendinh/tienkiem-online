@@ -95,15 +95,68 @@ function makeSupport(cls: string, [name, group, tier, fx, spirit, cd, target, he
   const base = { name, el: '', group, target, coef: heal || 0, spirit, cd, minLevel: TIER[tier].minLevel, cls, tier, hits: 1, pierce: 0, crit: 0, basic: false, fx };
   return { ...base, desc: describe(base) };
 }
+// ---------- Ten more Bí Công for every môn (80 in all): six attack techniques and four support ones.
+// The attack ones are [name, element, tier]. Together with the first four, each môn can hit with all eight elements; two are Hoàng, two Huyền, one Địa and one Thiên.
+// Their power is the tier's (see TIER), so they differ in element and look, not in strength. The support ones follow the same numbers as the first set, scaled by tier.
+// Tu Sĩ keep fighting with the first set only (coreTechsOf), so their strength does not change.
+const MORE: Record<string, [string, string, number][]> = {
+  kiem: [['Thúy Trúc Kiếm', 'Mộc', 0], ['Hàn Tuyền Kiếm', 'Thủy', 0], ['Huyền Nham Kiếm', 'Thổ', 1], ['Huyết Ảnh Kiếm', 'Âm', 1], ['Vạn Kiếm Quy Tông', 'Kim', 2], ['Chu Tước Phần Thiên Kiếm', 'Hỏa', 3]],
+  thuong: [['Lục Ngọc Thương', 'Mộc', 0], ['Hỏa Tinh Thương', 'Hỏa', 0], ['Dạ Hành Thương', 'Âm', 1], ['Bạch Nhật Thương', 'Dương', 1], ['Phích Lịch Thương', 'Lôi', 2], ['Lăng Tiêu Phá Quân Thương', 'Kim', 3]],
+  cung: [['Kim Phong Tiễn', 'Kim', 0], ['Băng Phách Tiễn', 'Thủy', 0], ['Trọng Nham Tiễn', 'Thổ', 1], ['Tử Lôi Tiễn', 'Lôi', 1], ['Vạn Diệp Phi Hoa Tiễn', 'Mộc', 2], ['Cửu Tiêu Lôi Minh Tiễn', 'Lôi', 3]],
+  dao: [['Cổ Mộc Đao', 'Mộc', 0], ['Hàn Giang Đao', 'Thủy', 0], ['Lôi Đình Đao', 'Lôi', 1], ['Liệt Nhật Đao', 'Dương', 1], ['Trấn Nhạc Đao', 'Thổ', 2], ['Tu La Diệt Thế Đao', 'Âm', 3]],
+  quyen: [['Thiết Sa Chưởng', 'Kim', 0], ['Linh Mộc Quyền', 'Mộc', 0], ['Nhu Thủy Quyền', 'Thủy', 1], ['Âm Phong Chưởng', 'Âm', 1], ['Lôi Long Quyền', 'Lôi', 2], ['Phật Thủ Trấn Thiên Quyền', 'Dương', 3]],
+  cam: [['Kim Qua Khúc', 'Kim', 0], ['Phần Tâm Khúc', 'Hỏa', 0], ['Cao Sơn Khúc', 'Thổ', 1], ['Kinh Lôi Khúc', 'Lôi', 1], ['Bách Hoa Tề Phóng Khúc', 'Mộc', 2], ['Quảng Lăng Tuyệt Âm', 'Âm', 3]],
+  tieu: [['Kim Thạch Tiêu', 'Kim', 0], ['Xích Phụng Tiêu', 'Hỏa', 0], ['Hoàng Thổ Tiêu', 'Thổ', 1], ['Triêu Dương Tiêu', 'Dương', 1], ['Dạ Ô Đề Tiêu', 'Âm', 2], ['Hạo Nhật Lăng Thiên Tiêu', 'Dương', 3]],
+  phat: [['Kim Thích Phù', 'Kim', 0], ['Ngũ Lôi Phù', 'Lôi', 0], ['Câu Hồn Phù', 'Âm', 1], ['Chính Dương Phù', 'Dương', 1], ['Huyền Băng Phù', 'Thủy', 2], ['Thiên Hình Lôi Phù', 'Lôi', 3]],
+};
+const MORE_SUPPORT: Record<string, Sup[]> = {
+  kiem: [
+    ['Phá Thể Kiếm Chỉ', 'Suy Yếu', 0, { kind: 'defDown', amount: 0.25, turns: 3 }, 10, 5, 'Kẻ Địch'], ['Kiếm Tâm Dưỡng Thương', 'Hồi Phục', 1, { kind: 'heal', amount: 0, turns: 1 }, 12, 5, 'Bản Thân', 1.7],
+    ['Kiếm Tâm Thông Minh', 'Cường Hóa', 2, { kind: 'critUp', amount: 30, turns: 3 }, 16, 6, 'Bản Thân'], ['Kiếm Vực Phong Tỏa', 'Khống Chế', 3, { kind: 'stun', amount: 1, turns: 2 }, 24, 8, 'Kẻ Địch'],
+  ],
+  thuong: [
+    ['Chấn Nhiếp Thương Uy', 'Suy Yếu', 0, { kind: 'atkDown', amount: 0.25, turns: 3 }, 10, 5, 'Kẻ Địch'], ['Thương Ý Đột Tiến', 'Cường Hóa', 1, { kind: 'atkUp', amount: 0.28, turns: 3 }, 12, 5, 'Bản Thân'],
+    ['Toái Giáp Thương Kình', 'Suy Yếu', 2, { kind: 'defDown', amount: 0.4, turns: 3 }, 18, 6, 'Kẻ Địch'], ['Kim Thương Bất Đảo', 'Phòng Thủ', 3, { kind: 'guard', amount: 0.45, turns: 3 }, 24, 7, 'Bản Thân'],
+  ],
+  cung: [
+    ['Ẩn Thân Tiễn Trận', 'Phòng Thủ', 0, { kind: 'guard', amount: 0.3, turns: 3 }, 8, 5, 'Bản Thân'], ['Tiễn Ý Hồi Xuân', 'Hồi Phục', 1, { kind: 'heal', amount: 0, turns: 1 }, 12, 5, 'Bản Thân', 1.7],
+    ['Tỏa Nhuệ Tiễn', 'Suy Yếu', 2, { kind: 'atkDown', amount: 0.35, turns: 3 }, 16, 6, 'Kẻ Địch'], ['Vạn Tiễn Chiến Ý', 'Cường Hóa', 3, { kind: 'atkUp', amount: 0.3, turns: 3, team: true }, 22, 7, 'Cả Đội'],
+  ],
+  dao: [
+    ['Đao Cương Hộ Thể', 'Phòng Thủ', 0, { kind: 'guard', amount: 0.3, turns: 3 }, 8, 5, 'Bản Thân'], ['Chấn Đao Kình', 'Khống Chế', 1, { kind: 'stun', amount: 1, turns: 1 }, 16, 7, 'Kẻ Địch'],
+    ['Thiết Huyết Hồi Xuân', 'Hồi Phục', 2, { kind: 'heal', amount: 0, turns: 1 }, 16, 5, 'Bản Thân', 2.2], ['Bá Đao Sát Ý', 'Cường Hóa', 3, { kind: 'critUp', amount: 30, turns: 3 }, 20, 6, 'Bản Thân'],
+  ],
+  quyen: [
+    ['Khí Huyết Bôn Dũng', 'Cường Hóa', 0, { kind: 'atkUp', amount: 0.25, turns: 3 }, 6, 5, 'Bản Thân'], ['Phá Thể Chấn Kình', 'Suy Yếu', 1, { kind: 'defDown', amount: 0.3, turns: 3 }, 8, 5, 'Kẻ Địch'],
+    ['Chấn Hồn Quyền', 'Khống Chế', 2, { kind: 'stun', amount: 1, turns: 1 }, 12, 7, 'Kẻ Địch'], ['Bất Hoại Kim Thân', 'Phòng Thủ', 3, { kind: 'guard', amount: 0.45, turns: 3 }, 16, 7, 'Bản Thân'],
+  ],
+  cam: [
+    ['Ai Oán Khúc', 'Suy Yếu', 0, { kind: 'atkDown', amount: 0.25, turns: 3 }, 10, 5, 'Kẻ Địch'], ['Thiên Âm Hộ Thể', 'Phòng Thủ', 1, { kind: 'guard', amount: 0.35, turns: 3 }, 14, 6, 'Bản Thân'],
+    ['Chiến Ý Trường Ca', 'Cường Hóa', 2, { kind: 'atkUp', amount: 0.3, turns: 3, team: true }, 18, 6, 'Cả Đội'], ['Phượng Cầm Hồi Xuân', 'Hồi Phục', 3, { kind: 'heal', amount: 0, turns: 1 }, 22, 6, 'Bản Thân', 2.8],
+  ],
+  tieu: [
+    ['Tĩnh Tâm Tiêu Âm', 'Phòng Thủ', 0, { kind: 'guard', amount: 0.3, turns: 3 }, 8, 5, 'Bản Thân'], ['Thôi Miên Tiêu', 'Khống Chế', 1, { kind: 'stun', amount: 1, turns: 1 }, 16, 7, 'Kẻ Địch'],
+    ['Phá Cương Tiêu Âm', 'Suy Yếu', 2, { kind: 'defDown', amount: 0.4, turns: 3 }, 18, 6, 'Kẻ Địch'], ['Chiến Ý Tiêu Khúc', 'Cường Hóa', 3, { kind: 'atkUp', amount: 0.3, turns: 3, team: true }, 22, 7, 'Cả Đội'],
+  ],
+  phat: [
+    ['Khai Nhãn Phù', 'Cường Hóa', 0, { kind: 'critUp', amount: 20, turns: 3 }, 10, 5, 'Bản Thân'], ['Suy Nhược Phù', 'Suy Yếu', 1, { kind: 'atkDown', amount: 0.3, turns: 3 }, 12, 5, 'Kẻ Địch'],
+    ['Phong Ấn Phù', 'Khống Chế', 2, { kind: 'stun', amount: 1, turns: 1 }, 18, 8, 'Kẻ Địch'], ['Cửu Chuyển Hoàn Hồn Phù', 'Hồi Phục', 3, { kind: 'heal', amount: 0, turns: 1 }, 22, 6, 'Bản Thân', 2.8],
+  ],
+};
 export const TECHS: Record<string, Tech> = {};
 for (const a of ARTS) {
   TECHS[a.basic] = make(a.id, a.basic, '', 0, true);
   LIST[a.id].forEach(([n, e], i) => { TECHS[n] = make(a.id, n, e, i, false); });
-  for (const sp of SUPPORT[a.id] || []) TECHS[sp[0]] = makeSupport(a.id, sp);
+  for (const [n, e, t] of MORE[a.id] || []) TECHS[n] = make(a.id, n, e, t, false);
+  for (const sp of [...(SUPPORT[a.id] || []), ...(MORE_SUPPORT[a.id] || [])]) TECHS[sp[0]] = makeSupport(a.id, sp);
 }
-// Every technique of a môn (not the basic attack): the four attack techniques first, then the support ones.
-export const techsOf = (cls: string): Tech[] => [...(LIST[cls] || []).map(([n]) => TECHS[n]), ...(SUPPORT[cls] || []).map((x) => TECHS[x[0]])];
-export const attackTechs = (cls: string): Tech[] => (LIST[cls] || []).map(([n]) => TECHS[n]);
+// Lowest tier first; techniques of the same tier keep the order they were written in (the first set before the later ones).
+const byTier = (l: Tech[]): Tech[] => l.map((t, i) => [t, i] as const).sort((x, y) => x[0].tier - y[0].tier || x[1] - y[1]).map(([t]) => t);
+export const attackTechs = (cls: string): Tech[] => byTier([...(LIST[cls] || []).map(([n]) => TECHS[n]), ...(MORE[cls] || []).map(([n]) => TECHS[n])]);
+// Every technique of a môn (not the basic attack): the attack techniques first, then the support ones, each from Hoàng up.
+export const techsOf = (cls: string): Tech[] => [...attackTechs(cls), ...byTier([...(SUPPORT[cls] || []), ...(MORE_SUPPORT[cls] || [])].map((x) => TECHS[x[0]]))];
+// The first set (four attack techniques and the first support ones): what a Tu Sĩ of the môn fights with.
+export const coreTechsOf = (cls: string): Tech[] => [...(LIST[cls] || []).map(([n]) => TECHS[n]), ...(SUPPORT[cls] || []).map((x) => TECHS[x[0]])];
 export const basicOf = (cls: string): Tech => TECHS[ART(cls).basic];
 export const isTech = (name: string) => !!TECHS[name] && !TECHS[name].basic;
 // A technique name resolves to its full definition; beast and element skills (C.SKILL_DEFS) and the neutral skill are the fallback.
@@ -130,8 +183,8 @@ export function npcClass(name: string): string {
   const pool = ['thuong', 'cung', 'tieu'];
   return pool[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % pool.length];
 }
-// Everything a Tu Sĩ can use: the basic attack and all four techniques of its môn, plus the skills of its own elements.
-export const npcSkills = (name: string, el: string[]): string[] => { const c = npcClass(name); return [ART(c).basic, ...techsOf(c).map((t) => t.name), ...el.flatMap((e) => C.SKILLS[e] || [])]; };
+// Everything a Tu Sĩ can use: the basic attack and the first set of techniques of its môn (not the later Bí Công), plus the skills of its own elements.
+export const npcSkills = (name: string, el: string[]): string[] => { const c = npcClass(name); return [ART(c).basic, ...coreTechsOf(c).map((t) => t.name), ...el.flatMap((e) => C.SKILLS[e] || [])]; };
 
 // ---------- Công Pháp (Cultivation_Method, Requirement 18.5 and 18.6): passive. It multiplies Tu Vi per tick and adds a share of the base stat to the stats it favours.
 export interface Method { name: string; tier: number; speed: number; el: string; bias: ('hp' | 'spirit' | 'atk' | 'def' | 'spd')[]; minLevel: number; desc: string }

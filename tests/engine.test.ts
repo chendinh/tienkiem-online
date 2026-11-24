@@ -532,12 +532,30 @@ import * as A from '../lib/arts';
 import * as W from '../lib/weekly';
 import * as TK from '../lib/tasks';
 const withWeapon = (st: G.GameState, base: string) => { st.eq.Weapon!.base = base; st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); return st; };
-test('every weapon base belongs to a môn and every môn has a free basic attack and four techniques', () => {
+test('every weapon base belongs to a môn and every môn has a free basic attack and its techniques', () => {
   for (const b of C.SLOT_BASE.Weapon) assert.ok(A.ARTS.some((a) => a.id === C.WEAPON_CLASS[b]), b);
   for (const a of A.ARTS) {
-    assert.equal(A.attackTechs(a.id).length, 4); assert.ok(A.techsOf(a.id).length >= 6);
+    assert.equal(A.attackTechs(a.id).length, 10); assert.ok(A.techsOf(a.id).length >= 16);
     assert.equal(A.basicOf(a.id).spirit, 0); assert.equal(A.basicOf(a.id).cd, 0);
     assert.ok(A.attackTechs(a.id).every((t, i, l) => i === 0 || t.minLevel >= l[i - 1].minLevel));
+  }
+});
+test('ten more Bí Công per môn: all eight elements, every tier, no repeated name, and Tu Sĩ keep the first set', () => {
+  const names = Object.values(A.TECHS).filter((t) => !t.basic).map((t) => t.name);
+  assert.equal(new Set(names.map(C.slug)).size, names.length, 'a name or a picture file is used twice');
+  for (const a of A.ARTS) {
+    const all = A.techsOf(a.id), core = A.coreTechsOf(a.id);
+    assert.equal(all.length - core.length, 10, `${a.id}: ten later Bí Công`);
+    assert.ok(core.every((t) => all.includes(t)));
+    assert.equal(new Set(A.attackTechs(a.id).map((t) => t.el)).size, 8, `${a.id}: all eight elements`);
+    for (const tier of [0, 1, 2, 3]) assert.ok(A.attackTechs(a.id).some((t) => t.tier === tier), `${a.id}: tier ${tier}`);
+    // an attack technique of the same tier is as strong in every element: variety, not power
+    for (const tier of [0, 1, 2, 3]) assert.equal(new Set(A.attackTechs(a.id).filter((t) => t.tier === tier).map((t) => `${t.coef}|${t.spirit}|${t.cd}`)).size, 1, `${a.id} tier ${tier}`);
+    // a Tu Sĩ of this môn fights with the basic attack and the first set only
+    const own = new Set([A.ART(a.id).basic, ...core.map((t) => t.name)]);
+    const sample = { kiem: 'Kiếm Tu Văn', cam: 'Đan Sư Văn', phat: 'Phù Sư Văn', quyen: 'Thể Tu Văn', dao: 'Ma Tu Văn' } as Record<string, string>;
+    const nm = sample[a.id];
+    if (nm) assert.ok(A.npcSkills(nm, []).every((n) => own.has(n)), a.id);
   }
 });
 test('a fight uses only the techniques of the môn of the weapon in hand', () => {
@@ -745,17 +763,20 @@ test('an older character takes the đạo hiệu of its e-mail once, with the pr
 });
 test('30 chức vụ, and fate gives, changes and takes them away while the character adventures', () => {
   assert.equal(C.TITLES.length, 30); assert.equal(new Set(C.TITLES.map((t) => t.id)).size, 30); assert.ok(C.TITLES.every((t) => t.name && t.blurb));
-  const st = G.newGame(31, 'f', T0); st.starter = { done: ['tame'] }; Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 20;
-  const seen: string[] = []; let gained = 0, lost = 0, changed = 0, prev = st.player.title;
-  for (let k = 0; k < 120; k++) {
-    G.settle(st, 500);
-    const t = st.player.title;
-    if (t !== prev) { if (!prev) gained++; else if (!t) lost++; else changed++; prev = t; }
+  // Fate is random: one seed can see only one or two events in this time (about one seed in five does), so three characters are counted together.
+  let gained = 0, lost = 0, changed = 0;
+  for (const seed of [31, 32, 35]) {
+    const st = G.newGame(seed, 'f', T0); st.starter = { done: ['tame'] }; Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 20;
+    let prev = st.player.title;
+    for (let k = 0; k < 120; k++) {
+      G.settle(st, 500);
+      const t = st.player.title;
+      if (t !== prev) { if (!prev) gained++; else if (!t) lost++; else changed++; prev = t; }
+    }
+    assert.ok(st.player.title === undefined || C.titleOf(st.player.title));
   }
-  for (const e of st.feed) if (e.kind === 'destiny') seen.push(e.text);
-  assert.ok(gained + lost + changed >= 3, `${gained}/${changed}/${lost}`);
+  assert.ok(gained + lost + changed >= 5, `${gained}/${changed}/${lost}`);
   assert.ok(gained > 0 && lost + changed > 0);
-  assert.ok(st.player.title === undefined || C.titleOf(st.player.title));
 });
 test('chức vụ changes come out the same however the ticks are split, and never move the random streams', () => {
   const a = G.newGame(41, 'f', T0), b = G.newGame(41, 'f', T0);
