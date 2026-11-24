@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { artJobs, artKey, artKeyOfSpec, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, commonLooks, missingLooks, wantedDrawable, fixedTodos } from '../lib/artjobs';
+import { artJobs, artKey, artKeyOfSpec, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, commonLooks, missingLooks, wantedDrawable, fixedTodos, blockedBy } from '../lib/artjobs';
 import { keyOfSpec } from '../lib/assetKey';
 import * as C from '../lib/content';
 import { missingArt, shippedArt } from '../lib/server/artfiles';
@@ -110,4 +110,17 @@ test('one press draws a bounded number of pictures: item icons are small and cou
   assert.equal(takeBatch([]).length, 0);
   assert.equal(takeBatch(art, 1).length, 1, 'a press always draws at least one picture');
   assert.ok(DRAW_POINTS >= 2 && DRAW_POINTS <= 40);
+});
+
+test('the owner is told why drawing is refused, in the order the image service checks it', () => {
+  const ok = { budget: { spentUsd: 0.5, capUsd: 2 }, hour: { items: 10, itemMax: 150 } };
+  assert.equal(blockedBy({ enabled: true }, ok), null);
+  assert.deepEqual(blockedBy({ enabled: false }, ok), { why: 'off' });
+  assert.deepEqual(blockedBy({ enabled: true }, { ...ok, locked: 'no credit' }), { why: 'locked', detail: 'no credit' });
+  assert.deepEqual(blockedBy({ enabled: true }, { ...ok, budget: { spentUsd: 2, capUsd: 2 } }), { why: 'budget' });
+  assert.deepEqual(blockedBy({ enabled: true }, { ...ok, hour: { items: 150, itemMax: 150 } }), { why: 'hour' });
+  // the money is checked before the hourly limit, and a free provider (no budget) is only ever held back by the hour
+  assert.equal(blockedBy({ enabled: true }, { budget: { spentUsd: 3, capUsd: 2 }, hour: { items: 999, itemMax: 150 } })!.why, 'budget');
+  assert.deepEqual(blockedBy({ enabled: true }, { hour: { items: 200, itemMax: 200 } }), { why: 'hour' });
+  assert.equal(blockedBy({ enabled: true }, {}), null);
 });

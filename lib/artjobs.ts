@@ -73,3 +73,14 @@ export function missingLooks(common: Todo[], wanted: any[], have: { has(k: strin
   return out;
 }
 export const fixedTodos = (jobs: ArtJob[]): Todo[] => jobs.map((j) => ({ spec: j.spec, label: j.dest.replace(/^\/art\//, ''), group: j.group, dest: j.dest }));
+
+// Why the image service would refuse a new drawing right now (null when it would not): drawing off, the provider locked, today's money used up, or this instance's hourly limit.
+// Asked from the same numbers request() uses (lib/imagegen.ts), so the owner sees the real reason instead of a button that seems to do nothing.
+export type Blocked = { why: 'off' | 'locked' | 'budget' | 'hour'; detail?: string } | null;
+export function blockedBy(P: { enabled: boolean }, i: { locked?: string; budget?: { spentUsd: number; capUsd: number }; hour?: { items: number; itemMax: number } }): Blocked {
+  if (!P.enabled) return { why: 'off' };
+  if (i.locked) return { why: 'locked', detail: String(i.locked).slice(0, 120) };
+  if (i.budget && i.budget.spentUsd >= i.budget.capUsd) return { why: 'budget' };
+  if (i.hour && i.hour.items >= i.hour.itemMax) return { why: 'hour' };
+  return null;
+}

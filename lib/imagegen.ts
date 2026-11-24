@@ -361,6 +361,8 @@ async function refPicture(r: any, pri: number): Promise<{ status: Result['status
   const id = idFromUrl(rr.url!);
   return (await hasImage(id)) ? { status: 'ready', id } : { status: 'pending' };
 }
+// How many pictures of one kind (item icons, or everything else) one server instance starts per hour.
+const hourMax = (isItem: boolean, paid: boolean) => Number(isItem ? process.env.IMAGE_ITEM_MAX_PER_HOUR || (paid ? 150 : 200) : process.env.IMAGE_MAX_PER_HOUR || (paid ? 40 : 200));
 export async function request(spec: any): Promise<Result> {
   const P = provider();
   let plan: Plan;
@@ -407,7 +409,7 @@ export async function request(spec: any): Promise<Result> {
   const hourAgo = Date.now() - 3600 * 1000;
   S.started = S.started.filter((x) => x.t > hourAgo);
   const isItem = plan.kind === 'item';
-  const max = Number(isItem ? process.env.IMAGE_ITEM_MAX_PER_HOUR || (P.paid ? 150 : 200) : process.env.IMAGE_MAX_PER_HOUR || (P.paid ? 40 : 200));
+  const max = hourMax(isItem, P.paid);
   if (S.started.filter((x) => x.item === isItem).length + S.queue.filter((x) => (x.kind === 'item') === isItem).length >= max) return limited();
   // Another server instance may already be drawing this picture (the claim is in the database): then it is simply "pending" here too.
   if (!(await claimJob(id))) return { status: 'pending' };
@@ -434,5 +436,7 @@ export async function canDraw(): Promise<boolean> {
 }
 export async function info() {
   const P = provider();
-  return { enabled: P.enabled, provider: P.name, ...(P.name === 'fal' ? falModels() : {}), ...(S.locked && S.locked.until > Date.now() ? { locked: S.locked.reason } : {}), ...(P.paid ? { budget: await imageBudget() } : {}), queued: S.queue.length, running: S.running, minIntervalSec: P.minIntervalMs / 1000 };
+  return { enabled: P.enabled, provider: P.name, ...(P.name === 'fal' ? falModels() : {}), ...(S.locked && S.locked.until > Date.now() ? { locked: S.locked.reason } : {}), ...(P.paid ? { budget: await imageBudget() } : {}), queued: S.queue.length, running: S.running, minIntervalSec: P.minIntervalMs / 1000,
+    // item icons started or waiting in the last hour on this instance, against the limit (the reason a press can stop with "limited")
+    hour: { items: S.started.filter((x) => x.item && x.t > Date.now() - 3600 * 1000).length + S.queue.filter((x) => x.kind === 'item').length, itemMax: hourMax(true, P.paid) } };
 }

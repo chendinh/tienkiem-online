@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import { idFromUrl, info, provider, request, estimateCost } from '@/lib/imagegen';
 import { indexImage } from '@/lib/server/imageindex';
 import { drawStatus, forgetDrawnArt } from '@/lib/server/artstatus';
-import { artKey, ART_GROUPS, DRAW_POINTS, takeBatch, type Todo, type TodoGroup } from '@/lib/artjobs';
+import { artKey, ART_GROUPS, DRAW_POINTS, takeBatch, blockedBy, type Blocked, type Todo, type TodoGroup } from '@/lib/artjobs';
 import { STYLE_VERSION } from '@/lib/imageprompt';
 import { json, readBody, guard } from '@/lib/server/http';
 import { ApiError } from '@/lib/server/auth';
@@ -32,7 +32,7 @@ async function status() {
     names, batch: batch.length, batchCost: cost(batch), totalCost: cost(s.todo),
     provider: { name: P.name, enabled: P.enabled, paid: P.paid, ...(i.locked ? { locked: String(i.locked).slice(0, 120) } : {}) },
     budget: i.budget ? { spent: r2(i.budget.spentUsd), cap: r2(i.budget.capUsd) } : null,
-    queued: i.queued, running: i.running,
+    queued: i.queued, running: i.running, hour: i.hour, blocked: blockedBy(P, i),
   };
 }
 
@@ -52,11 +52,12 @@ export async function POST(req: Request) {
     const todo = s.art.listOk ? s.todo : s.todo.filter((t) => t.group === 'looks');
     if (!todo.length && !s.art.listOk) throw new ApiError('E_NO_ART_LIST', 409);
     const out = { linked: 0, started: 0, limited: 0, failed: 0 }, live: Todo[] = [];
+    let reason: Blocked = null;
     for (const t of takeBatch(todo)) {
       const res = await request(specOf(t));
       if (res.status === 'ready' && res.url) { try { await link(t, res.url); out.linked++; } catch { out.failed++; } }
       else if (res.status === 'pending') { out.started++; live.push(t); }
-      else if (res.status === 'limited' || res.status === 'disabled') { out.limited++; break; }   // no credit, a locked provider or the hourly cap: the rest would be refused too
+      else if (res.status === 'limited' || res.status === 'disabled') { out.limited++; reason = blockedBy(P, await info()) || { why: 'hour' }; break; }   // no credit, a locked provider or the hourly cap: the rest would be refused too
       else out.failed++;
     }
     forgetDrawnArt();
@@ -77,6 +78,6 @@ export async function POST(req: Request) {
       }
       forgetDrawnArt();
     });
-    return json({ ok: true, ...out, points: DRAW_POINTS });
+    return json({ ok: true, ...out, reason, points: DRAW_POINTS });
   });
 }

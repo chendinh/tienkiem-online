@@ -188,9 +188,17 @@ function Redraw({ adminKey }: { adminKey: string }) {
 interface ArtStat {
   total: number; shipped: number; drawn: number; missing: number; looks: number; listOk: boolean; groups: { group: string; missing: number }[]; names: string[];
   batch: number; batchCost: number; totalCost: number; provider: { name: string; enabled: boolean; paid: boolean; locked?: string }; budget: { spent: number; cap: number } | null; queued: number; running: number;
+  hour?: { items: number; itemMax: number }; blocked: { why: string; detail?: string } | null;
 }
 const ART_GROUP_VN: Record<string, string> = { looks: 'Biểu tượng vũ khí và trang bị', intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp' };
 const ART_ERR: Record<string, string> = { E_IMAGE_OFF: 'Dịch vụ vẽ ảnh đang tắt (đặt IMAGE_PROVIDER và khóa của nhà cung cấp).', E_NO_ART_LIST: 'Không đọc được danh sách ảnh có sẵn nên không vẽ, để khỏi trả tiền vẽ lại ảnh đã có.', E_AUTH: 'Sai khóa.', E_RATE_LIMIT: 'Nhập sai quá nhiều lần, chờ một lát.' };
+// Why the server will not draw right now, in words (the image budget is per day, UTC: it starts again at 7 o'clock in the morning in Vietnam).
+function whyNot(b: { why: string; detail?: string }, st: Pick<ArtStat, 'budget' | 'hour'>): string {
+  if (b.why === 'budget') return `Hôm nay đã dùng hết hạn mức vẽ ảnh${st.budget ? ` (${usd(st.budget.spent)} trên ${usd(st.budget.cap)})` : ''}. Hạn mức tính theo ngày và làm mới lúc 7 giờ sáng giờ Việt Nam. Muốn vẽ tiếp ngay thì nâng IMAGE_BUDGET_USD trên Vercel rồi deploy lại.`;
+  if (b.why === 'locked') return `Nhà cung cấp ảnh đang tạm khóa${b.detail ? `: ${b.detail}` : ''}. Chờ ít phút hoặc kiểm tra số dư fal.`;
+  if (b.why === 'off') return 'Dịch vụ vẽ ảnh đang tắt (đặt IMAGE_PROVIDER và khóa của nhà cung cấp).';
+  return `Máy chủ này đã bắt đầu vẽ ${st.hour ? `${num(st.hour.items)} trên ${num(st.hour.itemMax)}` : 'tối đa'} biểu tượng trong một giờ qua. Chờ vài phút rồi bấm lại, hoặc nâng IMAGE_ITEM_MAX_PER_HOUR trên Vercel.`;
+}
 function ArtDraw({ adminKey }: { adminKey: string }) {
   const [st, setSt] = useState<ArtStat | null>(null), [sure, setSure] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState(''), [err, setErr] = useState('');
   const [watch, setWatch] = useState(0);   // keep looking until this time (ms) after a press: the pictures are drawn one by one in the background
@@ -211,7 +219,7 @@ function ArtDraw({ adminKey }: { adminKey: string }) {
       const r = await fetch('/api/admin/art', { method: 'POST', headers: hdr, body: '{}' });
       const j = await r.json().catch(() => ({}));
       if (r.ok && j.ok) {
-        const parts = [j.started ? `Đang vẽ ${j.started} ảnh (mỗi ảnh vài chục giây, trang tự cập nhật; có thể rời trang, máy chủ vẫn vẽ tiếp)` : '', j.linked ? `${j.linked} ảnh đã vẽ từ trước, đã nối vào` : '', j.limited ? 'dừng vì hết hạn mức tiền hoặc hạn mức mỗi giờ, xem mục Chi phí AI' : '', j.failed ? `${j.failed} ảnh lỗi, bấm lại sau` : ''].filter(Boolean);
+        const parts = [j.started ? `Đang vẽ ${j.started} ảnh (mỗi ảnh vài giây, trang tự cập nhật; có thể rời trang, máy chủ vẫn vẽ tiếp)` : '', j.linked ? `${j.linked} ảnh đã vẽ từ trước, đã nối vào` : '', j.limited ? `dừng: ${j.reason ? whyNot(j.reason, st || { budget: null }) : 'hết hạn mức vẽ'}` : '', j.failed ? `${j.failed} ảnh lỗi, bấm lại sau` : ''].filter(Boolean);
         setMsg(parts.length ? parts.join('. ') + '.' : 'Không có gì để vẽ.');
         if (j.started) setWatch(Date.now() + 6 * 60e3);
       } else setErr(ART_ERR[j.code] || 'Không làm được. Thử lại.');
@@ -227,13 +235,12 @@ function ArtDraw({ adminKey }: { adminKey: string }) {
         <>
           <div className="rp-kpis">
             <Kpi label="Còn thiếu" value={num(st.missing)} sub={`${num(st.looks)} biểu tượng vũ khí, trang bị · ${num(st.missing - st.looks)} ảnh cố định`} tone={st.missing ? 'warn' : 'jade'} />
-            <Kpi label="Ước tính tiền vẽ hết" value={usd(st.totalCost)} sub={st.budget ? `còn ${usd(Math.max(0, st.budget.cap - st.budget.spent))} trong hạn mức` : st.provider.paid ? '' : 'nhà cung cấp miễn phí'} />
+            <Kpi label="Ước tính tiền vẽ hết" value={usd(st.totalCost)} sub={st.budget ? `hôm nay đã dùng ${usd(st.budget.spent)} trên hạn mức ${usd(st.budget.cap)}` : st.provider.paid ? '' : 'nhà cung cấp miễn phí'} />
           </div>
           {st.groups.length > 0 && <Table head={['Nhóm', 'Còn thiếu']} rows={st.groups.map((g) => [ART_GROUP_VN[g.group] || g.group, num(g.missing)])} />}
-          {!st.provider.enabled && <p className="formErr">Dịch vụ vẽ ảnh đang tắt.</p>}
-          {st.provider.locked && <p className="formErr">Nhà cung cấp đang tạm khóa: {st.provider.locked}</p>}
+          {st.blocked && <p className="formErr" role="alert">{whyNot(st.blocked, st)}</p>}
           {drawing && <p className="muted" role="status">Đang vẽ… còn thiếu {num(st.missing)} ảnh (hàng đợi {num(st.queued)}, đang vẽ {num(st.running)}).</p>}
-          <p><button className="btn big" disabled={busy || !st.missing || !st.provider.enabled || !st.listOk} onClick={go}>
+          <p><button className="btn big" disabled={busy || !st.missing || !st.provider.enabled || !st.listOk || (!!st.blocked && st.blocked.why !== 'hour')} onClick={go}>
             {st.missing === 0 ? 'Không còn ảnh nào thiếu' : sure ? `Bấm lần nữa: vẽ ${num(st.batch)} ảnh (khoảng ${usd(st.batchCost)})` : `Vẽ ${num(st.batch)} ảnh còn thiếu`}
           </button></p>
           <small className="muted">Mỗi lần bấm vẽ khoảng 24 biểu tượng nhỏ hoặc 12 ảnh lớn, bấm tiếp cho tới khi hết. Tiền tính vào hạn mức ảnh AI (IMAGE_BUDGET_USD); hết hạn mức thì dừng. Ví dụ đang thiếu: {st.names.join(', ') || 'không có'}.</small>
