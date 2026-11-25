@@ -8,7 +8,7 @@ import { Icon } from './ds/Icon';
 import { ElIcon, SlotIcon } from './Icons';
 import { Img, ItemIcon, fmt } from './ui';
 import type { Act } from './Panels';
-import { DoneSeal, afterPaint, useFin } from './JobDone';
+import { DoneSeal, afterPaint, keepInView, useFin } from './JobDone';
 import { useCue } from './fx/Cue';
 
 // Tìm đồ: the first kind of job in Công việc (components/Jobs.tsx). A buyer stays until everything asked has been handed over, and the player gives what there is ("có bao nhiêu đưa bấy nhiêu").
@@ -56,6 +56,7 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
   };
   const choose = (part: number, id: number) => setSel((cur) => { const n = { ...cur }; if (n[part] === id) delete n[part]; else n[part] = id; return n; });
   const give = async (o: O.Order, ids: number[], slot: number, card: Element | null, closing: boolean, pay: number) => {
+    keepInView(card);   // the picker folds and the new buyer comes: the card stays in view
     const gift = o.extra ? `${o.extra.n} ${O.extraName(o.extra)}` : undefined;
     const seal = (stones: number) => { mark(slot, { stones, gift }); afterPaint(() => cue.jobDone(card, `+${fmt(stones)} Linh Thạch`)); };
     if (closing) seal(pay);   // the last piece: the seal starts in the same screen update as the new numbers, the sound on the next paint

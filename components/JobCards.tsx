@@ -12,7 +12,7 @@ import { askConfirm } from './ds/Dialog';
 import { ElIcon } from './Icons';
 import { BeastArt, Img, fmt } from './ui';
 import type { Act } from './Panels';
-import { DoneSeal, afterPaint, useFin, type Fin } from './JobDone';
+import { DoneSeal, afterPaint, keepInView, useFin, type Fin } from './JobDone';
 import { useCue } from './fx/Cue';
 
 // Tìm thú, Đặt đan and Nguyên liệu: the three kinds of Công việc that ask for a NUMBER of something (the rules are in lib/jobs.ts and lib/game.ts fillJob).
@@ -77,6 +77,7 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
   const toggle = (id: number) => setSel((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < left ? [...cur, id] : cur));
   const give = async (card: Element | null) => {
     // This hand-over finishes the job: the seal starts in the same screen update as the new numbers (waiting for the answer put it one whole redraw late)
+    keepInView(card);   // the picker folds and the new buyer comes: the card stays in view
     const closing = full, rankNow = J.RANKED.includes(j.type) && J.rankOf(J.doneOf(st.jobs, j.type) + 1) > J.rankOf(J.doneOf(st.jobs, j.type)) ? J.rankOf(J.doneOf(st.jobs, j.type) + 1) : undefined;
     if (closing) finish.done(pay, card, rankNow);
     const r = await act('fillJob', j.type === 'beast' ? { id: j.id, ids: sel } : { id: j.id, n: take });

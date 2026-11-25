@@ -248,10 +248,32 @@ test('HP pills heal by grade and are refused at full HP (Requirement 24.12)', ()
   assert.equal(G.useHpPill(st, 1).code, 'E_NO_STOCK');
 });
 test('Auto_Pill picks the pill that fits the missing health (Requirement 3.10, changed: it now works right after a fight, see the auto pills test below)', () => {
+  const st = fresh(6); st.set.mode = 'adventure'; st.set.autoPill = true; st.inv.hp = [2, 5, 5];
+  st.player.hp = 1;
+  G.autoHeal(st);
+  assert.equal(st.inv.hp[2], 4, 'only the biggest pill fills what was missing'); assert.equal(st.inv.hp[0], 2); assert.equal(st.player.hp, G.pstats(st).maxHp);
+});
+test('no auto pill in Bế Quan: health comes back by itself there and nothing is fought (2026-11-26)', () => {
   const st = fresh(6); st.set.mode = 'retreat'; st.set.autoPill = true; st.inv.hp = [2, 5, 5];
   st.player.hp = 1;
   G.settle(st, 1);
-  assert.equal(st.inv.hp[2], 4, 'only the biggest pill fills what was missing'); assert.equal(st.inv.hp[0], 2); assert.equal(st.player.hp, G.pstats(st).maxHp);
+  assert.deepEqual(st.inv.hp, [2, 5, 5], 'no pill used'); assert.ok(st.player.hp > 1, 'healed by the retreat');
+});
+test('smart auto pills: a big pill is kept for a big wound, a small wound gets a grade 1 pill (bought if none is left) (2026-11-26)', () => {
+  const st = fresh(723), S = G.pstats(st);
+  st.set.mode = 'adventure'; st.set.autoBuyPill = true; st.stones = 10000; st.inv.hp = [0, 3, 0];
+  st.player.hp = S.maxHp - Math.floor(S.maxHp * 0.2);   // 20%: a grade 2 pill (60%) would be mostly wasted
+  G.autoHeal(st);
+  assert.equal(st.inv.hp[1], 3, 'the grade 2 pills are kept'); assert.equal(st.player.hp, S.maxHp, 'healed'); assert.equal(st.stones, 10000 - Math.ceil(B.shop.hp[0] * B.autoBuy.markup), 'with one bought grade 1 pill');
+  st.player.hp = S.maxHp - Math.floor(S.maxHp * 0.5);   // 50%: the grade 2 pill fits
+  G.autoHeal(st); assert.equal(st.inv.hp[1], 2);
+  st.set.autoBuyPill = false; st.player.hp = S.maxHp - Math.floor(S.maxHp * 0.2);
+  G.autoHeal(st); assert.equal(st.inv.hp[1], 2, 'no cheap pill to be had: the big one is still not wasted');
+});
+test('Hồi Khí Đan found on the road: 10% of a drop roll, one or two pills, of the zone grade (2026-11-26)', () => {
+  const pe = C.DROP_TABLE.find((e) => e.kind === 'pill')! as Extract<C.DropEntry, { kind: 'pill' }>;
+  assert.equal(pe.w / C.DROP_TABLE.reduce((a, e) => a + e.w, 0), 0.1); assert.deepEqual(pe.q, [1, 2]);
+  assert.deepEqual(C.ZONES.map((z) => z.pill), [0, 0, 1, 1, 2, 2]);
 });
 test('release value follows the formula (Requirement 24.8)', () => {
   const st = fresh(6);
@@ -977,7 +999,7 @@ test('a taming the player answers by hand also lands in the journey with its res
   assert.match(row.text, /Dị Biến/);
 });
 test('plain (Phàm) items and items dissolved by the setting are shown in the journey too', () => {
-  const st = fresh(962); st.set.autoEquip = false; st.set.dissolveMax = 5;   // a seed whose journey meets a Phàm item early (items are 20% of the drops)
+  const st = fresh(978); st.set.autoEquip = false; st.set.dissolveMax = 5;   // a seed whose journey meets a Phàm item early (items are 20% of the drops; 962 until the pill drop changed)
   for (let i = 0; i < 400 && !st.feed.some((e) => e.kind === 'item' && e.item && e.item.tier === 0); i++) G.tick(st);
   const plain = st.feed.find((e) => e.kind === 'item' && e.item && e.item.tier === 0);
   assert.ok(plain, 'a Phàm item has its row');

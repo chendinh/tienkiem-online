@@ -233,8 +233,9 @@ export type DropEntry =
   | { kind: 'pill'; w: number; grade: number; q: [number, number] } | { kind: 'material'; w: number; q: [number, number] } | { kind: 'none'; w: number };
 export const DROP_TABLE: DropEntry[] = [
   // 100 in all, so each weight is its percentage. Items were 34 (and "none" 30): items are 20 now and the 14 points went to "none", the other rewards are unchanged.
+  // Hồi Khí Đan: 3% of one pill until 2026-11-26, now 10% of one or two (the 7 points came from "none"); its grade is the zone's (Zone.pill), never below this one.
   { kind: 'item', w: 20 }, { kind: 'stones', w: 16, q: [1, 4] }, { kind: 'taming', w: 3, grade: 0, q: [1, 1] },
-  { kind: 'pill', w: 3, grade: 0, q: [1, 1] }, { kind: 'material', w: 14, q: [1, 2] }, { kind: 'none', w: 44 },
+  { kind: 'pill', w: 10, grade: 0, q: [1, 2] }, { kind: 'material', w: 14, q: [1, 2] }, { kind: 'none', w: 37 },
 ];
 
 // ---------- Zone_Phenomenon (Thiên Địa Dị Tượng). Only these fields may change (Requirement 6.11): cult factor, Luck bonus, Encounter_Type weights, species weights.
@@ -254,28 +255,29 @@ export const PHENOMENA: Phenomenon[] = [
 // ---------- Zone (Khu Vực)
 export interface Zone {
   id: string; name: string; blurb: string; lv: [number, number]; minLevel: number; density: number;
+  pill: number;   // the grade of the Hồi Khí Đan that drops here (0 = hạng 1): two zones per grade
   enc: { monster: number; npc: number; resource: number; event: number };
   species: Record<string, number>; materials: { id: string; w: number; q: [number, number] }[]; events: string[];
   phen: { id: string; w: number }[]; drop: DropEntry[];
 }
 const ALL_EVENTS = EVENTS.map((e) => e.id);
 export const ZONES: Zone[] = [
-  { id: 'thanhvan', name: 'Thanh Vân Sơn Cốc', blurb: 'Thung lũng mù sương dưới chân núi, nơi mọi đạo đồ bắt đầu.', lv: [1, 5], minLevel: 1, density: 1.0,
+  { id: 'thanhvan', name: 'Thanh Vân Sơn Cốc', blurb: 'Thung lũng mù sương dưới chân núi, nơi mọi đạo đồ bắt đầu.', lv: [1, 5], minLevel: 1, pill: 0, density: 1.0,
     enc: { monster: 60, npc: 15, resource: 15, event: 10 }, species: { ho: 3, loc: 3, am: 2, duong: 2, tho: 3, hung: 1, kimtam: 2, thiem: 2, chi: 2, cua: 1, hoaque: 2, chuidat: 2, doi: 1, tuocduong: 2, dienthu: 1, nhim: 1, trucxa: 1, hoathu: 1, chuon: 1, koi: 1 },
     materials: [{ id: 'linhthao', w: 3, q: [1, 4] }, { id: 'truc', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'linhkhi', w: 2 }, { id: 'suong', w: 2 }, { id: 'thaodiep', w: 2 }, { id: 'linhcan', w: 2 }], drop: DROP_TABLE },
-  { id: 'hannguyet', name: 'Hàn Nguyệt Lâm', blurb: 'Rừng trúc dưới trăng lạnh, yêu thú hệ Âm và Thủy lui tới.', lv: [4, 9], minLevel: 4, density: 1.15,
+  { id: 'hannguyet', name: 'Hàn Nguyệt Lâm', blurb: 'Rừng trúc dưới trăng lạnh, yêu thú hệ Âm và Thủy lui tới.', lv: [4, 9], minLevel: 4, pill: 0, density: 1.15,
     enc: { monster: 60, npc: 15, resource: 15, event: 10 }, species: { am: 4, giao: 2, loc: 2, duong: 1, xa: 3, diep: 3, lang: 1, hung: 2, doi: 3, hao: 3, chuam: 2, coc: 2, koi: 2, cua: 2, haima: 2, uyenuong: 2, trucxa: 2, chi: 1, mocnguu: 1, quyma: 1, kimhau: 1, thuyduong: 1 },
     materials: [{ id: 'truc', w: 3, q: [1, 4] }, { id: 'ngoc', w: 2, q: [1, 3] }], events: ALL_EVENTS, phen: [{ id: 'nguyet', w: 4 }, { id: 'tinhvan', w: 2 }, { id: 'suong', w: 2 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
-  { id: 'xichviem', name: 'Xích Viêm Cốc', blurb: 'Hẻm núi lửa nóng rẫy, nơi Hỏa và Kim hội tụ.', lv: [8, 13], minLevel: 8, density: 1.3,
+  { id: 'xichviem', name: 'Xích Viêm Cốc', blurb: 'Hẻm núi lửa nóng rẫy, nơi Hỏa và Kim hội tụ.', lv: [8, 13], minLevel: 8, pill: 1, density: 1.3,
     enc: { monster: 62, npc: 14, resource: 14, event: 10 }, species: { ho: 4, bang: 3, quy: 2, giao: 1, phuong: 3, te: 3, lang: 2, hoathu: 2, tichdich: 3, xichma: 2, khuyen: 3, hoaque: 1, yet: 3, tenle: 2, nhim: 2, thietbao: 2, kimhau: 1, kimchu: 2, chuclong: 1, dedai: 2, gaduong: 1 },
     materials: [{ id: 'hoatinh', w: 3, q: [1, 3] }, { id: 'ngoc', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'linhkhi', w: 3 }, { id: 'tinhvan', w: 2 }, { id: 'thaodiep', w: 1 }, { id: 'ngungtre', w: 2 }, { id: 'yeukhi', w: 1 }], drop: DROP_TABLE },
-  { id: 'loivan', name: 'Lôi Vân Cao Nguyên', blurb: 'Cao nguyên mây đen sấm động, Lôi Kỳ Lân thường xuất hiện.', lv: [12, 17], minLevel: 12, density: 1.5,
+  { id: 'loivan', name: 'Lôi Vân Cao Nguyên', blurb: 'Cao nguyên mây đen sấm động, Lôi Kỳ Lân thường xuất hiện.', lv: [12, 17], minLevel: 12, pill: 1, density: 1.5,
     enc: { monster: 65, npc: 13, resource: 12, event: 10 }, species: { loi: 4, bang: 2, duong: 2, quy: 2, ung: 3, su: 2, te: 1, dienthu: 3, loibao: 3, chuon: 2, loinguu: 3, loiman: 2, kimchu: 1, bachho: 2, thanma: 2, thuyduong: 2, gaduong: 2, kiemngu: 1, mocnguu: 1, voi: 1, dangmang: 1, dedai: 1, thienloi: 1, kimo: 1 },
     materials: [{ id: 'loitinh', w: 3, q: [1, 3] }, { id: 'hoatinh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'loivan', w: 4 }, { id: 'tinhvan', w: 2 }, { id: 'linhkhi', w: 2 }, { id: 'linhcan', w: 2 }], drop: DROP_TABLE },
-  { id: 'cuuu', name: 'Cửu U Hư Không', blurb: 'Vùng đất ranh giới Âm Dương, nguy hiểm nhưng linh khí dồi dào.', lv: [16, 20], minLevel: 16, density: 1.8,
+  { id: 'cuuu', name: 'Cửu U Hư Không', blurb: 'Vùng đất ranh giới Âm Dương, nguy hiểm nhưng linh khí dồi dào.', lv: [16, 20], minLevel: 16, pill: 2, density: 1.8,
     enc: { monster: 65, npc: 15, resource: 10, event: 10 }, species: { am: 3, duong: 3, loi: 2, bang: 2, ho: 1, kinh: 2, su: 2, diep: 2, phuong: 1, quyma: 3, hacbao: 3, hao: 1, coc: 1, kimo: 2, bachtrach: 2, thuy: 2, thanma: 1, bachho: 1, kimlong: 1, thienloi: 1, chuclong: 1, muc: 2, sa: 2, voi: 2, dangmang: 2, thiencay: 1, loiman: 1, kiemngu: 2 },
     materials: [{ id: 'uminh', w: 3, q: [1, 3] }, { id: 'loitinh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'nguyet', w: 3 }, { id: 'linhkhi', w: 3 }, { id: 'loivan', w: 2 }, { id: 'ngungtre', w: 2 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
-  { id: 'tinhha', name: 'Tinh Hà Hư Cảnh', blurb: 'Dòng sông sao vỡ nát giữa hư không, nơi Luyện Hư Tu Sĩ luyện hóa hư vô thành đạo.', lv: [20, 24], minLevel: 20, density: 2.1,
+  { id: 'tinhha', name: 'Tinh Hà Hư Cảnh', blurb: 'Dòng sông sao vỡ nát giữa hư không, nơi Luyện Hư Tu Sĩ luyện hóa hư vô thành đạo.', lv: [20, 24], minLevel: 20, pill: 2, density: 2.1,
     enc: { monster: 66, npc: 15, resource: 9, event: 10 }, species: { am: 2, duong: 2, loi: 2, bang: 2, kinh: 2, su: 2, phuong: 2, quyma: 2, hacbao: 2, kimo: 3, bachtrach: 2, thuy: 2, thanma: 2, bachho: 2, kimlong: 3, thienloi: 2, chuclong: 2, muc: 1, sa: 1, voi: 1, dangmang: 1, thiencay: 2, loiman: 1, kiemngu: 2 },
     materials: [{ id: 'tinhsa', w: 3, q: [1, 3] }, { id: 'uminh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'tinhvan', w: 3 }, { id: 'linhkhi', w: 3 }, { id: 'nguyet', w: 2 }, { id: 'loivan', w: 2 }, { id: 'ngungtre', w: 1 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
 ];

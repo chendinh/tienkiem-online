@@ -14,7 +14,7 @@ import { ModalClose } from './ds/ModalClose';
 import { ElIcon } from './Icons';
 import { BeastArt, ElChip, Img, LookTag, PanZoom, SizeMeter, fmt } from './ui';
 import type { Act } from './Panels';
-import { DoneSeal, afterPaint, useFin, type Fin } from './JobDone';
+import { DoneSeal, afterPaint, keepInView, useFin, type Fin } from './JobDone';
 import { useCue } from './fx/Cue';
 
 // Thú đi làm: the sixth kind of Công việc (rules in lib/work.ts and lib/game.ts workSend, workCollect). A posting cannot be sent away and a creature at work cannot be called back: both stay until the work is done and collected. Collecting runs on the screen at once; sending waits for the server.
@@ -113,7 +113,7 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
     else { done(); onErr(r.msg); }
   };
   const collect = async (card: Element | null) => {
-    onErr('');
+    onErr(''); keepInView(card);   // the card turns into the next posting: it stays in view
     finish.done(p.stones, WK.goodsText(p), card);   // the seal is stamped in the same screen update; the real figure follows
     const r = await act('workCollect', { id: p.id });
     if (!r.ok) { finish.undo(); onErr(r.msg); return; }

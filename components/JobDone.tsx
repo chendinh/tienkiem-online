@@ -34,6 +34,32 @@ export function useFin() {
   const clear = useCallback((slot: number) => setFin((cur) => { if (!cur[slot]) return cur; const c = { ...cur }; delete c[slot]; return c; }), []);
   return { fin, mark, patch, clear };
 }
+/** Keep the card of a hand-over where the player is looking (2026-11-26: "bị giật đi chỗ khác"). A hand-over moves the list under the finger: the picker of creatures folds up,
+ *  the error line above goes away, the done card turns into "khách mới đang tới" and the new buyer takes its place a tick later; Safari on the iPhone has no scroll anchoring,
+ *  so each of those threw the view onto other cards. While it holds, every change of size puts the card back: its top where it was when tapped, never above the top of the
+ *  window, and the whole card in view when it fits. Nothing moves until the layout changes. It lets go when the player touches or scrolls, when the card leaves the screen
+ *  (another tab), or after `ms` (enough for the new buyer of the next tick). Called in the tap, before any screen update. */
+let letGo: (() => void) | null = null;
+export function keepInView(card: Element | null, ms = 15000) {
+  letGo?.();
+  const box = card?.closest('.jobsScroll') as HTMLElement | null, inner = box?.firstElementChild;
+  if (!card || !box || !inner || typeof ResizeObserver === 'undefined') return;
+  const at = card.getBoundingClientRect().top, size = () => `${card.getBoundingClientRect().height}|${inner.getBoundingClientRect().height}`, first = size();
+  let moved = false;
+  const fit = () => {
+    if (!card.isConnected) { stop(); return; }
+    if (!moved) { if (size() === first) return; moved = true; }
+    const r = card.getBoundingClientRect(), v = box.getBoundingClientRect(), pad = 10;
+    const top = r.height > v.height - 2 * pad ? v.top + pad : Math.min(Math.max(at, v.top + pad), v.bottom - pad - r.height);
+    if (Math.abs(r.top - top) > 0.5) box.scrollTop += r.top - top;
+  };
+  const ro = new ResizeObserver(fit), ends = ['touchstart', 'wheel', 'keydown'] as const;
+  const stop = () => { ro.disconnect(); clearTimeout(t); for (const e of ends) box.removeEventListener(e, stop); if (letGo === stop) letGo = null; };
+  const t = setTimeout(stop, ms);
+  ro.observe(card); ro.observe(inner);
+  for (const e of ends) box.addEventListener(e, stop, { passive: true });
+  letGo = stop;
+}
 /** A sound and a floating line for something that was just drawn: they wait for the next paint, so the picture is never held back by building audio nodes. */
 export const afterPaint = (f: () => void) => { if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => f()); else f(); };
 

@@ -539,12 +539,16 @@ function autoTalisman(st: GameState, m: Beast, chips: string[]): number {
 }
 export function autoHeal(st: GameState, rep?: Report) {
   const S = pstats(st), p = st.player, used: number[] = [0, 0, 0], bought = { n: 0, cost: 0 };
+  if (st.set.mode !== 'adventure') return;   // Bế Quan heals 4% a tick and fights nothing: a pill there was thrown away (2026-11-26)
   for (let n = 0; n < 12 && p.hp < S.maxHp; n++) {
     const missing = S.maxHp - p.hp, amt = (i: number) => Math.floor(B.pillRestore[i] * S.maxHp);
     let g = -1;
     for (let i = 0; i < 3; i++) if (st.inv.hp[i] > 0 && amt(i) >= missing) { g = i; break; }
     if (g < 0) for (let i = 2; i >= 0; i--) if (st.inv.hp[i] > 0) { g = i; break; }
-    if (g < 0 && st.set.autoBuyPill) g = autoBuyPill(st, missing, amt, bought);   // no pill left: buy the one that fits this Level
+    // Smart (2026-11-26): a big pill that would be mostly wasted on a small wound is kept for a big one; the wound gets a cheap grade 1 pill (bought if
+    // none is left). Before, it was left unhealed, and with only grade 2 pills found in the bag the character went into the next fights half hurt.
+    if (g > 0 && missing < B.pillMinUse * amt(g)) g = -1;
+    if (g < 0 && st.set.autoBuyPill) g = autoBuyPill(st, missing, amt, bought);   // nothing fitting is left: buy the cheapest pill for the health it gives
     if (g < 0 || missing < B.pillMinUse * amt(g)) break;
     st.inv.hp[g]--; applyHpPill(st, g); used[g]++; if (rep) rep.used.hp++;
   }
@@ -1521,7 +1525,7 @@ function dropOnce(st: GameState, zone: C.Zone, srcLevel: number, luckBonus: numb
     case 'item': { const it = genItem(st, srcLevel, undefined, undefined, luckBonus); giveItem(st, it, rep, from); taskHit(st, { kind: 'item', tier: it.tier, slot: it.slot, base: it.base }, rep); break; }
     case 'stones': { const x = earn(st, int(g, 'loot', e.q[0], e.q[1]) * Math.max(1, Math.floor(srcLevel / 2)), 'drop', rep); chips.push(`+${x} Linh Thạch`); break; }
     case 'taming': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.taming[e.grade] += x; if (rep) rep.gain.taming += x; chips.push(`+${x} Khế Ước Phù`); break; }
-    case 'pill': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.hp[e.grade] += x; if (rep) rep.gain.hp += x; chips.push(`+${x} Hồi Khí Đan`); break; }
+    case 'pill': { const x = int(g, 'loot', e.q[0], e.q[1]), gr = Math.min(2, Math.max(e.grade, zone.pill ?? 0)); st.inv.hp[gr] += x; if (rep) rep.gain.hp += x; chips.push(`+${x} Hồi Khí Đan${gr ? ` hạng ${gr + 1}` : ''}`); break; }   // the grade is the zone's (Zone.pill)
     case 'material': { const m = zone.materials[weighted(g, 'loot', zone.materials.map((x) => x.w))]; const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.mat[m.id] = (st.inv.mat[m.id] || 0) + x; if (rep) rep.mats[m.id] = (rep.mats[m.id] || 0) + x; chips.push(`+${x} ${C.MAT(m.id).name}`); break; }
     default: break;
   }
