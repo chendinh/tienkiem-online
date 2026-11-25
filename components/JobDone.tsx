@@ -1,9 +1,12 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from './ds/Icon';
+import { CutImg } from './CutImg';
 import { fmt } from './ui';
 
-// The moment a job (Công việc) is handed over in full: a green seal "Hoàn thành" is stamped on the card and says what came of it, for about three seconds.
+// The moment a job (Công việc) is handed over in full: a red cinnabar seal "Hoàn Thành" is stamped on the card like an elder's mark on a scroll, and says what came of it, for about
+// three seconds. The seal is a picture drawn by AI (ui_seal_done in lib/content.ts, cut out by scripts/thumbs.ts) with the words written over it; until it is drawn the same seal is
+// made of CSS (sealPlate), so the look is the same family either way.
 // It starts in the SAME screen update as the hand-over (the card that asks for it knows the job is complete before the rules answer), and the sound waits for the first paint of it.
 // The card of the slot stays where it is (the lists are keyed by slot, not by buyer), so the server's new buyer takes its place under the seal and shows when the seal fades.
 // The seal is a plain overlay that only enters, so with motion switched off it simply shows, and the timers below remove it.
@@ -37,7 +40,11 @@ export const afterPaint = (f: () => void) => { if (typeof requestAnimationFrame 
 export function DoneSeal({ f }: { f: Fin }) {
   return (
     <div className={`jobSeal${f.leaving ? ' leaving' : ''}`} role="status" aria-live="polite">
-      <div className="sealMark"><i className="sealRing" aria-hidden="true" /><Icon name="check" size={22} /><b>Hoàn thành</b></div>
+      <div className="sealMark">
+        <i className="sealRing" aria-hidden="true" />
+        <CutImg id="seal_done" className="sealImg" fb={<i className="sealPlate" aria-hidden="true" />} />
+        <b><span>Hoàn</span><span>Thành</span></b>
+      </div>
       <div className="sealGain">
         <span><Icon name="stone" size={15} /> +{fmt(f.stones)} Linh Thạch</span>
         {f.gift && <span>+ {f.gift}</span>}
