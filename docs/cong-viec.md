@@ -124,19 +124,30 @@ Chỗ duy nhất trong Công việc để **ngắm**. Người chơi bày 3 đ�
 - `app/ds/expo.css`: giao diện sân khấu, mây, sương, khí. Các khách đi xa mờ chạy bằng CSS không dừng (rút ngẫu nhiên lúc mở tab), mọi vòng lặp tắt theo `data-fx='off'`.
 - Test: `tests/expo.test.ts` (luật, thu nhập, khóa món, đường bay).
 
-### Hình vẽ AI cho Triển lãm (của riêng game)
+### Năm biểu cảm (vẽ bằng code) và hình vẽ AI (của riêng game)
 
-Bảy hình, đều là `ui_*` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`, vẽ trên nền đen:
+Năm biểu cảm là emoji đơn giản vẽ bằng SVG trong `components/ReactIcon.tsx`, không có ảnh nào để vẽ hay tải, nhìn rõ cả ở cỡ 18 px. Mỗi biểu cảm một hình khác hẳn nhau, và màu đỏ chỉ dành cho mặt ghét:
 
-- `ui_react_love|wow|like|sad|angry`: năm mặt cảm xúc. Màu chia theo nóng và lạnh để không bao giờ có hai màu đỏ: mê = hồng đào, mắt trái tim; ngạc nhiên = vàng hổ phách, mắt tròn miệng tròn; thích = xanh ngọc, ngón cái giơ lên; thất vọng = xanh xám, rơi một giọt lệ; chê = tím mận đậm, cau mày, có khói bốc lên. Hàng năm mặt trong tab Triển lãm luôn hiện đủ năm mặt theo thứ tự từ tốt đến xấu kèm số đếm (mặt chưa có lần nào thì mờ đi), nên cũng là bảng chú giải.
-- `ui_expo_stand`: bệ đá tròn dưới mỗi món bày (mây phía sau bệ vẽ bằng CSS).
+| Biểu cảm | Hình | Khi nào |
+|---|---|---|
+| Mê (`love`) | trái tim hồng | từ 5 điểm, trả nhiều Linh Thạch nhất và có thể tặng quà |
+| Ngạc nhiên (`wow`) | mặt vàng mắt sao, cười toe | 4 điểm, trả Linh Thạch và có thể tặng quà |
+| Bình thường (`like`) | mặt vàng cười nhẹ | 3 điểm, trả ít Linh Thạch |
+| Nhăn mặt (`sad`) | mặt vàng nhắm tịt mắt, mếu, một giọt mồ hôi | 1 điểm, không trả gì |
+| Ghét (`angry`) | mặt đỏ cau mày | 0 điểm trở xuống, không trả gì |
+
+Khách được đúng 2 điểm thì lặng thinh, không hiện gì. Hàng năm biểu cảm trong tab Triển lãm luôn hiện đủ, theo thứ tự từ tốt đến xấu kèm số đếm (cái nào chưa có lần nào thì mờ đi), nên cũng là bảng chú giải. Vòng sáng và tia lửa lúc khách phản ứng lấy đúng màu của biểu cảm (`RCOL` trong `ExpoScene.tsx`).
+
+Hai hình còn lại do AI vẽ, đều là `ui_*` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`, vẽ trên nền đen:
+
+- `ui_expo_stand`: bệ đá dưới mỗi món bày. Là một phiến đá granite xám nhạt thật, tròn và mỏng (cao chỉ bằng khoảng một phần năm bề ngang), không vàng, không kim loại (mây phía sau bệ vẽ bằng CSS).
 - `ui_expo_chest`: hòm quà.
 
-Vẽ một lần (khoảng 7 ảnh, 0,35 USD):
+Vẽ một lần (2 ảnh, khoảng 0,1 USD). Nếu đã vẽ bệ cũ thì xoá `public/art/ui/expo_stand.jpg` và `public/art/ui/cut/expo_stand.png` trước, vì pregen chỉ vẽ ảnh còn thiếu:
 
     npm run pregen -- --only shop
 
-hoặc workflow "Draw missing art". `npm run pregen` chạy `npm run thumbs` sau khi vẽ: thumbs cắt nền đen thành `public/art/ui/cut/{id}.png` (bệ và hòm 288 px, mặt cảm xúc 96 px). Màn hình dùng ảnh đã cắt (`C.cutArt`, `components/CutImg.tsx`). Chưa có ảnh thì tự vẽ hình tạm: bệ đá tròn bằng CSS, hòm bằng biểu tượng, năm mặt tròn bằng SVG cùng màu, nên tính năng chạy được ngay.
+hoặc workflow "Draw missing art". `npm run pregen` chạy `npm run thumbs` sau khi vẽ: thumbs cắt nền đen thành `public/art/ui/cut/{id}.png` (bệ và hòm 288 px). Màn hình dùng ảnh đã cắt (`C.cutArt`, `components/CutImg.tsx`). Chưa có ảnh thì tự vẽ hình tạm: bệ đá mỏng bằng CSS, hòm bằng biểu tượng, nên tính năng chạy được ngay.
 
 ### Khách bay (cảm giác)
 

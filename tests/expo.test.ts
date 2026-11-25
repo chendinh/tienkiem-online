@@ -309,21 +309,13 @@ test('expofly: a coin or a gift lands on the chest and rises on the way', () => 
   assert.ok(FL.arcAt(a, FL.CHEST_AT, 0.5).y < (a.y + FL.CHEST_AT.y) / 2);
 });
 
-// ---- the five faces: drawn once like the other fixed pictures, with a prompt of their own
+// ---- the five looks are emoji drawn in code; the stand and the chest are drawn once like the other fixed pictures
 import { artJobs } from '../lib/artjobs';
 import { buildPlan } from '../lib/imageprompt';
-test('expo: the five reaction faces are in the fixed pictures to draw, each with its own prompt', () => {
-  const jobs = artJobs('shop');
-  const seeds = new Set<number>();
-  for (const r of XP.REACTIONS) {
-    const j = jobs.find((x) => x.dest === C.reactArt(r));
-    assert.ok(j, `${r} is drawn by pregen`);
-    const p = buildPlan(j!.spec);
-    assert.ok(p.prompt.length > 50 && p.prompt.includes('original'));
-    seeds.add(p.seed);
-  }
-  assert.equal(seeds.size, 5, 'each face has its own seed');
-  assert.equal(new Set(XP.REACTIONS.map((r) => C.reactArt(r))).size, 5);
+test('expo: the five looks are plain emoji drawn in code, so there is no picture of them to draw', () => {
+  assert.equal(XP.REACTIONS.length, 5);
+  assert.equal(Object.keys(C.PROP_EN).filter((k) => k.startsWith('ui_react_')).length, 0);
+  assert.equal(artJobs('shop').filter((j) => j.dest.includes('react_')).length, 0);
 });
 
 test('expo: the stone stand and the chest are drawn too, seen from a little above, and cut out for the stage', () => {
@@ -336,4 +328,12 @@ test('expo: the stone stand and the chest are drawn too, seen from a little abov
     assert.ok(!p.prompt.includes('orthographic'), 'not the flat front view of the medallions');
     assert.equal(C.cutArt(id), `/art/ui/cut/${id}.png`);
   }
+  assert.equal(artJobs('shop').filter((j) => j.dest.includes('expo_')).length, 2, 'only the stand and the chest are drawn for Triển Lãm');
+});
+
+test('expo: the stone stand is a thin slab of real stone, not a gilded drum', () => {
+  const t = C.PROP_EN.ui_expo_stand;
+  assert.ok(/thin/.test(t) && /granite/.test(t) && /one fifth as tall/.test(t), 'a low disc of granite');
+  assert.ok(/no gold/.test(t), 'no gold');
+  assert.ok(!/gold band|marble|drum/.test(t));
 });

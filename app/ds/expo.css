@@ -40,10 +40,17 @@
       radial-gradient(ellipse 24% 66% at 34% 50%, #fff, rgb(255 255 255 / 0) 74%),
       radial-gradient(ellipse 26% 70% at 62% 54%, #fff, rgb(255 255 255 / 0) 74%),
       radial-gradient(ellipse 18% 48% at 86% 60%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0) 74%); }
-  .xPedImg { position: absolute; left: 0; bottom: 6px; width: 100%; height: auto; display: block; }
-  .xStone { position: absolute; left: 50%; bottom: 8px; width: 72px; height: 38px; margin-left: -36px; }
-  .xStone::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; bottom: 0; border-radius: 0 0 50% 50% / 0 0 42% 42%; background: linear-gradient(90deg, #a5acbf, #e6e9f1 28%, #f7f8fc 50%, #d0d5e2 74%, #868da3); box-shadow: inset 0 -3px 0 rgb(80 88 112 / 0.35); }
-  .xStone::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24px; border-radius: 50%; background: radial-gradient(ellipse at 50% 42%, #fdfdff, #dfe3ee 62%, #b4bbcd); box-shadow: 0 0 0 1.5px #d9b45e, 0 0 14px color-mix(in srgb, var(--rc, #ffd36b) 65%, transparent); }
+  .xPedImg { position: absolute; left: 0; bottom: 14px; width: 100%; height: auto; display: block; }
+  /* the stand until its picture is drawn: a thin round slab of grey granite (a flat top with speckles, a narrow chiselled edge), no gold */
+  .xStone { position: absolute; left: 50%; bottom: 14px; width: 98px; height: 32px; margin-left: -49px; }
+  .xStone::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; bottom: 0; border-radius: 0 0 50% 50% / 0 0 62% 62%; background: linear-gradient(90deg, #5d5a54, #98948b 24%, #aeaaa0 48%, #8c887f 74%, #55524c); box-shadow: inset 0 -2px 0 rgb(30 28 24 / 0.4); }
+  .xStone::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24px; border-radius: 50%; background:
+    radial-gradient(circle at 24% 46%, rgb(255 255 255 / 0.3) 0 1.2px, transparent 2px),
+    radial-gradient(circle at 41% 62%, rgb(50 46 40 / 0.35) 0 1.4px, transparent 2.4px),
+    radial-gradient(circle at 63% 38%, rgb(255 255 255 / 0.26) 0 1px, transparent 1.8px),
+    radial-gradient(circle at 78% 58%, rgb(50 46 40 / 0.3) 0 1.2px, transparent 2.2px),
+    radial-gradient(ellipse at 50% 36%, transparent 44%, rgb(70 66 60 / 0.22) 46% 48%, transparent 50%),
+    radial-gradient(ellipse at 46% 34%, #d9d5ca, #bcb8ad 62%, #928e84); box-shadow: 0 0 0 1px rgb(60 56 50 / 0.7), 0 0 12px color-mix(in srgb, var(--rc, #ffd36b) 50%, transparent); }
   .xStand.empty .xPed { opacity: 0.78; }
   .xAura { position: absolute; left: 50%; top: 4px; width: 84px; height: 84px; margin-left: -42px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--rc, #ffd36b) 55%, transparent), rgb(0 0 0 / 0) 68%); opacity: 0.55; pointer-events: none; animation: xAura 4.2s ease-in-out infinite; animation-delay: var(--dl, 0s); }
   @keyframes xAura { 0%, 100% { opacity: 0.38; transform: scale(0.92); } 50% { opacity: 0.8; transform: scale(1.06); } }
@@ -57,7 +64,7 @@
   .xStand.on .itIcon { box-shadow: 0 0 14px -2px var(--rc, #ffd36b); }
   .xTally { position: absolute; left: 50%; top: 100%; display: flex; gap: 3px; margin-top: 7px; transform: translateX(-50%); pointer-events: none; }
   .xTally span { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px 1px 2px; border-radius: 999px; background: rgb(14 18 48 / 0.78); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums; }
-  .xFace { display: block; width: 100%; height: 100%; border-radius: 50%; }
+  .xFace { display: block; width: 100%; height: 100%; overflow: visible; }
   .xTally .xFace { width: 18px; height: 18px; flex: none; }
 
   /* the chest that keeps what visitors leave */
@@ -89,7 +96,6 @@
 
   .xBub, .xRing, .xSpark, .xCoin, .xGift { position: absolute; left: 0; top: 0; z-index: 7; opacity: 0; pointer-events: none; will-change: transform, opacity; }
   .xBub { width: 34px; height: 34px; filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.55)); }
-  .xBub .xFace { box-shadow: 0 0 0 2px rgb(255 255 255 / 0.18); }
   .xRing { z-index: 6; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--c, #ffd36b); box-shadow: 0 0 14px var(--c, #ffd36b), inset 0 0 12px var(--c, #ffd36b); }
   .xSpark { z-index: 6; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(circle, #fff, var(--c, #ffe28a) 50%, rgb(255 226 138 / 0) 74%); }
   .xCoin { z-index: 7; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6cf, #f2c24e 55%, #a97a1c); box-shadow: 0 0 8px rgb(255 214 110 / 0.9); }

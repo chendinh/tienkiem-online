@@ -18,7 +18,7 @@ import { useFx } from './fx/FxProvider';
 // plan of lib/expofly.ts: it flies in, hovers beside each stand it looks at (the sword rocks up and down), a round face pops over its head (no words: love, wow, like, sad, angry), a ring and some
 // sparks answer on the stand, Linh Thạch coins and the gift arc into the chest, and it leaves. Everything that moves is a Web Animation on transform and opacity, made once when the visitor appears:
 // React does not draw a single frame of it. A page that wants calm (prefers-reduced-motion, effects off) gets the still stage and no visitors; the tallies under each stand and the chest still tell what happened.
-const RCOL: Record<XP.Reaction, string> = { love: '#ff7aa8', wow: '#ffc94a', like: '#5fe0a4', sad: '#8a9bd8', angry: '#c0507a' };   // warm and bright for the good looks, cool and dark for the bad ones
+const RCOL: Record<XP.Reaction, string> = { love: '#ff6fb0', wow: '#ffb02e', like: '#ffd95a', sad: '#9aa6d6', angry: '#ef4a2a' };   // the colour of each emoji (components/ReactIcon.tsx): the glow and sparks of a look match its face
 const GIFT_COL = { weapon: '#ff9a4a', pill: '#5fe0a4', book: '#b58cff' } as const;
 const MAX_LIVE = 4;   // visitors on the stage at once (one comes about every 5 seconds and a visit lasts 3 to 10, so two or three at a time is usual)
 

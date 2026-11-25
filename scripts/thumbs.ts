@@ -29,7 +29,7 @@ const root = path.join(process.cwd(), 'public');
     for (let p = 0; p < W * H; p++) if (seen[p]) data[p * 4 + 3] = 0;
     fs.mkdirSync(path.dirname(to), { recursive: true });
     const wide = id.startsWith('btn') || id.startsWith('lbl');
-    await sharp(data, { raw: { width: W, height: H, channels: 4 } }).trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 10 }).resize(wide ? 420 : id.startsWith('expo_') ? 288 : id.startsWith('react_') ? 96 : 160, undefined, { fit: 'inside' }).png({ compressionLevel: 9, palette: false }).toFile(to);
+    await sharp(data, { raw: { width: W, height: H, channels: 4 } }).trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 10 }).resize(wide ? 420 : id.startsWith('expo_') ? 288 : 160, undefined, { fit: 'inside' }).png({ compressionLevel: 9, palette: false }).toFile(to);
     made++; bytesFrom += fs.statSync(from).size; bytesTo += fs.statSync(to).size;
   }
   console.log(made ? `${made} thumbnails: ${(bytesFrom / 1024).toFixed(0)} KB of originals -> ${(bytesTo / 1024).toFixed(0)} KB` : 'thumbnails are up to date');
