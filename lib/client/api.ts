@@ -43,7 +43,7 @@ export async function gameGet(logsSince = 0): Promise<ServerOut> {
 }
 export async function gameAct(body: any): Promise<ServerOut> {
   const withId = { rid: rid(), ...body };
-  const { status, j } = await retrying(() => send('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withId) }, 8000), 3);   // 3 tries of 8 s at most: the player hears back within ~30 s, not minutes
+  const { status, j } = await retrying(() => send('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withId), keepalive: true }, 8000), 3);   // keepalive: a click is still delivered when the phone puts the page away right after it   // 3 tries of 8 s at most: the player hears back within ~30 s, not minutes
   if (status === 401) return { ok: false, code: 'E_AUTH', state: null };
   return j;
 }

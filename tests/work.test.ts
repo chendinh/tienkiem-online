@@ -4,7 +4,7 @@ import * as G from '../lib/game';
 import * as WK from '../lib/work';
 import * as J from '../lib/jobs';
 import * as C from '../lib/content';
-import { PURE_INTENTS } from '../lib/intents';
+import { PURE_INTENTS, SERVER_FIRST } from '../lib/intents';
 
 const T0 = 1_800_000_000_000;
 const fresh = (seed = 42, realm = 2, sub = 1) => { const st = G.newGame(seed, 'f', T0); st.player.realm = realm; st.player.sub = sub; G.settle(st, 1); return st; };   // one tick makes the board
@@ -167,4 +167,18 @@ test('work: the words: what is asked, in plain Vietnamese', () => {
   assert.match(WK.askText({ sp: sp.id, minLv: 9 }), /từ cấp 9/); assert.match(WK.askText({ mut: true, el: 'Thủy' }), /Dị Biến hệ Thủy/); assert.match(WK.askText({ mut: true, sp: sp.id }), /Dị Biến/);
   assert.equal(WK.askArt({ el: 'Hỏa' }), ''); assert.ok(WK.askArt({ sp: sp.id }).length > 0);
   const st = fresh(20); for (const p of st.work!.list) { assert.ok(p.job.length > 3); assert.ok(WK.lineOf(p).length > 10); }
+});
+
+test('work: sending a creature waits for the server, which runs the same handler', () => {
+  // the screen does not do it ahead of the server (so a refusal is told, never a creature that just vanishes), but the server table must know it
+  assert.ok(SERVER_FIRST.has('workSend'));
+  for (const t of SERVER_FIRST) assert.equal(typeof PURE_INTENTS[t], 'function', `${t} is run by the server from PURE_INTENTS`);
+  // the same body the browser sends ({ type, rid, id, beast }) works through the handler table, and what it sets survives a save and a later settle
+  const st = fresh(61), p = st.work!.list.find((x) => x.tier === 0)!, b = workerFor(st, p);
+  const body = JSON.parse(JSON.stringify({ type: 'workSend', rid: 'r-12345678', id: p.id, beast: b.id }));
+  const saved = JSON.parse(JSON.stringify(st)) as G.GameState;
+  const w = structuredClone(saved); const r = PURE_INTENTS.workSend(w, body); assert.ok(r.ok, r.msg);
+  const again = JSON.parse(JSON.stringify(w)) as G.GameState; G.settleTo(again, again.clock + 3 * 3600_000);
+  const q = again.work!.list.find((x) => x.id === p.id); assert.ok(q && q.beast === b.id, 'the creature is still at the posting');
+  assert.ok(again.beasts.some((x) => x.id === b.id), 'and still in the pen');
 });

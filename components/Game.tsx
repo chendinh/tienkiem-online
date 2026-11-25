@@ -30,7 +30,7 @@ import { Logo, Lockup } from './Logo';
 import { ElIcon } from './Icons';
 import { BattleLog, battleSummary } from './Battle';
 import * as G from '@/lib/game';
-import { PURE_INTENTS, decideIsPure } from '@/lib/intents';
+import { PURE_INTENTS, SERVER_FIRST, decideIsPure } from '@/lib/intents';
 import { LoadingNote } from './LoadingNote';
 import { BattleStage } from './BattleStage';
 import { Icon } from './ds/Icon';
@@ -472,7 +472,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     const closeAsk = (s: G.GameState, b: any): G.Res => (s.decision && s.decision.id === b.id ? ((s.decision = null), G.ok('')) : G.fail('E_NO_DECISION'));
     const pure = type === 'decide' ? (decideIsPure(payload) ? (s: G.GameState, b: any) => G.decide(s, b) : payload && (payload.choice === 'tame' || payload.choice === 'fight') ? closeAsk : undefined) : PURE_INTENTS[type];
     const st = stRef.current;
-    if (!pure || !st) return actNet(type, payload);
+    if (!pure || !st || SERVER_FIRST.has(type)) return actNet(type, payload);
     const f = forkState(st), r = pure(f as unknown as G.GameState, payload);
     if (!r.ok) return { ok: false, msg: r.msg, code: r.code, data: r.data };
     if (!optQ.current.length && !optRun.current) optBase.current = st;

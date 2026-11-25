@@ -7,6 +7,10 @@ export type PureHandler = (st: G.GameState, b: any) => G.Res;
 const int = (x: any) => Number.isInteger(x);
 const bad = () => G.fail('E_BAD_REQUEST');
 
+/** Actions the screen does not do ahead of the server: the player waits for the answer (the card shows it on its way) and is told the reason when it is refused.
+ *  For what sends something away for a long time (a creature sent to work): a refusal must never look like the creature just vanished. The server runs the same handler from PURE_INTENTS. */
+export const SERVER_FIRST: ReadonlySet<string> = new Set(['workSend']);
+
 export const PURE_INTENTS: Record<string, PureHandler> = {
   mode: (st, b) => G.setMode(st, b.mode),
   zone: (st, b) => G.setZone(st, b.zone),

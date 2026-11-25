@@ -12,5 +12,21 @@
   .wkWorkerTx { display: grid; min-width: 0; }
   .wkWorkerTx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); }
   .wkWorkerTx small { color: var(--text-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-  .wkCard .jobBar i { transition: width 4s linear; }
+  .wkCard .jobBar i { transition: width 4s linear; position: relative; overflow: hidden; }
+  /* A creature at work: it bobs a little and a light runs along the bar. The creature that has just been sent steps in with a ring; both settle by themselves. Only transform and opacity move. */
+  .wkBob { display: inline-flex; position: relative; flex: none; }
+  .wkCard.run .wkBob { animation: wkBob 1.8s ease-in-out infinite alternate; }
+  .wkCard.run .jobBar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent); transform: translateX(-100%); animation: wkSheen 2.2s ease-in-out infinite; }
+  .wkWorker.go { animation: wkStep 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+  .wkWorker.go .wkBob::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--gold-300); opacity: 0; animation: wkRing 0.9s ease-out infinite; }
+  .wkCard.ready .wkBob { animation: wkPop 0.5s ease-out both; }
+  @keyframes wkBob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+  @keyframes wkSheen { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  @keyframes wkStep { from { opacity: 0; transform: translateX(-18px) scale(0.92); } to { opacity: 1; transform: none; } }
+  @keyframes wkRing { from { opacity: 0.9; transform: scale(0.7); } to { opacity: 0; transform: scale(1.7); } }
+  @keyframes wkPop { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+  /* the calm level keeps the one-time step, never the loops; "off" and reduced motion keep nothing moving */
+  :root[data-fx='low'] .wkCard .wkBob, :root[data-fx='low'] .wkCard .jobBar i::after { animation: none; }
+  :root[data-fx='off'] .wkCard .wkBob, :root[data-fx='off'] .wkCard .jobBar i::after, :root[data-fx='off'] .wkWorker.go, :root[data-fx='off'] .wkWorker.go .wkBob::after { animation: none; }
+  @media (prefers-reduced-motion: reduce) { .wkCard .wkBob, .wkCard .jobBar i::after, .wkWorker.go, .wkWorker.go .wkBob::after { animation: none; } }
 }

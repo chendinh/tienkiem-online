@@ -28,6 +28,19 @@ export const workReady = (st: GS): number => {
   return list.filter((p) => { const s = WK.stageOf(p, st.clock); return s === 'ready' || (s === 'free' && st.beasts.some((b) => !booked.has(b.id) && !stands.has(b.id) && WK.fits(p.ask, b))); }).length;
 };
 
+// A creature sent to work waits for the server's answer (lib/intents.ts SERVER_FIRST). What is on its way and the last refusal are kept here, outside the cards, so closing the window or changing
+// the tab in the meantime forgets neither: the card shows the creature leaving, and a refusal is told in words instead of the creature just being gone.
+const going = new Map<string, number>();
+let failed = '', failTimer: ReturnType<typeof setTimeout> | undefined;
+const watchers = new Set<() => void>();
+const notify = () => watchers.forEach((f) => f());
+/** Say why something was refused (it fades after a while); '' clears it. */
+const tell = (m: string) => { failed = m; if (failTimer) clearTimeout(failTimer); failTimer = m ? setTimeout(() => tell(''), 10000) : undefined; notify(); };
+function useWatch(): void {
+  const [, force] = useState(0);
+  useEffect(() => { const f = () => force((n) => n + 1); watchers.add(f); return () => { watchers.delete(f); }; }, []);
+}
+
 /** The game clock now: the clock of the last state from the server, counted on with the phone's own clock (never compared with it, so a wrong phone clock changes nothing). Moves every few seconds only while something is working. */
 function useGameNow(clock: number, live: boolean): number {
   const at = useMemo(() => Date.now(), [clock]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -47,15 +60,21 @@ const stars = (t: WK.Tier) => (t === 3 ? '✦' : '★'.repeat(t + 1));
 type Finish = { done: (stones: number, gift: string, card: Element | null) => void; sure: (stones: number) => void; undo: () => void };
 function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act: Act; p: WK.Post; now: number; cands: Beast[]; fin?: Fin; finish: Finish; onErr: (m: string) => void }) {
   const [open, setOpen] = useState(false);
+  useWatch();
   useEffect(() => { setOpen(false); }, [p.id]);   // the card belongs to a place: when a new posting takes it, the list of creatures starts closed
-  const stage = WK.stageOf(p, st.clock), worker = p.beast !== undefined ? st.beasts.find((b) => b.id === p.beast) : undefined;
-  const total = p.secs * 1000, left = Math.max(0, (p.end ?? 0) - now), pct = p.start !== undefined && p.end !== undefined ? Math.min(100, Math.round((100 * (now - p.start)) / total)) : 0;
+  const sent = going.get(p.id), real = WK.stageOf(p, st.clock), leaving = real === 'free' && sent !== undefined ? st.beasts.find((b) => b.id === sent) : undefined;
+  const stage = leaving ? 'run' : real, worker = leaving || (p.beast !== undefined ? st.beasts.find((b) => b.id === p.beast) : undefined);
+  const total = p.secs * 1000, left = Math.max(0, (p.end ?? 0) - now), pct = leaving ? 0 : p.start !== undefined && p.end !== undefined ? Math.min(100, Math.round((100 * (now - p.start)) / total)) : 0;
   const gone = stage === 'gone';
 
   const send = async (b: Beast) => {
     setOpen(false); onErr('');
-    const r = await act('workSend', { id: p.id, beast: b.id });
-    if (!r.ok) onErr(r.msg);
+    going.set(p.id, b.id); notify();   // the card shows the creature leaving at once; the server's answer follows
+    const t0 = Date.now(), done = () => { going.delete(p.id); notify(); };
+    let r: Awaited<ReturnType<Act>>;
+    try { r = await act('workSend', { id: p.id, beast: b.id }); } catch { r = { ok: false, msg: 'Không gửi được, thử lại.' }; }
+    if (r.ok) setTimeout(done, Math.max(0, 900 - (Date.now() - t0)));   // the step-in and the ring are seen even when the answer is quick
+    else { done(); onErr(r.msg); }
   };
   const collect = async (card: Element | null) => {
     onErr('');
@@ -72,12 +91,12 @@ function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act:
   };
 
   return (
-    <div className={`ordCard jobCard wkCard w-${p.tier}${gone ? ' done' : ''}${fin ? ' sealed' : ''}${stage === 'ready' ? ' ready' : ''}`}>
+    <div className={`ordCard jobCard wkCard w-${p.tier}${gone ? ' done' : ''}${fin ? ' sealed' : ''}${stage === 'ready' ? ' ready' : ''}${stage === 'run' ? ' run' : ''}`}>
       {fin && <DoneSeal f={fin} />}
       <div className="ordHead">
         <Img src={C.buyerArt(p.who.arch, p.who.g)} className="ordFace" fb={<Icon name="scroll" size={26} />} />
         <div className="ordWho"><b>{p.who.name}</b><small>{p.who.arch} <span className={`wkTier t${p.tier}`} title={`Việc ${WK.TIER_NAME[p.tier].toLowerCase()}`}>{stars(p.tier)} {WK.TIER_NAME[p.tier]}</span></small></div>
-        {(stage === 'free' || stage === 'run') && <button type="button" className="ordX" aria-label={stage === 'run' ? 'Gọi Linh Thú về' : 'Từ chối việc này'} title={stage === 'run' ? 'Gọi Linh Thú về' : 'Từ chối việc này'} onClick={dismiss}><Icon name="close" size={14} /></button>}
+        {(stage === 'free' || stage === 'run') && !leaving && <button type="button" className="ordX" aria-label={stage === 'run' ? 'Gọi Linh Thú về' : 'Từ chối việc này'} title={stage === 'run' ? 'Gọi Linh Thú về' : 'Từ chối việc này'} onClick={dismiss}><Icon name="close" size={14} /></button>}
       </div>
       <p className="ordLine"><b className="wkJob">{p.job}</b> “{WK.lineOf(p)}”</p>
       <div className="jobAsk">
@@ -108,9 +127,9 @@ function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act:
       )}
       {(stage === 'run' || stage === 'ready') && (
         <>
-          <div className="wkWorker">
-            {worker ? <BeastArt b={worker} box={44} /> : <ElIcon el={WK.elOf(p.ask)} size={30} />}
-            <div className="wkWorkerTx"><b>{worker ? worker.name : 'Linh Thú'}</b><small>{stage === 'ready' ? 'Làm xong rồi' : left > 0 ? `Đang làm · còn ${WK.durText(left / 1000)}` : 'Sắp xong…'}</small></div>
+          <div className={`wkWorker${sent !== undefined ? ' go' : ''}`}>
+            <span className="wkBob">{worker ? <BeastArt b={worker} box={44} /> : <ElIcon el={WK.elOf(p.ask)} size={30} />}</span>
+            <div className="wkWorkerTx"><b>{worker ? worker.name : 'Linh Thú'}</b><small>{stage === 'ready' ? 'Làm xong rồi' : leaving ? 'Đang lên đường…' : left > 0 ? `Đang làm · còn ${WK.durText(left / 1000)}` : 'Sắp xong…'}</small></div>
           </div>
           <div className="jobBar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={stage === 'ready' ? 100 : pct}><i style={{ width: `${stage === 'ready' ? 100 : pct}%` }} /></div>
           {stage === 'ready' && <button type="button" className="btn hot" onClick={(e) => collect(e.currentTarget.closest('.ordCard'))}>Nhận thưởng · +{fmt(p.stones)}</button>}
@@ -122,7 +141,9 @@ function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act:
 }
 
 export function WorkPanel({ st, act }: { st: GS; act: Act }) {
-  const list = WK.postsOf(st.work), [err, setErr] = useState('');
+  const list = WK.postsOf(st.work);
+  useWatch();
+  const err = failed, setErr = tell;
   const { fin, mark, patch, clear } = useFin(), cue = useCue();
   const now = useGameNow(st.clock, list.some((p) => WK.stageOf(p, st.clock) === 'run'));
   const booked = useMemo(() => WK.bookedIds(st.work), [st.work]);
