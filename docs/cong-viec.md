@@ -20,7 +20,7 @@ Bảng khách luôn có 6 chỗ: 3 khách gom bộ, 2 khách lẻ, 1 khách quý
 
 - Khách **ở lại đến khi giao đủ**, không đổi theo ngày. Xong một khách thì chỗ đó có khách mới (máy chủ thay ở tick kế tiếp).
 - Giao nộp là "có bao nhiêu đưa bấy nhiêu": mỗi món giao được trả ngay và đánh dấu xong phần đó. Dừng giữa chừng không mất gì.
-- Nút ✕ trên thẻ là tiễn khách (khách cầu hạng cao mãi không có thì đổi khách khác). Tiền các món đã giao vẫn là của người chơi, chỉ mất phần thưởng đủ bộ và quà. Có hỏi lại nếu đã giao món nào.
+- Không có nút tiễn khách: khách ở lại đến khi giao đủ, người chơi không xoá việc để tìm việc mới được. Bản lưu cũ còn khách đã rời (`left`) vẫn được thay khách mới.
 - Đồ đang mặc và đồ đã khóa không giao được. Đồ trong túi và kho đều dùng được. Món mạnh hơn đồ đang mặc (▲) không được chọn sẵn.
 - Không có trần Linh Thạch riêng cho đơn. Mức kiếm được bị giới hạn bởi việc món rơi ra phải trùng đúng với một phần khách đang cần.
 
@@ -36,8 +36,8 @@ Bảng khách luôn có 6 chỗ: 3 khách gom bộ, 2 khách lẻ, 1 khách quý
 ### Cách chạy
 
 - `lib/orders.ts`: phần thuần, không dùng số ngẫu nhiên có trạng thái. `Board = { v: 2, n, list }` lưu trong save (`st.orders`). `makeOrder(i, n, seed, others, opt)` sinh khách cho chỗ `i` từ băm của seed và số thứ tự `n`, nên cùng seed luôn ra cùng khách. `others` giúp hai khách đang chờ không hỏi giống nhau. Save của phiên bản đầu (danh sách theo ngày) bị thay bằng bảng mới.
-- `lib/game.ts`: `ensureOrders` (gọi trong `tick`, chỉ chạy ở máy chủ vì cần seed; tạo bảng, hoặc thay khách đã xong hay đã rời), `fillOrder`, `dismissOrder`. `giveItem` (xuất ra để test) và `dissolveMany` dùng `keepNew` và `keepIds`.
-- `lib/intents.ts`: `fillOrder` và `dismissOrder` là intent thuần, trình duyệt chạy ngay như máy chủ, máy chủ có tiếng nói cuối. Trình duyệt chỉ đánh dấu khách xong, khách mới xuất hiện ở lần cập nhật kế tiếp từ máy chủ. `forkState` trong `components/Game.tsx` sao chép cả `orders`.
+- `lib/game.ts`: `ensureOrders` (gọi trong `tick`, chỉ chạy ở máy chủ vì cần seed; tạo bảng, hoặc thay khách đã xong hay đã rời), `fillOrder`. `giveItem` (xuất ra để test) và `dissolveMany` dùng `keepNew` và `keepIds`.
+- `lib/intents.ts`: `fillOrder` là intent thuần, trình duyệt chạy ngay như máy chủ, máy chủ có tiếng nói cuối. Trình duyệt chỉ đánh dấu khách xong, khách mới xuất hiện ở lần cập nhật kế tiếp từ máy chủ. `forkState` trong `components/Game.tsx` sao chép cả `orders`.
 - `components/Jobs.tsx`: cửa sổ Công việc và danh sách `JOB_KINDS`.
 - `components/Orders.tsx`: bảng của loại Tìm đồ. Mỗi thẻ có các ô cần giao (có dấu ✓ khi đã giao, số món hợp trong túi), "Giao nộp" mở danh sách món hợp từng phần (món yếu nhất, không phải đồ nâng cấp, được chọn sẵn), bấm Giao. Thành công không hiện thông báo.
 - `components/Equip.tsx`: nhãn trên ô túi và nút "Giao cho khách" trong cửa sổ món.
@@ -65,7 +65,7 @@ Mỗi loại tu sĩ (`C.NPC_TITLES`, 6 loại) có một ảnh nữ và một �
 
 ## Loại 2, 3, 4: Tìm thú, Đặt đan, Nguyên liệu
 
-Ba loại việc hỏi **một số lượng** của một thứ (khác Tìm đồ hỏi từng món). Luật chung giống Tìm đồ: khách ở lại đến khi giao đủ, "có bao nhiêu đưa bấy nhiêu", mỗi đơn vị giao được trả ngay, đủ hàng thì thưởng thêm và tặng quà, ✕ để tiễn khách, xong thì máy chủ thay khách mới ở tick kế tiếp. Bảng riêng `st.jobs = { v: 1, n, list }`, 6 chỗ theo `J.LAYOUT`: 2 khách thú, 2 khách đan, 2 khách nguyên liệu. Khách và chân dung dùng cùng cách đặt tên và bộ ảnh với Tìm đồ.
+Ba loại việc hỏi **một số lượng** của một thứ (khác Tìm đồ hỏi từng món). Luật chung giống Tìm đồ: khách ở lại đến khi giao đủ, "có bao nhiêu đưa bấy nhiêu", mỗi đơn vị giao được trả ngay, đủ hàng thì thưởng thêm và tặng quà (không tiễn khách được), xong thì máy chủ thay khách mới ở tick kế tiếp. Bảng riêng `st.jobs = { v: 1, n, list }`, 6 chỗ theo `J.LAYOUT`: 2 khách thú, 2 khách đan, 2 khách nguyên liệu. Khách và chân dung dùng cùng cách đặt tên và bộ ảnh với Tìm đồ.
 
 | Loại | Hỏi gì | Trả |
 | --- | --- | --- |
@@ -95,8 +95,8 @@ Làm mãi một vòng "gom nguyên liệu, luyện đan, giao đan" mà đơn c�
 ### Cách chạy
 
 - `lib/jobs.ts`: phần thuần. `makeJob(i, n, seed, others, { level })`, `newBoard`, `beastMatches`, `keepBeastIds`, `beastWantedBy`, `askText/askShort/askArt`. Hỏi gì phụ thuộc cấp người chơi (`speciesAt`, `matsAt`, `gradesAt`, theo các vùng đã mở), nên khách luôn hỏi thứ tìm được.
-- `lib/game.ts`: `ensureJobs` (trong `tick`, chỉ ở máy chủ), `fillJob(st, id, { ids | n })`, `dismissJob`.
-- `lib/intents.ts`: `fillJob` và `dismissJob` là intent thuần, chạy ngay ở trình duyệt. `forkState` trong `components/Game.tsx` sao chép `jobs`.
+- `lib/game.ts`: `ensureJobs` (trong `tick`, chỉ ở máy chủ), `fillJob(st, id, { ids | n })`.
+- `lib/intents.ts`: `fillJob` là intent thuần, chạy ngay ở trình duyệt. `forkState` trong `components/Game.tsx` sao chép `jobs`.
 - `components/JobCards.tsx`: thẻ khách chung cho cả ba loại, ba bảng `BeastJobs`, `PillJobs`, `MatJobs` (đăng ký trong `JOB_KINDS`), `readyCount` cho chấm vàng.
 - Test: `tests/jobs.test.ts`.
 

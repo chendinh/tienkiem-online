@@ -221,7 +221,7 @@ test('fillOrder: the stack cap stops the goods but not the order', () => {
   assert.equal(st.inv.trib, B.stackMax);
 });
 
-test('dismissOrder: the buyer leaves, what was handed over stays paid, and a new buyer takes the place on the next tick', () => {
+test('orders: a buyer that left (old saves only: nobody can be sent away now) keeps what was paid, and a new buyer takes the place on the next tick', () => {
   const st = fresh(11); G.settle(st, 3);
   const b = rank(st), n0 = b.n, set = b.list.find((o) => o.kind === 'set')!, i = b.list.indexOf(set);
   const first = set.parts[0].want;
@@ -230,9 +230,7 @@ test('dismissOrder: the buyer leaves, what was handed over stays paid, and a new
   assert.ok(G.fillOrder(st, set.id, [9001]).ok);
   const paid = set.paid, stones = st.stones;
   assert.ok(paid > 0);
-  assert.ok(G.dismissOrder(st, set.id).ok);
-  assert.ok(set.left);
-  assert.equal(G.dismissOrder(st, set.id).code, 'E_ORDER_GONE');
+  set.left = true;
   assert.equal(G.fillOrder(st, set.id, [1]).code, 'E_ORDER_GONE');
   assert.equal(st.stones, stones, 'nothing is taken back');
   G.settle(st, 2);
@@ -335,7 +333,8 @@ test('orders: the buyers survive the browser copy (forkState keeps `orders`)', (
 test('orders: the intents are registered as pure intents, so they run at once on the screen', async () => {
   const I = await import('../lib/intents');
   const names = Object.keys((I as any).PURE_INTENTS || {});
-  assert.ok(names.includes('fillOrder') && names.includes('dismissOrder'), names.join(','));
+  assert.ok(names.includes('fillOrder'), names.join(','));
+  assert.ok(!names.includes('dismissOrder'), 'a buyer cannot be sent away to find a new one');
 });
 
 test('orders: the portrait of each buyer is a fixed picture with its own file and a buildable prompt', () => {

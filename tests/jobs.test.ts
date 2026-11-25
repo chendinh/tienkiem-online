@@ -128,12 +128,12 @@ test('jobs: pills and materials are handed over by number, as many as there are 
   assert.ok(mat.done); assert.equal(st.inv.mat.truc, 15); assert.equal(st.inv.hp[0], 2);
 });
 
-test('jobs: a buyer that is done or sent away is replaced on the next tick and the others stay as they were', () => {
+test('jobs: a buyer that is done (or left, in an old save) is replaced on the next tick and the others stay as they were', () => {
   const st = fresh(12); G.settle(st, 3);
   assert.ok(J.isBoard(st.jobs), 'the board is made on the first ticks');
   const before = structuredClone(board(st));
   const j = board(st).list[2];
-  assert.ok(G.dismissJob(st, j.id).ok); assert.equal(G.dismissJob(st, j.id).code, 'E_JOB_GONE');
+  j.left = true;   // only old saves have buyers that left: there is no way to send one away any more
   G.settle(st, 1);
   const after = board(st);
   assert.notEqual(after.list[2].id, before.list[2].id); assert.ok(J.isOpen(after.list[2])); assert.equal(after.list[2].type, 'pill');
@@ -190,7 +190,8 @@ test('jobs: beasts and materials are paid more than selling them, but within a f
 test('jobs: the intents are registered as pure intents, so they run at once on the screen', async () => {
   const I = await import('../lib/intents');
   const names = Object.keys((I as any).PURE_INTENTS || {});
-  assert.ok(names.includes('fillJob') && names.includes('dismissJob'), names.join(','));
+  assert.ok(names.includes('fillJob'), names.join(','));
+  assert.ok(!names.includes('dismissJob'), 'a buyer cannot be sent away to find a new one');
 });
 
 test('jobs: the rank follows the jobs finished in a kind', () => {
@@ -238,9 +239,9 @@ test('jobs: finishing a buyer counts for its kind, a rank-up is told, and the ne
   const b2 = board(st), j2 = b2.list[at]; j2.got = j2.need - 1; st.inv.mat[(j2.ask as any).id] = 5;
   const r2 = G.fillJob(st, j2.id, { n: 1 });
   assert.ok(r2.ok && !('rankUp' in (r2.data as any)) && !/Lên bậc/.test(r2.msg), r2.msg); assert.equal(b2.done!.mat, 4);
-  // a dismissed buyer does not count; beasts count but have no rank
+  // a buyer that left (old saves) does not count; beasts count but have no rank
   const k = board(st).list.findIndex((x) => x.type === 'pill'); const before = JSON.stringify(board(st).done);
-  assert.ok(G.dismissJob(st, board(st).list[k].id).ok); assert.equal(JSON.stringify(board(st).done), before);
+  board(st).list[k].left = true; G.settle(st, 1); assert.equal(JSON.stringify(board(st).done), before);
   // a board saved before the counts existed still works
   const old = fresh(22); G.settle(old, 2); delete (board(old) as any).done;
   const m = board(old).list.find((x) => x.type === 'mat')!; m.got = m.need - 1; old.inv.mat[(m.ask as any).id] = 3;

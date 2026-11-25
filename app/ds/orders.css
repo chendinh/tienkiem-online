@@ -29,8 +29,6 @@
   .ordWho { min-width: 0; flex: 1; display: grid; }
   .ordWho b { font-family: var(--font-display); color: var(--gold-200); overflow-wrap: anywhere; }
   .ordWho small { color: var(--text-3); font-size: var(--fs-xs); }
-  .ordX { flex: none; align-self: flex-start; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--text-3); cursor: pointer; }
-  .ordX:hover, .ordX:focus-visible { color: var(--text-1); border-color: var(--line-gold); }
   .ordLine { margin: 0; font-style: italic; color: var(--mist-200); font-size: var(--fs-sm); line-height: 1.35; }
   .ordWant { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px var(--sp-3); }
   .ordWant b { color: var(--text-1); font-size: var(--fs-sm); }

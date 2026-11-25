@@ -5,7 +5,6 @@ import * as O from '@/lib/orders';
 import type { GS } from '@/lib/client/types';
 import { dissolveValue, type Item } from '@/lib/game';
 import { Icon } from './ds/Icon';
-import { askConfirm } from './ds/Dialog';
 import { ElIcon, SlotIcon } from './Icons';
 import { Img, ItemIcon, fmt } from './ui';
 import type { Act } from './Panels';
@@ -65,18 +64,11 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
     setOpen(null); setErr('');
     if (r.data && r.data.done) { if (closing) patch(slot, { stones: r.data.stones }); else seal(r.data.stones); }
   };
-  const sendAway = async (o: O.Order) => {
-    const { got } = O.progress(o);
-    if (got > 0 && !(await askConfirm({ title: 'Tiễn khách', body: `${o.who.name} đã nhận ${got} món từ ngươi. Tiễn đi thì mất phần thưởng đủ bộ và quà. Tiền các món đã giao vẫn là của ngươi.`, ok: 'Tiễn khách', danger: true }))) return;
-    if (open === o.id) setOpen(null);
-    const r = await act('dismissOrder', { id: o.id });
-    if (!r.ok) setErr(r.msg);
-  };
   const wasted = st.set.dissolveMax >= 0 && list.some((o) => O.isOpen(o) && o.parts.some((p) => !p.got && p.want.tier <= st.set.dissolveMax));
   if (!list.length) return <div className="empty">Khách đang tới Phường Thị, đợi vài giây rồi xem lại.</div>;
   return (
     <div className="ordPanel">
-      <div className="hint">Khách ở lại đến khi ngươi giao đủ. Mỗi món giao được trả ngay gấp nhiều lần giá phân giải, giao đủ thì thưởng thêm và có khách mới tới. Món khách cần có nhãn <Icon name="scroll" size={12} /> trong túi. Đồ thấp chỉ được hỏi theo bộ, đồ lẻ chỉ có hạng Địa và Thiên, kèm hệ hoặc cấp. Tự phân giải chừa lại một món cho mỗi phần khách cần, còn Dọn túi thì dọn hết như thường.</div>
+      <div className="hint">Khách ở lại đến khi ngươi giao đủ, không tiễn đi để đổi khách khác được. Mỗi món giao được trả ngay gấp nhiều lần giá phân giải, giao đủ thì thưởng thêm và có khách mới tới. Món khách cần có nhãn <Icon name="scroll" size={12} /> trong túi. Đồ thấp chỉ được hỏi theo bộ, đồ lẻ chỉ có hạng Địa và Thiên, kèm hệ hoặc cấp. Tự phân giải chừa lại một món cho mỗi phần khách cần, còn Dọn túi thì dọn hết như thường.</div>
       {wasted && <div className="hint ordWarn">Ngươi đang cài tự phân giải đồ hạng {C.RARITY[st.set.dissolveMax]} trở xuống. Món khách đang cần vẫn được chừa lại một cái cho mỗi phần, nhưng các món thừa khác thì mất.</div>}
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">
@@ -92,7 +84,6 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
               <div className="ordHead">
                 <Img src={C.buyerArt(o.who.arch, o.who.g)} className="ordFace" fb={<Icon name="scroll" size={26} />} />
                 <div className="ordWho"><b>{o.who.name}</b><small>{o.who.arch}{o.kind === 'vip' ? ' · khách quý' : o.kind === 'set' ? ' · gom cả bộ' : ''}</small></div>
-                {!gone && <button type="button" className="ordX" aria-label={`Tiễn ${o.who.name}`} title="Tiễn khách" onClick={() => sendAway(o)}><Icon name="close" size={14} /></button>}
               </div>
               <p className="ordLine">“{O.lineOf(o)}”</p>
               <div className="ordWant"><b>{O.wantText(o)}</b>{o.parts.length > 1 && <small>Đã giao {got}/{total}</small>}</div>

@@ -84,12 +84,6 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
     setOpen(false); onErr('');
     if (r.data && r.data.done) { if (closing) finish.sure(r.data.stones, r.data.rankUp); else finish.done(r.data.stones, card, r.data.rankUp); }
   };
-  const sendAway = async () => {
-    if (j.got > 0 && !(await askConfirm({ title: 'Tiễn khách', body: `${j.who.name} đã nhận ${j.got} từ ngươi. Tiễn đi thì mất phần thưởng đủ hàng và quà. Tiền phần đã giao vẫn là của ngươi.`, ok: 'Tiễn đi' }))) return;
-    setOpen(false);
-    const r = await act('dismissJob', { id: j.id });
-    if (!r.ok) onErr(r.msg);
-  };
   // a beast the player wants to hand over but that is in the Party or framed asks a second time
   const giveBeasts = async (card: Element | null) => {
     const risky = chosen.filter((b) => !spare(b));
@@ -103,7 +97,6 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
       <div className="ordHead">
         <Img src={C.buyerArt(j.who.arch, j.who.g)} className="ordFace" fb={<Icon name="scroll" size={26} />} />
         <div className="ordWho"><b>{j.who.name}</b><small>{j.who.arch}{J.RANKED.includes(j.type) ? ` · Đơn bậc ${(j.rank ?? 0) + 1}` : ''}</small></div>
-        {!gone && <button type="button" className="ordX" aria-label={`Tiễn ${j.who.name}`} title="Tiễn khách" onClick={sendAway}><Icon name="close" size={14} /></button>}
       </div>
       <p className="ordLine">“{J.lineOf(j)}”</p>
       <div className="jobAsk">
