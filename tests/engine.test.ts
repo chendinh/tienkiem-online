@@ -119,7 +119,8 @@ test('Luck only raises the odds of rare tiers and is capped (Requirement 20.12)'
   const p4 = (l: number) => G.tierProbs(l)[4];
   const rare = (l: number) => { const p = G.tierProbs(l); return p[4] + p[5]; };
   assert.ok(rare(0) < rare(50) && rare(50) < rare(100));
-  assert.ok(Math.abs(p4(0) - 49 / 19951) < 1e-9);
+  assert.ok(Math.abs(p4(0) - 49 / 19950) < 1e-9);
+  assert.ok(Math.abs(G.tierProbs(0)[5] - 1 / 19950) < 1e-9, 'Tiên: 1 in 19950 before pity (half of the old 2)');
 });
 test('Mutation and item pity reach a guarantee at the hard count (Requirement 10)', () => {
   assert.equal(G.pityP(1 / 4096, 12288, 4096, 12288), 1);
@@ -1239,8 +1240,8 @@ test('daily tasks: the engine counts what happens, pays once, and a new day brin
   assert.equal(st.tasks!.day, D.dayKey(st.clock)); assert.ok(st.tasks!.list.every((t) => !t.done && t.n === 0));
 });
 
-test('Thiên/Tiên drop event: Thiên +0.5%, Tiên +0.25% for real, announced as +1%, rarer windows', () => {
-  assert.equal(B.dropEventBonusThien, 0.005); assert.equal(B.dropEventBonusTien, 0.0025); assert.equal(B.dropEventShown, 0.01);
+test('Thiên/Tiên drop event: Thiên +0.5%, Tiên +0.125% for real, announced as +1%, rarer windows', () => {
+  assert.equal(B.dropEventBonusThien, 0.005); assert.equal(B.dropEventBonusTien, 0.00125); assert.equal(B.dropEventShown, 0.01);
   assert.ok(B.dropEventP <= 0.15);
   let slot = 0; while (!G.dropEventZone(slot)) slot++;
   const zone = G.dropEventZone(slot)!, inMs = slot * B.dropEventSlotSec * 1000 + 1000;
@@ -1253,7 +1254,7 @@ test('Thiên/Tiên drop event: Thiên +0.5%, Tiên +0.25% for real, announced as
   };
   const ev = count(inMs), plain = count(outMs);
   assert.ok(Math.abs(ev[0] / 60000 - (49 / 19451 + 0.005)) < 5 * sigma(60000, 0.0075) / 60000, `thien ${ev[0]}`);
-  assert.ok(ev[1] > 100 && ev[1] < 220, `tien ${ev[1]}`);   // about 0.25% of 60000 = 150
+  assert.ok(ev[1] > 45 && ev[1] < 125, `tien ${ev[1]}`);   // about 0.125% of 60000 = 75, plus the small base chance
   assert.ok(plain[1] < 30 && plain[0] < 250, `plain ${plain}`);
   assert.equal(G.eventsView(inMs, 1)[0].bonus, 0.01);
   let n = 0; for (let k = 0; k < 4000; k++) if (G.dropEventZone(k)) n++;

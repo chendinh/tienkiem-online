@@ -39,7 +39,7 @@ export const BALANCE = {
   dropEventP: 0.15,        // chance that a window holds an event (it was 0.25: too many)
   dropEventMonsterMult: 1.5,   // while the Thiên/Tiên drop event runs in the zone the player is in, the weight of meeting a Linh Thú is raised by 50% (Tu Sĩ and events come less often)
   dropEventBonusThien: 0.005,   // added to the chance that a drop is Thiên while the event runs in the zone the player is in
-  dropEventBonusTien: 0.0025,   // ...and to the chance that it is Tiên
+  dropEventBonusTien: 0.00125,  // ...and to the chance that it is Tiên (it was 0.0025: halved together with the Tiên weight)
   dropEventShown: 0.01,         // what the news and the zone tag tell the player ("+1%"); the real numbers are the two above
   questTame: 10,           // the daily quest: tame this many of the day's new creature...
   questCultPct: 0.05,      // ...and receive this share of the Tu Vi needed for the current Level
@@ -94,7 +94,7 @@ export const BALANCE = {
   maxPrefix: 3, maxSuffix: 3,
   affixCountByTier: [[0, 0], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] as [number, number][],
   rollFloorByTier: [0, 0, 0.1, 0.25, 0.45, 0.65],
-  rarityWeights: [12000, 5600, 1800, 500, 49, 2],   // Thiên (49) is half as common as before (it was 49 out of 10000); the other tiers keep their share
+  rarityWeights: [12000, 5600, 1800, 500, 49, 1],   // Thiên (49) is half as common as before (it was 49 out of 10000); Tiên (1) is half as common again (it was 2); the other tiers keep their share
   luckRarityGain: 0.005,
   luckCap: 100,
   itemLevelSpread: 2,
