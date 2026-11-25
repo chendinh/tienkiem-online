@@ -19,7 +19,21 @@
   .jobsTitle { flex: 1; min-width: 0; }
   .jobsTitle h2 { margin: 0; font-size: var(--fs-lg); line-height: 1.2; }
   .jobsTitle small { display: block; color: var(--text-3); font-size: var(--fs-xs); }
-  .jobsBar .xClose.static { width: 38px; height: 38px; }
+  /* the menu of kinds: only on a phone, where it takes the place of the row of tabs (which takes too much room there) */
+  .jobsMenuWrap { position: relative; flex: none; display: none; }
+  .jobsMenuBtn { position: relative; display: inline-flex; align-items: center; gap: 3px; height: 38px; padding: 0 9px 0 10px; border-radius: 19px; border: 1px solid var(--line-gold, var(--line)); background: radial-gradient(circle at 35% 28%, #2d6f61, #0a2a2a 80%); color: var(--gold-200); cursor: pointer; }
+  .jobsMenuBtn.on { border-color: var(--gold-300); box-shadow: 0 0 12px -2px var(--gold-300); }
+  .jobsMenuBtn .navDot { position: absolute; top: -2px; right: -2px; }
+  .jobsMenu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: min(240px, calc(100vw - 24px)); display: grid; gap: 2px; padding: 6px; border-radius: 14px 4px 14px 4px; border: 1px solid var(--line-gold, var(--line)); background: linear-gradient(180deg, #13262f, #0b171e); box-shadow: 0 14px 34px -10px rgb(0 0 0 / 0.85); animation: jobs-in 0.16s var(--ease-out) both; }
+  .jobsMenuIt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border-radius: 10px 3px 10px 3px; border: 0; background: transparent; color: var(--text-1); text-align: left; cursor: pointer; }
+  .jobsMenuIt:hover, .jobsMenuIt:focus-visible { background: rgb(255 255 255 / 0.06); }
+  .jobsMenuIt.on { background: color-mix(in srgb, var(--gold-400) 16%, rgb(0 0 0 / 0.3)); color: var(--gold-200); }
+  .jobsMenuIt .jobTabIco { flex: none; }
+  .jobsMenuNm { flex: 1; min-width: 0; font-weight: 600; }
+  @media (max-width: 640px) {
+    .jobsMenuWrap { display: block; }
+    .jobsScreen .jobTabs { display: none; }
+  }
   .jobsScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .jobsInner { width: min(780px, 100%); margin: 0 auto; padding: 0 12px calc(env(safe-area-inset-bottom) + 24px); }
   .jobsScreen .jobTabs { position: sticky; top: 0; z-index: 8; padding: 10px 0 8px; margin-bottom: 4px; background: linear-gradient(180deg, #0f2029 82%, rgb(15 32 41 / 0)); }

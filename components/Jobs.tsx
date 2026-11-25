@@ -7,7 +7,6 @@ import { OrdersPanel, fillableCount } from './Orders';
 import { ExpoPanel } from './Expo';
 import { WorkPanel, workReady } from './Work';
 import type { Act } from './Panels';
-import { XSeal } from './ds/ModalClose';
 
 // Công việc: a place of its own for jobs a player may take up if they like (it is not the daily quests, and nothing is lost by leaving a job alone).
 // A kind of job is one entry of JOB_KINDS: a name, a line about it, how many jobs of it could be done right now (for the badge), and the panel that shows them.
@@ -94,22 +93,50 @@ export function JobsScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
     if (pushedUrl && pushedUrl === window.location.href) { pushedUrl = null; window.history.back(); return; }   // popstate closes it
     pushedUrl = null; window.history.replaceState(null, '', urlWith(null)); shut.current();
   }, []);
-  // Esc closes it, unless a window is open over it (that window takes the Esc)
+  // the menu of kinds (on a phone it takes the place of the row of tabs): opens from the button at the right of the bar
+  const [menu, setMenu] = useState(false);
+  const ready = useMemo(() => JOB_KINDS.map((x) => x.ready(st)), [st]);
+  const anyReady = ready.some((n) => n > 0);
   useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.modal')) close(); };
+    if (!menu) return;
+    const out = (e: PointerEvent) => { if (!(e.target as Element).closest?.('.jobsMenuWrap')) setMenu(false); };
+    window.addEventListener('pointerdown', out);
+    return () => window.removeEventListener('pointerdown', out);
+  }, [menu]);
+  // Esc closes the menu first, then the screen, unless a window is open over it (that window takes the Esc)
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if (e.key !== 'Escape' || document.querySelector('.modal')) return; if (menu) setMenu(false); else close(); };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [close]);
+  }, [close, menu]);
   // the game under it is hidden while it is open, so the page keeps no scroll of its own: put it back where it was on the way out
   useLayoutEffect(() => { const y = window.scrollY; return () => { requestAnimationFrame(() => window.scrollTo(0, y)); }; }, []);
-  const setTab = useCallback((id: string) => { lastTab = id; setTabState(id); scroll.current?.scrollTo({ top: 0 }); }, []);
+  const setTab = useCallback((id: string) => { lastTab = id; setTabState(id); setMenu(false); scroll.current?.scrollTo({ top: 0 }); }, []);
   return (
     <div className="jobsScreen" role="dialog" aria-modal="true" aria-label="Công việc">
       <header className="jobsBar">
         <button type="button" className="jobsBack" onClick={close} aria-label="Quay lại hành trình" title="Quay lại hành trình (Esc)"><Icon name="back" size={20} /></button>
         <span className="winSeal"><Icon name="job" size={20} /></span>
         <div className="jobsTitle"><h2>Công việc</h2><small>{k.name}</small></div>
-        <button type="button" className="xClose static" aria-label="Đóng Công việc" title="Đóng (Esc)" onClick={close}><XSeal size={34} /></button>
+        {/* the kinds of job as a menu (a phone: the row of tabs is hidden); the way out is the back button, so there is no close seal */}
+        <div className="jobsMenuWrap">
+          <button type="button" className={`jobsMenuBtn${menu ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menu} aria-label={`Loại công việc: ${k.name}. Bấm để chọn loại khác`} onClick={() => setMenu((m) => !m)}>
+            <Icon name={k.icon} size={20} /><Icon name="down" size={12} />
+            {anyReady && <i className="navDot" aria-hidden="true" />}
+          </button>
+          {menu && (
+            <div className="jobsMenu" role="menu" aria-label="Loại công việc">
+              {JOB_KINDS.map((x, i) => (
+                <button key={x.id} type="button" role="menuitemradio" aria-checked={x.id === tab} className={`jobsMenuIt${x.id === tab ? ' on' : ''}`} onClick={() => setTab(x.id)}>
+                  <span className="jobTabIco"><Icon name={x.icon} size={18} /></span>
+                  <span className="jobsMenuNm">{x.name}</span>
+                  {ready[i] > 0 && <i className="navDot" aria-label="Có việc làm được ngay" />}
+                  {x.id === tab && <Icon name="check" size={15} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
       <div className="jobsScroll" ref={scroll}>
         <div className="jobsInner"><JobsPanel st={st} act={act} tab={tab} setTab={setTab} /></div>
