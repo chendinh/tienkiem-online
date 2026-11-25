@@ -86,7 +86,8 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
     let ci = 0;
     plan.stops.forEach((s, i) => {
       if (!s.r) return;
-      const t0 = s.at + FL.REACT_AT_MS, sp = FL.STAND_AT[s.slot], base = at({ x: s.hover.x, y: s.hover.y }, 17, 17 + 44);
+      // the bubble starts above the visitor and rises 32 px: kept inside the stage, so over the top row it is not cut off by the edge
+      const t0 = s.at + FL.REACT_AT_MS, sp = FL.STAND_AT[s.slot], base = `translate(${Math.min(W - 36, Math.max(2, (s.hover.x / 100) * W - 17))}px, ${Math.max(38, (s.hover.y / 100) * H - 61)}px)`;
       go(bub.current[i], [
         { opacity: 0, transform: `${base} translateY(10px) scale(0.2)` },
         { opacity: 1, transform: `${base} translateY(-3px) scale(1.3)`, offset: 0.16 },
@@ -146,14 +147,12 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
 }, (a, b) => a.f.key === b.f.key);   // a visitor is made once and then runs by itself: the screen updating around it does not touch it
 
 // ---- the stands
-const standSig = (v: StandView, tally: XP.Tally | undefined) => (v ? `${v.kind}:${v.kind === 'item' ? `${v.item.id}:${v.item.level}:${v.item.tier}` : `${v.beast.id}:${v.beast.level}:${v.beast.mut}`}:${tally ? tally.join(',') : ''}` : 'x');
+const standSig = (v: StandView) => (v ? `${v.kind}:${v.kind === 'item' ? `${v.item.id}:${v.item.level}:${v.item.tier}` : `${v.beast.id}:${v.beast.level}:${v.beast.mut}`}` : 'x');
 const nameOf = (v: StandView) => (v ? (v.kind === 'item' ? v.item.name : v.beast.name) : '');
-interface StandProps { i: number; v: StandView; tally?: XP.Tally; sig: string; onStand: (i: number) => void; pieces: Els }
-const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) {
+interface StandProps { i: number; v: StandView; sig: string; onStand: (i: number) => void; pieces: Els }
+const Stand = memo(function Stand({ i, v, onStand, pieces }: StandProps) {
   const p = FL.STAND_AT[i];
   const tier = v ? (v.kind === 'item' ? v.item.tier : XP.beastTier(v.beast.cls, v.beast.mut)) : 0;
-  // under the stand: only what most visitors felt (the best one when two are level), as one small pill; the whole row of five is on the sheet that opens when the stand is tapped
-  const top = tally ? XP.REACTIONS.map((r, k) => ({ r, n: tally[k] })).reduce<{ r: XP.Reaction; n: number } | null>((m, x) => (x.n > 0 && (!m || x.n > m.n) ? x : m), null) : null;
   const key = v ? `${v.kind}${v.kind === 'item' ? v.item.id : v.beast.id}` : 'e';
   return (
     <div className={`xStand${v ? ' on' : ' empty'}`} role="button" tabIndex={0} aria-label={v ? `Bệ ${i + 1}: ${nameOf(v)}` : `Bệ ${i + 1}, còn trống`} style={{ left: `${p.x}%`, top: `${p.y}%`, '--rc': C.RCOLOR[tier] } as CSSProperties}
@@ -163,7 +162,6 @@ const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) 
       <div key={key} ref={(el) => { pieces.current[i] = el; }} className={`xPiece${v ? '' : ' empty'}`} style={{ '--pd': `${i * 0.07}s` } as CSSProperties}>
         {v ? (v.kind === 'item' ? <ItemIcon it={v.item} size={56} /> : <BeastArt b={v.beast} box={64} mine onOpen={() => onStand(i)} />) : <Icon name="plus" size={20} />}
       </div>
-      {top && <div className="xTally" title={`${XP.REACTION_NAME[top.r]}: ${top.n}`}><span><ReactIcon r={top.r} size={18} />{shortNum(top.n)}</span></div>}
     </div>
   );
 }, (a, b) => a.sig === b.sig && a.onStand === b.onStand && a.i === b.i);
@@ -227,9 +225,11 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
       {QI.map((q, i) => <i key={i} className="xQi" style={{ left: `${q.l}%`, '--d': `${q.d}s`, '--dl': `${q.dl}s`, '--sw': `${q.sw}px` } as CSSProperties} />)}
       {[0, 1, 2, 3].map((i) => <div key={i} className={`xTier t${i}`} />)}
       {amb.map((a, i) => <div key={i} className={`xAmb${a.rev ? ' rev' : ''}`} style={{ top: `${a.y}%`, width: `${a.w}%`, opacity: a.op, '--a': a.rev ? `${Math.round(10000 / a.w) + 10}%` : '-115%', '--b': a.rev ? '-115%' : `${Math.round(10000 / a.w) + 10}%`, '--d': `${a.d}s`, '--dl': `${a.dl}s`, '--ph': a.ph, '--glow': a.look.glow } as CSSProperties}><div className="xRock"><Cultivator look={a.look} /></div></div>)}
-      {FL.STAND_AT.map((_, i) => {
-        const t = e ? e.stands[i]?.tally : undefined;
-        return <Stand key={i} i={i} v={views[i]} tally={t} sig={standSig(views[i], t)} onStand={onStand} pieces={pieces} />;
+      {FL.STAND_AT.map((_, i) => <Stand key={i} i={i} v={views[i]} sig={standSig(views[i])} onStand={onStand} pieces={pieces} />)}
+      {/* under each stone: only what most visitors felt, as one small pill (the whole row of five is on the sheet of the stand). Drawn here, above the stands, the chest and the visitors */}
+      {FL.STAND_AT.map((p, i) => {
+        const top = e && e.stands[i] ? XP.topReaction(e.stands[i]!.tally) : null;
+        return top ? <div key={`t${i}`} className="xTally" style={{ left: `${p.x}%`, top: `${p.y}%` }} title={`${XP.REACTION_NAME[top.r]}: ${top.n}`}><span><ReactIcon r={top.r} size={18} />{shortNum(top.n)}</span></div> : null;
       })}
       <button type="button" ref={chest} className={`xChest${has ? ' full' : ''}`} onClick={tapChest} aria-label={has ? `Thu quà khách để lại: ${fmt(stones)} Linh Thạch, ${gifts} món quà` : 'Hòm quà của khách, đang trống'}>
         <span className="xChestIn"><CutImg id="expo_chest" className="xChestImg" fb={<span className="xChestPlate"><Icon name="chest" size={30} /></span>} /></span>

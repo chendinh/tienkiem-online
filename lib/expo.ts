@@ -127,7 +127,9 @@ export function routeOf(e: Expo, seed: number, n: number): { slots: number[]; si
   return { slots: chosen, side };
 }
 
-/** The total each reaction was seen, over every stand (the little strip under the scene). */
+/** The look most visitors gave (the better one when two are level), or null when nobody has looked yet. */
+export const topReaction = (t: Tally): { r: Reaction; n: number } | null => REACTIONS.reduce<{ r: Reaction; n: number } | null>((m, r, i) => (t[i] > 0 && (!m || t[i] > m.n) ? { r, n: t[i] } : m), null);
+/** The total each reaction was seen, over every stand (the strip under the scene). */
 export const talliesOf = (e: Expo): Tally => e.stands.reduce<Tally>((t, s) => (s ? (t.map((x, i) => x + s.tally[i]) as Tally) : t), emptyTally());
 /** The rarity of a Linh Thú as a visitor sees it: its size, one step more for a Dị Biến. */
 export const beastTier = (cls: number, mut: boolean): number => Math.max(0, Math.min(5, cls + (mut ? 1 : 0)));

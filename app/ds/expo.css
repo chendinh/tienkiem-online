@@ -34,23 +34,22 @@
   .xStand { position: absolute; z-index: 3; width: 92px; height: 92px; margin: -46px 0 0 -46px; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; transition: transform var(--dur-fast); }
   .xStand:active { transform: scale(0.96); }
   .xStand:focus-visible .xPed { filter: drop-shadow(0 0 6px #fff); }
-  .xPed { position: absolute; left: 50%; bottom: -10px; width: 100px; height: 56px; transform: translateX(-50%); pointer-events: none; }
-  .xPuff { position: absolute; left: -12px; right: -12px; bottom: -4px; height: 40px; background:
+  /* the stone under a piece: half of what it was (52 px wide), right under the piece, so it holds the piece up and does not hide anything around it */
+  .xPed { position: absolute; left: 50%; top: 52px; width: 52px; height: 30px; transform: translateX(-50%); pointer-events: none; }
+  .xPuff { position: absolute; left: -14px; right: -14px; top: 6px; height: 24px; background:
       radial-gradient(ellipse 18% 46% at 14% 62%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0) 74%),
       radial-gradient(ellipse 24% 66% at 34% 50%, #fff, rgb(255 255 255 / 0) 74%),
       radial-gradient(ellipse 26% 70% at 62% 54%, #fff, rgb(255 255 255 / 0) 74%),
       radial-gradient(ellipse 18% 48% at 86% 60%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0) 74%); }
-  .xPedImg { position: absolute; left: 0; bottom: 14px; width: 100%; height: auto; display: block; }
+  .xPedImg { position: absolute; left: 0; top: 0; width: 100%; height: auto; display: block; }
   /* the stand until its picture is drawn: a thin round slab of grey granite (a flat top with speckles, a narrow chiselled edge), no gold */
-  .xStone { position: absolute; left: 50%; bottom: 14px; width: 98px; height: 32px; margin-left: -49px; }
-  .xStone::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; bottom: 0; border-radius: 0 0 50% 50% / 0 0 62% 62%; background: linear-gradient(90deg, #5d5a54, #98948b 24%, #aeaaa0 48%, #8c887f 74%, #55524c); box-shadow: inset 0 -2px 0 rgb(30 28 24 / 0.4); }
-  .xStone::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24px; border-radius: 50%; background:
-    radial-gradient(circle at 24% 46%, rgb(255 255 255 / 0.3) 0 1.2px, transparent 2px),
-    radial-gradient(circle at 41% 62%, rgb(50 46 40 / 0.35) 0 1.4px, transparent 2.4px),
-    radial-gradient(circle at 63% 38%, rgb(255 255 255 / 0.26) 0 1px, transparent 1.8px),
-    radial-gradient(circle at 78% 58%, rgb(50 46 40 / 0.3) 0 1.2px, transparent 2.2px),
-    radial-gradient(ellipse at 50% 36%, transparent 44%, rgb(70 66 60 / 0.22) 46% 48%, transparent 50%),
-    radial-gradient(ellipse at 46% 34%, #d9d5ca, #bcb8ad 62%, #928e84); box-shadow: 0 0 0 1px rgb(60 56 50 / 0.7), 0 0 12px color-mix(in srgb, var(--rc, #ffd36b) 50%, transparent); }
+  .xStone { position: absolute; left: 0; top: 0; width: 52px; height: 17px; }
+  .xStone::before { content: ''; position: absolute; left: 0; right: 0; top: 6px; bottom: 0; border-radius: 0 0 50% 50% / 0 0 62% 62%; background: linear-gradient(90deg, #5d5a54, #98948b 24%, #aeaaa0 48%, #8c887f 74%, #55524c); box-shadow: inset 0 -1.5px 0 rgb(30 28 24 / 0.4); }
+  .xStone::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 12px; border-radius: 50%; background:
+    radial-gradient(circle at 26% 48%, rgb(255 255 255 / 0.3) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 58% 62%, rgb(50 46 40 / 0.35) 0 0.8px, transparent 1.4px),
+    radial-gradient(circle at 76% 40%, rgb(255 255 255 / 0.26) 0 0.6px, transparent 1.2px),
+    radial-gradient(ellipse at 46% 34%, #d9d5ca, #bcb8ad 62%, #928e84); box-shadow: 0 0 0 1px rgb(60 56 50 / 0.7), 0 0 8px color-mix(in srgb, var(--rc, #ffd36b) 50%, transparent); }
   .xStand.empty .xPed { opacity: 0.78; }
   .xAura { position: absolute; left: 50%; top: 4px; width: 84px; height: 84px; margin-left: -42px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--rc, #ffd36b) 55%, transparent), rgb(0 0 0 / 0) 68%); opacity: 0.55; pointer-events: none; animation: xAura 4.2s ease-in-out infinite; animation-delay: var(--dl, 0s); }
   @keyframes xAura { 0%, 100% { opacity: 0.38; transform: scale(0.92); } 50% { opacity: 0.8; transform: scale(1.06); } }
@@ -62,7 +61,8 @@
   .xPiece.empty { width: 46px; height: 46px; margin-left: -23px; top: 8px; border-radius: 50%; border: 1.5px dashed rgb(255 255 255 / 0.7); background: rgb(20 28 70 / 0.28); color: #fff; animation: xBreath 3s ease-in-out infinite; }
   @keyframes xBreath { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
   .xStand.on .itIcon { box-shadow: 0 0 14px -2px var(--rc, #ffd36b); }
-  .xTally { position: absolute; left: 50%; top: 100%; margin-top: 4px; transform: translateX(-50%); pointer-events: none; }
+  /* what most visitors felt about a piece, one small pill under its stone: it is a child of the stage and not of the stand, so no stand, chest or visitor is drawn over it */
+  .xTally { position: absolute; z-index: 6; margin-top: 29px; transform: translateX(-50%); pointer-events: none; }
   .xTally span { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px 1px 2px; border-radius: 999px; background: rgb(14 18 48 / 0.78); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums; }
   .xFace { display: block; width: 100%; height: 100%; overflow: visible; }
   .xTally .xFace { width: 18px; height: 18px; flex: none; }

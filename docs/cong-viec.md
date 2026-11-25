@@ -141,12 +141,12 @@ Khách được đúng 2 điểm thì lặng thinh, không hiện gì.
 Các con số được giữ gọn để vừa màn hình điện thoại 320 px (`lib/shortnum.ts`: 950, 1,2k, 12k, 1,2tr, tối đa 5 ký tự, số đầy đủ nằm trong `title`):
 
 - **Tổng cả phiên**: một thanh gồm 5 ô đều nhau, mặt cảm xúc ở trên, số rút gọn ở dưới, luôn đủ năm mặt từ tốt đến xấu (mặt chưa có lần nào thì mờ), nên không bao giờ xuống dòng hay tràn, số lớn lên cũng không làm lệch bố cục, và cũng là bảng chú giải. Cùng thanh này hiện trong cửa sổ chọn món, cho riêng món ở bệ đó.
-- **Dưới mỗi bệ trên sân khấu**: chỉ một viên thuốc nhỏ với biểu cảm nhiều nhất của món đó (bằng nhau thì lấy biểu cảm tốt hơn) và số rút gọn. Chạm vào bệ để xem đủ năm biểu cảm.
+- **Dưới mỗi bệ trên sân khấu**: chỉ một viên thuốc nhỏ với biểu cảm nhiều nhất của món đó (bằng nhau thì lấy biểu cảm tốt hơn, `topReaction`) và số rút gọn. Viên này là con của sân khấu chứ không phải của bệ, nằm trên cả bệ, hòm quà và khách bay nên không bao giờ bị che. Chạm vào bệ để xem đủ năm biểu cảm. Mặt cảm xúc hiện trên đầu khách luôn nằm trong sân khấu, kể cả ở hàng bệ trên cùng (không bị cắt ở mép).
 - Vòng sáng và tia lửa lúc khách phản ứng lấy đúng màu của biểu cảm (`RCOL` trong `ExpoScene.tsx`).
 
 Hai hình còn lại do AI vẽ, đều là `ui_*` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`, vẽ trên nền đen:
 
-- `ui_expo_slab`: bệ đá dưới mỗi món bày. Là một phiến đá granite xám nhạt thật, tròn và mỏng (cao chỉ bằng khoảng một phần năm bề ngang), không vàng, không kim loại (mây phía sau bệ vẽ bằng CSS). Đặt tên `slab` (không phải `stand`) để bệ cũ, nếu máy chủ đã vẽ rồi, không che mất ảnh mới: ảnh mới luôn nằm trong danh sách còn thiếu.
+- `ui_expo_slab`: bệ đá dưới mỗi món bày. Là một phiến đá granite xám nhạt thật, tròn và mỏng (cao chỉ bằng khoảng một phần năm bề ngang), không vàng, không kim loại (mây phía sau bệ vẽ bằng CSS). Trên màn hình bệ rộng 52 px, ngay dưới món, để không che gì xung quanh. Đặt tên `slab` (không phải `stand`) để bệ cũ, nếu máy chủ đã vẽ rồi, không che mất ảnh mới: ảnh mới luôn nằm trong danh sách còn thiếu.
 - `ui_expo_chest`: hòm quà.
 
 Cách vẽ, chọn một:

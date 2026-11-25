@@ -366,3 +366,11 @@ test('shortNum: a count is short whatever its size (1,2k 12k 1,2tr), and never l
   for (let n = 0; n < 3e9; n = Math.floor(n * 1.37) + 1) assert.ok(shortNum(n).length <= 5, `${n} -> ${shortNum(n)}`);
   assert.equal(shortNum(-4), '0'); assert.equal(shortNum(NaN), '0');
 });
+
+test('expo: under a stand shows the look most visitors gave, the better one when two are level, nothing before the first visitor', () => {
+  assert.equal(XP.topReaction([0, 0, 0, 0, 0]), null);
+  assert.deepEqual(XP.topReaction([1, 9, 3, 0, 0]), { r: 'wow', n: 9 });
+  assert.deepEqual(XP.topReaction([4, 4, 1, 0, 0]), { r: 'love', n: 4 }, 'level: the better look');
+  assert.deepEqual(XP.topReaction([0, 0, 2, 2, 2]), { r: 'like', n: 2 });
+  assert.deepEqual(XP.topReaction([0, 0, 0, 0, 7]), { r: 'angry', n: 7 });
+});
