@@ -8,18 +8,19 @@ import { expoView, type StandView } from '@/lib/game';
 import { sfx } from '@/lib/audio';
 import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
-import { BeastArt, ItemIcon } from './ui';
+import { BeastArt, ItemIcon, fmt } from './ui';
 import { ReactIcon } from './ReactIcon';
 import { Cultivator, lookOf } from './Cultivator';
+import { CutImg } from './CutImg';
 import { useFx } from './fx/FxProvider';
 
 // The stage of Triển lãm: three tiers of cloud, six stands, the chest of gifts, and the visitors. A visitor is a cultivator standing on a flying sword (components/Cultivator.tsx) that follows the
 // plan of lib/expofly.ts: it flies in, hovers beside each stand it looks at (the sword rocks up and down), a round face pops over its head (no words: love, wow, like, sad, angry), a ring and some
 // sparks answer on the stand, Linh Thạch coins and the gift arc into the chest, and it leaves. Everything that moves is a Web Animation on transform and opacity, made once when the visitor appears:
 // React does not draw a single frame of it. A page that wants calm (prefers-reduced-motion, effects off) gets the still stage and no visitors; the tallies under each stand and the chest still tell what happened.
-const RCOL: Record<XP.Reaction, string> = { love: '#ff6f91', wow: '#6fb4ff', like: '#5fe0a4', sad: '#8a94e8', angry: '#ff6a52' };
+const RCOL: Record<XP.Reaction, string> = { love: '#ff7aa8', wow: '#ffc94a', like: '#5fe0a4', sad: '#8a9bd8', angry: '#c0507a' };   // warm and bright for the good looks, cool and dark for the bad ones
 const GIFT_COL = { weapon: '#ff9a4a', pill: '#5fe0a4', book: '#b58cff' } as const;
-const MAX_LIVE = 3;   // visitors on the stage at once
+const MAX_LIVE = 4;   // visitors on the stage at once (one comes about every 5 seconds and a visit lasts 3 to 10, so two or three at a time is usual)
 
 /** True when the page asks for calm: no flights are made. */
 export function useCalm(): boolean {
@@ -91,7 +92,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
         { opacity: 1, transform: `${base} translateY(-8px) scale(1)`, offset: 0.3 },
         { opacity: 1, transform: `${base} translateY(-20px) scale(1)`, offset: 0.78 },
         { opacity: 0, transform: `${base} translateY(-32px) scale(0.9)` },
-      ], { duration: 1900, delay: t0 });
+      ], { duration: 1500, delay: t0 });
       const ringAt = at(sp, 32, 32);
       go(ring.current[i], [{ opacity: 0.9, transform: `${ringAt} scale(0.35)` }, { opacity: 0, transform: `${ringAt} scale(${s.r === 'sad' ? 1.3 : 1.8})` }], { duration: s.r === 'sad' ? 950 : 700, delay: t0, easing: 'ease-out' });
       const pic = pieces.current[s.slot]?.firstElementChild;
@@ -156,11 +157,11 @@ const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) 
     <div className={`xStand${v ? ' on' : ' empty'}`} role="button" tabIndex={0} aria-label={v ? `Bệ ${i + 1}: ${nameOf(v)}` : `Bệ ${i + 1}, còn trống`} style={{ left: `${p.x}%`, top: `${p.y}%`, '--rc': C.RCOLOR[tier] } as CSSProperties}
       onClick={() => onStand(i)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStand(i); } }}>
       {v && <i className="xAura" style={{ '--dl': `${-(i * 0.9)}s` } as CSSProperties} />}
-      <span className="xPed" />
+      <span className="xPed"><i className="xPuff" /><CutImg id="expo_stand" className="xPedImg" fb={<i className="xStone" />} /></span>
       <div key={key} ref={(el) => { pieces.current[i] = el; }} className={`xPiece${v ? '' : ' empty'}`} style={{ '--pd': `${i * 0.07}s` } as CSSProperties}>
         {v ? (v.kind === 'item' ? <ItemIcon it={v.item} size={56} /> : <BeastArt b={v.beast} box={64} mine onOpen={() => onStand(i)} />) : <Icon name="plus" size={20} />}
       </div>
-      {top.length > 0 && <div className="xTally">{top.map((x) => <span key={x.r}><ReactIcon r={x.r} size={14} />{x.n}</span>)}</div>}
+      {top.length > 0 && <div className="xTally">{top.map((x) => <span key={x.r}><ReactIcon r={x.r} size={18} />{x.n}</span>)}</div>}
     </div>
   );
 }, (a, b) => a.sig === b.sig && a.onStand === b.onStand && a.i === b.i);
@@ -168,7 +169,13 @@ const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) 
 // ---- the sky
 const WISPS = [{ top: 8, d: 44, dl: -10 }, { top: 33, d: 52, dl: -31 }, { top: 58, d: 40, dl: -4 }, { top: 82, d: 58, dl: -22 }];
 const QI = Array.from({ length: 10 }, (_, i) => ({ l: 6 + ((i * 37) % 88), d: 8 + (i % 4) * 2.2, dl: -((i * 1.7) % 9), sw: ((i % 5) - 2) * 9 }));
-const AMB = [{ y: 31, d: 40, dl: -9, rev: false, arch: 'Kiếm Tu', g: 'm' as const }, { y: 57, d: 46, dl: -30, rev: true, arch: 'Phù Sư', g: 'f' as const }, { y: 83, d: 52, dl: -18, rev: false, arch: 'Đan Sư', g: 'f' as const }];
+// Far visitors that only pass by (no reaction, no gift). They are made at random when the stage shows (never on the server, so the page and the screen agree), each one with its own
+// height, size, speed and direction, and they are quick: a trip across the stage is 6 to 16 seconds.
+interface Amb { y: number; w: number; d: number; dl: number; rev: boolean; op: number; look: ReturnType<typeof lookOf>; ph: number }
+const makeAmb = (n: number): Amb[] => Array.from({ length: n }, (_, i) => {
+  const r = Math.random, arch = C.NPC_TITLES[Math.floor(r() * C.NPC_TITLES.length)], w = 13 + r() * 12;
+  return { y: 6 + r() * 86, w, d: 6 + r() * 10, dl: -r() * 16, rev: r() < 0.5, op: 0.3 + r() * 0.3, look: lookOf(arch, r() < 0.5 ? 'f' : 'm', Math.floor(r() * 1000) + i), ph: r() * 2 };
+});
 
 export interface SceneProps { st: GS; onStand: (slot: number) => void; onChest: () => void }
 export function ExpoScene({ st, onStand, onChest }: SceneProps) {
@@ -177,21 +184,29 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
   const calm = useCalm();
   const [flights, setFlights] = useState<FlightT[]>([]);
   const [burst, setBurst] = useState(0);
+  const [amb, setAmb] = useState<Amb[]>([]);
+  useEffect(() => { if (!calm) setAmb(makeAmb(5 + Math.floor(Math.random() * 3))); else setAmb([]); }, [calm]);
   const pieces = useRef<(HTMLElement | null)[]>([]), chest = useRef<HTMLButtonElement>(null), seen = useRef<number | null>(null), had = useRef(false);
   const top = e && e.log.length ? e.log[e.log.length - 1].n : 0, has = !!e && XP.boxCount(e.box) > 0;
-  // new visitors the server made: the first look replays the latest one so the stage is alive at once; after that each new one flies in (at most two at a time, one after the other)
+  // what the chest says without opening it: how many Linh Thạch, and how many gifts besides (weapons, pills, books)
+  const stones = e ? e.box.stones : 0, gifts = e ? e.box.weapons.length + e.box.pills.reduce((a, n) => a + n, 0) + Object.values(e.box.books).reduce((a, n) => a + n, 0) : 0;
+  const tapChest = () => {
+    if (has) { onChest(); return; }
+    if (canFly()) chest.current?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-3px)' }, { transform: 'translateX(3px)' }, { transform: 'translateX(0)' }], { duration: 260 });   // empty: the chest only shakes a little
+  };
+  // new visitors the server made: the first look replays the latest three so the stage is busy at once; after that each new one flies in, a moment apart when several came together
   useEffect(() => {
     if (calm || !e || !canFly()) return;
     const log = e.log;
     if (seen.current === null) {
       seen.current = top;
-      if (log.length) setFlights([{ key: `r${log[log.length - 1].n}`, v: log[log.length - 1], delay: 500 }]);
+      setFlights(log.slice(-3).map((x, k) => ({ key: `r${x.n}`, v: x, delay: 400 + k * 1700 })));
       return;
     }
     if (top > seen.current) {
-      const from = seen.current, fresh = log.filter((x) => x.n > from).slice(-2);
+      const from = seen.current, fresh = log.filter((x) => x.n > from).slice(-3);
       seen.current = top;
-      setFlights((cur) => (cur.length >= MAX_LIVE ? cur : [...cur, ...fresh.map((x, k) => ({ key: `n${x.n}`, v: x, delay: 200 + k * 5200 }))].slice(0, MAX_LIVE)));
+      setFlights((cur) => (cur.length >= MAX_LIVE ? cur : [...cur, ...fresh.map((x, k) => ({ key: `n${x.n}`, v: x, delay: 150 + k * 1500 }))].slice(0, MAX_LIVE)));
     }
   }, [top, calm, !!e]);
   // the box was emptied (collected): the chest opens
@@ -209,15 +224,15 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
       {WISPS.map((w, i) => <i key={i} className="xWisp" style={{ top: `${w.top}%`, '--d': `${w.d}s`, '--dl': `${w.dl}s` } as CSSProperties} />)}
       {QI.map((q, i) => <i key={i} className="xQi" style={{ left: `${q.l}%`, '--d': `${q.d}s`, '--dl': `${q.dl}s`, '--sw': `${q.sw}px` } as CSSProperties} />)}
       {[0, 1, 2, 3].map((i) => <div key={i} className={`xTier t${i}`} />)}
-      {!calm && AMB.map((a, i) => <div key={i} className={`xAmb${a.rev ? ' rev' : ''}`} style={{ top: `${a.y}%`, '--d': `${a.d}s`, '--dl': `${a.dl}s` } as CSSProperties}><Cultivator look={lookOf(a.arch, a.g, i * 7 + 3)} /></div>)}
+      {amb.map((a, i) => <div key={i} className={`xAmb${a.rev ? ' rev' : ''}`} style={{ top: `${a.y}%`, width: `${a.w}%`, opacity: a.op, '--a': a.rev ? `${Math.round(10000 / a.w) + 10}%` : '-115%', '--b': a.rev ? '-115%' : `${Math.round(10000 / a.w) + 10}%`, '--d': `${a.d}s`, '--dl': `${a.dl}s`, '--ph': a.ph, '--glow': a.look.glow } as CSSProperties}><div className="xRock"><Cultivator look={a.look} /></div></div>)}
       {FL.STAND_AT.map((_, i) => {
         const t = e ? e.stands[i]?.tally : undefined;
         return <Stand key={i} i={i} v={views[i]} tally={t} sig={standSig(views[i], t)} onStand={onStand} pieces={pieces} />;
       })}
-      <button type="button" ref={chest} className={`xChest${has ? ' full' : ''}`} onClick={onChest} aria-label={has ? 'Thu quà khách để lại' : 'Hòm quà của khách, đang trống'}>
-        <span className="xChestIn"><span className="xChestPlate"><Icon name="chest" size={30} /></span></span>
-        {has && <i className="navDot" />}
-        <span className="xChestTx">{has ? 'Thu quà' : 'Hòm quà'}</span>
+      <button type="button" ref={chest} className={`xChest${has ? ' full' : ''}`} onClick={tapChest} aria-label={has ? `Thu quà khách để lại: ${fmt(stones)} Linh Thạch, ${gifts} món quà` : 'Hòm quà của khách, đang trống'}>
+        <span className="xChestIn"><CutImg id="expo_chest" className="xChestImg" fb={<span className="xChestPlate"><Icon name="chest" size={30} /></span>} /></span>
+        {gifts > 0 && <i className="xChestN">{gifts > 99 ? '99+' : gifts}</i>}
+        {stones > 0 && <span className="xChestTx"><Icon name="stone" size={11} />{fmt(stones)}</span>}
       </button>
       {flights.map((f) => <Flight key={f.key} f={f} pieces={pieces} chest={chest} onDone={done} />)}
       {burst > 0 && <Sparks key={burst} at={FL.CHEST_AT} delay={0} color="#ffd36b" count={12} seed={burst} />}

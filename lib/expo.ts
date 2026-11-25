@@ -7,14 +7,14 @@
 //   Who comes        visitorOf(seed, n): a kind of cultivator (C.NPC_TITLES), a name, a favourite element and how demanding they are (`bar`: the rarity they are used to).
 //   What they think  scoreOf(): the rarity of the piece against `bar`, a favourite element, what that kind of cultivator likes, a little luck. reactionOf(): love, wow, like, nothing, sad, angry.
 //   What they give   a share of what the piece is worth in Linh Thạch (love, wow, like only), and sometimes a gift that fits the kind of cultivator: a weapon, pills or a Bí Kíp.
-//   How often        one visitor every 56 to 90 seconds while 3 or more stands are filled (more stands, more visitors), up to what 12 offline hours bring.
+//   How often        one visitor about every 5 seconds while 3 or more stands are filled (a little quicker with more stands), up to what 12 offline hours bring. Pay is scaled to the pace (payScale).
 import * as C from './content';
 import * as A from './arts';
 import { BALANCE as B } from './balance';
 import { hash32, pick, buyerNamed } from './orders';
 import type { Item } from './game';
 
-export const STANDS = 6, MIN_OPEN = 3, LOG_KEEP = 6, BOX_WEAPONS = 3, BOX_BOOKS = 8, BOX_PILLS = 20, FIRST_VISIT_MS = 15_000;
+export const STANDS = 6, MIN_OPEN = 3, LOG_KEEP = 6, BOX_WEAPONS = 3, BOX_BOOKS = 8, BOX_PILLS = 20, FIRST_VISIT_MS = 5_000, MAX_PER_TICK = 4;
 export const ROWS = [[0, 1], [2, 3], [4, 5]] as const;   // three tiers of cloud, two stands on each
 
 export type Reaction = 'love' | 'wow' | 'like' | 'sad' | 'angry';
@@ -37,8 +37,11 @@ export const filled = (e: Expo): number => e.stands.reduce((a, s) => a + (s ? 1 
 export const isOpen = (e: Expo): boolean => filled(e) >= MIN_OPEN;
 /** Is there anything in the box to collect? */
 export const boxCount = (b: Box): number => (b.stones > 0 ? 1 : 0) + b.weapons.length + b.pills.reduce((a, n) => a + (n > 0 ? 1 : 0), 0) + Object.keys(b.books).length;
-/** Seconds between two visitors, by how many stands are filled. */
-export const INTERVAL_SEC = [0, 0, 0, 90, 78, 66, 56];
+/** Seconds between two visitors, by how many stands are filled: about one every 5 seconds, a little quicker with more stands. Each gap is 0.6 to 1.4 times this, so now and then two come together. */
+export const INTERVAL_SEC = [0, 0, 0, 5.5, 5, 4.5, 4];
+/** The pace the pay was tuned at when a visitor came every 90 to 56 seconds. A visitor now pays this share of what one of those paid, so a busier stage changes the show and not what an hour is worth. */
+const TUNED_SEC = [0, 0, 0, 90, 78, 66, 56];
+export const payScale = (open: number): number => { const k = Math.max(MIN_OPEN, Math.min(STANDS, open)); return INTERVAL_SEC[k] / TUNED_SEC[k]; };
 
 // ---- what a stand holds, seen by the visitors: the same numbers for a piece of equipment and a Linh Thú
 export interface Exhibit { kind: 'item' | 'beast'; tier: number; el: string; slot?: string; mut?: boolean; level: number; value: number }
@@ -79,18 +82,24 @@ export const reactionOf = (s: number): Reaction | null => (s >= 5 ? 'love' : s =
 /** Share of the piece's worth, in hundredths of a percent. A piece is never used up, so this is small: a full row of Thiên pieces earns a few percent of their worth per hour. */
 export const STONE_BP: Partial<Record<Reaction, number>> = { love: 20, wow: 12, like: 5 };
 const STONE_MIN: Partial<Record<Reaction, number>> = { love: 2, wow: 1, like: 0 };
-export const stonesFor = (r: Reaction | null, x: Exhibit, gen: number): number => {
+/** What a reaction is worth before it is turned into whole Linh Thạch. */
+export const stoneShare = (r: Reaction | null, x: Exhibit, gen: number): number => {
   const bp = r && STONE_BP[r];
-  return bp ? Math.max(STONE_MIN[r!]!, Math.round((x.value * bp * gen) / 10000)) : 0;
+  return bp ? Math.max(STONE_MIN[r!]!, (x.value * bp * gen) / 10000) : 0;
+};
+/** Whole Linh Thạch for one look. `scale` (payScale) shrinks it for a busy stage; `u` (0 to 1, drawn from the visit's key) rounds up or down so the average stays exactly right even when a look is worth less than one. Alone, `u` 0.5 is plain rounding. */
+export const stonesFor = (r: Reaction | null, x: Exhibit, gen: number, scale = 1, u = 0.5): number => {
+  const s = stoneShare(r, x, gen);
+  return s > 0 ? Math.floor(s * scale + u) : 0;
 };
 /** What each kind of cultivator gives when it is moved: weapons, pills or a Bí Kíp. */
 export const GIFT_OF: Record<string, 'weapon' | 'pill' | 'book'> = { 'Kiếm Tu': 'weapon', 'Thể Tu': 'weapon', 'Đan Sư': 'pill', 'Tán Tu': 'pill', 'Phù Sư': 'book', 'Ma Tu': 'book' };
 const GIFT_P: Partial<Record<Reaction, number>> = { love: 35, wow: 10 };   // per thousand: about two gifts an hour for a full row of Thiên pieces, and a gift is worth about what a few Linh Thạch gifts are
 export interface GiftPlan { kind: 'weapon' | 'pill' | 'book'; tier: number }
 /** Does this reaction bring a gift (one per visit at most, decided by the best reaction), and of what tier? */
-export function giftOf(arch: string, r: Reaction | null, x: Exhibit, key: string): GiftPlan | null {
+export function giftOf(arch: string, r: Reaction | null, x: Exhibit, key: string, scale = 1): GiftPlan | null {
   const p = r && GIFT_P[r];
-  if (!p || hash32(`xp|${key}`) % 1000 >= p) return null;
+  if (!p || hash32(`xp|${key}`) % 100000 >= p * 100 * scale) return null;   // `scale`: payScale, as for the stones
   return { kind: GIFT_OF[arch] || 'pill', tier: Math.max(0, Math.min(3, x.tier - 1)) };
 }
 export const pillGrade = (tier: number): number => (tier <= 2 ? 0 : tier === 3 ? 1 : 2);
@@ -106,7 +115,7 @@ export function bookFor(el: string, tier: number, level: number, key: string): s
 }
 
 // ---- when and where
-export const intervalMs = (open: number, seed: number, n: number): number => Math.round(INTERVAL_SEC[Math.max(MIN_OPEN, Math.min(STANDS, open))] * 1000 * (0.8 + (hash32(`xi|${seed}|${n}`) % 41) / 100));
+export const intervalMs = (open: number, seed: number, n: number): number => Math.round(INTERVAL_SEC[Math.max(MIN_OPEN, Math.min(STANDS, open))] * 1000 * (0.6 + (hash32(`xi|${seed}|${n}`) % 81) / 100));
 /** The stands a visitor looks at, in the order they fly past: 1 to 3 of the filled ones, from the top tier down, and along the tier from the side they came in. */
 export function routeOf(e: Expo, seed: number, n: number): { slots: number[]; side: 0 | 1 } {
   const key = `${seed}|expo|${n}`, side = (hash32(`xs|${key}`) % 2) as 0 | 1;

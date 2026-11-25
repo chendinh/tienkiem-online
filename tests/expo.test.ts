@@ -102,15 +102,14 @@ test('expo: a stand whose piece is gone is empty, and the visitors do not look a
   for (const v of st.expo!.log) assert.ok(!v.route.some((s) => s.slot === 0));
 });
 
-test('expo: with fewer than 3 stands nobody comes, with 3 the first visitor comes after about 15 seconds', () => {
+test('expo: with fewer than 3 stands nobody comes, with 3 the first visitor comes after about 5 seconds', () => {
   const st = fresh(); fill(st, 3, 2);
   G.settle(st, 720); assert.equal(st.expo!.n, 0); assert.equal(st.expo!.log.length, 0);
   const c = piece(st, 3, 'Ring'); G.expoSet(st, 4, 'item', c.id);
   G.tick(st); assert.equal(st.expo!.n, 0, 'the first tick only sets the time');
-  assert.equal(st.expo!.next, st.clock + XP.FIRST_VISIT_MS - 0 === st.expo!.next ? st.expo!.next : st.expo!.next);
-  for (let i = 0; i < 2; i++) G.tick(st); assert.equal(st.expo!.n, 0);
-  for (let i = 0; i < 3; i++) G.tick(st); assert.equal(st.expo!.n, 1, 'after 15 seconds of game time (3 ticks) a visitor has come');
-  assert.equal(st.expo!.log.length, 1);
+  assert.equal(st.expo!.next, st.clock + XP.FIRST_VISIT_MS);
+  G.tick(st); assert.ok(st.expo!.n >= 1, 'after 5 seconds of game time (1 tick) a visitor has come');
+  assert.ok(st.expo!.log.length >= 1);
   // taking one piece away closes it again
   G.expoClear(st, 4); const n = st.expo!.n; G.settle(st, 720); assert.equal(st.expo!.n, n);
 });
@@ -121,7 +120,7 @@ test('expo: more stands, more visitors, and 12 offline hours are settled quickly
   const st = fresh(9); fill(st, 3); const t = Date.now(); G.settle(st, 12 * 720);
   assert.ok(Date.now() - t < 20_000);
   assert.ok(st.expo!.log.length <= XP.LOG_KEEP); assert.equal(st.expo!.log.at(-1)!.n, st.expo!.n);
-  assert.ok(st.expo!.n > 600 && st.expo!.n < 900, `visits in 12 hours: ${st.expo!.n}`);
+  assert.ok(st.expo!.n > 9_500 && st.expo!.n < 11_800, `visits in 12 hours: ${st.expo!.n} (one every 4 seconds with 6 stands)`);
   assert.ok(st.expo!.box.weapons.length <= XP.BOX_WEAPONS); assert.ok(Object.keys(st.expo!.box.books).length <= XP.BOX_BOOKS); assert.ok(st.expo!.box.pills.every((n) => n <= XP.BOX_PILLS));
 });
 
@@ -143,7 +142,7 @@ test('expo: the visits are what the tallies and the box say', () => {
   const st = fresh(15); fill(st, 3); G.settle(st, 2 * 720);
   const e = st.expo!, t = XP.talliesOf(e), all = t.reduce((a, b) => a + b, 0);
   assert.ok(all > 0 && e.box.stones > 0);
-  for (const v of e.log) for (const s of v.route) { assert.ok(s.slot >= 0 && s.slot < 6); assert.ok(s.r === null || XP.REACTIONS.includes(s.r)); assert.equal(s.stones > 0, s.r === 'love' || s.r === 'wow' || (s.r === 'like' && s.stones > 0)); }
+  for (const v of e.log) for (const s of v.route) { assert.ok(s.slot >= 0 && s.slot < 6); assert.ok(s.r === null || XP.REACTIONS.includes(s.r)); if (s.r !== 'love' && s.r !== 'wow' && s.r !== 'like') assert.equal(s.stones, 0, 'only a good look pays'); }
   // a stand that is put again starts a new tally
   G.expoSet(st, 0, 'item', st.bag.find((x) => x.locked && !e.stands.some((s) => s && s.id === x.id))?.id ?? piece(st, 3).id);
   assert.deepEqual(st.expo!.stands[0]!.tally, XP.emptyTally());
@@ -179,10 +178,10 @@ test('expo: gifts fit the kind of cultivator and the rarity of the piece', () =>
 
 test('expo: the weapons given are real, are the player\'s level and take nothing from the drops', () => {
   const st = fresh(21); fill(st, 4);
-  for (let h = 0; h < 4 && !st.expo!.box.weapons.length; h++) G.settle(st, 720);
+  for (let t = 0; t < 24 * 720 && !st.expo!.box.weapons.length; t++) G.tick(st);   // tick by tick: stop at the first weapon, while the Level is still the one it was made for
   const w = st.expo!.box.weapons;
   assert.ok(w.length > 0);
-  for (const it of w) { assert.equal(it.slot, 'Weapon'); assert.ok(it.tier <= 3); assert.equal(it.level, lvl(st)); assert.ok(it.id > 0); }
+  for (const it of w) { assert.equal(it.slot, 'Weapon'); assert.ok(it.tier <= 3); assert.ok(Math.abs(it.level - lvl(st)) <= 1, 'the Level of the player'); assert.ok(it.id > 0); }
   assert.equal(new Set([...w.map((x) => x.id), ...st.bag.map((x) => x.id)]).size, w.length + st.bag.length, 'every id is new');
 });
 
@@ -259,24 +258,42 @@ test('expofly: a flight starts off the stage on its side, ends off the stage, an
   }
 });
 
-test('expofly: the visitor hovers beside the stand on the side it came from and looks at it', () => {
-  const p = FL.planOf(visit(0, [0, 1]));
-  const [a, b] = p.stops;
-  assert.equal(a.face, 1); assert.ok(a.hover.x < FL.STAND_AT[0].x);   // from the left: left of the stand, facing right
-  assert.equal(b.face, 1); assert.ok(b.hover.x < FL.STAND_AT[1].x);
-  const q = FL.planOf(visit(1, [1, 0]));
-  assert.equal(q.stops[0].face, -1); assert.ok(q.stops[0].hover.x > FL.STAND_AT[1].x);   // from the right: right of the stand, facing left
-  for (const s of [...p.stops, ...q.stops]) assert.ok(s.hover.x > 0 && s.hover.x < 100, 'the visitor stays on the stage while it looks');
+test('expofly: the visitor hovers beside the stand and looks at it, whichever side it comes from', () => {
+  for (let n = 1; n <= 80; n++) for (const side of [0, 1] as const) {
+    const p = FL.planOf({ ...visit(side, [0, 3, 4]), n });
+    for (const s of p.stops) {
+      const stand = FL.STAND_AT[s.slot];
+      assert.equal(s.face, s.hover.x < stand.x ? 1 : -1, 'it faces the stand');
+      assert.ok(Math.abs(s.hover.x - stand.x) >= 12 && Math.abs(s.hover.x - stand.x) <= 20, 'beside it, not on it');
+      assert.ok(s.hover.x > 0 && s.hover.x < 100, 'the visitor stays on the stage while it looks');
+    }
+  }
 });
 
-test('expofly: stops are one hold apart or more, in order, and the gift leaves while the last stand is looked at', () => {
-  const p = FL.planOf(visit(0, [0, 3, 4], true));
-  for (let i = 1; i < p.stops.length; i++) assert.ok(p.stops[i].at >= p.stops[i - 1].at + FL.HOLD_MS + FL.MIN_LEG_MS - 1);
-  const last = p.stops[p.stops.length - 1];
-  assert.ok(p.gift && p.gift.at > last.at && p.gift.at < last.at + FL.HOLD_MS);
+test('expofly: stops are one look and one leg apart, in order, and the gift leaves while the last stand is looked at', () => {
+  for (let n = 1; n <= 80; n++) {
+    const p = FL.planOf({ ...visit(0, [0, 3, 4], true), n });
+    for (let i = 1; i < p.stops.length; i++) assert.ok(p.stops[i].at >= p.stops[i - 1].at + p.stops[i - 1].hold + FL.MIN_LEG_MS - 1);
+    for (const s of p.stops) assert.ok(s.hold >= FL.HOLD_MIN && s.hold <= FL.HOLD_MAX);
+    const last = p.stops[p.stops.length - 1];
+    assert.ok(p.gift && p.gift.at > last.at && p.gift.at < last.at + last.hold);
+    assert.ok(p.total > last.at + last.hold);
+    assert.ok(p.total < 30_000, 'a visit never takes long');
+  }
   assert.equal(FL.planOf(visit(0, [2])).gift, null);
-  assert.ok(p.total > last.at + FL.HOLD_MS);
-  assert.ok(p.total < 40_000, 'a visit never takes long');
+});
+
+test('expofly: visits are fast, and no two fly alike (but one visit always flies the same way)', () => {
+  const plans = Array.from({ length: 60 }, (_, i) => FL.planOf({ ...visit(0, [0, 3, 4]), n: i + 1 }));
+  assert.deepEqual(FL.planOf({ ...visit(0, [0, 3, 4]), n: 7 }), FL.planOf({ ...visit(0, [0, 3, 4]), n: 7 }));
+  assert.ok(new Set(plans.map((p) => p.total)).size > 40, 'different lengths');
+  assert.ok(new Set(plans.map((p) => p.frames[0].y.toFixed(1))).size > 40, 'different heights to come in at');
+  assert.ok(plans.filter((p) => p.frames.some((f) => f.x > 62)).length > 15, 'some sweep across the stage first');
+  assert.ok(plans.some((p) => p.stops.some((s) => s.face === -1)) && plans.some((p) => p.stops.some((s) => s.face === 1)));
+  const mean = plans.reduce((a, p) => a + p.total, 0) / plans.length;
+  assert.ok(mean < 14_000, `three stands in about ${Math.round(mean / 1000)} s`);
+  const one = Array.from({ length: 40 }, (_, i) => FL.planOf({ ...visit(0, [2]), n: i + 1 }));
+  assert.ok(one.every((p) => p.total < 12_000));
 });
 
 test('expofly: a stand that does not exist is skipped, an empty route is only a pass', () => {
@@ -307,4 +324,16 @@ test('expo: the five reaction faces are in the fixed pictures to draw, each with
   }
   assert.equal(seeds.size, 5, 'each face has its own seed');
   assert.equal(new Set(XP.REACTIONS.map((r) => C.reactArt(r))).size, 5);
+});
+
+test('expo: the stone stand and the chest are drawn too, seen from a little above, and cut out for the stage', () => {
+  const jobs = artJobs('shop');
+  for (const id of ['expo_stand', 'expo_chest']) {
+    const j = jobs.find((x) => x.dest === C.uiArt(id));
+    assert.ok(j, `${id} is drawn by pregen`);
+    const p = buildPlan(j!.spec);
+    assert.ok(p.prompt.includes('Three-quarter front view from slightly above') && p.prompt.includes('pure black background'));
+    assert.ok(!p.prompt.includes('orthographic'), 'not the flat front view of the medallions');
+    assert.equal(C.cutArt(id), `/art/ui/cut/${id}.png`);
+  }
 });

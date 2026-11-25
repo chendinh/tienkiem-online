@@ -106,27 +106,38 @@ Chỗ duy nhất trong Công việc để **ngắm**. Người chơi bày 3 đ�
 
 ### Luật (`lib/expo.ts`, không bốc số ngẫu nhiên)
 
-- Mở cửa khi có từ 3 bệ có đồ. Khách đến cách nhau khoảng 90, 78, 66, 56 giây (3, 4, 5, 6 bệ), lần đầu 15 giây sau khi đủ 3 bệ. Offline tính tối đa 12 giờ như phần còn lại, vòng lặp chỉ vài giây.
+- Mở cửa khi có từ 3 bệ có đồ. Cứ khoảng 5 giây có một khách (5,5 / 5 / 4,5 / 4 giây với 3 / 4 / 5 / 6 bệ, mỗi lần lệch 0,6 đến 1,4 lần), nên trên sân khấu thường có 2 đến 3 khách cùng lúc. Khách đầu tiên đến 5 giây sau khi đủ 3 bệ. Một tick của máy chủ (5 giây) tạo tối đa 4 khách. Offline tính tối đa 12 giờ như phần còn lại, khoảng 10.000 khách mà vòng lặp vẫn chỉ mất vài trăm mili giây.
+- Khách đông không làm giàu thêm: mỗi khách trả `payScale` lần số cũ (nhịp mới chia nhịp 56 đến 90 giây ban đầu), lấy tròn theo xác suất để tổng không lệch, và xác suất quà cũng nhân như vậy. Thu nhập mỗi giờ và số quà mỗi giờ giữ nguyên như khi khách thưa.
 - Khách sinh từ `seed` và số thứ tự (`visitorOf`): loại tu sĩ (6 loại như khách Tìm đồ), tên, hệ ưa thích, độ khó tính (`bar`).
 - Mỗi khách xem 1 đến 3 bệ (`routeOf`), từ tầng trên xuống, theo hướng khách vào. Điểm = hạng món trừ độ khó tính cộng 3, cộng 1 nếu đúng hệ, cộng phần ưa riêng của loại khách (Kiếm Tu thích vũ khí, Thể Tu thích giáp, Phù Sư thích bùa và nhẫn, Đan Sư thích Linh Thú, Ma Tu thích Dị Biến), ± 1 may rủi. Từ 5 điểm: mê, 4: ngạc nhiên, 3: thích, 2: lặng thinh, 1: thất vọng, 0 trở xuống: chê. Linh Thú tính hạng theo cỡ (Dị Biến hơn một bậc).
 - Mê, ngạc nhiên, thích để Linh Thạch bằng 0,20%, 0,12%, 0,05% giá trị món (giá phân giải với đồ, giá thả với thú). Thất vọng và chê không lấy gì.
 - Quà (mỗi khách tối đa một): chỉ khi mê (3,5%) hoặc ngạc nhiên (1%). Kiếm Tu và Thể Tu tặng pháp khí vũ khí (hòm chứa tối đa 3), Đan Sư và Tán Tu tặng đan (tối đa 20 mỗi bậc), Phù Sư và Ma Tu tặng Bí Kíp hợp hệ khách, đủ cấp (tối đa 8 loại). Hòm đầy thì khách giữ lại quà.
-- Thu nhập cố tình nhỏ vì món không bị dùng hết: bày 6 món ở cấp 10 được khoảng 94 Linh Thạch mỗi giờ với hạng Huyền, 170 với Địa, 460 với Thiên, 2.460 với Tiên (chưa tính quà), thấp hơn nhiều so với thu nhập thường của cấp đó (`tests/expo.test.ts`, mục thu nhập).
+- Thu nhập cố tình nhỏ vì món không bị dùng hết: bày 6 món ở cấp 10 được khoảng 100 Linh Thạch mỗi giờ với hạng Huyền, 180 với Địa, 480 với Thiên, 2.540 với Tiên (chưa tính quà), thấp hơn nhiều so với thu nhập thường của cấp đó (`tests/expo.test.ts`, mục thu nhập).
 
 ### Cách chạy
 
 - `lib/expo.ts`: luật thuần (khách, điểm, phản ứng, quà, tuyến đi). `lib/game.ts`: `expoSet`, `expoClear`, `expoCollect` (intent thuần, chạy ngay ở trình duyệt), `expoView`, `runExpo` (gọi trong `tick` trước `ensureOrders`, chỉ ở máy chủ). Nhật ký 6 khách gần nhất nằm trong `st.expo.log`, máy khách chỉ xem lại.
 - `lib/expofly.ts`: **đường bay** của một khách, chỉ là số (không DOM): bay vào từ bên nào, lượn tới từng bệ và đứng bên cạnh, quay mặt nhìn bệ, nghiêng theo lúc lên xuống, rồi bay ra. Quà và Linh Thạch bay thành vòng cung vào hòm (`arcAt`).
-- `components/ExpoScene.tsx`: sân khấu. Khách là một **Web Animation** duy nhất trên `transform` và `opacity` (chạy trên compositor, React không vẽ khung nào); mặt cảm xúc, vòng sáng, tia lửa, đồng xu, quà đều là animation ngắn có `delay`. `prefers-reduced-motion` hoặc hiệu ứng tắt thì không có khách bay, chỉ còn sân khấu tĩnh với số đếm dưới mỗi bệ. Mở tab thì chiếu lại khách gần nhất cho có không khí, khách mới do máy chủ tạo thì bay vào khi tin về (tối đa 3 khách cùng lúc).
+- `components/ExpoScene.tsx`: sân khấu. Khách là một **Web Animation** duy nhất trên `transform` và `opacity` (chạy trên compositor, React không vẽ khung nào); mặt cảm xúc, vòng sáng, tia lửa, đồng xu, quà đều là animation ngắn có `delay`. `prefers-reduced-motion` hoặc hiệu ứng tắt thì không có khách bay, chỉ còn sân khấu tĩnh với số đếm dưới mỗi bệ. Mở tab thì chiếu lại khách gần nhất cho có không khí, khách mới do máy chủ tạo thì bay vào khi tin về, cách nhau chừng 1,5 giây nếu đến cùng lúc (tối đa 4 khách cùng lúc).
 - `components/Cultivator.tsx`: tu sĩ đạp kiếm vẽ bằng SVG, đổi màu theo loại khách, tóc, tay áo, dải lưng và phù lắc theo CSS. `components/ReactIcon.tsx`: mặt cảm xúc.
-- `components/Expo.tsx`: phần quanh sân khấu (dòng trạng thái, hòm quà, tổng số phản ứng, tờ chọn món cho một bệ dính đáy cửa sổ). Chạm bệ để chọn, chạm hòm hoặc nút Thu quà để nhận, không có toast.
-- `app/ds/expo.css`: giao diện sân khấu, mây, sương, khí. Ba khách đi xa mờ chạy bằng CSS không dừng, mọi vòng lặp tắt theo `data-fx='off'`.
+- `components/Expo.tsx`: phần quanh sân khấu (dòng trạng thái, hòm quà, tổng số phản ứng, tờ chọn món cho một bệ dính đáy cửa sổ). Chạm bệ để chọn, chạm hòm hoặc nút Thu quà để nhận, không có toast. Hòm hiện số món quà (chấm vàng) và số Linh Thạch; tab Triển lãm không có chấm xanh vì đây là chỗ để xem chứ không phải việc phải làm.
+- `app/ds/expo.css`: giao diện sân khấu, mây, sương, khí. Các khách đi xa mờ chạy bằng CSS không dừng (rút ngẫu nhiên lúc mở tab), mọi vòng lặp tắt theo `data-fx='off'`.
 - Test: `tests/expo.test.ts` (luật, thu nhập, khóa món, đường bay).
 
-### Năm mặt cảm xúc (vẽ bằng AI, của riêng game)
+### Hình vẽ AI cho Triển lãm (của riêng game)
 
-Mê, ngạc nhiên, thích, thất vọng, chê: `ui_react_love|wow|like|sad|angry` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`. Vẽ một lần (khoảng 5 ảnh):
+Bảy hình, đều là `ui_*` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`, vẽ trên nền đen:
+
+- `ui_react_love|wow|like|sad|angry`: năm mặt cảm xúc. Màu chia theo nóng và lạnh để không bao giờ có hai màu đỏ: mê = hồng đào, mắt trái tim; ngạc nhiên = vàng hổ phách, mắt tròn miệng tròn; thích = xanh ngọc, ngón cái giơ lên; thất vọng = xanh xám, rơi một giọt lệ; chê = tím mận đậm, cau mày, có khói bốc lên. Hàng năm mặt trong tab Triển lãm luôn hiện đủ năm mặt theo thứ tự từ tốt đến xấu kèm số đếm (mặt chưa có lần nào thì mờ đi), nên cũng là bảng chú giải.
+- `ui_expo_stand`: bệ đá tròn dưới mỗi món bày (mây phía sau bệ vẽ bằng CSS).
+- `ui_expo_chest`: hòm quà.
+
+Vẽ một lần (khoảng 7 ảnh, 0,35 USD):
 
     npm run pregen -- --only shop
 
-hoặc trang "Draw missing art" của chủ game. Ảnh ra ở `public/art/ui/react_*.jpg`. Chưa có ảnh thì màn hình tự vẽ năm mặt tròn bằng SVG cùng màu, nên tính năng chạy được ngay.
+hoặc workflow "Draw missing art". `npm run pregen` chạy `npm run thumbs` sau khi vẽ: thumbs cắt nền đen thành `public/art/ui/cut/{id}.png` (bệ và hòm 288 px, mặt cảm xúc 96 px). Màn hình dùng ảnh đã cắt (`C.cutArt`, `components/CutImg.tsx`). Chưa có ảnh thì tự vẽ hình tạm: bệ đá tròn bằng CSS, hòm bằng biểu tượng, năm mặt tròn bằng SVG cùng màu, nên tính năng chạy được ngay.
+
+### Khách bay (cảm giác)
+
+Mỗi chuyến tự khác nhau nhưng cùng một chuyến thì luôn bay y hệt (số rút từ số thứ tự khách): tốc độ 0,85 đến 1,4 lần, độ cao lúc vào, nửa số chuyến lượn ngang qua sân khấu rồi quay lại, 30% có đường vòng giữa hai bệ, mỗi lần ngắm 0,95 đến 1,5 giây, đôi khi quay đầu bay ra phía bên kia. Ba bệ khoảng 7 giây. Năm đến bảy khách đi xa mờ bay ngang nền, mỗi lần mở tab được rút ngẫu nhiên lại (độ cao, cỡ, tốc độ 6 đến 16 giây, hướng).

@@ -1,10 +1,10 @@
 'use client';
-import { useDeferredValue, useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, type ComponentType } from 'react';
 import type { GS } from '@/lib/client/types';
 import { Icon, type IconName } from './ds/Icon';
 import { BeastJobs, PillJobs, MatJobs, readyCount } from './JobCards';
 import { OrdersPanel, fillableCount } from './Orders';
-import { ExpoPanel, boxReady } from './Expo';
+import { ExpoPanel } from './Expo';
 import { Window, type Act } from './Panels';
 
 // Công việc: a place of its own for jobs a player may take up if they like (it is not the daily quests, and nothing is lost by leaving a job alone).
@@ -16,7 +16,7 @@ export const JOB_KINDS: JobKind[] = [
   { id: 'beasts', name: 'Tìm thú', icon: 'paw', line: 'Khách nhờ tìm Linh Thú. Con nào hợp thì giao, giá cao hơn bán ở chuồng.', ready: (st) => readyCount(st, 'beast'), Panel: BeastJobs },
   { id: 'pills', name: 'Đặt đan', icon: 'flame', line: 'Khách đặt Hồi Khí Đan. Luyện được bao nhiêu giao bấy nhiêu.', ready: (st) => readyCount(st, 'pill'), Panel: PillJobs },
   { id: 'mats', name: 'Nguyên liệu', icon: 'sparkle', line: 'Khách thu nguyên liệu. Gom được bao nhiêu giao bấy nhiêu.', ready: (st) => readyCount(st, 'mat'), Panel: MatJobs },
-  { id: 'expo', name: 'Triển lãm', icon: 'cloud', line: 'Bày 3 đến 6 món của ngươi trên mây. Khách tu sĩ ghé xem, ai mê thì tặng quà, ai chê thì ngươi cũng chẳng mất gì.', ready: boxReady, Panel: ExpoPanel },
+  { id: 'expo', name: 'Triển lãm', icon: 'cloud', line: 'Bày 3 đến 6 món của ngươi trên mây. Khách tu sĩ ghé xem, ai mê thì tặng quà, ai chê thì ngươi cũng chẳng mất gì.', ready: () => 0 /* a place to look at, not a job to finish: no green dot */, Panel: ExpoPanel },
 ];
 /** How many jobs could be done right now, over every kind (the badge on the Công việc buttons). */
 export const jobsReady = (st: GS): number => JOB_KINDS.reduce((n, k) => n + k.ready(st), 0);
@@ -41,7 +41,7 @@ export function JobsPanel({ st, act }: { st: GS; act: Act }) {
     <div className="jobsPanel">
       {JOB_KINDS.length > 1
         ? (
-          <div className="jobTabs" role="tablist" aria-label="Loại công việc" style={{ '--n': JOB_KINDS.length } as CSSProperties}>
+          <div className="jobTabs" role="tablist" aria-label="Loại công việc">
             {JOB_KINDS.map((x, i) => (
               <button key={x.id} type="button" role="tab" aria-selected={x.id === tab} className={`jobTab${x.id === tab ? ' on' : ''}`} onClick={() => setTab(x.id)}>
                 <span className="jobTabIco"><Icon name={x.icon} size={20} /></span>

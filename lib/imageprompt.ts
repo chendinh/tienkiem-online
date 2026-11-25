@@ -245,6 +245,10 @@ export function buildPlan(spec: any): Plan {
     if (id.startsWith('ui_react_')) {
       return { kind: 'item', prompt: `${ITEM_CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Straight-on view with no perspective, evenly lit, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} ${NEG}`, width: 512, height: 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
     }
+    // the things of Triển Lãm that stand on the stage (the stone stand, the chest): a solid object seen three-quarter from a little above, cut out later by scripts/thumbs.ts
+    if (id.startsWith('ui_expo_')) {
+      return { kind: 'item', prompt: `${ITEM_CORE}. A game interface asset: ${C.PROP_EN[id]}. Three-quarter front view from slightly above, evenly lit with a soft light from the top, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
+    }
     if (id.startsWith('ui_')) {
       const wide = id.startsWith('ui_btn');
       return { kind: 'item', prompt: `${ITEM_CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Perfectly symmetrical, straight-on orthographic view with no perspective, evenly lit, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} No person, no hands. ${NEG}`, width: wide ? 1024 : 512, height: wide ? 384 : 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };

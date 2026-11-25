@@ -15,15 +15,13 @@ import type { Act } from './Panels';
 // (ExpoScene draws them and the visitors); this panel is what is around the stage: the line about the state, the box of gifts, the totals of what visitors thought, and the sheet that
 // opens when a stand is tapped. The rules are lib/expo.ts (what visitors think and give) and lib/game.ts (expoSet, expoClear, expoCollect, runExpo). All three of the player's moves run on the
 // screen at once; nothing pops up when it worked.
-/** One dot for the tab: the box has something to collect. */
-export const boxReady = (st: GS): number => (XP.isExpo(st.expo) && XP.boxCount(st.expo.box) > 0 ? 1 : 0);
 const noop = () => {};
 const GRADE = ['Hồi Khí Đan', 'Hồi Khí Đan hạng khá', 'Hồi Khí Đan hạng cao'];
 
+// The five faces from the best look to the worst, with how many times each happened: this row is also how the player learns what each face means (it is always there, the ones that never happened dimmed).
 function Totals({ e }: { e: XP.Expo }) {
   const t = XP.talliesOf(e);
-  if (!t.some((n) => n > 0)) return null;
-  return <div className="xTot" aria-label="Khách đã nghĩ gì về các món bày">{XP.REACTIONS.map((r, i) => t[i] > 0 && <span key={r} className="xChip" title={XP.REACTION_NAME[r]}><ReactIcon r={r} size={20} />{fmt(t[i])}</span>)}</div>;
+  return <div className="xTot" role="group" aria-label="Khách đã nghĩ gì về các món bày: mê, ngạc nhiên, thích, thất vọng, chê">{XP.REACTIONS.map((r, i) => <span key={r} className={`xChip${t[i] ? '' : ' zero'}`} title={XP.REACTION_NAME[r]}><ReactIcon r={r} size={22} />{fmt(t[i])}</span>)}</div>;
 }
 
 function BoxView({ b }: { b: XP.Box }) {
@@ -111,7 +109,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
         <p className={`xState${n < XP.MIN_OPEN ? ' warn' : ''}`}>
           {n < XP.MIN_OPEN
             ? <>Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</>
-            : <>Đang mở cửa với <b>{n}</b> món. Khoảng {XP.INTERVAL_SEC[n]} giây có một vị khách ghé xem.</>}
+            : <>Đang mở cửa với <b>{n}</b> món. Cứ khoảng {Math.round(XP.INTERVAL_SEC[n])} giây lại có khách ghé, có lúc vài người cùng đến.</>}
         </p>
         {e && <BoxView b={e.box} />}
         <button type="button" className="btn hot" disabled={!has} onClick={collect}>Thu quà</button>

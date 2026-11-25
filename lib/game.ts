@@ -1234,28 +1234,35 @@ function giftWeapon(st: GameState, tier: number, level: number, key: string): It
   st.uid = tmp.uid;
   return it;
 }
-/** One visitor, when the clock says so (server tick only: it makes pieces for the box). A few seconds of work at most, even for 12 offline hours of visitors. */
+/** The visitors whose time has come (server tick only: it makes pieces for the box): one about every 5 seconds, so usually one a tick and now and then two or three. A few seconds of work at most, even for 12 offline hours of visitors. */
 function runExpo(st: GameState) {
   const e = st.expo;
   if (!XP.isExpo(e)) return;
   if (!XP.isOpen(e)) { e.next = 0; return; }
   if (e.next === 0) { e.next = st.clock + XP.FIRST_VISIT_MS; return; }
-  if (st.clock < e.next) return;
+  for (let made = 0; made < XP.MAX_PER_TICK && st.clock >= e.next; made++) {
+    if (!expoVisit(st, e)) return;
+    e.next += XP.intervalMs(XP.filled(e), st.seed, e.n);   // from the planned time, not from the tick, so the pace does not depend on where the ticks fall
+  }
+  if (st.clock >= e.next) e.next = st.clock + XP.intervalMs(XP.filled(e), st.seed, e.n);   // still behind (a long gap): do not make up for it
+}
+/** One visitor. False when the stands are no longer enough to open (a piece is gone). */
+function expoVisit(st: GameState, e: XP.Expo): boolean {
   const views = expoView(st);
   views.forEach((v, i) => { if (!v && e.stands[i]) e.stands[i] = null; });   // a piece that is gone: its stand is empty now
-  if (!XP.isOpen(e)) { e.next = 0; return; }
-  const n = ++e.n, seed = st.seed, key = `${seed}|expo|${n}`, v = XP.visitorOf(seed, n), r = XP.routeOf(e, seed, n), steps: XP.Step[] = [];
+  if (!XP.isOpen(e)) { e.next = 0; return false; }
+  const n = ++e.n, seed = st.seed, key = `${seed}|expo|${n}`, v = XP.visitorOf(seed, n), r = XP.routeOf(e, seed, n), steps: XP.Step[] = [], scale = XP.payScale(XP.filled(e));
   let best: { rank: number; ex: XP.Exhibit } | null = null;
   for (const slot of r.slots) {
     const x = exhibitOf(views[slot]), stand = e.stands[slot];
     if (!x || !stand) continue;
-    const rx = XP.reactionOf(XP.scoreOf(v, x.ex, `${key}|${slot}`)), stones = XP.stonesFor(rx, x.ex, v.gen);
+    const rx = XP.reactionOf(XP.scoreOf(v, x.ex, `${key}|${slot}`)), stones = XP.stonesFor(rx, x.ex, v.gen, scale, (O.hash32(`xu|${key}|${slot}`) % 1000) / 1000);
     if (rx) { const ri = XP.REACTIONS.indexOf(rx); stand.tally[ri]++; if (ri < 3 && (!best || ri < best.rank)) best = { rank: ri, ex: x.ex }; }
     e.box.stones = Math.min(B.stoneMax, e.box.stones + stones);
     steps.push({ slot, r: rx, stones });
   }
   let gift: XP.Gift | undefined;
-  const plan = best ? XP.giftOf(v.who.arch, XP.REACTIONS[best.rank], best.ex, key) : null;
+  const plan = best ? XP.giftOf(v.who.arch, XP.REACTIONS[best.rank], best.ex, key, scale) : null;
   if (plan && best) {
     const level = levelOf(st.player);
     if (plan.kind === 'weapon') {
@@ -1272,7 +1279,7 @@ function runExpo(st: GameState) {
     }
   }
   if (steps.length) { e.log.push({ n, at: st.clock, who: v.who, side: r.side, route: steps, ...(gift ? { gift } : {}) }); if (e.log.length > XP.LOG_KEEP) e.log.shift(); }
-  e.next = st.clock + XP.intervalMs(XP.filled(e), seed, n);
+  return true;
 }
 // Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
 export function starterCheck(st: GameState, rep?: Report) {
