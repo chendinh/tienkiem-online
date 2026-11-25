@@ -6,6 +6,18 @@
   .wkCard.w-3 { border-color: var(--gold-300); background: linear-gradient(180deg, rgb(120 90 20 / 0.24), rgb(0 0 0 / 0.3)); box-shadow: 0 0 18px -6px color-mix(in srgb, var(--gold-400) 70%, transparent); }
   .wkCard.ready { border-color: var(--jade-300); box-shadow: 0 0 16px -6px color-mix(in srgb, var(--jade-400) 80%, transparent); }
   .wkJob { color: var(--gold-200); font-weight: 600; margin-right: 2px; }
+  /* the creatures that fit: big pictures with Level and Chiến Lực, the best one picked already; the picture opens the close look, the tile picks */
+  .wkPickHint { margin: 0; }
+  .wkPick { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); max-height: 340px; overflow-y: auto; padding: 2px; }
+  .wkPickIt { position: relative; min-width: 0; padding: 6px 4px 8px; border-width: 2px; transition: border-color 0.15s, background 0.15s; }
+  .wkPickIt:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 1px; }
+  .wkPickIt.on { box-shadow: 0 0 12px -4px var(--gold-300); }
+  .wkPickPic { display: inline-flex; }
+  .wkPickNm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); font-size: var(--fs-xs); font-weight: 600; }
+  .wkPickIt small { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; color: var(--text-2); }
+  .wkPickMark { position: absolute; right: 4px; top: 4px; z-index: 2; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--ink-900, #0b1117); background: var(--gold-300); font-style: normal; }
+  .wkPickAct { display: flex; gap: var(--sp-2); }
+  .wkPickAct .btn.hot { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wkPay { gap: 4px var(--sp-3); }
   .wkPay > span { display: inline-flex; align-items: center; gap: 4px; }
   .wkWorker { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
