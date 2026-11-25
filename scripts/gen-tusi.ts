@@ -40,8 +40,8 @@ const DRAW = 'google/nano-banana-2.1', EDIT = 'google/nano-banana-2.1/edit', CUT
 const VER = 2;
 // Putting together, in the 480 x 360 box (4:3 like the figure drawn in code): the character (head to soles) CHAR_H of the box tall, the same for all; the sword
 // SWORD_L times that long, centred across, its lowest point at FOOT of the box's height; the feet FEET_AT of the way along it from the hilt, the soles SINK of the
-// blade's thickness into it (standing on it, not above). What sticks out of the box (a long spear) makes the whole of it smaller.
-const BOX_W = 480, BOX_H = 360, FOOT = 0.87, CHAR_H = 0.68, SWORD_L = 1.1, FEET_AT = 0.44, SINK = 0.3, MARGIN = 3;
+// way down the blade as seen (its flat top face, seen from a little above: the soles in the middle of it, standing on the face, not on the edge). What sticks out of the box (a long spear) makes the whole of it smaller.
+const BOX_W = 480, BOX_H = 360, FOOT = 0.87, CHAR_H = 0.68, SWORD_L = 1.1, FEET_AT = 0.44, SINK = 0.5, MARGIN = 3;
 
 const STYLE = 'High-end Chinese Xianxia Fantasy RPG character art, fantasy realistic 3D rendering, beautiful detailed face, luminous cinematic lighting with a bright clean rim light so the silhouette reads even at a small size, rich saturated colours, premium AAA fantasy game quality, ultra detailed';
 const STANCE = 'standing upright in mid-air: legs straight and close together, both feet side by side at the same height as if standing on a narrow beam, the boots fully visible and the lowest point of the figure (the robe hem ends above the ankles)';
@@ -55,7 +55,8 @@ const drawPrompt = (k: TusiKind, g: 'f' | 'm', n: number) => `${STYLE}. ${FRAME}
 const editPrompt = (k: TusiKind, g: 'f' | 'm', n: number) =>
   `Edit this image. Keep exactly the same art style, rendering, lighting, camera angle and distance, character size and framing, the same stance (${STANCE}, nothing under the feet) and the same plain flat light grey background. The character faces and moves toward the RIGHT, robes and hair streaming back to the left. Change the character to ${who(g, n)}. Change what is in the hands to: ${k.weapon}; it is held in the hands, never under the feet. The whole figure and what the hands hold stay inside the frame. ${NEG} No second character.`;
 const SWORD_PROMPT = 'High-end Chinese Xianxia Fantasy RPG item art, fantasy realistic 3D rendering, luminous cinematic lighting with a bright clean rim light, premium AAA fantasy game quality, ultra detailed. '
-  + 'A single magical flying sword (a long straight Chinese jian) seen exactly from the side, lying perfectly horizontal and level across the picture, the hilt on the LEFT and the point on the RIGHT. '
+  + 'A single magical flying sword made to be stood on (yujian sword flight), with no one on it: a long straight Chinese jian with a broad blade, lying FLAT like a surfboard, its wide flat face turned UP to the sky, level and straight across the picture from left to right, the hilt on the LEFT and the point on the RIGHT. '
+  + 'Seen from the side and slightly from above (the camera about 20 degrees above it), so the flat top face of the blade shows as a long narrow surface to stand on, not the thin cutting edge. '
   + 'A polished silver-white blade with a fine pale blue luminous edge and a soft pale blue glow close around it, an ornate guard of gold and jade, a grip wrapped in dark blue silk, a small gold pommel. '
   + 'No tassel, no ribbon, no hand, no person, no stand, no scabbard, no motion trail, no sparks. The whole sword is inside the frame with a clear margin at both ends, centred. Plain flat light grey studio background, no shadow, no scenery. ' + NEG;
 
@@ -101,8 +102,10 @@ function solidBox(d: Buffer, W: number, H: number, min = 40) {
 }
 const median = (a: number[]) => { const s = [...a].sort((p, q) => p - q); return s.length ? s[s.length >> 1] : NaN; };
 
-// The sword as cut out -> laid level (turned by the axis of what is solid), the point to the right (the guard and grip weigh more than the point), trimmed;
-// and where the blade's top and bottom are (in the middle of its length: the soles stand there).
+// The sword as cut out -> laid level (turned by the axis of what is solid), the point to the right, trimmed; and where the blade's top and bottom are (in the middle
+// of its length: the soles stand there). Which end is the hilt is guessed once, for a sword newly drawn: the grip (dark silk, the prompt asks for it) is darker
+// than the silver blade; failing that, the guard (the narrow widest part across) is near the hilt; failing that, the point is the end that thins out. The guess
+// is kept after that; --flip sword turns it round.
 async function levelSword() {
   const sharp = await sharpOf();
   const a = await sharp(cutOf(SWORD)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -119,10 +122,37 @@ async function levelSword() {
   const RW = r.info.width, RH = r.info.height, rd = r.data;
   const b = solidBox(rd, RW, RH);
   if (!b) throw new Error('nothing is left of the sword after laying it level');
-  const end = Math.max(2, Math.round(b.w * 0.18));
-  let mL = 0, mR = 0;
-  for (let y = b.y0; y <= b.y1; y++) for (let i = 0; i < end; i++) { mL += rd[(y * RW + b.x0 + i) * 4 + 3]; mR += rd[(y * RW + b.x1 - i) * 4 + 3]; }
-  const hiltRight = mR > mL, flip = hiltRight !== !!manifest[SWORD]?.flip;
+  // how wide across it is, column by column (what is solid, not the glow), smoothed
+  const across: number[] = [];
+  for (let x = b.x0; x <= b.x1; x++) {
+    let t = -1, u = -1;
+    for (let y = b.y0; y <= b.y1; y++) if (rd[(y * RW + x) * 4 + 3] > 160) { if (t < 0) t = y; u = y; }
+    across.push(t < 0 ? 0 : u - t + 1);
+  }
+  const rad = Math.max(1, Math.round(b.w * 0.006));
+  const sm = across.map((_, i) => { let a = 0, c = 0; for (let j = Math.max(0, i - rad); j <= Math.min(b.w - 1, i + rad); j++) { a += across[j]; c++; } return a / c; });
+  let gi = 0;
+  sm.forEach((v, i) => { if (v > sm[gi]) gi = i; });
+  const mid = median(sm.filter((v) => v > 0)) || 1, e = Math.max(3, Math.round(b.w * 0.06));
+  const avg = (a: number[]) => a.reduce((p, q) => p + q, 0) / Math.max(1, a.length);
+  // how bright the solid part is at each end (15% of the length)
+  const lum = (left: boolean) => {
+    let t = 0, n = 0;
+    const w = Math.max(2, Math.round(b.w * 0.15));
+    for (let i = 0; i < w; i++) {
+      const x = left ? b.x0 + i : b.x1 - i;
+      for (let y = b.y0; y <= b.y1; y++) { const o = (y * RW + x) * 4; if (rd[o + 3] > 160) { t += 0.2126 * rd[o] + 0.7152 * rd[o + 1] + 0.0722 * rd[o + 2]; n++; } }
+    }
+    return n ? t / n : 0;
+  };
+  const lL = lum(true), lR = lum(false);
+  let peak = 0;
+  for (let i = Math.max(0, gi - Math.round(b.w * 0.08)); i <= Math.min(b.w - 1, gi + Math.round(b.w * 0.08)); i++) if (sm[i] > (sm[gi] + mid) / 2) peak++;
+  const guard = sm[gi] >= mid * 1.6 && peak < b.w * 0.05;
+  const by = Math.abs(lL - lR) > 25 ? 'the dark grip' : guard ? 'the guard' : 'the thin point';
+  const hiltRight = by === 'the dark grip' ? lR < lL : guard ? gi > b.w / 2 : avg(sm.slice(b.w - e)) > avg(sm.slice(0, e));
+  const prev = manifest[SWORD]?.level;
+  const flip = typeof prev?.turned === 'boolean' ? prev.turned : hiltRight;
   const tops: number[] = [], bots: number[] = [];
   for (let x = b.x0 + Math.round(b.w * 0.3); x <= b.x0 + Math.round(b.w * 0.7); x++) {
     let t = -1, u = -1;
@@ -135,7 +165,8 @@ async function levelSword() {
   await img.png().toFile(LEVEL);
   manifest[SWORD] = { ...manifest[SWORD], level: { deg: +deg.toFixed(2), turned: flip, w: b.w, h: b.h, top, bot } };
   save();
-  console.log(`sword laid level: turned ${deg.toFixed(1)} degrees${flip ? ', end for end' : ''}, ${b.w} x ${b.h}, blade ${top}-${bot}`);
+  const how = typeof prev?.turned === 'boolean' ? 'as before' : `by ${by}`;
+  console.log(`sword laid level: turned ${deg.toFixed(1)} degrees${flip ? ', end for end' : ''} (${how}), ${b.w} x ${b.h}, blade ${top}-${bot}`);
 }
 
 // A character as cut out + the sword -> the picture of the game.
@@ -286,8 +317,13 @@ async function frameAll(all: boolean) {
     let all = flag('--reframe');
     for (const key of flips) {
       if (!cur(key)) { console.log(`no cut-out of ${key}`); continue; }
+      if (key === SWORD) {
+        if (!manifest[SWORD].level) await levelSword();
+        manifest[SWORD].level.turned = !manifest[SWORD].level.turned;
+        all = true;
+        continue;
+      }
       manifest[key] = { ...manifest[key], flip: !manifest[key].flip };
-      if (key === SWORD) all = true;
     }
     save();
     if (cur(SWORD) && (all || !fs.existsSync(LEVEL))) await levelSword();
