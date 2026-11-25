@@ -22,7 +22,7 @@ export const raidInUrl = (): boolean => typeof window !== 'undefined' && !!new U
 let pushedUrl: string | null = null;
 const urlWith = (on: boolean) => { const u = new URL(window.location.href); if (on) u.searchParams.set(RAID_PARAM, '1'); else u.searchParams.delete(RAID_PARAM); return u.toString(); };
 
-interface Today { day: string; boss: string; at: number; status: string; joined: boolean; auto: boolean; count: number; crowd: R.Fighter[] }
+interface Today { day: string; boss: string; at: number; status: string; joined: boolean; auto: boolean; all?: boolean; count: number; crowd: R.Fighter[] }
 interface Claim { day: string; boss: string; win: boolean; reward: R.Reward }
 type FilmOut = FilmView & { reward: R.Reward | null; claimed: boolean };
 interface View { now: number; today: Today; film: FilmOut | null; claims: Claim[] }
@@ -180,7 +180,14 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
               {open ? (
                 <>
                   <div className="raidCount"><Icon name="clock" size={16} /> Khai chiến lúc <b>{hhmm(t.at)}</b> · còn <b className="num">{left(t.at - now)}</b></div>
-                  {t.joined
+                  {t.all
+                    ? (
+                      <div className="raidJoined">
+                        <span className="seal" aria-hidden="true"><b>Đã</b><b>Ghi</b><b>Danh</b></span>
+                        <span className="txt"><b>Mọi tu sĩ cùng xuất chiến</b><small>Đang thử nghiệm: ai cũng tự có mặt trên sân, không cần ghi danh. Tới giờ cứ ngồi xem.</small></span>
+                      </div>
+                    )
+                    : t.joined
                     ? (
                       <div className="raidJoined">
                         <span className="seal" aria-hidden="true"><b>Đã</b><b>Ghi</b><b>Danh</b></span>
@@ -194,11 +201,11 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
                         <span className="txt"><b>{busy === 'raid_join' ? 'Đang ghi danh…' : 'Ghi danh xuất chiến'}</b><small>Một chạm. Tới giờ tu sĩ của ngươi tự bay ra đánh.</small></span>
                       </button>
                     )}
-                  <button type="button" role="switch" aria-checked={t.auto} className={`raidSwitch${t.auto ? ' on' : ''}`} disabled={!!busy} onClick={() => void run('raid_auto', { on: !t.auto })}>
+                  {!t.all && <button type="button" role="switch" aria-checked={t.auto} className={`raidSwitch${t.auto ? ' on' : ''}`} disabled={!!busy} onClick={() => void run('raid_auto', { on: !t.auto })}>
                     <span className="track" aria-hidden="true"><i /></span>
                     <span className="lbl">Tự tham gia mỗi ngày</span>
-                  </button>
-                  <div className="raidCrowd"><Icon name="sparkle" size={14} /> <b>{t.count}</b> tu sĩ đã ghi danh{t.count > P.SHOWN_MAX ? ` (trên sân hiện ${P.SHOWN_MAX})` : ''}</div>
+                  </button>}
+                  <div className="raidCrowd"><Icon name="sparkle" size={14} /> <b>{t.count}</b> tu sĩ {t.all ? 'xuất chiến' : 'đã ghi danh'}{t.count > P.SHOWN_MAX ? ` (trên sân hiện ${P.SHOWN_MAX})` : ''}</div>
                 </>
               ) : (
                 <div className="raidCount">{t.status === 'empty' ? 'Hôm nay không ai ghi danh. Trận sau mở lúc 0:00.' : filmDone ? `Đã khai chiến lúc ${hhmm(t.at)} · ${film!.fighters.length} tu sĩ` : 'Đang khai chiến…'}</div>

@@ -6,7 +6,7 @@
 import * as G from '../game';
 import * as R from '../raid';
 import { query, withLock } from './db';
-import { loadAccount } from './store';
+import { loadAccount, decodeState } from './store';
 import { publicId } from './ranking';
 import { giveStack, stackInfo } from '../goods';
 import * as C from '../content';
@@ -33,6 +33,22 @@ async function ensureRaid(day: string) {
 // The fight time stored with the day (it was fixed when the day's row was made).
 const atOf = async (day: string) => { await ensureRaid(day); return (await query<{ at: number }>(`SELECT at FROM raids WHERE day = $1`, [day])).rows[0]?.at ?? fightAt(day); };
 
+// The trial: every player is in every day's fight, with no sign-up (RAID_EVERYONE=0 goes back to signing up).
+export const everyone = () => process.env.RAID_EVERYONE !== '0';
+/** Put players into a day's fight with their numbers from the save: those not in it yet, or (fresh) everyone again with their current numbers. */
+async function enlist(day: string, now: number, fresh: boolean) {
+  const rows = (await query<{ id: string; state: string }>(fresh
+    ? `SELECT id, state FROM accounts WHERE state IS NOT NULL`
+    : `SELECT a.id, a.state FROM accounts a WHERE a.state IS NOT NULL AND NOT EXISTS (SELECT 1 FROM raid_entries e WHERE e.day = $1 AND e.acc = a.id)`, fresh ? [] : [day])).rows;
+  for (const r of rows) {
+    try {
+      const st = decodeState(r.state);
+      if (!st || !st.player) continue;
+      await query(`INSERT INTO raid_entries (day, acc, fighter, joined) VALUES ($1, $2, $3::jsonb, $4) ON CONFLICT (day, acc) DO UPDATE SET fighter = EXCLUDED.fighter`, [day, r.id, JSON.stringify(fighterOf(st, await publicId(r.id))), now]);
+    } catch (e) { console.error('[tutien] raid enlist', r.id, e); }
+  }
+}
+
 export interface Film { day: string; boss: string; at: number; win: boolean; max: number; fighters: R.Fighter[]; rounds: R.Round[]; dmg: number[]; ko: number[]; mvp: number }
 const g = globalThis as any;
 const films: Map<string, Film> = g.__tutienRaidFilms || (g.__tutienRaidFilms = new Map());   // a fought day never changes: kept in memory once read
@@ -56,6 +72,7 @@ async function resolve(day: string, now: number) {
   await withLock(`raid:${day}`, async () => {
     const row = (await query<{ status: string; boss: string; at: number }>(`SELECT status, boss, at FROM raids WHERE day = $1`, [day])).rows[0];
     if (!row || row.status !== 'open' || row.at > now) return;
+    if (everyone()) await enlist(day, now, true);
     // those who join every day are in, with their last numbers (a player who joined by hand today keeps the numbers of that moment)
     await query(`INSERT INTO raid_entries (day, acc, fighter, joined) SELECT $1, acc, fighter, at FROM raid_auto ON CONFLICT (day, acc) DO NOTHING`, [day]);
     const rows = (await query<{ acc: string; fighter: R.Fighter }>(`SELECT acc, fighter FROM raid_entries WHERE day = $1 ORDER BY joined, acc`, [day])).rows;
@@ -93,6 +110,11 @@ export async function raidView(acc: string, now: number) {
   const row = (await query<{ status: string; boss: string; at: number }>(`SELECT status, boss, at FROM raids WHERE day = $1`, [day])).rows[0];
   const at = row ? row.at : fightAt(day), boss = R.BOSS(row ? row.boss : bossFor(day));
   const status = row ? row.status : 'open';
+  // players who are not in today's fight yet (new since the last look), at most once a minute in this server instance
+  if (everyone() && status === 'open' && now < at && now - (g.__tutienRaidEnlist || 0) > 60000) {
+    g.__tutienRaidEnlist = now;
+    try { await enlist(day, now, false); } catch (e) { console.error('[tutien] raid enlist', e); }
+  }
   const joinedRow = (await query<{ joined: number }>(`SELECT joined FROM raid_entries WHERE day = $1 AND acc = $2`, [day, acc])).rows[0];
   const auto = !!(await query(`SELECT 1 FROM raid_auto WHERE acc = $1`, [acc])).rowCount;
   // before the fight, the numbers of a fighter follow the save (gear changed since joining counts)
@@ -117,7 +139,7 @@ export async function raidView(acc: string, now: number) {
   }
   const claims = await claimsOf(acc);
   return {
-    now, today: { day, boss: boss.id, at, status, joined: !!joinedRow, auto, count: crowd.count, crowd: crowd.list },
+    now, today: { day, boss: boss.id, at, status, joined: !!joinedRow, auto, all: everyone(), count: crowd.count, crowd: crowd.list },
     film: film ? { ...film, me, reward: myReward, claimed } : null,
     claims,
   };
