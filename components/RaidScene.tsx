@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as R from '@/lib/raid';
+import type { LootWon } from '@/lib/raidloot';
 import * as P from '@/lib/raidplay';
 import { fxOf, fxColor, type SkillFx } from '@/lib/skillfx';
 import { sfx } from '@/lib/audio';
@@ -19,7 +20,7 @@ import { playSkill, warmFx, loadTex } from './fx/SkillFx';
 // there; its great attack is a clip of its own over the whole stage; at the end it dies (the clip dissolves into the empty lair) or flees into the mist.
 // Nothing here decides anything: the record came from the server. Everything is a function of the film's clock: one requestAnimationFrame loop moves the cultivators (a transform
 // each), draws every bullet on one canvas, and fires the moments (numbers, banners, techniques) as the clock passes them, so a film started in the middle shows the same thing.
-export interface FilmView { day: string; boss: string; at: number; win: boolean; max: number; fighters: R.Fighter[]; rounds: R.Round[]; dmg: number[]; ko: number[]; mvp: number; me: number }
+export interface FilmView { day: string; boss: string; at: number; win: boolean; max: number; fighters: R.Fighter[]; rounds: R.Round[]; dmg: number[]; ko: number[]; mvp: number; me: number; loot?: LootWon[] /* who got the Thiên prize pieces (lib/raidloot.ts) */ }
 type Props =
   | { mode: 'lobby'; boss: R.Boss; crowd: R.Fighter[]; meId: string | null; caption: string }
   | { mode: 'film'; boss: R.Boss; film: FilmView; from: number /* ms into the film to start at */; live: boolean; onEnd: () => void };
@@ -89,6 +90,7 @@ function puffSprite(tone: string): HTMLCanvasElement {
 /** The upper jaw of the bite (the lower one is it upside down): a dark arch of a beast's jaw with a rim of the element's colour, the gum line curving up to the corners
  *  of the mouth, a row of teeth with two long fangs. 256 x 150; the gum line is at JAW_GUM of its height in the middle. */
 const JAW_W = 256, JAW_H = 150, JAW_GUM = 92 / 150;
+const BITE_DROP = 280;   // ms after the jaws close until they let the bitten cultivator go (it then falls like any fallen one)
 function jawSprite(rim: string): HTMLCanvasElement {
   const key = `jaw|${rim}`, had = spriteCache.get(key); if (had) return had;
   const c = document.createElement('canvas'); c.width = JAW_W; c.height = JAW_H;
@@ -217,7 +219,7 @@ export function RaidScene(p: Props) {
     // tumbling the way it is thrown; then it reels, dazed, stars round its head (DIZZY ms)
     const KB = [0.2, 0.15, 0.27], KB_PELT = 0.055, KB_MAX = 0.34, KB_MS = 1400, DIZZY = [1500, 1100, 2100];
     const bigT = new Map<number, number[]>(), hurtT = new Map<number, [number, number][]>(), dizT = new Map<number, [number, number][]>(), koT = new Map<number, number>();
-    const biteT = new Map<number, number>();   // the bitten: when the jaws close on them (they are swallowed, they do not fall)
+    const biteT = new Map<number, number>();   // the bitten: when the jaws close on them (the jaws let go of them BITE_DROP later and they fall dead)
     const push = <T,>(m: Map<number, T[]>, k: number, v: T) => { let l = m.get(k); if (!l) m.set(k, (l = [])); l.push(v); };
     for (const s of tl.shots) if (s.big && s.i >= 0) push(bigT, s.i, s.t);
     for (const e of tl.events) {
@@ -280,7 +282,12 @@ export function RaidScene(p: Props) {
         const tx = clamp(x, W * 0.3, W * 0.7) + (bc.x - x) * 0.12, ty = clamp(y, H * 0.36, H * 0.82);
         x += (tx - x) * e; y += (ty - y) * e;
         if (t <= bt) { x += Math.sin(t * 0.11) * 2.6 * sc * u; y += Math.sin(t * 0.083) * 1.6 * sc * u; }
-        else { const v = clamp((t - bt) / 380, 0, 1); scale *= 1 - 0.7 * v; op = 1 - v; rot += 40 * v * -face(s); }   // swallowed
+        else if (t > bt + BITE_DROP) {   // the jaws let go: it falls dead to the ground like any fallen one, from where it was caught
+          const v = clamp((t - bt - BITE_DROP) / 850, 0, 1), fy = H * (0.885 + unit(hash32(`floor|${keys[i]}`), 3) * 0.05), f = face(s);
+          x += f * W * 0.04 * v; y += (fy - y) * v * v;
+          const after = t - bt - BITE_DROP - 850; if (after > 0 && after < 300) y -= Math.sin((Math.PI * after) / 300) * H * 0.012;
+          rot = -f * 96 * (1 - (1 - v) ** 2); op = 1 - 0.15 * v;
+        } else { x += Math.sin(t * 0.21) * 3.5 * sc; rot += Math.sin(t * 0.05) * 14; }   // shaken in the closed jaws
       } else if (ko !== undefined && t > ko) {
         const u = clamp((t - ko) / 850, 0, 1), fy = H * (0.885 + unit(hash32(`floor|${keys[i]}`), 3) * 0.05), f = face(s);
         x += f * W * 0.04 * u; y += (fy - y) * u * u;
@@ -361,7 +368,7 @@ export function RaidScene(p: Props) {
       const el = hpBar.current[s]; if (el) el.style.width = `${(fhp[i] / Math.max(1, film.fighters[i].hp)) * 100}%`;
     };
     film.fighters.forEach((_, i) => setF(i, fhp[i]));
-    shown.forEach((i, s) => { card.current[s]?.classList.toggle('ko', down[i]); card.current[s]?.classList.toggle('eaten', (biteT.get(i) ?? Infinity) <= from); });
+    shown.forEach((i, s) => { card.current[s]?.classList.toggle('ko', down[i]); });
     if (bossBar.current) bossBar.current.style.transition = 'none';
     if (bossLag.current) bossLag.current.style.transition = 'none';
     setRage(s0.rage); setTitle(from < P.INTRO_MS - 900); setOver(null);
@@ -456,11 +463,11 @@ export function RaidScene(p: Props) {
         case 'bite': {
           setF(e.j, 0); down[e.j] = true;
           const s = slotOf.get(e.j), f = film.fighters[e.j], mine = e.j === film.me;
-          if (s !== undefined) card.current[s]?.classList.add('ko', 'eaten');
+          if (s !== undefined) card.current[s]?.classList.add('ko');
           if (!live) break;
           const q = s !== undefined ? chestAt(e.j, e.t) : null;
           // the banner on the other half of the stage from the jaws
-          say(`${boss.name} cạp chết ${f.name}`, `bite ${q && q.y < H * 0.55 ? 'lo' : 'hi'}`, mine ? 'Bạn bị nuốt chửng trong một ngụm' : 'Một ngụm, không kịp trở tay');
+          say(`${boss.name} cạp chết ${f.name}`, `bite ${q && q.y < H * 0.55 ? 'lo' : 'hi'}`, mine ? 'Bạn bị cạp một ngụm, gục tại chỗ' : 'Một ngụm, không kịp trở tay');
           shake(26, 900); sway(1400, 1.8); sfx('gong'); if (mine) sfx('fail');
           if (q) pop('CẠP!', { x: q.x, y: q.y - cardH * 0.55 }, 'bite', '#ff3b30');
           break;
@@ -649,8 +656,8 @@ export function RaidScene(p: Props) {
         ctx.globalAlpha = 1;
       }
       // a fallen cultivator hits the ground: a puff of dust
-      for (const [i, k] of koT) {
-        if (biteT.has(i)) continue;
+      for (const [i, k0] of koT) {
+        const k = biteT.has(i) ? k0 + BITE_DROP : k0;   // the bitten land when the jaws have let them go
         const v = (t - k - 820) / 520; if (v < 0 || v >= 1) continue;
         const s = slotOf.get(i); if (s === undefined) continue;
         const q = poseOf(s, i, k + 850), z = (50 + 70 * v) * sc;

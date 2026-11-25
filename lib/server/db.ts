@@ -89,6 +89,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS raid_entries (day text NOT NULL, acc text NOT NULL, fighter jsonb NOT NULL, joined bigint NOT NULL, idx int, reward jsonb, claimed boolean NOT NULL DEFAULT false, PRIMARY KEY (day, acc))`,
   `CREATE INDEX IF NOT EXISTS raid_entries_acc ON raid_entries (acc, day DESC)`,
   `CREATE TABLE IF NOT EXISTS raid_auto (acc text PRIMARY KEY, fighter jsonb NOT NULL, at bigint NOT NULL)`,
+  // the day's three Thiên prize pieces (lib/raidloot.ts), fixed when the day's row is made so the lobby shows what the fight gives
+  `ALTER TABLE raids ADD COLUMN IF NOT EXISTS loot jsonb`,
 ];
 
 // Create the tables once per server process. Everything runs in ONE transaction under a transaction-level advisory lock, so two

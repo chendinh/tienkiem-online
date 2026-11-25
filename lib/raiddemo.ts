@@ -5,6 +5,8 @@ import * as G from './game';
 import * as A from './arts';
 import * as R from './raid';
 import { fighterOf } from './raidfighter';
+import * as L from './raidloot';
+import { thienLooksFor } from './daily';
 import type { FilmView } from '@/components/RaidScene';
 
 export const DEMO_MAX = 300;
@@ -42,7 +44,8 @@ export function demoFilm(bossId: string, fs: R.Fighter[], want: Outcome, seed: n
       // a real date, so the board can show it
       const day = new Date(Date.UTC(2026, 0, 1) + ((seed + k * 37) % 3650) * 86400000).toISOString().slice(0, 10);
       const res = R.fight(boss, fs, day, mul);
-      const film: FilmView = { day, boss: boss.id, at: 0, win: res.win, max: res.max, fighters: fs, rounds: res.rounds, dmg: res.dmg, ko: res.ko, mvp: res.mvp, me: -1 };
+      const film: FilmView = { day, boss: boss.id, at: 0, win: res.win, max: res.max, fighters: fs, rounds: res.rounds, dmg: res.dmg, ko: res.ko, mvp: res.mvp, me: -1,
+        loot: L.lootWon(day, L.lootOfDay(day, thienLooksFor), fs.map((f) => f.level), res.dmg) };   // the prize as the server would give it (plain pieces where the browser knows no Thiên picture)
       if (!first) first = film;
       if (want === 'any' || (want === 'win') === res.win) return film;
     }

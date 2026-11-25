@@ -3,12 +3,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import * as C from '@/lib/content';
 import * as R from '@/lib/raid';
 import * as P from '@/lib/raidplay';
+import * as L from '@/lib/raidloot';
+import { levelOf, type Item } from '@/lib/game';
 import { stackInfo } from '@/lib/goods';
 import { raidGet, messageOf } from '@/lib/client/api';
 import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
 import { ElIcon } from './Icons';
-import { Img, fmt } from './ui';
+import { Img, fmt, ItemCard, ItemIcon } from './ui';
 import { Cultivator, lookOf } from './Cultivator';
 import { RaidScene, type FilmView } from './RaidScene';
 import type { Act } from './Panels';
@@ -22,7 +24,7 @@ export const raidInUrl = (): boolean => typeof window !== 'undefined' && !!new U
 let pushedUrl: string | null = null;
 const urlWith = (on: boolean) => { const u = new URL(window.location.href); if (on) u.searchParams.set(RAID_PARAM, '1'); else u.searchParams.delete(RAID_PARAM); return u.toString(); };
 
-interface Today { day: string; boss: string; at: number; status: string; joined: boolean; auto: boolean; all?: boolean; count: number; crowd: R.Fighter[] }
+interface Today { day: string; boss: string; at: number; status: string; joined: boolean; auto: boolean; all?: boolean; count: number; crowd: R.Fighter[]; loot?: L.LootDrop[] }
 interface Claim { day: string; boss: string; win: boolean; reward: R.Reward }
 type FilmOut = FilmView & { reward: R.Reward | null; claimed: boolean };
 interface View { now: number; today: Today; film: FilmOut | null; claims: Claim[] }
@@ -32,6 +34,8 @@ const left = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); ret
 const hhmm = (ms: number) => { const d = new Date(ms + R.TZ_MS); return `${d.getUTCHours()}:${two(d.getUTCMinutes())}`; };   // Vietnam time
 const dayName = (day: string) => { const [, m, d] = day.split('-'); return `${Number(d)}/${Number(m)}`; };
 const goodsLine = (g: { key: string; qty: number }) => { const i = stackInfo(g.key); return i ? { name: i.name, art: i.art, qty: g.qty } : null; };
+const asItem = (x: L.LootItem, k: number): Item => ({ ...x, id: -1 - k });   // a prize piece to show (it has no id until a save takes it)
+const pct = (p: number) => (p >= 0.1 ? `${Math.round(p * 100)}%` : p >= 0.001 ? `${(p * 100).toFixed(1).replace('.', ',')}%` : '<0,1%');
 
 export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
   const shut = useRef(onClose); shut.current = onClose;
@@ -193,6 +197,11 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
               {film && filmDone && mode === 'lobby' && <button type="button" className="btn raidReplay" onClick={() => startFilm(0, false)}><Icon name="play" size={15} /> Xem trận hôm nay</button>}
             </section>
 
+            {/* the three Thiên pieces: what today's fight gives (before it), then who got them (once the film has reached its end, or from the lobby once fought) */}
+            {film && film.loot && film.loot.length > 0 && (mode === 'result' || (mode === 'lobby' && filmDone))
+              ? <LootWonCard film={film} myPid={myPid} />
+              : t.loot && t.loot.length > 0 && <LootCard drops={t.loot} level={levelOf(st.player)} />}
+
             {/* rewards still to take */}
             {v.claims.map((c) => (
               <section key={c.day} className={`raidCard claim${c.win ? ' win' : ''}`}>
@@ -204,7 +213,7 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
 
             {/* the board of the film on the stage */}
             {film && mode === 'result' && <Board film={film} myPid={myPid} />}
-            <p className="hint raidRules">Mỗi ngày một Dị Thú. Ai ghi danh trước {R.FIGHT_HOUR}:00 (giờ Việt Nam) đều xuất chiến với chỉ số lúc đó. Kết quả do máy chủ đánh một lần cho mọi người; màn này chỉ chiếu lại. Thắng thì có Linh Thạch, Khế Ước Phù, Hồi Khí Đan, nguyên liệu; ba người gây sát thương cao nhất có thể nhận Bí Kíp hệ {boss.el}. Thua vẫn có quà nhỏ.</p>
+            <p className="hint raidRules">Mỗi ngày một Dị Thú. Ai ghi danh trước {R.FIGHT_HOUR}:00 (giờ Việt Nam) đều xuất chiến với chỉ số lúc đó. Kết quả do máy chủ đánh một lần cho mọi người; màn này chỉ chiếu lại. Thắng hay thua, ba món Thiên của trận đều có chủ: mỗi món bốc riêng, cơ hội của mỗi người bằng phần trăm sát thương người đó gây ra (gục giữa trận vẫn tính). Thắng còn có Linh Thạch, Khế Ước Phù, Hồi Khí Đan, nguyên liệu; ba người gây sát thương cao nhất có thể nhận Bí Kíp hệ {boss.el}. Thua vẫn có quà nhỏ.</p>
           </div>
         </div>
       </div>
@@ -253,6 +262,7 @@ function Bar({ close, sub }: { close: () => void; sub: string }) {
 function RewardList({ r }: { r: R.Reward }) {
   return (
     <ul className="raidReward">
+      {(r.items || []).map((x, k) => <li key={`it${k}`} className="thien"><span className="pic"><ItemIcon it={asItem(x, k)} size={26} zoom /></span><b>{x.name}</b><small>Thiên · Lv{x.level}</small></li>)}
       <li><Icon name="stone" size={16} /><b>{fmt(r.stones)}</b><small>Linh Thạch</small></li>
       {r.goods.map((g) => { const x = goodsLine(g); return x && <li key={g.key}><Img src={x.art} className="ico" fb={<Icon name="sparkle" size={16} />} /><b>×{g.qty}</b><small>{x.name}</small></li>; })}
     </ul>
@@ -267,12 +277,77 @@ export function ResultCard({ film, boss, onReplay, demo }: { film: FilmOut; boss
     <div className={`raidResult ${film.win ? 'win' : 'flee'}`}>
       <h3>{film.win ? 'Đại thắng' : 'Dị Thú trốn thoát'}</h3>
       <p>{film.win ? `${boss.name} đã bị ${film.fighters.length} tu sĩ trảm sau ${film.rounds.length} hiệp.` : `${boss.name} bỏ chạy sau ${film.rounds.length} hiệp, còn ${Math.round(((film.rounds[film.rounds.length - 1]?.hp || 0) / film.max) * 100)}% Sinh Lực.`}</p>
+      {film.loot && film.loot.length > 0 && (
+        <>
+        <small className="raidLootLbl">Thiên Bảo về tay</small>
+        <div className="raidLootStrip" aria-label="Ba món Thiên đã có chủ">
+          {film.loot.map((w) => { const f = film.fighters[w.to]; return f && (
+            <span key={w.k} className={w.to === film.me ? 'me' : ''} title={`${w.item.name} → ${f.name}`}>
+              <span className="pic"><ItemIcon it={asItem(w.item, w.k)} size="fit" /></span>
+              <b>{w.to === film.me ? 'Ngươi' : f.name}</b>
+            </span>
+          ); })}
+        </div>
+        </>
+      )}
       {mvp && film.fighters.length > 1 && <div className="raidMvp"><span className="fig"><Cultivator look={lookOf(mvp.arch, mvp.g, mvp.hair, mvp.cls)} /></span><span><small>Công đầu</small><b>{mvp.name}</b><em>{fmt(film.dmg[film.mvp])} sát thương</em></span></div>}
       {demo ? null : mine
         ? <div className="raidMine"><span>Ngươi: hạng <b>{rank}</b>/{film.fighters.length} · {fmt(film.dmg[film.me])} sát thương ({Math.round((film.dmg[film.me] / total) * 100)}%){film.ko[film.me] ? ` · trọng thương ở hiệp ${film.ko[film.me]}` : ''}</span>{film.reward && <RewardList r={film.reward} />}{film.reward && film.claimed && <small className="ok">Đã nhận thưởng</small>}</div>
         : <div className="raidMine"><span>Ngươi không tham gia trận này.</span></div>}
       <button type="button" className="btn ghost" onClick={onReplay}><Icon name="play" size={15} /> Xem lại</button>
     </div>
+  );
+}
+
+// Before the fight: the three pieces it gives, shown at the viewer's own level (a piece is made at its winner's level). A tap opens a piece's numbers.
+export function LootCard({ drops, level }: { drops: L.LootDrop[]; level: number }) {
+  const items = useMemo(() => drops.map((d, k) => asItem(L.lootItem(d, level), k)), [drops, level]);
+  const [sel, setSel] = useState<number | null>(null);
+  return (
+    <section className="raidCard loot">
+      <header><span className="lootSeal" aria-hidden="true"><Icon name="chest" size={18} /></span><div><h3>Thiên Bảo hôm nay</h3><small>{items.length} món Thiên · thắng hay thua đều chia</small></div></header>
+      <div className="raidLoot">
+        {items.map((it, k) => (
+          <button key={k} type="button" className={`lootTile${sel === k ? ' on' : ''}`} style={{ '--el': C.EL[it.el]?.color } as CSSProperties} onClick={() => setSel(sel === k ? null : k)} aria-pressed={sel === k} aria-label={`${it.name}, xem chỉ số`}>
+            <span className="pic"><ItemIcon it={it} size="fit" /><i className="glint" aria-hidden="true" /></span>
+            <b>{it.name}</b>
+            <small>{C.SLOT_VI[it.slot]} · <Icon name="atk" size={11} /> {fmt(it.power)}</small>
+          </button>
+        ))}
+      </div>
+      {sel !== null && items[sel] && <div className="lootOpen"><ItemCard it={items[sel]} /><small>Chỉ số theo cấp của ngươi (Lv{level}). Món về tay ai thì làm theo cấp người đó.</small></div>}
+      <p className="lootNote">Mỗi món bốc riêng: ngươi gây bao nhiêu phần trăm tổng sát thương thì có bấy nhiêu phần trăm cơ hội nhận mỗi món. Gục giữa trận vẫn được tính, miễn đã ra đòn.</p>
+    </section>
+  );
+}
+
+// After the fight, for everyone: which piece went to whom, and with what chance.
+export function LootWonCard({ film, myPid }: { film: FilmOut; myPid: string | null }) {
+  const won = film.loot || [];
+  const [sel, setSel] = useState<number | null>(null);
+  return (
+    <section className="raidCard loot done">
+      <header><span className="lootSeal" aria-hidden="true"><Icon name="chest" size={18} /></span><div><h3>Thiên Bảo đã có chủ</h3><small>Trận {dayName(film.day)} · bốc theo % sát thương</small></div></header>
+      <ul className="raidLootWon">
+        {won.map((w) => {
+          const f = film.fighters[w.to]; if (!f) return null;
+          const it = asItem(w.item, w.k), mine = f.pid === myPid;
+          return (
+            <li key={w.k} className={`${mine ? 'me' : ''}${sel === w.k ? ' on' : ''}`}>
+              <button type="button" onClick={() => setSel(sel === w.k ? null : w.k)} aria-pressed={sel === w.k} aria-label={`${it.name}, xem chỉ số`}>
+                <span className="pic"><ItemIcon it={it} size="fit" /></span>
+                <span className="nm"><b>{it.name}</b><small>{C.SLOT_VI[it.slot]} · Lv{it.level} · <Icon name="atk" size={11} /> {fmt(it.power)}</small></span>
+              </button>
+              <span className="who">
+                <span className="fig"><Cultivator look={lookOf(f.arch, f.g, f.hair, f.cls)} /></span>
+                <span><b>{mine ? 'Ngươi' : f.name}</b><small>{pct(w.p)} cơ hội{film.ko[w.to] ? ' · đã gục' : ''}</small></span>
+              </span>
+              {sel === w.k && <div className="lootOpen"><ItemCard it={it} /></div>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

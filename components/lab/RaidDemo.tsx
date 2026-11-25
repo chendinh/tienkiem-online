@@ -8,7 +8,9 @@ import { Icon } from '../ds/Icon';
 import { ElIcon } from '../Icons';
 import { useFx, type FxLevel } from '../fx/FxProvider';
 import { RaidScene, type FilmView } from '../RaidScene';
-import { Board, FullIcon, ResultCard, useFullStage } from '../Raid';
+import { Board, FullIcon, LootCard, LootWonCard, ResultCard, useFullStage } from '../Raid';
+import * as L from '@/lib/raidloot';
+import { thienLooksFor } from '@/lib/daily';
 
 // Phó Bản, the demo stage (app/demo/pho-ban): pick a Dị Thú, how many cultivators and of what realm, the ending, and start a fight right now. The cultivators are made up
 // in the browser the way the game makes characters, the fight is lib/raid.ts as the server fights it, and the film is the real stage (components/RaidScene.tsx).
@@ -142,6 +144,9 @@ export function RaidDemo() {
             {film && tl && <p className="hint">Trận vừa rồi: {film.fighters.length} tu sĩ · {film.rounds.length} hiệp · phim dài {mmss(tl.total)}. Bấm Khai chiến lần nữa là một đội và một trận mới.</p>}
           </section>
 
+          {film && mode === 'result' && film.loot && film.loot.length > 0
+            ? <LootWonCard film={film} myPid={null} />
+            : <LootCard drops={L.lootOfDay(film ? film.day : R.raidDay(Date.now()), thienLooksFor)} level={fs.length ? fs.map((f) => f.level).sort((a, b) => a - b)[Math.floor(fs.length / 2)] : 1} />}
           {film && mode === 'result' && <Board film={film} myPid={null} sub="Demo" />}
         </div>
       </div>

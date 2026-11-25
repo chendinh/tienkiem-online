@@ -10,8 +10,14 @@ import { loadAccount, decodeState } from './store';
 import { publicId } from './ranking';
 import { giveStack, stackInfo } from '../goods';
 import * as C from '../content';
+import { BALANCE as B } from '../balance';
 import { fighterOf } from '../raidfighter';
+import * as L from '../raidloot';
+import { thienLooksFor } from '../daily';
+import { ensureDaily } from './dailystore';
 export { fighterOf };
+
+const g = globalThis as any;
 
 // The fight time of a day. RAID_FIGHT_MINUTE (minutes after midnight, Vietnam time) moves it, to test without waiting for the evening.
 const fightMinute = () => { const m = Number(process.env.RAID_FIGHT_MINUTE); return Number.isInteger(m) && m >= 0 && m < 1440 ? m : R.FIGHT_HOUR * 60; };
@@ -21,6 +27,20 @@ export const fightAt = (day: string) => R.fightAtOf(day, fightMinute());
 const bossFor = (day: string) => { const id = process.env.RAID_BOSS; return id && R.BOSSES.some((b) => b.id === id) ? id : R.bossOfDay(day).id; };
 async function ensureRaid(day: string) {
   await query(`INSERT INTO raids (day, boss, at) VALUES ($1, $2, $3) ON CONFLICT (day) DO NOTHING`, [day, bossFor(day), fightAt(day)]);
+}
+// The day's three prize pieces: chosen once (with the Thiên pictures that exist then) and kept on the day's row, so the pieces the lobby shows are the ones given.
+const loots: Map<string, L.LootDrop[]> = g.__tutienRaidLoot || (g.__tutienRaidLoot = new Map());
+async function lootOf(day: string): Promise<L.LootDrop[]> {
+  const had = loots.get(day); if (had) return had;
+  await ensureRaid(day);
+  let d = (await query<{ loot: L.LootDrop[] | null }>(`SELECT loot FROM raids WHERE day = $1`, [day])).rows[0]?.loot || null;
+  if (!d || !d.length) {
+    await ensureDaily().catch(() => {});
+    const fresh = L.lootOfDay(day, thienLooksFor);
+    d = (await query<{ loot: L.LootDrop[] }>(`UPDATE raids SET loot = COALESCE(loot, $2::jsonb) WHERE day = $1 RETURNING loot`, [day, JSON.stringify(fresh)])).rows[0]?.loot || fresh;
+  }
+  loots.set(day, d);
+  return d;
 }
 
 // The fight time stored with the day (it was fixed when the day's row was made).
@@ -42,8 +62,7 @@ async function enlist(day: string, now: number, fresh: boolean) {
   }
 }
 
-export interface Film { day: string; boss: string; at: number; win: boolean; max: number; fighters: R.Fighter[]; rounds: R.Round[]; dmg: number[]; ko: number[]; mvp: number }
-const g = globalThis as any;
+export interface Film { day: string; boss: string; at: number; win: boolean; max: number; fighters: R.Fighter[]; rounds: R.Round[]; dmg: number[]; ko: number[]; mvp: number; loot?: L.LootWon[] }
 const films: Map<string, Film> = g.__tutienRaidFilms || (g.__tutienRaidFilms = new Map());   // a fought day never changes: kept in memory once read
 
 /** resolveDue at most once per RAID_POLL_MS in this server instance, for the game's own poll: the fight happens at its time even when nobody opens Phó Bản.
@@ -73,8 +92,14 @@ async function resolve(day: string, now: number) {
     if (!rows.length) { await query(`UPDATE raids SET status = 'empty', done = $2 WHERE day = $1`, [day, now]); return; }
     const fs = rows.map((r) => r.fighter);
     const res = R.fight(boss, fs, day);
-    for (let i = 0; i < rows.length; i++) await query(`UPDATE raid_entries SET idx = $3, reward = $4::jsonb WHERE day = $1 AND acc = $2`, [day, rows[i].acc, i, JSON.stringify(R.rewardOf(boss, res, fs, i, day))]);
-    const film: Film = { day, boss: boss.id, at: row.at, win: res.win, max: res.max, fighters: fs, rounds: res.rounds, dmg: res.dmg, ko: res.ko, mvp: res.mvp };
+    // the three Thiên pieces, won or lost: each drawn on its own by share of the damage, made at the winner's level
+    const loot = L.lootWon(day, await lootOf(day), fs.map((f) => f.level), res.dmg);
+    for (let i = 0; i < rows.length; i++) {
+      const rw = R.rewardOf(boss, res, fs, i, day), mine = loot.filter((w) => w.to === i).map((w) => w.item);
+      if (mine.length) rw.items = mine;
+      await query(`UPDATE raid_entries SET idx = $3, reward = $4::jsonb WHERE day = $1 AND acc = $2`, [day, rows[i].acc, i, JSON.stringify(rw)]);
+    }
+    const film: Film = { day, boss: boss.id, at: row.at, win: res.win, max: res.max, fighters: fs, rounds: res.rounds, dmg: res.dmg, ko: res.ko, mvp: res.mvp, loot };
     await query(`UPDATE raids SET status = 'done', n = $2, film = $3::jsonb, done = $4 WHERE day = $1`, [day, rows.length, JSON.stringify(film), now]);
     films.set(day, film);
   });
@@ -132,7 +157,7 @@ export async function raidView(acc: string, now: number) {
   }
   const claims = await claimsOf(acc);
   return {
-    now, today: { day, boss: boss.id, at, status, joined: !!joinedRow, auto, all: everyone(), count: crowd.count, crowd: crowd.list },
+    now, today: { day, boss: boss.id, at, status, joined: !!joinedRow, auto, all: everyone(), count: crowd.count, crowd: crowd.list, loot: await lootOf(day) },
     film: film ? { ...film, me, reward: myReward, claimed } : null,
     claims,
   };
@@ -179,6 +204,14 @@ export async function claim(acc: string, st: G.GameState, body: any, _now: numbe
   if (!e || !e.reward) return G.fail('E_NOT_FOUND');
   if (e.claimed) return G.fail('E_RAID_CLAIMED');
   const r = e.reward;
+  // the Thiên pieces go into the bag, else the stash; all of them or none (a prize piece is never turned into Linh Thạch): no room, nothing is taken yet
+  const items = r.items || [];
+  if (items.length > (B.bagCapacity - st.bag.length) + (B.overflowCapacity - st.stash.length)) return G.fail('E_BAG_FULL');
+  for (const x of items) {
+    const it: G.Item = { ...x, id: ++st.uid };
+    (st.bag.length < B.bagCapacity ? st.bag : st.stash).push(it);
+    G.noteAlbum(st, it);
+  }
   let stones = r.stones;
   for (const gd of r.goods) {
     if (!stackInfo(gd.key) || !giveStack(st, gd.key, gd.qty)) {

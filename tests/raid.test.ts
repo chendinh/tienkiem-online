@@ -169,3 +169,43 @@ test('the film: who is drawn, where, and a timeline of non-stop fighting that en
     if (r2.win) assert.equal(P.stateAt(r2.max, fs2, tl, tl.outro).hp, 0, 'the Dị Thú dies when its Sinh Lực is gone');
   }
 });
+
+test('the prize: three Thiên pieces a day, strong, made at the winner level, each drawn by share of the damage', async () => {
+  const L = await import('../lib/raidloot');
+  const C = await import('../lib/content');
+  const { BALANCE: B } = await import('../lib/balance');
+  const looks = (slot: string) => (slot === 'Weapon' ? [{ base: C.SLOT_BASE.Weapon[0], el: 'Hỏa', art: 77 }] : []);
+  for (const day of DAYS.slice(0, 10)) {
+    const d = L.lootOfDay(day, looks);
+    assert.deepEqual(d, L.lootOfDay(day, looks), 'the same day gives the same pieces');
+    assert.equal(d.length, 3);
+    assert.equal(new Set(d.map((x) => x.slot)).size, 3, 'three different kinds');
+    for (const x of d) {
+      assert.equal(x.aff.length, B.affixCountByTier[4][1], 'as many affixes as a Thiên piece can have');
+      assert.ok([x.u, ...x.aff.map((a) => a.u)].every((u) => u >= L.LOOT_FLOOR && u <= 1));
+      if (x.slot === 'Weapon') assert.equal(x.art, 77, 'the look of an existing Thiên picture');
+      const lo = L.lootItem(x, 3), hi = L.lootItem(x, 15);
+      assert.equal(lo.tier, 4); assert.equal(lo.level, 3); assert.equal(hi.level, 15);
+      assert.ok(hi.power > lo.power, 'a higher winner gets a stronger piece');
+      assert.deepEqual(lo.affixes.map((a) => a.id), hi.affixes.map((a) => a.id), 'the level changes the numbers only');
+    }
+  }
+  // stronger than the Thiên pieces found on a journey, at the same level
+  const st = G.newGame(7, 'f', T0), lvl = 10;
+  const found = Array.from({ length: 300 }, () => G.genItem(st, lvl, 4, undefined, 0, true));
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const prize = DAYS.flatMap((day) => L.lootOfDay(day, () => []).map((x) => L.lootItem(x, lvl)));
+  assert.ok(avg(prize.map((x) => x.power)) > avg(found.map((x) => x.power)) * 1.15, 'a prize piece is well above an average Thiên piece');
+  // the draw: whoever dealt nothing never gets one; over many days a fighter gets a piece as often as its share
+  const dmg = [0, 100, 300, 600];
+  let got = [0, 0, 0, 0], n = 0;
+  for (let k = 0; k < 2000; k++) { const day = new Date(Date.UTC(2020, 0, 1) + k * 86400000).toISOString().slice(0, 10); for (const i of L.lootDraw(day, dmg)) { got[i]++; n++; } }
+  assert.equal(got[0], 0, 'no damage, no piece');
+  for (const i of [1, 2, 3]) assert.ok(Math.abs(got[i] / n - dmg[i] / 1000) < 0.025, `fighter ${i}: ${got[i] / n} for a share of ${dmg[i] / 1000}`);
+  assert.deepEqual(L.lootDraw(DAYS[0], [0, 0]), [-1, -1, -1], 'nobody dealt any: nobody gets one');
+  // a real fight: one piece per draw, made at the winner's level, the chance shown is its share
+  const fs_ = crowd(12), boss = R.bossOfDay(DAYS[3]), res = R.fight(boss, fs_, DAYS[3]);
+  const won = L.lootWon(DAYS[3], L.lootOfDay(DAYS[3], () => []), fs_.map((f) => f.level), res.dmg), total = res.dmg.reduce((a, b) => a + b, 0);
+  assert.equal(won.length, 3);
+  for (const w of won) { assert.ok(res.dmg[w.to] > 0); assert.equal(w.item.level, fs_[w.to].level); assert.ok(Math.abs(w.p - res.dmg[w.to] / total) < 1e-9); }
+});

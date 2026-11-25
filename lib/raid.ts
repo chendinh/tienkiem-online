@@ -9,6 +9,7 @@ import * as C from './content';
 import * as A from './arts';
 import { BALANCE as B, baseStat as baseStatOf } from './balance';
 import type { SkillFx } from './skillfx';
+import type { LootItem } from './raidloot';
 
 // ---------- the eight Dị Thú (one per element), in the order they come round
 export interface BossSkill { name: string; kind: 'strike' | 'sweep' | 'nova'; fx: SkillFx; coef: number /* share of the target's Sinh Lực before Phòng Ngự */ }
@@ -168,8 +169,12 @@ export const HIT_MULT = 2;
 export const STUN_GUARD = 3;   // after losing a turn to a stun the Dị Thú shakes stuns off for this many rounds
 export const NOVA_EVERY = 4;
 // The bite (2026-11-26): from round 2, in a round that is not its great attack and not stunned, the Dị Thú may bite one cultivator standing, any of them: it falls at once,
-// whatever its Sinh Lực. Never the last one standing (a lone cultivator is not ended by a bite). BITE_RAGE once it has gone berserk.
-export const BITE_CHANCE = 0.1, BITE_RAGE = 0.2;
+// whatever its Sinh Lực. Never the last one standing (a lone cultivator is not ended by a bite). Which one is drawn at random among those standing (not by Sinh Lực,
+// not by damage), so whoever it bites keeps the damage dealt before it. How often grows with the size of the group: each round BITE_BASE plus BITE_STEP for each
+// doubling of the group, at most BITE_MAX; BITE_RAGE times that once it has gone berserk. So a few cultivators are bitten in under half of their fights, a crowd in
+// nearly every one, two or three times.
+export const BITE_BASE = 0.02, BITE_STEP = 0.03, BITE_MAX = 0.28, BITE_RAGE = 1.5;
+export const biteChance = (n: number, rage: boolean) => Math.min(BITE_MAX, BITE_BASE + BITE_STEP * Math.log2(Math.max(2, n))) * (rage ? BITE_RAGE : 1);
 export const STRIKE_FRAC = 0.2, SWEEP_FRAC = 0.45;     // its great attack comes in rounds 3, 7, 11 (then every 4)
 
 // A small deterministic random number generator (mulberry32), seeded from the day: the same fight is fought the same way every time it is computed.
@@ -295,7 +300,7 @@ function battle(boss: Boss, fs: Fighter[], seed: string, max: number, bossDef: n
       if (!rage && hp < max * RAGE_AT) { rage = true; round.rage = 1; }
       if (!stun && r >= 2 && r % NOVA_EVERY !== 3) {
         const up = alive();
-        if (up.length > 1 && rnd() < (rage ? BITE_RAGE : BITE_CHANCE)) { const j = up[Math.floor(rnd() * up.length)]; cur[j] = 0; ko[j] = r; round.bite = j; }
+        if (up.length > 1 && rnd() < biteChance(fs.length, rage)) { const j = up[Math.floor(rnd() * up.length)]; cur[j] = 0; ko[j] = r; round.bite = j; }
       }
       const live = alive();
       const kind: 0 | 1 | 2 = r % NOVA_EVERY === 3 ? 2 : r % 2 === 0 && live.length > 1 ? 1 : 0;
@@ -336,7 +341,7 @@ function battle(boss: Boss, fs: Fighter[], seed: string, max: number, bossDef: n
 }
 
 // ---------- rewards
-export interface Reward { stones: number; goods: { key: string; qty: number }[]; rank: number; share: number }
+export interface Reward { stones: number; goods: { key: string; qty: number }[]; rank: number; share: number; items?: LootItem[] /* the Thiên prize pieces this fighter got (lib/raidloot.ts) */ }
 /** What one fighter gets: Linh Thạch by level, more for a win and for a bigger share of the damage; goods for a win; a Bí Kíp of the Dị Thú's element for the best three of a win. */
 export function rewardOf(boss: Boss, res: Result, fs: Fighter[], i: number, day: string): Reward {
   const f = fs[i], n = fs.length;
