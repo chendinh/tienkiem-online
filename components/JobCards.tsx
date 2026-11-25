@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as C from '@/lib/content';
 import * as J from '@/lib/jobs';
 import * as O from '@/lib/orders';
+import * as XP from '@/lib/expo';
 import type { GS } from '@/lib/client/types';
 import { releaseValue, type Beast } from '@/lib/game';
 import { Icon } from './ds/Icon';
@@ -20,10 +21,15 @@ const times = (m: number) => String(m / 100).replace('.', ',');
 const board = (st: GS, t: J.JobType): J.Job[] => J.ofType(st.jobs, t);
 
 // ---- what the player could give right now
-// Who is in the Party and which creature is framed: worked out once per screen update and handed to every card (sorting the whole pen once per creature was the slow way).
-type Hold = { party: Set<number>; framed: number | null };
-const NOBODY: Hold = { party: new Set(), framed: null };
-const holdOf = (st: GS): Hold => ({ party: J.partyOf(st.beasts, st.caps.party), framed: st.player.showcase && st.player.showcase.kind === 'beast' ? st.player.showcase.id : null });
+// The creatures that are not handed over by themselves: the Party, the framed one and the ones on a stand of Triển Lãm. Worked out once per screen update and handed to every card (sorting the whole pen once per creature was the slow way).
+type Hold = ReadonlySet<number>;
+const NOBODY: Hold = new Set();
+const holdOf = (st: GS): Hold => {
+  const keep = J.partyOf(st.beasts, st.caps.party), f = st.player.showcase;
+  if (f && f.kind === 'beast') keep.add(f.id);
+  if (XP.isExpo(st.expo)) for (const s of st.expo.stands) if (s && s.kind === 'beast') keep.add(s.id);
+  return keep;
+};
 /** How many of this pill or material the player has. */
 export const stockOf = (st: GS, a: J.Ask): number => (a.t === 'pill' ? st.inv.hp[a.grade] || 0 : a.t === 'mat' ? st.inv.mat[a.id] || 0 : 0);
 /** How many buyers of this kind could be given something right now (the badge on the tab). A beast needs a SPARE creature that fits; no sorting, no copies. */
@@ -32,7 +38,7 @@ export const readyCount = (st: GS, t: J.JobType): number => {
   if (!open.length) return 0;
   if (t !== 'beast') return open.filter((j) => stockOf(st, j.ask) > 0).length;
   const h = holdOf(st);
-  return open.filter((j) => st.beasts.some((b) => J.isSpare(b, h.party, h.framed) && J.beastMatches(j.ask, b))).length;
+  return open.filter((j) => st.beasts.some((b) => J.isSpare(b, h) && J.beastMatches(j.ask, b))).length;
 };
 
 // ---- one card
@@ -50,8 +56,8 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
   const [sel, setSel] = useState<number[]>([]);
   useEffect(() => { setOpen(false); setSel([]); }, [j.id]);   // the card belongs to a slot: when a new buyer takes the place, the picker starts closed
   const gone = !J.isOpen(j), left = J.left(j), a = j.ask;
-  const spare = (b: Beast) => J.isSpare(b, hold.party, hold.framed);
-  const cands = useMemo(() => (j.type === 'beast' ? J.beastCands(j, st.beasts, hold.party, hold.framed) : []), [j, st.beasts, hold]);
+  const spare = (b: Beast) => J.isSpare(b, hold);
+  const cands = useMemo(() => (j.type === 'beast' ? J.beastCands(j, st.beasts, hold) : []), [j, st.beasts, hold]);
   const have = j.type === 'beast' ? cands.length : stockOf(st, a), take = j.type === 'beast' ? sel.length : Math.min(have, left);
   const unit = a.t === 'beast' ? 0 : J.unitValue(a);
   const payUnit = (b?: Beast) => J.payFor(j.mult, b ? releaseValue(b) : unit);
@@ -85,7 +91,7 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
   // a beast the player wants to hand over but that is in the Party or framed asks a second time
   const giveBeasts = async (card: Element | null) => {
     const risky = chosen.filter((b) => !spare(b));
-    if (risky.length && !(await askConfirm({ title: 'Giao Linh Thú đang xuất chiến', body: `${risky.map((b) => b.name).join(', ')} đang ở trong đội xuất chiến hoặc trong khung trưng bày. Giao đi thì không lấy lại được.`, ok: 'Vẫn giao', danger: true }))) return;
+    if (risky.length && !(await askConfirm({ title: 'Giao Linh Thú đang xuất chiến', body: `${risky.map((b) => b.name).join(', ')} đang ở trong đội xuất chiến, trong khung trưng bày hoặc trên bệ Triển Lãm. Giao đi thì không lấy lại được.`, ok: 'Vẫn giao', danger: true }))) return;
     await give(card);
   };
 
@@ -149,7 +155,7 @@ function RankBar({ done }: { done: number }) {
 function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; hint: string }) {
   const list = board(st, type), [err, setErr] = useState('');
   const { fin, mark, patch, clear } = useFin(), cue = useCue();
-  const hold = useMemo(() => (type === 'beast' ? holdOf(st) : NOBODY), [type, st.beasts, st.caps.party, st.player.showcase]);
+  const hold = useMemo(() => (type === 'beast' ? holdOf(st) : NOBODY), [type, st.beasts, st.caps.party, st.player.showcase, st.expo]);
   const rankName = (r?: number) => (r === undefined ? undefined : J.RANK_NAME[r]);
   const finishOf = (slot: number, j: J.Job): Finish => ({
     done: (stones, card, rankUp) => {   // the seal now, the sound and the floating line on the next paint

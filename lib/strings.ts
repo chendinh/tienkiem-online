@@ -74,6 +74,8 @@ export const ERR = {
   E_ORDER_ITEMS: 'Những món này không đúng yêu cầu của khách.',
   E_JOB_GONE: 'Khách này đã đi rồi hoặc đã giao đủ hàng.',
   E_JOB_GIVE: 'Linh Thú này không đúng yêu cầu của khách.',
+  E_EXPO_TWICE: 'Món này đã đứng trên một bệ khác rồi.',
+  E_EXPO_EMPTY: 'Chưa có quà nào của khách trong hòm.',
   E_BAD_COSMETIC: 'Dữ liệu hình ảnh hoặc tiểu sử không hợp lệ.',
 } as const;
 export type ErrCode = keyof typeof ERR;

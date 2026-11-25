@@ -251,14 +251,15 @@ test('jobs: the Party is worked out once, and the spare creatures come first, we
   const beasts = [mkBeast(1, 'x', 9), mkBeast(2, 'x', 3), mkBeast(3, 'x', 6), mkBeast(4, 'x', 1), mkBeast(5, 'x', 8)];
   const party = J.partyOf(beasts, 2);
   assert.deepEqual([...party].sort(), [1, 5]);   // the two strongest
+  const keep = new Set([...party, 3]);   // plus the framed one
   assert.equal(J.partyOf(beasts, 0).size, 0);
   assert.equal(J.partyOf([], 3).size, 0);
   assert.equal(beasts.map((b) => b.id).join(), '1,2,3,4,5');   // the pen itself is not reordered
   const j = mk('beast', { t: 'beast', sp: 'x' });
-  const order = J.beastCands(j, beasts, party, 3).map((b) => b.id);   // 3 is the framed one
+  const order = J.beastCands(j, beasts, keep).map((b) => b.id);
   assert.deepEqual(order, [4, 2, 3, 5, 1]);   // spare ones weakest first, then the framed one and the Party by power
-  const spare = order.filter((id) => J.isSpare({ id }, party, 3)), rest = order.filter((id) => !J.isSpare({ id }, party, 3));
+  const spare = order.filter((id) => J.isSpare({ id }, keep)), rest = order.filter((id) => !J.isSpare({ id }, keep));
   assert.deepEqual(spare, [4, 2]);   // 4 (power 10) before 2 (power 30)
   assert.deepEqual(order, [...spare, ...rest]);   // the Party and the framed one come last
-  assert.equal(J.isSpare({ id: 3 }, party, 3), false); assert.equal(J.isSpare({ id: 1 }, party, null), false); assert.equal(J.isSpare({ id: 4 }, party, null), true);
+  assert.equal(J.isSpare({ id: 3 }, keep), false); assert.equal(J.isSpare({ id: 1 }, keep), false); assert.equal(J.isSpare({ id: 4 }, keep), true);
 });

@@ -241,6 +241,10 @@ export function buildPlan(spec: any): Plan {
     if (id.startsWith('ui_lbl_')) {
       return { kind: 'label', prompt: `${CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Perfectly symmetrical straight-on view with no perspective, evenly lit, no cast shadow, centered on a plain solid pure black background with nothing else in the picture. The lettering must be sharp, clean and spelled exactly as quoted, with every Vietnamese diacritic mark in place. No other text, no watermark, no logo.`, width: 1024, height: 384, seed: 7100 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
     }
+    // the faces of Triển Lãm's visitors: a cartoon face (or a thumb) on a round medallion, so the "no person, no hands" of the other interface assets does not apply
+    if (id.startsWith('ui_react_')) {
+      return { kind: 'item', prompt: `${ITEM_CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Straight-on view with no perspective, evenly lit, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} ${NEG}`, width: 512, height: 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };
+    }
     if (id.startsWith('ui_')) {
       const wide = id.startsWith('ui_btn');
       return { kind: 'item', prompt: `${ITEM_CORE}. A flat front-facing game interface asset: ${C.PROP_EN[id]}. Perfectly symmetrical, straight-on orthographic view with no perspective, evenly lit, no cast shadow, no glow outside the object, centered on a plain solid pure black background. ${NOWRITE} No person, no hands. ${NEG}`, width: wide ? 1024 : 512, height: wide ? 384 : 512, seed: 7000 + Object.keys(C.PROP_EN).indexOf(id), pri: 3 };

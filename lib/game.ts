@@ -9,6 +9,7 @@ import * as W from './weekly';
 import * as T from './tasks';
 import * as O from './orders';
 import * as J from './jobs';
+import * as XP from './expo';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -69,6 +70,7 @@ export interface GameState {
   starter?: { done: string[] };   // Nhập Môn (lib/starter.ts): the first jobs already finished and paid. A save older than the feature gets it in the server's upgrade()
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
   orders?: O.Board;   // Khách Cầu Mua (lib/orders.ts): the buyers waiting at Phường Thị. They stay until everything they ask is handed over; a save older than the feature, or from its first version, simply gets a new board on its next tick
+  expo?: XP.Expo;   // Triển Lãm (lib/expo.ts): up to 6 stands with pieces or Linh Thú on them, the latest visits and the box of gifts. Made when the first piece is put on a stand; visitors come on the server's tick.
   jobs?: J.JobBoard;   // Công việc Tìm thú, Đặt đan, Nguyên liệu (lib/jobs.ts): the buyers who ask for a number of beasts, pills or materials. Made and replaced on the server's tick, like `orders`.
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
@@ -375,7 +377,7 @@ export function giveItem(st: GameState, it: Item, rep?: Report, from = '') {
   feed(st, { kind: 'item', text: `${from}Nhặt được ${it.name} (${where === 'bag' ? 'vào túi' : where === 'stash' ? 'vào kho tạm, túi đã đầy' : where === 'auto' ? 'tự động phân giải theo cài đặt' : 'túi và kho đã đầy nên bị phân giải'})`, item: it });
 }
 const clampHp = (st: GameState) => { st.player.hp = Math.min(st.player.hp, pstats(st).maxHp); };
-const findIn = (st: GameState, id: number): { it: Item; where: 'bag' | 'stash' | 'eq'; i: number; slot?: string } | null => {
+const findIn = (st: Pick<GameState, 'bag' | 'stash' | 'eq'>, id: number): { it: Item; where: 'bag' | 'stash' | 'eq'; i: number; slot?: string } | null => {
   let i = st.bag.findIndex((x) => x.id === id); if (i >= 0) return { it: st.bag[i], where: 'bag', i };
   i = st.stash.findIndex((x) => x.id === id); if (i >= 0) return { it: st.stash[i], where: 'stash', i };
   for (const [slot, x] of Object.entries(st.eq)) if (x && x.id === id) return { it: x, where: 'eq', i: -1, slot };
@@ -592,6 +594,7 @@ export function dissolveMany(st: GameState, maxTier: number): Res {
 export function releaseMany(st: GameState): Res {
   const keep = new Set(bestParty(st).map((b) => b.id));
   if (st.player.showcase && st.player.showcase.kind === 'beast') keep.add(st.player.showcase.id);   // the framed beast stays
+  if (XP.isExpo(st.expo)) for (const s of st.expo.stands) if (s && s.kind === 'beast') keep.add(s.id);   // so do the ones on a stand of Triển Lãm
   let n = 0, gain = 0;
   st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
   const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = (mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '');
@@ -1161,6 +1164,116 @@ export function dismissJob(st: GameState, id: any): Res {
   j.left = true;
   return ok(`${j.who.name} đã rời Phường Thị.`);
 }
+// ---------- Triển Lãm (lib/expo.ts): 3 to 6 of the player's own pieces and Linh Thú on stands among the clouds; visitors look, react and give. Nothing is ever taken from the player.
+// A piece of equipment on a stand is locked (so no clean-up touches it) and gets back the lock it had when it leaves; a Linh Thú stays in the pen. If a piece is gone later (worn, sold, let go) its stand is simply empty.
+export type StandView = { kind: 'item'; item: Item } | { kind: 'beast'; beast: Beast } | null;
+/** What each stand holds now (null for an empty stand or one whose piece is gone). Read-only: the screen uses it too. */
+export function expoView(st: Pick<GameState, 'expo' | 'bag' | 'stash' | 'eq' | 'beasts'>): StandView[] {
+  const e = st.expo;
+  return Array.from({ length: XP.STANDS }, (_, i) => {
+    const s = XP.isExpo(e) ? e.stands[i] : null;
+    if (!s) return null;
+    if (s.kind === 'item') { const f = findIn(st, s.id); return f && f.where !== 'eq' ? { kind: 'item', item: f.it } : null; }
+    const b = st.beasts.find((x) => x.id === s.id);
+    return b ? { kind: 'beast', beast: b } : null;
+  });
+}
+/** A stand as the visitors see it (the same few numbers for a piece and a Linh Thú), and its name. */
+function exhibitOf(v: StandView): { ex: XP.Exhibit; name: string } | null {
+  if (!v) return null;
+  if (v.kind === 'item') return { ex: { kind: 'item', tier: v.item.tier, el: v.item.el, slot: v.item.slot, level: v.item.level, value: dissolveValue(v.item) }, name: v.item.name };
+  const b = v.beast;
+  return { ex: { kind: 'beast', tier: XP.beastTier(b.cls, b.mut), el: J.speciesEl(b.sp) || 'Kim', mut: b.mut, level: b.level, value: releaseValue(b) }, name: b.name };
+}
+function expoFree(st: GameState, slot: number) {
+  const e = st.expo, s = XP.isExpo(e) ? e.stands[slot] : null;
+  if (!e || !s) return;
+  if (s.kind === 'item' && !s.was) { const f = findIn(st, s.id); if (f) f.it.locked = false; }
+  e.stands[slot] = null;
+}
+export function expoSet(st: GameState, slot: unknown, kind: unknown, id: unknown): Res {
+  if (!Number.isInteger(slot) || (slot as number) < 0 || (slot as number) >= XP.STANDS || (kind !== 'item' && kind !== 'beast') || !Number.isInteger(id)) return fail('E_BAD_REQUEST');
+  const at = slot as number, e = XP.isExpo(st.expo) ? st.expo : XP.newExpo();
+  if (e.stands.some((s, i) => s && i !== at && s.kind === kind && s.id === id)) return fail('E_EXPO_TWICE');
+  let it: Item | undefined;
+  if (kind === 'item') {
+    const f = findIn(st, id as number);
+    if (!f) return fail('E_NOT_FOUND');
+    if (f.where === 'eq') return fail('E_WORN');
+    it = f.it;
+  } else if (!st.beasts.some((b) => b.id === id)) return fail('E_NOT_FOUND');
+  st.expo = e;
+  expoFree(st, at);   // what stood there leaves first (its lock goes back to what it was)
+  const was = it ? !!it.locked : false;
+  if (it) it.locked = true;
+  e.stands[at] = { kind, id: id as number, ...(was ? { was: true } : {}), tally: XP.emptyTally() };
+  return ok('');
+}
+export function expoClear(st: GameState, slot: unknown): Res {
+  if (!Number.isInteger(slot) || (slot as number) < 0 || (slot as number) >= XP.STANDS) return fail('E_BAD_REQUEST');
+  expoFree(st, slot as number);
+  return ok('');
+}
+/** Take what the visitors left (the box) into the bag and the stocks. What does not fit (a full bag, a full stack of pills) stays in the box for later. */
+export function expoCollect(st: GameState): Res {
+  const e = XP.isExpo(st.expo) ? st.expo : null;
+  if (!e || XP.boxCount(e.box) === 0) return fail('E_EXPO_EMPTY');
+  const bx = e.box, got = { stones: 0, pills: 0, books: 0, weapons: 0 };
+  if (bx.stones > 0) { got.stones = earn(st, bx.stones, 'expo'); bx.stones = 0; }
+  bx.pills.forEach((n, g) => { const add = Math.max(0, Math.min(n, B.stackMax - st.inv.hp[g])); if (add > 0) { st.inv.hp[g] += add; got.pills += add; bx.pills[g] = n - add; } });
+  for (const [name, n] of Object.entries(bx.books)) { st.inv.books[name] = (st.inv.books[name] || 0) + n; got.books += n; }
+  bx.books = {};
+  while (bx.weapons.length && st.bag.length < B.bagCapacity) { st.bag.push(bx.weapons.shift()!); got.weapons++; }
+  const left = XP.boxCount(bx), parts = [got.stones ? `${got.stones} Linh Thạch` : '', got.weapons ? `${got.weapons} pháp khí` : '', got.pills ? `${got.pills} đan` : '', got.books ? `${got.books} bí kíp` : ''].filter(Boolean);
+  return ok(`Đã thu ${parts.join(', ') || 'quà của khách'}.${left ? ' Còn một phần chưa nhận vì túi hoặc kho đã đầy.' : ''}`, { ...got, left });
+}
+// A gift weapon is made on its own random streams, so it takes nothing from the streams of the journey (the same save always has the same fights and drops).
+function giftWeapon(st: GameState, tier: number, level: number, key: string): Item {
+  const tmp = { ...st, streams: newStreams(O.hash32(`xw|${key}`)) } as GameState;
+  const it = genItem(tmp, level, tier, 'Weapon', 0, true);
+  st.uid = tmp.uid;
+  return it;
+}
+/** One visitor, when the clock says so (server tick only: it makes pieces for the box). A few seconds of work at most, even for 12 offline hours of visitors. */
+function runExpo(st: GameState) {
+  const e = st.expo;
+  if (!XP.isExpo(e)) return;
+  if (!XP.isOpen(e)) { e.next = 0; return; }
+  if (e.next === 0) { e.next = st.clock + XP.FIRST_VISIT_MS; return; }
+  if (st.clock < e.next) return;
+  const views = expoView(st);
+  views.forEach((v, i) => { if (!v && e.stands[i]) e.stands[i] = null; });   // a piece that is gone: its stand is empty now
+  if (!XP.isOpen(e)) { e.next = 0; return; }
+  const n = ++e.n, seed = st.seed, key = `${seed}|expo|${n}`, v = XP.visitorOf(seed, n), r = XP.routeOf(e, seed, n), steps: XP.Step[] = [];
+  let best: { rank: number; ex: XP.Exhibit } | null = null;
+  for (const slot of r.slots) {
+    const x = exhibitOf(views[slot]), stand = e.stands[slot];
+    if (!x || !stand) continue;
+    const rx = XP.reactionOf(XP.scoreOf(v, x.ex, `${key}|${slot}`)), stones = XP.stonesFor(rx, x.ex, v.gen);
+    if (rx) { const ri = XP.REACTIONS.indexOf(rx); stand.tally[ri]++; if (ri < 3 && (!best || ri < best.rank)) best = { rank: ri, ex: x.ex }; }
+    e.box.stones = Math.min(B.stoneMax, e.box.stones + stones);
+    steps.push({ slot, r: rx, stones });
+  }
+  let gift: XP.Gift | undefined;
+  const plan = best ? XP.giftOf(v.who.arch, XP.REACTIONS[best.rank], best.ex, key) : null;
+  if (plan && best) {
+    const level = levelOf(st.player);
+    if (plan.kind === 'weapon') {
+      const it = giftWeapon(st, plan.tier, level, key);
+      if (e.box.weapons.length < XP.BOX_WEAPONS) { e.box.weapons.push(it); gift = { kind: 'weapon', name: it.name, tier: it.tier }; }
+      // the box has no room: the visitor keeps the weapon (the stones above were given all the same). Collecting the box makes room again
+    } else if (plan.kind === 'pill') {
+      const grade = XP.pillGrade(best.ex.tier), cnt = 1 + (O.hash32(`xq|${key}`) % 3);
+      e.box.pills[grade] = Math.min(XP.BOX_PILLS, (e.box.pills[grade] || 0) + cnt);
+      gift = { kind: 'pill', grade, n: cnt };
+    } else {
+      const name = XP.bookFor(v.el, plan.tier, level, key);
+      if (name && (e.box.books[name] || Object.keys(e.box.books).length < XP.BOX_BOOKS)) { e.box.books[name] = (e.box.books[name] || 0) + 1; gift = { kind: 'book', name }; }
+    }
+  }
+  if (steps.length) { e.log.push({ n, at: st.clock, who: v.who, side: r.side, route: steps, ...(gift ? { gift } : {}) }); if (e.log.length > XP.LOG_KEEP) e.log.shift(); }
+  e.next = st.clock + XP.intervalMs(XP.filled(e), seed, n);
+}
 // Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
 export function starterCheck(st: GameState, rep?: Report) {
   const s = st.starter;
@@ -1381,6 +1494,7 @@ export function tick(st: GameState, rep?: Report) {
   }
   ensureTasks(st);
   ensureJobs(st);   // the buyers of Tìm thú, Đặt đan and Nguyên liệu (lib/jobs.ts): same rule as the line below
+  runExpo(st);   // Triển Lãm (lib/expo.ts): a visitor when it is time (no random numbers are drawn from the journey's streams)
   ensureOrders(st);   // the buyers of Phường Thị (lib/orders.ts): a new board, or a new buyer for each place that is finished (no random numbers are drawn)
   ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)

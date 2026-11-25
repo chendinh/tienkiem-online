@@ -149,15 +149,16 @@ export function beastMatches(a: Ask, b: BeastLike): boolean {
   if (a.el && !(spOf(b.sp)?.el || []).includes(a.el)) return false;
   return true;
 }
-/** The ids of the strongest `size` creatures: the Party that goes out to fight. Sorted once by the caller, never once per creature. */
+/** The ids of the strongest `size` creatures: the Party that goes out to fight. Sorted once by the caller, never once per creature.
+ *  The caller adds the creatures that must not go by themselves either (the framed one, the ones on a stand of Triển Lãm) to the same set: `keep`. */
 export const partyOf = (beasts: { id: number; power: number }[], size: number): Set<number> => new Set(beasts.slice().sort((a, b) => b.power - a.power).slice(0, size).map((b) => b.id));
-/** The creatures that fit a beast job: the spare ones first (weakest first), the Party and the framed one last. */
-export function beastCands<T extends BeastLike & { id: number; power: number }>(j: Job, beasts: T[], party: Set<number>, framed: number | null): T[] {
-  const rank = (b: T) => (party.has(b.id) || b.id === framed ? 1 : 0);
+/** The creatures that fit a beast job: the spare ones first (weakest first), the ones in `keep` (Party, framed, on a stand) last. */
+export function beastCands<T extends BeastLike & { id: number; power: number }>(j: Job, beasts: T[], keep: ReadonlySet<number>): T[] {
+  const rank = (b: T) => (keep.has(b.id) ? 1 : 0);
   return beasts.filter((b) => beastMatches(j.ask, b)).sort((a, b) => rank(a) - rank(b) || a.power - b.power || a.id - b.id);
 }
-/** Is this creature free to be handed over (not in the Party, not the framed one)? */
-export const isSpare = (b: { id: number }, party: Set<number>, framed: number | null): boolean => !party.has(b.id) && b.id !== framed;
+/** Is this creature free to be handed over (not in `keep`)? */
+export const isSpare = (b: { id: number }, keep: ReadonlySet<number>): boolean => !keep.has(b.id);
 /** The open beast jobs that wait for this creature. */
 export function beastWantedBy(b: JobBoard | undefined, x: BeastLike): Job[] { return ofType(b, 'beast').filter((j) => isOpen(j) && beastMatches(j.ask, x)); }
 // ---- words and pictures
