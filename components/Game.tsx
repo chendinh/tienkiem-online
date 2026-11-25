@@ -364,6 +364,14 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const goGalaxy = () => { cue.open(); window.location.assign('/tinh-ha'); };
   const openWin = (w: 'market' | 'jobs' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
+  // Phone only: while the Công việc window is open the page behind it is the character, not the journey (its feed, scenes and timers are hidden, so the window scrolls and animates smoothly);
+  // when the window closes the journey comes back, unless the player went somewhere else meanwhile
+  const viewBefore = useRef<'journey' | 'hero' | null>(null);
+  useEffect(() => {
+    if (modal === 'jobs' && narrow) { if (view === 'journey') { viewBefore.current = 'journey'; setView('hero'); } return; }
+    const back = viewBefore.current;
+    if (back) { viewBefore.current = null; setView((v) => (v === 'hero' ? back : v)); }
+  }, [modal, narrow]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
   const [note, setNote] = useState<{ t: string; ok: boolean } | null>(null);

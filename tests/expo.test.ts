@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as G from '../lib/game';
 import * as XP from '../lib/expo';
 import * as C from '../lib/content';
+import * as A from '../lib/arts';
 import { PURE_INTENTS } from '../lib/intents';
 import { BALANCE as B } from '../lib/balance';
 
@@ -53,7 +54,7 @@ test('expo: only love, wow and like give Linh Thạch, and a better reaction giv
   assert.equal(XP.stonesFor(null, x, 1), 0); assert.equal(XP.stonesFor('sad', x, 1), 0); assert.equal(XP.stonesFor('angry', x, 1), 0);
   const [a, b, c] = [XP.stonesFor('love', x, 1), XP.stonesFor('wow', x, 1), XP.stonesFor('like', x, 1)];
   assert.ok(a > b && b > c && c > 0);
-  assert.ok(a <= x.value * 0.01, 'a piece is never used up, so one visit gives a small share of its worth');
+  assert.ok(a <= x.value * 0.03, 'a piece is never used up, so one visit gives a small share of its worth (2% for a love)');
   assert.ok(XP.stonesFor('love', { ...x, value: 1 }, 1) >= 2, 'even a cheap piece moves a visitor a little');
 });
 
@@ -157,12 +158,16 @@ test('expo: better pieces earn more, and a full row of common pieces earns very 
   for (const id of ids) assert.ok(st.bag.some((x) => x.id === id));
 });
 
-test('expo: the income is a small share of what the pieces are worth each hour', () => {
+test('expo: the income grows with the rarity of the pieces, and stays a share of what they are worth each hour', () => {
+  const per: number[] = [];
   for (const tier of [2, 3, 4]) {
     const st = fresh(19); const ids = fill(st, tier); const worth = ids.reduce((a, id) => a + G.dissolveValue(st.bag.find((x) => x.id === id)!), 0);
     let stones = 0; for (let h = 0; h < 12; h++) { G.settle(st, 720); const r = G.expoCollect(st); if (r.ok) stones += r.data.stones; }
-    assert.ok(stones / 12 < worth * 0.2, `tier ${tier}: ${Math.round(stones / 12)} stones an hour for pieces worth ${worth}`);
+    per.push(stones / 12);
+    // ten times the first calibration (which was under 20% of the worth an hour): about 40% an hour for rare pieces; the cheap ones are lifted by the least a look gives (the same ten times)
+    assert.ok(stones / 12 < worth * (tier === 4 ? 0.6 : 2), `tier ${tier}: ${Math.round(stones / 12)} stones an hour for pieces worth ${worth}`);
   }
+  assert.ok(per[0] < per[1] && per[1] < per[2], `the income goes up with the tier: ${per.map(Math.round)}`);
 });
 
 test('expo: gifts fit the kind of cultivator and the rarity of the piece', () => {
@@ -222,7 +227,8 @@ test('expo: Dọn túi does not dissolve a piece on a stand (it is locked), and 
 });
 
 test('expo: the actions are pure intents, so they run at once on the screen', () => {
-  for (const k of ['expoSet', 'expoClear', 'expoCollect']) assert.equal(typeof PURE_INTENTS[k], 'function', k);
+  for (const k of ['expoSet', 'expoClear', 'expoCollect', 'expoDeal']) assert.equal(typeof PURE_INTENTS[k], 'function', k);
+  assert.equal(PURE_INTENTS.expoDeal(fresh(29), null).code, 'E_BAD_REQUEST');
   const st = fresh(29); const a = piece(st, 1);
   assert.ok(PURE_INTENTS.expoSet(st, { slot: 0, kind: 'item', id: a.id }).ok);
   assert.equal(PURE_INTENTS.expoSet(st, null).code, 'E_BAD_REQUEST'); assert.equal(PURE_INTENTS.expoClear(st, undefined).code, 'E_BAD_REQUEST');
@@ -373,4 +379,86 @@ test('expo: under a stand shows the look most visitors gave, the better one when
   assert.deepEqual(XP.topReaction([4, 4, 1, 0, 0]), { r: 'love', n: 4 }, 'level: the better look');
   assert.deepEqual(XP.topReaction([0, 0, 2, 2, 2]), { r: 'like', n: 2 });
   assert.deepEqual(XP.topReaction([0, 0, 0, 0, 7]), { r: 'angry', n: 7 });
+});
+
+// ---- offers: a visitor who loved a piece may ask for it
+const exhibit = (tier: number, over: Partial<XP.Exhibit> = {}): XP.Exhibit => ({ kind: 'item', tier, el: 'Kim', slot: 'Weapon', level: 10, value: 1000, ...over });
+const offerAt = (n: number, tier: number, level = 12) => { const key = `9|expo|${n}`; return XP.offerOf(XP.visitorOf(9, n), n, key, T0, { slot: 1, id: 7, ex: exhibit(tier) }, level); };
+
+test('expo: about one visit in twenty brings an offer, always the same ones for the same save, and a beast never gets one', () => {
+  let got = 0; const N = 20000;
+  for (let n = 1; n <= N; n++) { const o = offerAt(n, 3); if (o) { got++; assert.deepEqual(o, offerAt(n, 3)); } }
+  assert.ok(got > N * 0.04 && got < N * 0.06, `${got} offers in ${N} visits`);
+  for (let n = 1; n <= 2000; n++) assert.equal(XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 0, id: 1, ex: exhibit(4, { kind: 'beast' }) }, 12), null);
+});
+
+test('expo: the three deals: a high price, a swap of the same rarity and kind, a Bí Công of the rarity Địa or Thiên only for Địa pieces and better', () => {
+  const seen = (tier: number) => { const k: Record<string, XP.Offer[]> = { buy: [], swap: [], book: [] }; for (let n = 1; n <= 30000; n++) { const o = offerAt(n, tier); if (o) k[o.kind].push(o); } return k; };
+  const low = seen(2); assert.equal(low.book.length, 0, 'no Bí Công for a piece below Địa'); assert.ok(low.buy.length > 0 && low.swap.length > 0);
+  for (const o of low.buy) { assert.ok(o.price! >= 4000 && o.price! <= 6000, 'a buy offer is 4 to 6 times the worth'); assert.equal(o.slot, 1); assert.equal(o.id, 7); }
+  const d = seen(3), t = seen(4);
+  assert.ok(d.book.length > 0 && t.book.length > 0);
+  const techs = Object.fromEntries(Object.values(A.CLASSES_BY_EL).flat().flatMap((c) => A.techsOf(c)).map((t) => [t.name, t])), tierOf = (name: string) => techs[name].tier;
+  for (const o of d.book) assert.equal(tierOf(o.book!), 2, 'a Địa piece asks for a Địa Bí Công');
+  for (const o of t.book) assert.equal(tierOf(o.book!), 3, 'a Thiên piece asks for a Thiên Bí Công');
+  const share = (k: Record<string, XP.Offer[]>) => k.book.length / (k.buy.length + k.swap.length + k.book.length);
+  assert.ok(share(d) > 0.05 && share(d) < 0.16, `books are the rare deal: ${share(d)}`);
+});
+
+test('expo: the offers a save keeps are the last few visits only, one for each piece, and they are made while the visits are made', () => {
+  const st = fresh(37); fill(st, 3); G.settle(st, 6 * 720);
+  const offers = st.expo!.offers || [];
+  assert.ok(offers.length <= XP.OFFER_MAX);
+  for (const o of offers) { assert.ok(st.clock - o.at <= XP.OFFER_KEEP_MS); assert.ok(st.expo!.stands[o.slot]); assert.equal(st.expo!.stands[o.slot]!.id, o.id); }
+  assert.equal(new Set(offers.map((o) => o.slot)).size, offers.length);
+  const twin = fresh(37); fill(twin, 3); G.settle(twin, 6 * 720); assert.deepEqual(twin.expo!.offers, st.expo!.offers);
+  let seen = 0; const run = fresh(38); fill(run, 3); for (let i = 0; i < 400; i++) { G.settle(run, 6); if (run.expo!.offers && run.expo!.offers.length) seen++; }
+  assert.ok(seen > 0, 'over 400 steps of half a minute an offer was kept at some point');
+});
+
+const withOffer = (kind: XP.OfferKind, over: Partial<XP.Offer> = {}) => {
+  const st = fresh(41); const ids = fill(st, 3); const who = { name: 'Lâm Phong', g: 'm' as const, arch: C.NPC_TITLES[0] };
+  const o: XP.Offer = { n: 99, at: st.clock, slot: 2, id: ids[2], kind, who, tier: 3, ...over };
+  st.expo!.offers = [o]; return { st, ids, o };
+};
+
+test('expo: yes to a buy: the piece goes, the price comes, the stand is empty again', () => {
+  const { st, ids } = withOffer('buy', { price: 777 }); const before = st.stones;
+  const r = G.expoDeal(st, 99); assert.ok(r.ok, r.msg);
+  assert.equal(st.stones, before + 777); assert.ok(!st.bag.some((x) => x.id === ids[2])); assert.equal(st.expo!.stands[2], null); assert.equal(st.expo!.offers, undefined);
+  assert.equal(G.expoDeal(st, 99).code, 'E_OFFER_GONE');
+});
+
+test('expo: yes to a swap: a piece of the same rarity and kind takes the stand, the old one is gone', () => {
+  const { st, ids } = withOffer('swap'); const old = st.bag.find((x) => x.id === ids[2])!; const count = st.bag.length;
+  const r = G.expoDeal(st, 99); assert.ok(r.ok, r.msg);
+  assert.equal(st.bag.length, count); assert.ok(!st.bag.some((x) => x.id === ids[2]));
+  const now = st.expo!.stands[2]!; assert.equal(now.kind, 'item'); assert.notEqual(now.id, ids[2]);
+  const it = st.bag.find((x) => x.id === now.id)!; assert.equal(it.tier, old.tier); assert.equal(it.slot, old.slot); assert.ok(it.locked, 'it stands on the stand, so it is locked like the others');
+  assert.deepEqual(now.tally, [0, 0, 0, 0, 0]);
+  const again = withOffer('swap'); G.expoDeal(again.st, 99); assert.equal(again.st.bag.find((x) => x.id === again.st.expo!.stands[2]!.id)!.name, it.name, 'the same save gets the same piece');
+  assert.ok(G.expoClear(st, 2).ok); assert.equal(st.bag.find((x) => x.id === it.id)!.locked, false, 'taking it off the stand unlocks it, it was not locked before');
+});
+
+test('expo: yes to a book: the Bí Công goes to the stock', () => {
+  const book = XP.bookOfTier('Kim', 2, 12, 'k1')!; assert.ok(book);
+  const { st, ids } = withOffer('book', { book }); const had = st.inv.books[book] || 0;
+  assert.ok(G.expoDeal(st, 99).ok); assert.equal(st.inv.books[book], had + 1); assert.ok(!st.bag.some((x) => x.id === ids[2])); assert.equal(st.expo!.stands[2], null);
+});
+
+test('expo: a deal that is too old, or whose piece left the stand or was worn, is gone', () => {
+  const old = withOffer('buy', { price: 500 }); old.st.clock += XP.OFFER_KEEP_MS + 1;
+  assert.equal(G.expoDeal(old.st, 99).code, 'E_OFFER_GONE'); assert.ok(old.st.bag.some((x) => x.id === old.ids[2]));
+  const off = withOffer('buy', { price: 500 }); assert.ok(G.expoClear(off.st, 2).ok); assert.equal(off.st.expo!.offers, undefined);
+  assert.equal(G.expoDeal(off.st, 99).code, 'E_OFFER_GONE');
+  const swapped = withOffer('buy', { price: 500 }); const other = piece(swapped.st, 3); assert.ok(G.expoSet(swapped.st, 2, 'item', other.id).ok); assert.equal(swapped.st.expo!.offers, undefined);
+  const fake = withOffer('buy', { price: 500, id: 123456 }); assert.equal(G.expoDeal(fake.st, 99).code, 'E_OFFER_GONE');
+  assert.equal(G.expoDeal(withOffer('buy', { price: 5 }).st, 1.5).code, 'E_BAD_REQUEST');
+});
+
+test('expo: the screen shows only the offers of visitors that came after it opened, and not those it has dismissed', () => {
+  const { st, o } = withOffer('buy', { price: 5 }); const e = st.expo!;
+  assert.equal(XP.liveOffer(e, 98, []), o); assert.equal(XP.liveOffer(e, 99, []), null, 'a visitor that came before the window opened is not asked about');
+  assert.equal(XP.liveOffer(e, 98, [99]), null); assert.equal(XP.liveOffer(null, 0, []), null);
+  e.offers!.push({ ...o, n: 100, slot: 3, id: e.stands[3]!.id }); assert.equal(XP.liveOffer(e, 98, [])!.n, 100, 'the newest first'); assert.equal(XP.liveOffer(e, 98, [100])!.n, 99);
 });

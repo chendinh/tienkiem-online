@@ -110,9 +110,23 @@ Chỗ duy nhất trong Công việc để **ngắm**. Người chơi bày 3 đ�
 - Khách đông không làm giàu thêm: mỗi khách trả `payScale` lần số cũ (nhịp mới chia nhịp 56 đến 90 giây ban đầu), lấy tròn theo xác suất để tổng không lệch, và xác suất quà cũng nhân như vậy. Thu nhập mỗi giờ và số quà mỗi giờ giữ nguyên như khi khách thưa.
 - Khách sinh từ `seed` và số thứ tự (`visitorOf`): loại tu sĩ (6 loại như khách Tìm đồ), tên, hệ ưa thích, độ khó tính (`bar`).
 - Mỗi khách xem 1 đến 3 bệ (`routeOf`), từ tầng trên xuống, theo hướng khách vào. Điểm = hạng món trừ độ khó tính cộng 3, cộng 1 nếu đúng hệ, cộng phần ưa riêng của loại khách (Kiếm Tu thích vũ khí, Thể Tu thích giáp, Phù Sư thích bùa và nhẫn, Đan Sư thích Linh Thú, Ma Tu thích Dị Biến), ± 1 may rủi. Từ 5 điểm: mê, 4: ngạc nhiên, 3: thích, 2: lặng thinh, 1: thất vọng, 0 trở xuống: chê. Linh Thú tính hạng theo cỡ (Dị Biến hơn một bậc).
-- Mê, ngạc nhiên, thích để Linh Thạch bằng 0,20%, 0,12%, 0,05% giá trị món (giá phân giải với đồ, giá thả với thú). Thất vọng và chê không lấy gì.
-- Quà (mỗi khách tối đa một): chỉ khi mê (3,5%) hoặc ngạc nhiên (1%). Kiếm Tu và Thể Tu tặng pháp khí vũ khí (hòm chứa tối đa 3), Đan Sư và Tán Tu tặng đan (tối đa 20 mỗi bậc), Phù Sư và Ma Tu tặng Bí Kíp hợp hệ khách, đủ cấp (tối đa 8 loại). Hòm đầy thì khách giữ lại quà.
-- Thu nhập cố tình nhỏ vì món không bị dùng hết: bày 6 món ở cấp 10 được khoảng 100 Linh Thạch mỗi giờ với hạng Huyền, 180 với Địa, 480 với Thiên, 2.540 với Tiên (chưa tính quà), thấp hơn nhiều so với thu nhập thường của cấp đó (`tests/expo.test.ts`, mục thu nhập).
+- Mê, ngạc nhiên, thích để Linh Thạch bằng 2%, 1,2%, 0,5% giá trị món (giá phân giải với đồ, giá thả với thú), gấp 10 lần lúc đầu (`STONE_BP`, `STONE_MIN`). Thất vọng và chê không lấy gì.
+- Quà (mỗi khách tối đa một): chỉ khi mê (3,5%) hoặc ngạc nhiên (1%). Kiếm Tu và Thể Tu tặng pháp khí vũ khí (hòm chứa tối đa 3), Đan Sư và Tán Tu tặng đan (tối đa 20 mỗi bậc), Phù Sư và Ma Tu tặng Bí Công hợp hệ khách, đủ cấp (tối đa 8 loại). Hòm đầy thì khách giữ lại quà.
+- Thu nhập sau khi nhân 10: bày 6 món ở cấp 10 được khoảng 990 Linh Thạch mỗi giờ với hạng Huyền, 1.800 với Địa, 4.800 với Thiên, 25.600 với Tiên (chưa tính quà và chưa tính lời đề nghị mua); đã đo cho 5 save khác nhau, chênh dưới 2%. Món không bị dùng hết nên vẫn là thu nhập đều đặn, nhưng không còn là khoản nhỏ: hạng Thiên mỗi giờ về gần nửa giá phân giải của cả hàng. Bộ lọc nằm ở `tests/expo.test.ts` (mục thu nhập: tăng theo hạng, và không quá 60% giá trị hạng Thiên mỗi giờ).
+
+### Lời đề nghị (`offerOf`, `expoDeal`)
+
+Khoảng 5% khách (500 trên 10.000 lượt, rút từ `seed` và số thứ tự nên cùng save luôn có cùng lời đề nghị) hỏi **món họ thích nhất** trong lượt đó (mê, ngạc nhiên hoặc thích). Chỉ hỏi pháp khí, không bao giờ hỏi Linh Thú. Ba kiểu:
+
+| Kiểu | Tỉ lệ | Điều khách đưa ra |
+|---|---|---|
+| Mua (`buy`) | 50% | trả 4 đến 6 lần giá phân giải của món |
+| Đổi (`swap`) | 40% | một món ngẫu nhiên **cùng hạng, cùng loại ô** (cấp theo người chơi), tạo lúc người chơi nhận lời, từ dòng số riêng nên không đụng dòng số của hành trình |
+| Bí Công (`book`) | 10% (chỉ khi món bày hạng Địa trở lên) | một Bí Công hạng Địa (cho món Địa) hoặc hạng Thiên (cho món Thiên, Tiên), thuộc hệ ưa thích của khách, trong tầm học tới cấp hiện tại cộng 5 |
+
+- Máy chủ tạo lời đề nghị cùng lượt khách (`runExpo`), giữ tối đa 3 lời (mỗi món một lời) trong 90 giây (`OFFER_KEEP_MS`), cũ hơn thì bỏ. `expoDeal` (intent thuần, chạy ngay ở trình duyệt) nhận lời theo số thứ tự khách: món rời bệ (bán thì mất món và được Linh Thạch, đổi thì món mới đứng đúng bệ đó, khóa như các món khác, Bí Công vào kho), lời đề nghị đó biến mất. Gỡ hoặc đổi món trên bệ thì lời đề nghị cho món cũ cũng bỏ. Món đã gỡ hoặc đang mặc thì trả `E_OFFER_GONE`.
+- **Chỉ hiện khi cửa sổ Công việc đang mở.** Màn hình ghi lại số thứ tự khách lúc mở (`openedAt`) và chỉ hiện lời đề nghị của khách đến sau đó (`liveOffer`). Tắt cửa sổ thì Triển lãm không có giao dịch nào chờ, và mở lại cũng không thấy những lời cũ.
+- Thẻ nằm đè lên khoảng trời trống phía trên sân khấu (cao khoảng 46px, không đè bệ): dòng nhỏ là ai hỏi món nào (cắt được), dòng chính là lời đề nghị (không bị cắt), một nút Bán hoặc Đổi, một nút từ chối. Tự biến sau 25 giây. Không có toast khi nhận lời.
 
 ### Cách chạy
 
@@ -122,7 +136,7 @@ Chỗ duy nhất trong Công việc để **ngắm**. Người chơi bày 3 đ�
 - `components/Cultivator.tsx`: tu sĩ đạp kiếm vẽ bằng SVG, đổi màu theo loại khách, tóc, tay áo, dải lưng và phù lắc theo CSS. `components/ReactIcon.tsx`: mặt cảm xúc.
 - `components/Expo.tsx`: phần quanh sân khấu (dòng trạng thái, hòm quà, tổng số phản ứng, tờ chọn món cho một bệ dính đáy cửa sổ). Chạm bệ để chọn, chạm hòm hoặc nút Thu quà để nhận, không có toast. Hòm hiện số món quà (chấm vàng) và số Linh Thạch; tab Triển lãm không có chấm xanh vì đây là chỗ để xem chứ không phải việc phải làm.
 - `app/ds/expo.css`: giao diện sân khấu, mây, sương, khí. Các khách đi xa mờ chạy bằng CSS không dừng (rút ngẫu nhiên lúc mở tab), mọi vòng lặp tắt theo `data-fx='off'`.
-- Test: `tests/expo.test.ts` (luật, thu nhập, khóa món, đường bay).
+- Test: `tests/expo.test.ts` (luật, thu nhập, khóa món, đường bay, lời đề nghị: tỉ lệ khoảng 5%, ba kiểu và hạng, nhận lời, hết hạn, chỉ hiện khi cửa sổ mở).
 
 ### Năm biểu cảm (vẽ bằng code) và hình vẽ AI (của riêng game)
 

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as C from '@/lib/content';
 import * as XP from '@/lib/expo';
 import type { GS } from '@/lib/client/types';
@@ -8,6 +8,7 @@ import { BeastArt, ItemIcon, fmt } from './ui';
 import { ReactIcon } from './ReactIcon';
 import { shortNum } from '@/lib/shortnum';
 import { ExpoScene } from './ExpoScene';
+import { expoView } from '@/lib/game';
 import { useFx } from './fx/FxProvider';
 import { sfx } from '@/lib/audio';
 import type { Act } from './Panels';
@@ -38,7 +39,7 @@ function BoxView({ b }: { b: XP.Box }) {
       {b.stones > 0 && <span className="xChip" title="Linh Thạch"><Icon name="stone" size={16} />{fmt(b.stones)}</span>}
       {b.weapons.length > 0 && <span className="xChip" title="Pháp khí khách tặng"><Icon name="atk" size={16} />{b.weapons.length}<small>pháp khí</small></span>}
       {b.pills.map((n, g) => n > 0 && <span key={g} className="xChip" title={GRADE[g]}><img src={C.shopArt(`hp${g}`)} alt="" draggable={false} />{n}<small>đan</small></span>)}
-      {books > 0 && <span className="xChip" title="Bí Kíp"><Icon name="book" size={16} />{books}<small>bí kíp</small></span>}
+      {books > 0 && <span className="xChip" title="Bí Công"><Icon name="book" size={16} />{books}<small>Bí Công</small></span>}
       {XP.boxCount(b) === 0 && <small className="xEmpty">Hòm quà đang trống</small>}
     </div>
   );
@@ -88,10 +89,33 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
   );
 }
 
+// A visitor asks for the piece they liked best (lib/expo.ts offers): one thin card at the top of the stage, over the empty sky, with the deal in a line and one button. It shows for 25 seconds
+// and goes by itself; the close button sends the visitor away. Only the visitors that came while this panel was open can ask (the panel notes the visit number it opened on), so with the window
+// closed there are no deals, and a piece that is no longer on its stand takes its deal with it.
+function OfferCard({ o, name, onGone, onYes }: { o: XP.Offer; name: string; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
+  useEffect(() => { const t = setTimeout(() => onGone(o.n), XP.OFFER_SHOW_MS); return () => clearTimeout(t); }, [o.n, onGone]);
+  // the first line is who asks and for what (it may be cut short, the piece is on its stand anyway); the second is the deal itself, which must never be cut: it is short, except a book's name
+  const what = o.kind === 'buy' ? <>Trả <b>{fmt(o.price || 0)}</b> <Icon name="stone" size={12} /></>
+    : o.kind === 'swap' ? <>Đổi món hạng <b>{C.RARITY[o.tier]}</b> cùng loại</>
+    : <>Đổi Bí Công: <b>{o.book}</b></>;
+  return (
+    <div className="xOffer" role="alertdialog" aria-label={`${o.who.name} hỏi mua ${name}`}>
+      <p><small>{o.who.arch} {o.who.name} hỏi {name}</small><span>{what}</span></p>
+      <button type="button" className="btn hot sm" onClick={() => onYes(o)}>{o.kind === 'buy' ? 'Bán' : 'Đổi'}</button>
+      <button type="button" className="xClose" aria-label="Từ chối" onClick={() => onGone(o.n)}><Icon name="close" size={14} /></button>
+    </div>
+  );
+}
+
 export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   const e = XP.isExpo(st.expo) ? st.expo : null;
   const [pick, setPick] = useState<number | null>(null);
   const [note, setNote] = useState('');
+  const openedAt = useRef(e ? e.n : 0), [gone, setGone] = useState<number[]>([]);
+  const offer = XP.liveOffer(e, openedAt.current, gone);
+  const offerName = useMemo(() => { const v = offer ? expoView(st)[offer.slot] : null; return v && v.kind === 'item' ? v.item.name : ''; }, [offer, st.expo, st.bag, st.stash]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const onGone = useCallback((n: number) => setGone((g) => (g.includes(n) ? g : [...g, n])), []);
+  const onYes = useCallback((o: XP.Offer) => { setGone((g) => [...g, o.n]); void act('expoDeal', { n: o.n }).then((r) => { if (!r.ok) setNote(r.msg); }); }, [act]);
   const fx = useFx();
   const n = e ? XP.filled(e) : 0, has = !!e && XP.boxCount(e.box) > 0;
   const onStand = useCallback((slot: number) => { setNote(''); setPick((p) => (p === slot ? null : slot)); }, []);
@@ -102,7 +126,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
     const r = await act('expoCollect');
     if (!r.ok) { setNote(r.msg); return; }
     const d = (r.data || {}) as { stones?: number; weapons?: number; pills?: number; books?: number; left?: number };
-    const parts = [d.stones ? `+${fmt(d.stones)} Linh Thạch` : '', d.weapons ? `${d.weapons} pháp khí` : '', d.pills ? `${d.pills} đan` : '', d.books ? `${d.books} bí kíp` : ''].filter(Boolean);
+    const parts = [d.stones ? `+${fmt(d.stones)} Linh Thạch` : '', d.weapons ? `${d.weapons} pháp khí` : '', d.pills ? `${d.pills} đan` : '', d.books ? `${d.books} Bí Công` : ''].filter(Boolean);
     const rc = document.querySelector('.xChest')?.getBoundingClientRect();
     fx.float(parts[0] || 'Đã thu', { ...(rc ? { x: rc.left + rc.width / 2, y: rc.top } : {}), color: '#f6e2a8', sub: parts.slice(1).join(' · ') || undefined });
     sfx('chime');
@@ -111,6 +135,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   return (
     <div className="xpo">
       <ExpoScene st={st} onStand={onStand} onChest={collect} />
+      {offer && offerName && <OfferCard key={offer.n} o={offer} name={offerName} onGone={onGone} onYes={onYes} />}
       <div className="xBar">
         <p className={`xState${n < XP.MIN_OPEN ? ' warn' : ''}`}>
           {n < XP.MIN_OPEN

@@ -27,6 +27,7 @@ export const PURE_INTENTS: Record<string, PureHandler> = {
   expoSet: (st, b) => G.expoSet(st, b && b.slot, b && b.kind, b && b.id),
   expoClear: (st, b) => G.expoClear(st, b && b.slot),
   expoCollect: (st) => G.expoCollect(st),
+  expoDeal: (st, b) => G.expoDeal(st, b && b.n),
   sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : bad()),
   pill: (st, b) => G.useHpPill(st, b.grade),
   craft: (st, b) => G.craft(st, b.id, b.qty),

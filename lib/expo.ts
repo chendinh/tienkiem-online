@@ -6,7 +6,7 @@
 //
 //   Who comes        visitorOf(seed, n): a kind of cultivator (C.NPC_TITLES), a name, a favourite element and how demanding they are (`bar`: the rarity they are used to).
 //   What they think  scoreOf(): the rarity of the piece against `bar`, a favourite element, what that kind of cultivator likes, a little luck. reactionOf(): love, wow, like, nothing, sad, angry.
-//   What they give   a share of what the piece is worth in Linh Thạch (love, wow, like only), and sometimes a gift that fits the kind of cultivator: a weapon, pills or a Bí Kíp.
+//   What they give   a share of what the piece is worth in Linh Thạch (love, wow, like only), and sometimes a gift that fits the kind of cultivator: a weapon, pills or a Bí Công.
 //   How often        one visitor about every 5 seconds while 3 or more stands are filled (a little quicker with more stands), up to what 12 offline hours bring. Pay is scaled to the pace (payScale).
 import * as C from './content';
 import * as A from './arts';
@@ -27,7 +27,7 @@ export type Gift = { kind: 'weapon'; name: string; tier: number } | { kind: 'pil
 export interface Step { slot: number; r: Reaction | null; stones: number }
 export interface Visit { n: number; at: number; who: { name: string; g: 'f' | 'm'; arch: string }; side: 0 | 1; route: Step[]; gift?: Gift }
 export interface Box { stones: number; weapons: Item[]; pills: number[]; books: Record<string, number> }
-export interface Expo { v: 1; stands: (Stand | null)[]; n: number; next: number; log: Visit[]; box: Box }
+export interface Expo { v: 1; stands: (Stand | null)[]; n: number; next: number; log: Visit[]; box: Box; offers?: Offer[] }
 
 export const emptyTally = (): Tally => [0, 0, 0, 0, 0];
 export const emptyBox = (): Box => ({ stones: 0, weapons: [], pills: [0, 0, 0], books: {} });
@@ -79,9 +79,9 @@ export function scoreOf(v: Visitor, x: Exhibit, key: string): number {
 export const reactionOf = (s: number): Reaction | null => (s >= 5 ? 'love' : s === 4 ? 'wow' : s === 3 ? 'like' : s === 2 ? null : s === 1 ? 'sad' : 'angry');
 
 // ---- what they give
-/** Share of the piece's worth, in hundredths of a percent. A piece is never used up, so this is small: a full row of Thiên pieces earns a few percent of their worth per hour. */
-export const STONE_BP: Partial<Record<Reaction, number>> = { love: 20, wow: 12, like: 5 };
-const STONE_MIN: Partial<Record<Reaction, number>> = { love: 2, wow: 1, like: 0 };
+/** Share of the piece's worth, in hundredths of a percent. Ten times what it was at first (20, 12, 5): a full row of Thiên pieces earns about a third of their worth per hour. */
+export const STONE_BP: Partial<Record<Reaction, number>> = { love: 200, wow: 120, like: 50 };
+const STONE_MIN: Partial<Record<Reaction, number>> = { love: 20, wow: 10, like: 0 };
 /** What a reaction is worth before it is turned into whole Linh Thạch. */
 export const stoneShare = (r: Reaction | null, x: Exhibit, gen: number): number => {
   const bp = r && STONE_BP[r];
@@ -92,7 +92,7 @@ export const stonesFor = (r: Reaction | null, x: Exhibit, gen: number, scale = 1
   const s = stoneShare(r, x, gen);
   return s > 0 ? Math.floor(s * scale + u) : 0;
 };
-/** What each kind of cultivator gives when it is moved: weapons, pills or a Bí Kíp. */
+/** What each kind of cultivator gives when it is moved: weapons, pills or a Bí Công. */
 export const GIFT_OF: Record<string, 'weapon' | 'pill' | 'book'> = { 'Kiếm Tu': 'weapon', 'Thể Tu': 'weapon', 'Đan Sư': 'pill', 'Tán Tu': 'pill', 'Phù Sư': 'book', 'Ma Tu': 'book' };
 const GIFT_P: Partial<Record<Reaction, number>> = { love: 35, wow: 10 };   // per thousand: about two gifts an hour for a full row of Thiên pieces, and a gift is worth about what a few Linh Thạch gifts are
 export interface GiftPlan { kind: 'weapon' | 'pill' | 'book'; tier: number }
@@ -103,7 +103,7 @@ export function giftOf(arch: string, r: Reaction | null, x: Exhibit, key: string
   return { kind: GIFT_OF[arch] || 'pill', tier: Math.max(0, Math.min(3, x.tier - 1)) };
 }
 export const pillGrade = (tier: number): number => (tier <= 2 ? 0 : tier === 3 ? 1 : 2);
-/** The Bí Kíp a visitor brings: of the visitor's favourite element, of a rarity the piece deserves, and one the player could use soon. Worked out from the key alone. */
+/** The Bí Công a visitor brings: of the visitor's favourite element, of a rarity the piece deserves, and one the player could use soon. Worked out from the key alone. */
 export function bookFor(el: string, tier: number, level: number, key: string): string | null {
   const classes = A.CLASSES_BY_EL[el] || A.CLASSES_BY_EL.Kim;
   const pool = A.techsOf(pick(classes, `xc|${key}`)).filter((t) => t.minLevel <= level + 2 && t.tier <= tier);
@@ -113,6 +113,45 @@ export function bookFor(el: string, tier: number, level: number, key: string): s
   for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r < 0) return pool[i].name; }
   return pool[pool.length - 1].name;
 }
+
+// ---- offers: now and then a visitor who loved a piece asks for it
+// About one visit in twenty, the visitor offers the player a deal for the piece they liked best (a piece of equipment, never a Linh Thú):
+//   buy   a high price in Linh Thạch (4 to 6 times what the piece dissolves for),
+//   swap  one for one with a random piece of the same rarity and the same kind (made when the player says yes),
+//   book  a Bí Công of the rarity Địa or Thiên (only for a Địa piece and better), of the visitor's favourite element.
+// The server makes the offer with the visit (lib/game.ts runExpo, from the seed and the visit number alone) and keeps the last few for OFFER_KEEP_MS; the player answers with expoDeal.
+// The screen shows only the offers of visitors that came while it was open (liveOffer), so with the window closed Triển Lãm has no deals to answer, and nothing waits for the player.
+export const OFFER_BP = 500;               // out of 10,000 visits
+export const OFFER_KEEP_MS = 90_000;       // how long a yes is still taken
+export const OFFER_SHOW_MS = 25_000;       // how long the screen shows an offer
+export const OFFER_MAX = 3;
+export type OfferKind = 'buy' | 'swap' | 'book';
+export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; book?: string }
+const OFFER_W: Record<OfferKind, number> = { buy: 50, swap: 40, book: 10 };
+/** A Bí Công of the technique rarity `techTier` (0 Hoàng, 1 Huyền, 2 Địa, 3 Thiên) of the favourite element, one the player will be able to learn soon. From the key alone. */
+export function bookOfTier(el: string, techTier: number, level: number, key: string): string | null {
+  const pool = (A.CLASSES_BY_EL[el] || A.CLASSES_BY_EL.Kim).flatMap((c) => A.techsOf(c)).filter((t) => t.tier === techTier && t.minLevel <= level + 5);
+  return pool.length ? pool[hash32(`xk|${key}`) % pool.length].name : null;
+}
+/** The offer of this visit for the piece it liked best, or null (most visits). Worked out from the key alone, so the same save has the same offers. */
+export function offerOf(v: Visitor, n: number, key: string, at: number, target: { slot: number; id: number; ex: Exhibit }, level: number): Offer | null {
+  const x = target.ex;
+  if (x.kind !== 'item' || hash32(`xo|${key}`) % 10_000 >= OFFER_BP) return null;
+  const bookTier = x.tier >= 4 ? 3 : x.tier === 3 ? 2 : -1;
+  const book = bookTier >= 0 ? bookOfTier(v.el, bookTier, level, key) : null;
+  const kinds = (Object.keys(OFFER_W) as OfferKind[]).filter((k) => k !== 'book' || book);
+  let r = hash32(`xj|${key}`) % kinds.reduce((a, k) => a + OFFER_W[k], 0), kind = kinds[0];
+  for (const k of kinds) { if (r < OFFER_W[k]) { kind = k; break; } r -= OFFER_W[k]; }
+  const base: Offer = { n, at, slot: target.slot, id: target.id, kind, who: v.who, tier: x.tier };
+  if (kind === 'buy') return { ...base, price: Math.max(1, Math.round(x.value * (4 + (hash32(`xm|${key}`) % 3)))) };
+  if (kind === 'book') return { ...base, book: book! };
+  return base;
+}
+/** The offers the screen should show: only those of visitors that came after it opened (`openedAt` is the visit number it opened on), not already answered or sent away. */
+export const liveOffer = (e: Expo | null, openedAt: number, gone: readonly number[]): Offer | null => {
+  const l = e && e.offers ? e.offers.filter((o) => o.n > openedAt && !gone.includes(o.n)) : [];
+  return l.length ? l[l.length - 1] : null;
+};
 
 // ---- when and where
 export const intervalMs = (open: number, seed: number, n: number): number => Math.round(INTERVAL_SEC[Math.max(MIN_OPEN, Math.min(STANDS, open))] * 1000 * (0.6 + (hash32(`xi|${seed}|${n}`) % 81) / 100));

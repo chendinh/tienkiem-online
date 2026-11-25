@@ -1188,6 +1188,7 @@ function exhibitOf(v: StandView): { ex: XP.Exhibit; name: string } | null {
 function expoFree(st: GameState, slot: number) {
   const e = st.expo, s = XP.isExpo(e) ? e.stands[slot] : null;
   if (!e || !s) return;
+  if (e.offers) { e.offers = e.offers.filter((o) => o.slot !== slot); if (!e.offers.length) delete e.offers; }   // a deal for what stood there is off
   if (s.kind === 'item' && !s.was) { const f = findIn(st, s.id); if (f) f.it.locked = false; }
   e.stands[slot] = null;
 }
@@ -1224,15 +1225,43 @@ export function expoCollect(st: GameState): Res {
   for (const [name, n] of Object.entries(bx.books)) { st.inv.books[name] = (st.inv.books[name] || 0) + n; got.books += n; }
   bx.books = {};
   while (bx.weapons.length && st.bag.length < B.bagCapacity) { st.bag.push(bx.weapons.shift()!); got.weapons++; }
-  const left = XP.boxCount(bx), parts = [got.stones ? `${got.stones} Linh Thạch` : '', got.weapons ? `${got.weapons} pháp khí` : '', got.pills ? `${got.pills} đan` : '', got.books ? `${got.books} bí kíp` : ''].filter(Boolean);
+  const left = XP.boxCount(bx), parts = [got.stones ? `${got.stones} Linh Thạch` : '', got.weapons ? `${got.weapons} pháp khí` : '', got.pills ? `${got.pills} đan` : '', got.books ? `${got.books} Bí Công` : ''].filter(Boolean);
   return ok(`Đã thu ${parts.join(', ') || 'quà của khách'}.${left ? ' Còn một phần chưa nhận vì túi hoặc kho đã đầy.' : ''}`, { ...got, left });
 }
-// A gift weapon is made on its own random streams, so it takes nothing from the streams of the journey (the same save always has the same fights and drops).
-function giftWeapon(st: GameState, tier: number, level: number, key: string): Item {
+// A gift piece (or the piece of a swap) is made on its own random streams, so it takes nothing from the streams of the journey (the same save always has the same fights and drops).
+function giftItem(st: GameState, tier: number, slot: string, level: number, key: string): Item {
   const tmp = { ...st, streams: newStreams(O.hash32(`xw|${key}`)) } as GameState;
-  const it = genItem(tmp, level, tier, 'Weapon', 0, true);
+  const it = genItem(tmp, level, tier, slot, 0, true);
   st.uid = tmp.uid;
   return it;
+}
+const giftWeapon = (st: GameState, tier: number, level: number, key: string): Item => giftItem(st, tier, 'Weapon', level, key);
+/** The player says yes to the offer of visitor number `n` (lib/expo.ts offers): the piece on that stand goes, and the player gets the price, a random piece of the same rarity and kind (it takes the stand), or the Bí Công. */
+export function expoDeal(st: GameState, n: unknown): Res {
+  const e = XP.isExpo(st.expo) ? st.expo : null;
+  if (!e || !Number.isInteger(n)) return fail('E_BAD_REQUEST');
+  const o = (e.offers || []).find((x) => x.n === n);
+  if (!o) return fail('E_OFFER_GONE');
+  const stand = e.stands[o.slot], f = stand && stand.kind === 'item' && stand.id === o.id ? findIn(st, o.id) : null;
+  if (st.clock - o.at > XP.OFFER_KEEP_MS || !f || f.where === 'eq') { e.offers = e.offers!.filter((x) => x !== o); if (!e.offers.length) delete e.offers; return fail('E_OFFER_GONE'); }
+  const arr = f.where === 'bag' ? st.bag : st.stash, old = f.it, key = `${st.seed}|expo|${o.n}|deal`;
+  if (o.kind === 'swap') {
+    const it = giftItem(st, old.tier, old.slot, levelOf(st.player), key);
+    it.locked = true;
+    arr[f.i] = it;   // the new piece takes the place of the old one, on the same stand, with the tally of a new piece
+    e.stands[o.slot] = { kind: 'item', id: it.id, tally: XP.emptyTally() };
+    e.offers = e.offers!.filter((x) => x.slot !== o.slot); if (!e.offers.length) delete e.offers;
+    return ok(`${o.who.name} đổi ${old.name} lấy ${it.name}.`, { kind: 'swap', name: it.name, tier: it.tier });
+  }
+  arr.splice(f.i, 1);
+  e.stands[o.slot] = null;
+  e.offers = e.offers!.filter((x) => x.slot !== o.slot); if (!e.offers.length) delete e.offers;
+  if (o.kind === 'book' && o.book) {
+    st.inv.books[o.book] = (st.inv.books[o.book] || 0) + 1;
+    return ok(`${o.who.name} đổi Bí Công ${o.book} lấy ${old.name}.`, { kind: 'book', name: o.book, tier: o.tier });
+  }
+  const paid = earn(st, o.price || 0, 'expo');
+  return ok(`${o.who.name} mua ${old.name}, trả ${paid} Linh Thạch.`, { kind: 'buy', stones: paid });
 }
 /** The visitors whose time has come (server tick only: it makes pieces for the box): one about every 5 seconds, so usually one a tick and now and then two or three. A few seconds of work at most, even for 12 offline hours of visitors. */
 function runExpo(st: GameState) {
@@ -1252,12 +1281,13 @@ function expoVisit(st: GameState, e: XP.Expo): boolean {
   views.forEach((v, i) => { if (!v && e.stands[i]) e.stands[i] = null; });   // a piece that is gone: its stand is empty now
   if (!XP.isOpen(e)) { e.next = 0; return false; }
   const n = ++e.n, seed = st.seed, key = `${seed}|expo|${n}`, v = XP.visitorOf(seed, n), r = XP.routeOf(e, seed, n), steps: XP.Step[] = [], scale = XP.payScale(XP.filled(e));
+  let like: { rank: number; slot: number; ex: XP.Exhibit } | null = null;   // the piece of equipment this visitor liked best (an offer may be for it)
   let best: { rank: number; ex: XP.Exhibit } | null = null;
   for (const slot of r.slots) {
     const x = exhibitOf(views[slot]), stand = e.stands[slot];
     if (!x || !stand) continue;
     const rx = XP.reactionOf(XP.scoreOf(v, x.ex, `${key}|${slot}`)), stones = XP.stonesFor(rx, x.ex, v.gen, scale, (O.hash32(`xu|${key}|${slot}`) % 1000) / 1000);
-    if (rx) { const ri = XP.REACTIONS.indexOf(rx); stand.tally[ri]++; if (ri < 3 && (!best || ri < best.rank)) best = { rank: ri, ex: x.ex }; }
+    if (rx) { const ri = XP.REACTIONS.indexOf(rx); stand.tally[ri]++; if (ri < 3 && (!best || ri < best.rank)) best = { rank: ri, ex: x.ex }; if (ri < 3 && x.ex.kind === 'item' && stand.kind === 'item' && (!like || ri < like.rank)) like = { rank: ri, slot, ex: x.ex }; }
     e.box.stones = Math.min(B.stoneMax, e.box.stones + stones);
     steps.push({ slot, r: rx, stones });
   }
@@ -1279,6 +1309,12 @@ function expoVisit(st: GameState, e: XP.Expo): boolean {
     }
   }
   if (steps.length) { e.log.push({ n, at: st.clock, who: v.who, side: r.side, route: steps, ...(gift ? { gift } : {}) }); if (e.log.length > XP.LOG_KEEP) e.log.shift(); }
+  // an offer for that piece, now and then: the last few are kept for a minute and a half, an older one is forgotten
+  const fresh = (e.offers || []).filter((o) => st.clock - o.at <= XP.OFFER_KEEP_MS);
+  const stand = like ? e.stands[like.slot] : null;
+  const offer = like && stand ? XP.offerOf(v, n, key, st.clock, { slot: like.slot, id: stand.id, ex: like.ex }, levelOf(st.player)) : null;
+  if (offer && !fresh.some((o) => o.slot === offer.slot)) fresh.push(offer);   // one deal at a time for a piece
+  if (fresh.length) e.offers = fresh.slice(-XP.OFFER_MAX); else delete e.offers;
   return true;
 }
 // Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
