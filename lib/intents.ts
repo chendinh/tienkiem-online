@@ -9,7 +9,9 @@ const bad = () => G.fail('E_BAD_REQUEST');
 
 /** Actions the screen does not do ahead of the server: the player waits for the answer (the card shows it on its way) and is told the reason when it is refused.
  *  For what sends something away for a long time (a creature sent to work): a refusal must never look like the creature just vanished. The server runs the same handler from PURE_INTENTS. */
-export const SERVER_FIRST: ReadonlySet<string> = new Set(['workSend']);
+// expoDeal (a deal of Triển Lãm): a swap makes a random piece or creature, and the pictures and relics that roll uses are known only on the server, so the browser would show a piece
+// the save never gets. The screen shows the server's piece instead.
+export const SERVER_FIRST: ReadonlySet<string> = new Set(['workSend', 'expoDeal']);
 
 export const PURE_INTENTS: Record<string, PureHandler> = {
   mode: (st, b) => G.setMode(st, b.mode),

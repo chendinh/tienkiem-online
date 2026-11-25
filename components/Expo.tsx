@@ -121,29 +121,85 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
   );
 }
 
-// A visitor asks for the piece they liked best (lib/expo.ts offers): a card in the bar under the stage. One line says who asks (face, name, school), the next the deal and, for a
-// price, how it stands against the base (what the piece dissolves for, or what the pen pays). It shows for 25 seconds and goes by itself; the seal sends the visitor away. Only the
-// visitors that came while this panel was open can ask, and only once their flight has shown what they thought (an offer before the reaction gave the result away).
+// A visitor asks for the piece they liked best (lib/expo.ts offers): a card in the bar under the stage. The top line says who asks (face, name, school); under it the trade itself,
+// always as two sides with an arrow: what the player gives (the piece on its stand, with how it stands against what is worn in that slot) and what comes back (the Linh Thạch and how the
+// price stands against the base, the Bí Công, or a "?" for a random piece or creature, which is only known once the deal is done). It shows for 25 seconds and goes by itself; the seal
+// sends the visitor away. Only the visitors that came while this panel was open can ask, and only once their flight has shown what they thought.
 const pct = (price: number, base: number) => Math.round(((price - base) / Math.max(1, base)) * 100);
-function OfferCard({ o, onGone, onYes }: { o: XP.Offer; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
-  useEffect(() => { const t = setTimeout(() => onGone(o.n), XP.OFFER_SHOW_MS); return () => clearTimeout(t); }, [o.n, onGone]);
-  const ask = o.kind === 'buy' ? 'hỏi mua' : 'muốn đổi', baseName = o.beast ? 'giá bán ở chuồng' : 'giá phân giải';
-  const d = o.kind === 'buy' && o.base ? pct(o.price || 0, o.base) : 0;
-  const what = o.kind === 'buy'
-    ? <>Trả <b><Icon name="stone" size={13} />{fmt(o.price || 0)}</b> <em className={`xCmp ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`}>{d > 0 ? `▲ cao hơn ${baseName} ${d}%` : d < 0 ? `▼ thấp hơn ${baseName} ${-d}%` : `bằng ${baseName}`}</em></>
-    : o.kind === 'gear' ? <>Đổi lấy một món <b style={{ color: C.RCOLOR[4] }}>{C.RARITY[4]}</b> ngang cấp ngươi, chỉ số cao hơn thường</>
-    : o.kind === 'swap' && o.beast ? <>Đổi lấy một Linh Thú cùng cỡ, <b>lực chiến cao hơn</b></>
-    : o.kind === 'swap' ? <>Đổi lấy một món <b style={{ color: C.RCOLOR[o.tier] }}>{C.RARITY[o.tier]}</b> cùng loại</>
-    : <>Đổi lấy Bí Công <b>{o.book}</b></>;
+type Eq = Record<string, Item | null>;
+/** How a piece stands against what is worn in its slot, in one short line. */
+function VsWorn({ it, eq }: { it: Item; eq: Eq }) {
+  const w = eq[it.slot];
+  if (!w) return <small className="xVs up">Ô {C.SLOT_VI[it.slot] ?? it.slot} đang trống</small>;
+  const d = it.power - w.power;
+  return <small className={`xVs ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`} title={`Đang mặc: ${w.name} (lực ${fmt(w.power)})`}>{d > 0 ? `▲ Mạnh hơn đồ đang mặc +${fmt(d)}` : d < 0 ? `▼ Yếu hơn đồ đang mặc ${fmt(d)}` : 'Ngang đồ đang mặc'}</small>;
+}
+function Give({ v, eq }: { v: StandView; eq: Eq }) {
+  if (!v) return null;
+  if (v.kind === 'item') return (
+    <div className="xSide" title={v.item.name}>
+      <ItemIcon it={v.item} size={46} />
+      <div className="xSideTx"><b style={{ color: C.RCOLOR[v.item.tier] }}>{C.RARITY[v.item.tier]} · lực {fmt(v.item.power)}</b><VsWorn it={v.item} eq={eq} /></div>
+    </div>
+  );
+  const b = v.beast;
   return (
-    <div className="xOffer" role="alertdialog" aria-label={`${o.who.name} ${ask}`} style={{ '--ms': `${XP.OFFER_SHOW_MS}ms` } as CSSProperties}>
-      <Img src={C.buyerArt(o.who.arch, o.who.g)} className="xOfferFace" fb={<Icon name="scroll" size={20} />} />
-      <div className="xOfferTx">
-        <p className="xOfferWho"><b>{o.who.name}</b> · {o.who.arch} · {ask}</p>
-        <p className="xOfferDeal">{what}</p>
+    <div className="xSide" title={b.name}>
+      <BeastArt b={b} box={46} onOpen={noop} />
+      <div className="xSideTx"><b>{b.mut ? '✦ Dị Biến · ' : ''}{C.SIZE_CLASS[b.cls]} · Lv{b.level}</b><small>Lực chiến {fmt(b.power)}</small></div>
+    </div>
+  );
+}
+function Get({ o, v }: { o: XP.Offer; v: StandView }) {
+  const baseName = o.beast ? 'giá bán ở chuồng' : 'giá phân giải';
+  if (o.kind === 'buy') {
+    const d = o.base ? pct(o.price || 0, o.base) : 0;
+    return (
+      <div className="xSide get">
+        <span className="xSidePic stone"><Icon name="stone" size={28} /></span>
+        <div className="xSideTx"><b className="gold">{fmt(o.price || 0)} Linh Thạch</b><small className={`xVs ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`}>{d > 0 ? `▲ Cao hơn ${baseName} ${d}%` : d < 0 ? `▼ Thấp hơn ${baseName} ${-d}%` : `Bằng ${baseName}`}</small><small>Vào hòm quà, bấm Thu quà để nhận</small></div>
       </div>
-      <button type="button" className="btn hot sm" onClick={() => onYes(o)}>{o.kind === 'buy' ? 'Bán' : 'Đổi'}</button>
-      <button type="button" className="xClose static" aria-label="Từ chối" title="Từ chối" onClick={() => onGone(o.n)}><XSeal size={30} /></button>
+    );
+  }
+  if (o.kind === 'book') return (
+    <div className="xSide get">
+      <span className="xSidePic book"><Icon name="book" size={26} /></span>
+      <div className="xSideTx"><b>{o.book}</b><small>Bí Công hạng {o.tier >= 4 ? 'Thiên' : 'Địa'}, vào kho Bí Công</small></div>
+    </div>
+  );
+  // a random piece or creature: only known once the deal is done
+  const what = o.kind === 'gear' ? <>Món <b style={{ color: C.RCOLOR[4] }}>{C.RARITY[4]}</b> ngẫu nhiên</>
+    : o.beast ? <>Linh Thú ngẫu nhiên</>
+    : <>Món <b style={{ color: C.RCOLOR[o.tier] }}>{C.RARITY[o.tier]}</b> ngẫu nhiên</>;
+  const note = o.kind === 'gear' ? 'Ngang cấp ngươi, chỉ số cao hơn món Thiên thường'
+    : o.beast ? `Cùng cỡ ${v && v.kind === 'beast' ? C.SIZE_CLASS[v.beast.cls] : ''}, lực chiến chắc chắn cao hơn`
+    : `Cùng loại ${v && v.kind === 'item' ? (C.SLOT_VI[v.item.slot] ?? v.item.slot).toLowerCase() : ''}, đổi xong mới biết chỉ số`;
+  return (
+    <div className="xSide get">
+      <span className="xSidePic ask" style={{ '--rc': C.RCOLOR[o.kind === 'gear' ? 4 : o.tier] } as CSSProperties}>?</span>
+      <div className="xSideTx"><b>{what}</b><small>{note}</small></div>
+    </div>
+  );
+}
+function OfferCard({ o, v, eq, onGone, onYes }: { o: XP.Offer; v: StandView; eq: Eq; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
+  useEffect(() => { const t = setTimeout(() => onGone(o.n), XP.OFFER_SHOW_MS); return () => clearTimeout(t); }, [o.n, onGone]);
+  const ask = o.kind === 'buy' ? 'muốn mua' : 'muốn đổi', thing = o.beast ? 'Linh Thú' : 'món';
+  return (
+    <div className="xOffer" role="alertdialog" aria-label={`${o.who.name} ${ask} ${thing} của ngươi`} style={{ '--ms': `${XP.OFFER_SHOW_MS}ms` } as CSSProperties}>
+      <div className="xOfferHead">
+        <Img src={C.buyerArt(o.who.arch, o.who.g)} className="xOfferFace" fb={<Icon name="scroll" size={18} />} />
+        <p className="xOfferWho"><b>{o.who.name}</b> · {o.who.arch} · {ask} {thing} ngươi đang bày</p>
+        <button type="button" className="xClose static" aria-label="Từ chối" title="Từ chối" onClick={() => onGone(o.n)}><XSeal size={28} /></button>
+      </div>
+      <div className="xTrade">
+        <div className="xTradeCol"><small className="xTradeLbl">Ngươi đưa</small><Give v={v} eq={eq} /></div>
+        <span className="xTradeArrow" aria-hidden="true">⇄</span>
+        <div className="xTradeCol"><small className="xTradeLbl">Ngươi nhận</small><Get o={o} v={v} /></div>
+      </div>
+      <div className="xOfferBtns">
+        <button type="button" className="btn hot" onClick={() => onYes(o)}>{o.kind === 'buy' ? `Bán lấy ${fmt(o.price || 0)} Linh Thạch` : 'Đồng ý đổi'}</button>
+        <button type="button" className="btn ghost" onClick={() => onGone(o.n)}>Từ chối</button>
+      </div>
       <i className="xOfferTime" aria-hidden="true" />
     </div>
   );
@@ -152,7 +208,7 @@ function OfferCard({ o, onGone, onYes }: { o: XP.Offer; onGone: (n: number) => v
 // What the player got from a swap: the new piece or creature with its picture and every number (it is in the bag, the stash or the pen now), or the Bí Công.
 // A sale shows nothing: the Linh Thạch are in the chest, collected with the gifts.
 type Got = { kind: 'item'; item: Item; old: string; where: string } | { kind: 'beast'; beast: Beast; old: string } | { kind: 'book'; name: string };
-function GotModal({ g, onClose }: { g: Got; onClose: () => void }) {
+function GotModal({ g, eq, onClose }: { g: Got; eq: Eq; onClose: () => void }) {
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Giao dịch xong">
@@ -162,6 +218,7 @@ function GotModal({ g, onClose }: { g: Got; onClose: () => void }) {
         {g.kind === 'item' && <>
           <p>Đã đổi <b>{g.old}</b> lấy món mới. Món này đã nằm trong {g.where === 'stash' ? 'kho' : 'túi'}.</p>
           <ItemCard it={g.item} />
+          <VsWorn it={g.item} eq={eq} />
         </>}
         {g.kind === 'beast' && <>
           <p>Đã đổi <b>{g.old}</b> lấy Linh Thú mới. Con này đã vào chuồng.</p>
@@ -192,12 +249,15 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   // an offer waits until its visitor has flown by and shown what it thought
   const flying = useMemo(() => new Set(Object.keys(h.held).map((k) => Number(k.split('|')[0]))), [h.held]);
   const offer = XP.liveOffer(e, openedAt.current, [...gone, ...flying]);
-  const offerOk = useMemo(() => { const v = offer ? expoView(st)[offer.slot] : null; return !!v && (v.kind === 'item' ? v.item.id : v.beast.id) === offer!.id; }, [offer, st.expo, st.bag, st.stash, st.beasts]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const offerView = useMemo(() => { const v = offer ? expoView(st)[offer.slot] : null; return v && (v.kind === 'item' ? v.item.id : v.beast.id) === offer!.id ? v : null; }, [offer, st.expo, st.bag, st.stash, st.beasts]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [got, setGot] = useState<Got | null>(null);
   const onGone = useCallback((n: number) => setGone((g) => (g.includes(n) ? g : [...g, n])), []);
+  // a deal waits for the server (lib/intents.ts SERVER_FIRST), so what the popup shows is what the save got; meanwhile the bar says it is on its way
+  const [dealing, setDealing] = useState<string | null>(null);
   const onYes = useCallback((o: XP.Offer) => {
-    setGone((g) => [...g, o.n]);
+    setGone((g) => [...g, o.n]); setDealing(o.who.name); setNote('');
     void act('expoDeal', { n: o.n }).then((r) => {
+      setDealing(null);
       if (!r.ok) { setNote(r.msg); return; }
       const d = (r.data || {}) as { kind?: string; item?: Item; beast?: Beast; old?: string; where?: string; name?: string };
       if ((d.kind === 'swap' || d.kind === 'gear') && d.item) setGot({ kind: 'item', item: d.item, old: d.old || '', where: d.where || 'bag' });
@@ -228,15 +288,19 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
       <ExpoScene st={st} onStand={onStand} onChest={collect} h={h} calm={calm} />
       <div className="xBar">
         {/* a visitor's deal takes the place of the line of words under the stage, where nothing covers it; the line itself only says what is missing to open */}
-        {offer && offerOk
-          ? <OfferCard key={offer.n} o={offer} onGone={onGone} onYes={onYes} />
-          : n < XP.MIN_OPEN && <p className="xState warn">Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</p>}
+        {dealing
+          ? <p className="xState">Đang giao dịch với <b>{dealing}</b>…</p>
+          : offer && offerView
+          ? <OfferCard key={offer.n} o={offer} v={offerView} eq={st.eq} onGone={onGone} onYes={onYes} />
+          : n < XP.MIN_OPEN
+            ? <p className="xState warn">Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</p>
+            : <p className="xState">Treo máy ở màn Triển Lãm này thì khách mới hỏi mua, hỏi đổi món ngươi bày. Đóng màn này thì khách chỉ xem và tặng quà.</p>}
         {shown && <BoxView b={shown.box} />}
         <button type="button" className="btn hot" disabled={!has} onClick={collect}>Thu quà</button>
       </div>
       {note && <div className="hint ordWarn" role="status">{note}</div>}
       {shown && <Totals e={shown} />}
-      {got && <GotModal g={got} onClose={() => setGot(null)} />}
+      {got && <GotModal g={got} eq={st.eq} onClose={() => setGot(null)} />}
       {pick !== null && <Pick key={pick} st={st} e={shown} slot={pick} act={act} onClose={closePick} onErr={setNote} />}
     </div>
   );
