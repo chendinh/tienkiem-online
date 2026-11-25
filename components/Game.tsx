@@ -45,10 +45,10 @@ import { useTilt } from './fx/useTilt';
 import { MusicOrb } from './audio/MusicOrb';
 import { Credits } from './Credits';
 
-const POLL_MS = Math.min(BALANCE.onlinePollSec * 1000, 5000);   // never slower than Online_Poll_Interval
-// While nothing on the screen can change before the next answer (see the polling effect) the request is made less often, but still well inside Online_Poll_Interval
-// (requirement 4: in the foreground, at least one request per interval).
-const SLOW_POLL_MS = Math.min(BALANCE.onlinePollSec * 750, 7500);
+// One request per Online_Poll_Interval while the page is in view (requirement 4). The server settles every tick that passed, so a slower rhythm loses nothing:
+// the rows of the journey come in bigger batches, and the page lets them out one by one over the interval (see `shownTop`) so the journey still moves all the time.
+const POLL_MS = BALANCE.onlinePollSec * 1000;
+const DRIP_MAX = 6;   // journey rows waiting to be shown; past this (a long wait, a hidden page) the older ones are shown at once
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // A fight log is up to 56 cards. It is built only when the player opens it, and a row is drawn again only when its entry changes (the whole feed is replaced by a new copy at every poll).
@@ -346,6 +346,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   // The server settles every tick at once, the replay of a fight is slower. So a state that brings a new fight is kept aside (`held`) while the fight is replayed:
   // the screen keeps showing the state from before it (health, Linh Thạch, Tu Vi, the journey), and the new state is applied when the last queued fight is over.
   const stageNow = useRef<FeedEntry | null>(null), fightQ = useRef<FeedEntry[]>([]), held = useRef<GS | null>(null), watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The newest journey row on the screen. Rows that came with a poll are let out one at a time (see the drip effect); the player's own actions show everything at once.
+  const shownTop = useRef<number | null>(null), dripT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showAll = useCallback(() => { const t = stRef.current?.feed[0]?.id; if (t !== undefined) shownTop.current = t; }, []);
   const seenFeed = useRef<number | null>(null), cuedFeed = useRef<number | null>(null), seenSig = useRef<string | null>(null);
   const [storm, setStorm] = useState(false);
   const [credits, setCredits] = useState(false);
@@ -386,6 +389,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const nextFight = useCallback(() => {
     if (watchdog.current) { clearTimeout(watchdog.current); watchdog.current = null; }
     const done = stageNow.current, f = fightQ.current.shift() || null;
+    if (done && shownTop.current !== null && done.id > shownTop.current) shownTop.current = done.id;   // the fight just replayed goes into the journey at once
     stageNow.current = f; setStage(f);
     const h = held.current;
     if (f) {
@@ -451,8 +455,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         }
       }
     }
+    if (out.state) showAll();   // what the player's own click brought is shown at once
     return { ok: out.ok, msg: out.ok ? out.msg || '' : out.msg || errText(out.code || 'E_SERVER'), data: out.data, code: out.code };
-  }, [apply, onSignOut, logCache]);
+  }, [apply, onSignOut, logCache, showAll]);
 
   // ---- instant actions. What needs no dice (lib/intents.ts) is done on the screen at once, with the very same rules the server uses, on a copy of the state;
   // the server is told in the background, one request after another, and its answer replaces the copy. The caller gets the result right away, so nothing
@@ -487,11 +492,11 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     if (!r.ok) return { ok: false, msg: r.msg, code: r.code, data: r.data };
     if (!optQ.current.length && !optRun.current) optBase.current = st;
     optQ.current.push({ type, payload, local: (s) => pure(s, payload) });
-    stRef.current = f; optLast.current = f;
+    stRef.current = f; optLast.current = f; showAll();
     re();
     void runOpt();
     return { ok: true, msg: r.msg, data: r.data };
-  }, [actNet, runOpt, re]);
+  }, [actNet, runOpt, re, showAll]);
 
   // Portraits, biography and prologue flag are presentation only: they are sent to the server shortly after they change.
   const save = useCallback(() => {
@@ -537,14 +542,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     // The timer wakes twice per POLL_MS; whether a request goes out is decided here.
     const id = setInterval(() => {
       if (document.hidden) return;
-      // Slow rhythm when a request would bring little the screen can use yet:
-      //  - a fight is on stage and more wait behind it: nothing newer is shown before the queue is empty (apply() only keeps the newest state aside), so most of what
-      //    comes back is thrown away. The normal rhythm is back as soon as the last queued fight is on stage, which leaves its whole replay to have the next ones ready;
-      //  - the journey waits for an answer that has no clock (a Tu Sĩ in the way, a breakthrough): the server does not move until the player answers, and the answer
-      //    brings the new state back by itself.
-      const d = stRef.current?.decision;
-      const slow = (!!stageNow.current && fightQ.current.length > 0) || (!!d && d.kind !== 'tame');
-      if (performance.now() - lastPoll.current < (slow ? SLOW_POLL_MS : POLL_MS) - 250) return;
+      if (performance.now() - lastPoll.current < POLL_MS - 250) return;
       poll();
     }, POLL_MS / 2);
     const vis = () => { if (!document.hidden) poll(); };
@@ -609,8 +607,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   // sound and effects for what just happened: new journey entries, a changed outfit (the first pass only records where we are)
   // New rows come in at the top. The rows below slide down with transform only (the browser's compositor, no layout per frame) instead of the list reflowing while a row opens.
   const feedRef = useRef<HTMLDivElement>(null), feedTop = useRef<number | null>(null);
+  const visFeed = (): FeedEntry[] | undefined => { const f = stRef.current?.feed, t = shownTop.current; return f && t !== null ? f.filter((e) => e.id <= t) : f; };
   useLayoutEffect(() => {
-    const el = feedRef.current, f = stRef.current?.feed;
+    const el = feedRef.current, f = visFeed();
     if (!el || !f) return;
     const top = f[0]?.id ?? 0, prev = feedTop.current; feedTop.current = top;
     if (prev === null || top <= prev) return;
@@ -620,12 +619,27 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     const d = rows.slice(0, added).reduce((a, r) => a + r.offsetHeight + gap, 0);
     rows.slice(added, added + 8).forEach((r) => r.animate([{ transform: `translateY(${-d}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' }));   // only the rows in view
   });
+  // The drip: rows that came with a poll are let out one at a time, spread over the poll interval, so the journey keeps moving between two answers.
+  useEffect(() => {
+    const f = stRef.current?.feed; if (!f) return;
+    const top = f[0]?.id ?? 0, t = shownTop.current;
+    if (t === null || t > top || document.hidden) { shownTop.current = top; return; }   // first state, a new game, a page nobody looks at
+    const wait = f.filter((e) => e.id > t);   // newest first
+    if (wait.length > DRIP_MAX) { shownTop.current = wait[DRIP_MAX].id; re(); return; }
+    if (!wait.length || dripT.current) return;
+    dripT.current = setTimeout(() => {
+      dripT.current = null;
+      const next = stRef.current?.feed.filter((e) => e.id > (shownTop.current ?? 0)).pop();   // the oldest row still waiting
+      if (next) { shownTop.current = next.id; re(); }
+    }, Math.max(600, Math.min(4500, (POLL_MS * 0.9) / wait.length)));
+  });
+  useEffect(() => () => { if (dripT.current) clearTimeout(dripT.current); }, []);
   useEffect(() => {
     const cur = stRef.current; if (!cur || intro) return;
-    const top = cur.feed[0]?.id ?? 0;
+    const feed = visFeed() || cur.feed, top = feed[0]?.id ?? 0;
     if (cuedFeed.current === null) cuedFeed.current = top;
     else if (top > cuedFeed.current) {
-      const fresh = cur.feed.filter((e) => e.id > cuedFeed.current!).slice(0, 4).reverse(); cuedFeed.current = top;
+      const fresh = feed.filter((e) => e.id > cuedFeed.current!).slice(0, 4).reverse(); cuedFeed.current = top;
       for (const e of fresh) {
         if (e.kind === 'level') cue.levelUp();
         else if (e.kind === 'break') { if (e.text.startsWith('Đột phá thành công')) cue.breakOk(); else if (e.text.startsWith('Đột phá thất bại')) cue.breakFail(); }
@@ -801,7 +815,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           </div>
           <div className="phead"><h3>Hành trình</h3><small>Mỗi lần gặp đều được máy chủ sinh ngẫu nhiên: loài, kích thước, tính cách, Dị Biến</small></div>
           {stage && modal !== 'jobs' && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={nextFight} />}
-          <div className="feed" ref={feedRef} aria-live="polite">{st.feed.map((e) => <FeedRow key={e.id} e={e} />)}</div>
+          <div className="feed" ref={feedRef} aria-live="polite">{(visFeed() || st.feed).map((e) => <FeedRow key={e.id} e={e} />)}</div>
         </section>
 
         <section className="panel sidePanel" id="sidePanel" aria-label="Kho báu">
