@@ -29,6 +29,7 @@ Khóa API đặt trong `.env.local` (không commit, đã có trong `.gitignore`)
 - Cài đặt: ngưỡng nghỉ/quay lại, tự dùng đan, tự thu phục có bộ lọc, tự đột phá (mặc định tắt), tự phân giải theo độ hiếm.
 - **Trang bị & Túi Càn Khôn.** Tám ô khuôn (Pháp Khí, Quan, Đạo Bào, Hài, Bối, Bội, Giới Chỉ, Hộ Phù) nằm hai bên ảnh nhân vật; ô trống hiện khuôn khắc biểu tượng vẽ sẵn, ô đầy hiện biểu tượng món đang mặc. Đồ nhặt được mà chưa mặc nằm trong túi (100 món), đầy thì sang Kho Tạm (50 món). **Kéo** một món sang ảnh nhân vật hoặc đúng ô khuôn: chỗ nó được đặt sáng lên trên cơ thể. Trên điện thoại: chạm món rồi chạm ô. Kéo món đang mặc vào túi để tháo. Mũi tên ▲▼ trên mỗi món so sức mạnh với món đang mặc ở ô đó; nhãn Lv đỏ là chưa đủ cấp.
 - **Khóa.** Món bạn tự mặc được khóa (🔒): tự mặc (“Tự mặc đồ mạnh hơn”) không thay nó và túi đầy không tự phân giải nó. Mở khóa để game lại tự quyết. Mặc thủ công đúng luật của đặc tả (Requirement 21): đúng ô, đủ cấp; tháo cần túi còn chỗ; HP bị kẹp theo Sinh Lực tối đa mới.
+- **Phó Bản.** Mỗi ngày một Dị Thú (8 con, mỗi hệ một con). Tick Tham gia, 20:00 giờ Việt Nam máy chủ đánh một lần cho mọi người và mọi màn hình chiếu lại cùng một trận như phim (tu sĩ bay vây đánh, tên dưới kiếm, Dị Thú tung tuyệt kỹ bằng clip AI). Xem `docs/pho-ban.md`.
 - **Sưu Tập (Linh Thú Đồ Giám).** Sổ ghi 8 loài yêu thú đã gặp: số lần gặp, số lần thu phục, kích thước nhỏ nhất đến lớn nhất, số lần gặp Dị Biến; loài chưa gặp hiện bóng đen. Không phải giám định đồ.
 
 ## Kiểm thử đã làm cho màn Trang bị

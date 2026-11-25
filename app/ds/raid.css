@@ -1,0 +1,171 @@
+@layer game {
+  /* the question of the journey waits while Phó Bản plays: it would cover the film (Công việc lets it show, orders.css) */
+  .app.raidOn .decisionBar { display: none; }
+  /* Phó Bản (components/Raid.tsx, components/RaidScene.tsx). The screen is the Công việc screen (orders.css .jobsScreen) with its own inside: the stage, then the cards.
+     On a phone they are one column (the stage the full width); on a wide screen the stage is a tall column on the left and the cards sit beside it. */
+  .raidInner { width: min(1060px, 100%); margin: 0 auto; padding: 12px 12px calc(env(safe-area-inset-bottom) + 28px); display: grid; gap: 14px; align-items: start; }
+  @media (min-width: 900px) { .raidInner { grid-template-columns: minmax(340px, 470px) minmax(0, 1fr); } .raidStageWrap { position: sticky; top: 12px; } }
+  @media (max-width: 640px) { .raidInner { padding: 0 0 calc(env(safe-area-inset-bottom) + 28px); } .raidSide { padding: 0 12px; } }
+  .raidStageWrap { position: relative; }
+  .raidSide { display: grid; gap: 12px; min-width: 0; }
+
+  /* ---- the stage: a 9:16 box, the lair behind, the creature's clip on it, the cultivators, the effects, the HUD. Sizes follow the box (cqw), so a phone and a desktop look alike. */
+  .rdStage { position: relative; width: 100%; aspect-ratio: 9 / 16; overflow: hidden; background: #05080c; container-type: inline-size; isolation: isolate; user-select: none; -webkit-user-select: none; }
+  @media (min-width: 641px) { .rdStage { border-radius: 16px 6px 16px 6px; border: 1px solid var(--line-gold-strong, var(--line)); box-shadow: 0 18px 50px -18px rgb(0 0 0 / 0.9), 0 0 40px -18px var(--el); } }
+  .rdBg, .rdLoop, .rdUlt { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+  .rdLoop { z-index: 1; }
+  .rdLoop.still { animation: rd-breathe 5.5s ease-in-out infinite; transform-origin: 50% 40%; }
+  @keyframes rd-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.012) translateY(-0.3%); } }
+  .rdUlt { z-index: 30; opacity: 0; }
+  .rdTint { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; background: radial-gradient(70% 55% at 50% 35%, transparent 20%, rgb(0 0 0 / 0.75) 100%); }
+  .rdStage.rage::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(85% 70% at 50% 40%, transparent 45%, rgb(190 20 20 / 0.42) 100%); animation: rd-rage 1.6s ease-in-out infinite; }
+  @keyframes rd-rage { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+  .rdGlow { position: absolute; z-index: 3; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; opacity: 0; mix-blend-mode: screen; background: radial-gradient(circle, color-mix(in srgb, var(--c, #fff) 85%, white) 0%, color-mix(in srgb, var(--c, #fff) 45%, transparent) 35%, transparent 70%); }
+  .rdMist { position: absolute; inset: auto 0 0 0; height: 38%; z-index: 4; pointer-events: none; overflow: hidden; }
+  .rdMist i { position: absolute; inset: 0 -40%; background: radial-gradient(40% 60% at 30% 70%, rgb(220 230 240 / 0.14), transparent 70%), radial-gradient(35% 50% at 75% 80%, rgb(220 230 240 / 0.12), transparent 70%); animation: rd-mist 26s linear infinite; }
+  .rdMist i + i { animation-duration: 38s; animation-direction: reverse; opacity: 0.7; }
+  @keyframes rd-mist { from { transform: translateX(-12%); } to { transform: translateX(12%); } }
+
+  /* ---- the cultivators. Each one: a card at its spot (the bottom of the sword is the spot), its body that dashes and is thrown back, the idle hover, its Sinh Lực, the figure, the name under the sword. */
+  .rdCast { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .rdF { position: absolute; width: var(--fw, 17cqw); transform: translate(-50%, -82%); }
+  .rdF.act { z-index: 90 !important; }
+  /* in flight: a glow of the cultivator's element trails the figure, and the name stays home (it is the card's, the body flies) */
+  .rdF.act .rdFfig .cu { filter: drop-shadow(0 0 1.2cqw var(--fc)) drop-shadow(-2cqw 0.4cqw 1.4cqw color-mix(in srgb, var(--fc) 55%, transparent)); }
+  .rdF.act .rdFbob { animation-play-state: paused; }
+  .rdFbody { position: relative; will-change: transform; }
+  .rdFbob { animation: rd-bob var(--dur, 3.6s) ease-in-out var(--ph, 0s) infinite; }
+  @keyframes rd-bob { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(0.9cqw, -1.1cqw); } 50% { transform: translate(0, -1.8cqw); } 75% { transform: translate(-0.9cqw, -0.8cqw); } }
+  .rdFfig .cu { display: block; width: 100%; height: auto; filter: drop-shadow(0 0.6cqw 0.8cqw rgb(0 0 0 / 0.6)); }
+  .rdFhp { position: absolute; left: 32%; top: 2%; width: 36%; height: 0.9cqw; min-height: 3px; border-radius: 2px; background: rgb(0 0 0 / 0.55); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4); overflow: hidden; }
+  .rdFhp b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #4fd27b, #b6f27a); transition: width 0.35s ease-out; }
+  .rdFname { position: absolute; left: 50%; top: 88%; transform: translateX(-50%); max-width: 23cqw; padding: 0.1cqw 1.2cqw; border-radius: 99px; font-size: clamp(8.5px, 2.55cqw, 12px); line-height: 1.35; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f2efe6; background: rgb(6 10 14 / 0.55); text-shadow: 0 1px 2px rgb(0 0 0 / 0.9); }
+  .rdF.me .rdFname { color: #2a1a05; background: linear-gradient(180deg, #ffe9a8, #e8bf5e); text-shadow: none; box-shadow: 0 0 10px -2px #ffd36e; font-weight: 700; }
+  .rdF.me .rdFfig .cu { filter: drop-shadow(0 0 1.6cqw rgb(255 214 110 / 0.75)) drop-shadow(0 0.6cqw 0.8cqw rgb(0 0 0 / 0.6)); }
+  .rdF.mvp .rdFname::before { content: '★ '; color: #ffd36e; }
+  .rdF.ko .rdFname { opacity: 0.55; text-decoration: line-through; }
+  .rdF.ko .rdFhp b { background: #6b6f75; }
+  .rdF.ko .rdFbob { animation-play-state: paused; }
+
+  /* ---- effects, numbers, streaks */
+  .rdFx { position: absolute; inset: 0; z-index: 20; pointer-events: none; overflow: hidden; }
+  .rdNum { position: absolute; z-index: 2; font-family: var(--font-display); font-weight: 800; font-size: clamp(12px, 4.4cqw, 22px); line-height: 1; white-space: nowrap; color: var(--c, #fff); -webkit-text-stroke: 0.35px rgb(0 0 0 / 0.6); text-shadow: 0 0 6px color-mix(in srgb, var(--c, #fff) 60%, transparent), 0 2px 2px rgb(0 0 0 / 0.85); will-change: transform, opacity; }
+  .rdNum.crit { font-size: clamp(15px, 5.6cqw, 28px); color: #ffd36e; }
+  .rdNum.mine { color: #ffe08a; -webkit-text-stroke: 0.6px #5a3a07; }
+  .rdNum.hurt { color: #ff6a5c; font-size: clamp(12px, 4cqw, 20px); }
+  .rdNum.heal { color: #8ee6a8; }
+  .rdNum.buff { font-family: inherit; font-weight: 700; font-size: clamp(9px, 3cqw, 14px); font-style: italic; }
+  .rdNum.off { font-family: inherit; font-weight: 700; font-size: clamp(10px, 3.4cqw, 16px); color: #f1e3b0; opacity: 0.9; }
+  .rdStreak { position: absolute; height: 2px; transform-origin: 0 50%; border-radius: 2px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c) 70%, white)); box-shadow: 0 0 6px var(--c); }
+
+  /* ---- the HUD: the Dị Thú's name, its Sinh Lực, the round */
+  .rdHud { position: absolute; inset: 0 0 auto 0; z-index: 40; padding: 3cqw 3.5cqw 0; pointer-events: none; }
+  .rdBoss { padding: 2cqw 2.6cqw 1.6cqw; border-radius: 3cqw 1cqw 3cqw 1cqw; background: linear-gradient(180deg, rgb(8 12 16 / 0.72), rgb(8 12 16 / 0.45)); border: 1px solid var(--line-gold-strong, rgb(238 208 138 / 0.5)); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  .rdBossNm { display: flex; align-items: center; gap: 1.4cqw; color: var(--gold-200); font-family: var(--font-display); font-size: clamp(13px, 4.4cqw, 20px); line-height: 1.1; }
+  .rdBossNm b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em; }
+  .rdRound { flex: none; font-family: inherit; font-size: clamp(10px, 3cqw, 13px); color: var(--text-2, #cdd3da); }
+  .rdLive { flex: none; padding: 0.3cqw 1.4cqw; border-radius: 99px; font-family: inherit; font-size: clamp(9px, 2.6cqw, 12px); font-weight: 700; color: #fff; background: #d8343b; animation: rd-live 1.2s ease-in-out infinite; }
+  @keyframes rd-live { 50% { opacity: 0.55; } }
+  .rdBossBar { position: relative; height: clamp(7px, 2.3cqw, 11px); margin-top: 1.4cqw; border-radius: 99px; background: rgb(0 0 0 / 0.6); box-shadow: inset 0 0 0 1px rgb(238 208 138 / 0.35); overflow: hidden; }
+  .rdBossBar i { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; }
+  .rdBossBar .lag { background: rgb(255 240 210 / 0.75); transition: width 0.7s ease-out 0.35s; }
+  .rdBossBar .cur { background: linear-gradient(90deg, #8f1418, #e2452f 55%, color-mix(in srgb, var(--el) 70%, #ffb35c)); transition: width 0.18s ease-out; box-shadow: 0 0 10px rgb(255 90 60 / 0.6); }
+  .rdBossNum { display: block; margin-top: 0.8cqw; font-size: clamp(9px, 2.8cqw, 12px); color: var(--text-2, #cdd3da); font-variant-numeric: tabular-nums; min-height: 1.2em; }
+
+  /* ---- the title card, the banners */
+  .rdTitle { position: absolute; left: 0; right: 0; top: 50%; z-index: 45; text-align: center; pointer-events: none; animation: rd-title 4.6s ease-out both; }
+  .rdTitle small { display: block; color: var(--gold-300); font-size: clamp(11px, 3.4cqw, 16px); letter-spacing: 0.3em; text-transform: uppercase; }
+  .rdTitle h3 { margin: 1cqw 0; font-family: var(--font-display); font-size: clamp(26px, 10cqw, 50px); line-height: 1.05; color: transparent; background: var(--gold-leaf, linear-gradient(180deg, #fff3cf, #eed08a 45%, #b98a2e)); -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.9)); }
+  .rdTitle span { color: #e8edf2; font-size: clamp(11px, 3.4cqw, 15px); text-shadow: 0 1px 3px #000; }
+  @keyframes rd-title { 0% { opacity: 0; transform: scale(1.25); letter-spacing: 0.2em; filter: blur(6px); } 18% { opacity: 1; transform: scale(1); letter-spacing: 0; filter: blur(0); } 82% { opacity: 1; } 100% { opacity: 0; transform: scale(0.97); } }
+  .rdStage::before { content: ''; position: absolute; inset: 0; z-index: 44; pointer-events: none; background: #000; animation: rd-dawn 1.6s ease-out both; }
+  .rdStage.calm::before { animation: none; opacity: 0; }
+  @keyframes rd-dawn { from { opacity: 1; } to { opacity: 0; } }
+  .rdBanner { position: absolute; left: 4cqw; right: 4cqw; top: 52%; z-index: 46; display: grid; justify-items: center; gap: 0.6cqw; text-align: center; pointer-events: none; animation: rd-banner 1.8s ease-out both; }
+  .rdBanner b { padding: 1.2cqw 4cqw; font-family: var(--font-display); font-size: clamp(16px, 6cqw, 30px); line-height: 1.1; color: #fff4d6; background: linear-gradient(90deg, transparent, rgb(10 6 4 / 0.78) 18%, rgb(10 6 4 / 0.78) 82%, transparent); text-shadow: 0 0 12px color-mix(in srgb, var(--el) 70%, transparent), 0 2px 3px #000; }
+  .rdBanner small { color: #f1d7a0; font-size: clamp(10px, 3.2cqw, 15px); text-shadow: 0 1px 2px #000; }
+  .rdBanner.skill { top: 47%; }
+  .rdBanner.ult b { font-size: clamp(20px, 8cqw, 40px); color: #ffe4b0; text-shadow: 0 0 18px var(--el), 0 0 4px #fff, 0 3px 4px #000; }
+  .rdBanner.ult { top: 62%; animation-duration: 2.2s; }
+  .rdBanner.rage b { color: #ffd0c8; text-shadow: 0 0 16px #ff2a2a, 0 2px 3px #000; }
+  .rdBanner.win, .rdBanner.flee { top: 40%; animation: rd-verdict 1.2s cubic-bezier(.2,.9,.3,1.2) both; }
+  .rdBanner.win b { font-size: clamp(30px, 12cqw, 58px); color: transparent; background: var(--gold-leaf, linear-gradient(180deg, #fff3cf, #eed08a 45%, #b98a2e)); -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 0 14px rgb(255 211 110 / 0.7)) drop-shadow(0 3px 4px #000); }
+  .rdBanner.flee b { font-size: clamp(22px, 8cqw, 40px); color: #d9dde3; }
+  @keyframes rd-banner { 0% { opacity: 0; transform: scale(1.3); } 14% { opacity: 1; transform: scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-2cqw); } }
+  @keyframes rd-verdict { 0% { opacity: 0; transform: scale(1.6); } 100% { opacity: 1; transform: scale(1); } }
+
+  .raidCtl { position: absolute; right: 3cqw; bottom: 3cqw; z-index: 50; display: flex; gap: 6px; }
+  .raidCtl button { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid rgb(255 255 255 / 0.25); background: rgb(0 0 0 / 0.5); color: #eef1f4; font-size: var(--fs-xs); cursor: pointer; backdrop-filter: blur(3px); }
+  .raidStageWrap { container-type: inline-size; }
+
+  /* the result over the lower part of the stage, once the film has ended */
+  .raidResult { position: absolute; left: 3cqw; right: 3cqw; bottom: 3cqw; z-index: 55; display: grid; gap: 8px; padding: 14px; border-radius: 16px 5px 16px 5px; background: linear-gradient(180deg, rgb(10 14 18 / 0.86), rgb(6 9 12 / 0.94)); border: 1px solid var(--line-gold-strong, var(--line)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: jobs-in 0.4s ease-out both; }
+  .raidResult h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl, 1.4rem); color: var(--gold-200); }
+  .raidResult.flee h3 { color: #d9dde3; }
+  .raidResult p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); }
+  .raidMvp { display: flex; align-items: center; gap: 10px; }
+  .raidMvp .fig, .raidBoard .fig { flex: none; width: 46px; }
+  .raidMvp .fig .cu, .raidBoard .fig .cu { display: block; width: 100%; height: auto; }
+  .raidMvp small { display: block; color: var(--gold-300); font-size: var(--fs-xs); }
+  .raidMvp b { display: block; }
+  .raidMvp em { color: var(--text-3); font-style: normal; font-size: var(--fs-xs); }
+  .raidMine { display: grid; gap: 6px; font-size: var(--fs-sm); }
+  .raidMine .ok { color: #8ee6a8; }
+
+  /* ---- the cards beside the stage */
+  .raidCard { display: grid; gap: 10px; padding: 14px; border-radius: 16px 5px 16px 5px; border: 1px solid var(--line-gold, var(--line)); background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--el, #eed08a) 12%, transparent), transparent 60%), rgb(255 255 255 / 0.035); }
+  .raidCard > header { display: flex; align-items: center; gap: 10px; }
+  .raidCard > header > div { flex: 1; min-width: 0; }
+  .raidCard h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); color: var(--gold-200); }
+  .raidCard header small { color: var(--text-3); font-size: var(--fs-xs); }
+  .raidLore { margin: 0; color: var(--text-2); font-size: var(--fs-sm); font-style: italic; }
+  .raidCount { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-2); font-size: var(--fs-sm); }
+  .raidCount .num { font-variant-numeric: tabular-nums; color: var(--gold-200); }
+  .raidJoin { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px 4px 14px 4px; border: 1.5px solid var(--line-gold-strong, var(--line)); background: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02)); cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
+  .raidJoin input, .raidAuto input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .raidJoin .box { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; border: 2px solid var(--gold-300); color: #2a1a05; background: rgb(0 0 0 / 0.3); transition: background 0.2s, transform 0.2s var(--ease-spring, ease); }
+  .raidJoin .txt b { display: block; font-size: var(--fs-lg); color: var(--gold-200); }
+  .raidJoin .txt small { color: var(--text-3); font-size: var(--fs-xs); }
+  .raidJoin.on { border-color: var(--gold-300); box-shadow: 0 0 22px -8px var(--gold-300); background: linear-gradient(180deg, color-mix(in srgb, var(--gold-400) 16%, transparent), rgb(255 255 255 / 0.02)); }
+  .raidJoin.on .box { background: linear-gradient(180deg, #ffe9a8, #e8bf5e); transform: scale(1.05); }
+  .raidJoin:has(input:focus-visible) { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+  .raidJoin:has(input:disabled) { opacity: 0.7; cursor: progress; }
+  .raidAuto { position: relative; display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+  .raidAuto span::before { content: ''; display: inline-block; vertical-align: -3px; width: 30px; height: 17px; margin-right: 8px; border-radius: 99px; background: rgb(255 255 255 / 0.14); box-shadow: inset 0 0 0 1px var(--line); transition: background 0.2s; }
+  .raidAuto span::after { content: ''; position: absolute; left: 3px; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: #dfe4ea; transition: transform 0.2s; }
+  .raidAuto:has(input:checked) span::before { background: var(--jade-400, #2fae78); }
+  .raidAuto:has(input:checked) span::after { transform: translateX(13px); }
+  .raidAuto:has(input:focus-visible) span::before { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+  .raidCrowd { display: flex; align-items: center; gap: 6px; color: var(--text-3); font-size: var(--fs-xs); }
+  .raidCrowd b { color: var(--gold-200); font-size: var(--fs-sm); }
+  .raidReplay { justify-self: start; }
+  .raidReward { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .raidReward li { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px 4px 5px; border-radius: 99px; background: rgb(255 255 255 / 0.06); border: 1px solid var(--line); font-size: var(--fs-xs); }
+  .raidReward .ico { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; }
+  .raidReward b { color: var(--gold-200); }
+  .raidReward small { color: var(--text-3); }
+  .raidCard.claim { border-color: var(--gold-300); box-shadow: 0 0 24px -12px var(--gold-300); }
+  .raidCard.claim .btn { justify-self: start; }
+  .raidBoard { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .raidBoard li { display: grid; grid-template-columns: 22px 40px minmax(0, 1fr) minmax(70px, 34%); align-items: center; gap: 8px; padding: 4px 6px; border-radius: 10px; }
+  .raidBoard li.me { background: color-mix(in srgb, var(--gold-400) 14%, transparent); box-shadow: inset 0 0 0 1px var(--line-gold-strong, var(--line)); }
+  .raidBoard .rk { text-align: center; font-weight: 700; color: var(--text-3); }
+  .raidBoard li:nth-child(-n+3) .rk { color: var(--gold-300); }
+  .raidBoard .fig { width: 40px; }
+  .raidBoard .nm { min-width: 0; }
+  .raidBoard .nm b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .raidBoard .nm small { color: var(--text-3); font-size: var(--fs-xs); }
+  .raidBoard .dm { display: grid; gap: 3px; text-align: right; font-variant-numeric: tabular-nums; }
+  .raidBoard .dm i { justify-self: end; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #e2452f, #ffb35c); }
+  .raidRules { font-size: var(--fs-xs); }
+
+  /* the button of the top bar: today's Dị Thú in the round frame; a red dot pulses while the fight is on */
+  .nav.raid { position: relative; }
+  .raidLiveDot { position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; border-radius: 50%; background: #e2343b; box-shadow: 0 0 0 2px var(--ink-900, #0b1117), 0 0 10px #ff4a4a; animation: rd-live 1.2s ease-in-out infinite; }
+  .top .nav.pic.quick.raid .navArt { background-size: 260%; background-position: 52% 34%; }
+
+  /* calm (effects off or reduced motion): the stage stands still */
+  .rdStage.calm .rdFbob, .rdStage.calm .rdMist i, .rdStage.calm .rdLoop.still { animation: none; }
+  [data-fx='off'] .rdFbob, [data-fx='off'] .rdMist i { animation: none; }
+  @media (prefers-reduced-motion: reduce) { .rdFbob, .rdMist i, .rdLoop.still, .rdStage.rage::after { animation: none; } }
+}

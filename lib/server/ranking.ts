@@ -67,6 +67,9 @@ function secret(): Promise<string> {
   return S.secret;
 }
 
+/** The public id of an account (the one the boards show), for other features that show players to each other (Phó Bản). */
+export async function publicId(acc: string): Promise<string> { return pidOf(await secret(), acc); }
+
 export async function publish(acc: string, st: G.GameState, now: number) {
   const e = entryOf(st, pidOf(await secret(), acc), acc, now);
   // a player online changes the account every few seconds: write the row again only when something shown on the board changed, or after a minute

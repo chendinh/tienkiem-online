@@ -57,4 +57,9 @@ export async function marketGet(query: string): Promise<any> {
   if (status === 401) return { ok: false, code: 'E_AUTH' };
   return j;
 }
+export async function raidGet(): Promise<any> {
+  const { status, j } = await retrying(() => send('/api/raid'));
+  if (status === 401) return { ok: false, code: 'E_AUTH' };
+  return j;
+}
 export const messageOf = (o: { ok: boolean; code?: string; msg?: string }) => (o.ok ? o.msg || '' : errText(o.code || 'E_SERVER'));

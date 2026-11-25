@@ -16,6 +16,8 @@ import { AuthScreen, LinkEmailModal } from './Auth';
 import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
 import { JobsScreen, jobsInUrl, jobsReady } from './Jobs';
+import { RaidScreen, raidInUrl } from './Raid';
+import { raidArt, bossOfDay, raidDay, raidLive } from '@/lib/raid';
 import { DailyModal } from './Daily';
 import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V, OWN_BASE_V } from '@/lib/avatarSpec';
@@ -360,15 +362,15 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const [ai, setAi] = useState<any>(null);
   const [codex, setCodex] = useState<null | 'bio' | 'story' | 'world' | 'daily'>(null);
   const [, setDailyTick] = useState(0);
-  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'jobs' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title' | 'purity' | 'alchemy'>(null);
+  const [modal, setModal] = useState<null | 'settings' | 'odds' | 'rank' | 'market' | 'jobs' | 'raid' | 'night' | 'daily' | 'pen' | 'dex' | 'arts' | 'dao' | 'title' | 'purity' | 'alchemy'>(null);
   // Linh Thú Viên is its own page: a full page load, so the game (its timers, canvases, music) is gone and the zoo has the whole phone to itself
   const goZoo = () => { cue.open(); window.location.assign('/linh-thu-vien'); };
   // Vạn Giới Tinh Đồ (the star chart of galaxies) is a page of its own too
   const goGalaxy = () => { cue.open(); window.location.assign('/tinh-ha'); };
-  const openWin = (w: 'market' | 'jobs' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
+  const openWin = (w: 'market' | 'jobs' | 'raid' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
   // Công việc is a screen of its own over the game (components/Jobs.tsx JobsScreen): the game under it is hidden (.app.jobsOn), and an address with ?cong-viec= opens it
-  useEffect(() => { if (jobsInUrl()) setModal('jobs'); }, []);
+  useEffect(() => { if (jobsInUrl()) setModal('jobs'); else if (raidInUrl()) setModal('raid'); }, []);
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
   const [note, setNote] = useState<{ t: string; ok: boolean } | null>(null);
@@ -406,8 +408,8 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   // so the boards of Công việc always show the latest numbers. A fight on stage when it opens ends at once.
   const jobsOn = useRef(false);
   useEffect(() => {
-    jobsOn.current = modal === 'jobs';
-    if (modal === 'jobs') { fightQ.current.length = 0; if (stageNow.current || held.current) nextFight(); }
+    jobsOn.current = modal === 'jobs' || modal === 'raid';   // Phó Bản is a full screen too
+    if (modal === 'jobs' || modal === 'raid') { fightQ.current.length = 0; if (stageNow.current || held.current) nextFight(); }
   }, [modal, nextFight]);
   const apply = useCallback((v: GS) => {
     const top = v.feed[0]?.id ?? 0, seen = seenFeed.current;
@@ -693,7 +695,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     <GenCtx.Provider value={!!(ai && ai.enabled)}>
     <ZoomProvider>
     <ZoomBridge r={zoomRef} />
-    <div className={`app ${st.decision ? 'hasDecision' : ''}${modal === 'jobs' ? ' jobsOn' : ''}`}>
+    <div className={`app ${st.decision ? 'hasDecision' : ''}${modal === 'jobs' || modal === 'raid' ? ' jobsOn' : ''}${modal === 'raid' ? ' raidOn' : ''}`}>
       {busy > 0 && <div className="busyBar" role="progressbar" aria-label="Đang gửi lên máy chủ" />}
       <LoadingNote active={busy > 0} />
       {!net && <div className="netBanner" role="alert">Mất kết nối tới máy chủ. Đang thử lại, các thao tác chưa gửi sẽ được gửi lại.</div>}
@@ -708,6 +710,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           {modeSeg}
         </div>}
         <nav className="topNav" aria-label="Chức năng">
+          <button type="button" aria-label="Phó Bản" title="Phó Bản: mỗi ngày một Dị Thú" className="nav pic raid quick" data-tone="gold" onClick={() => openWin('raid')}><span className="navArt raidArt" style={{ backgroundImage: `url(${raidArt(bossOfDay(raidDay(Date.now())).id, 'boss')})` }} aria-hidden="true" /><span className="navIco"><Icon name="atk" size={18} /></span><span className="lbl">Phó Bản</span>{raidLive(Date.now()) && <i className="raidLiveDot" aria-label="Đang khai chiến" />}</button>
           <button type="button" aria-label="Linh Thú Viên" title="Linh Thú Viên" className="nav pic zoo quick" data-tone="jade" onClick={goZoo}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/zoo.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="zoo" size={18} /></span><span className="lbl">Linh Thú Viên</span></button>
           <button type="button" aria-label="Tinh Đồ" title="Vạn Giới Tinh Đồ" className="nav pic galaxy quick" data-tone="azure" onClick={goGalaxy}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/galaxy.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="galaxy" size={18} /></span><span className="lbl">Tinh Đồ</span></button>
           <button type="button" aria-label="Phong Thần" className="nav pic rank quick" data-tone="gold" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
@@ -728,7 +731,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>{(close) => {
             // every entry closes the menu first, then opens its window
             const go = (fn: () => void) => () => { close(); cue.open(); setSideOpen(false); fn(); };
-            const tile = (icon: 'stone' | 'job' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo' | 'galaxy' | 'bulb', label: string, fn: () => void, hot?: boolean, dot?: boolean) => (
+            const tile = (icon: 'stone' | 'job' | 'atk' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo' | 'galaxy' | 'bulb', label: string, fn: () => void, hot?: boolean, dot?: boolean) => (
               <button type="button" className={`menuTile ${hot ? 'hot' : ''}`} onClick={go(fn)}><Icon name={icon} size={22} /><span>{label}</span>{dot && <i className="navDot" aria-label="Có việc làm được ngay" />}</button>
             );
             return (<>
@@ -743,7 +746,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
               <div className="menuGroup"><div className="menuTitle">Tu luyện</div>
                 <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Mua bán và nhiệm vụ</div>
-                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}{tile('job', 'Công việc', () => setModal('jobs'), false, jobs > 0)}</div></div>
+                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}{tile('job', 'Công việc', () => setModal('jobs'), false, jobs > 0)}{tile('atk', 'Phó Bản', () => setModal('raid'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
                 <div className="menuGrid">{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
@@ -814,7 +817,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             </div>
           </div>
           <div className="phead"><h3>Hành trình</h3><small>Mỗi lần gặp đều được máy chủ sinh ngẫu nhiên: loài, kích thước, tính cách, Dị Biến</small></div>
-          {stage && modal !== 'jobs' && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={nextFight} />}
+          {stage && modal !== 'jobs' && modal !== 'raid' && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={nextFight} />}
           <div className="feed" ref={feedRef} aria-live="polite">{(visFeed() || st.feed).map((e) => <FeedRow key={e.id} e={e} />)}</div>
         </section>
 
@@ -831,6 +834,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             <button type="button" className="sc" onClick={() => openWin('pen')}><Icon name="paw" size={17} /><span>Linh Thú</span><em>{st.beasts.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('dex')}><Icon name="book" size={17} /><span>Sưu Tập</span><em>{seenSpecies}/{speciesAll.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('market')}><Icon name="stone" size={17} /><span>Phường Thị</span></button>
+            <button type="button" className="sc" onClick={() => openWin('raid')}><Icon name="atk" size={17} /><span>Phó Bản</span><em>{bossOfDay(raidDay(Date.now())).name}</em></button>
             <button type="button" className="sc" onClick={() => openWin('jobs')}><Icon name="job" size={17} /><span>Công việc</span>{jobs > 0 && <i className="navDot inl" aria-label="Có việc làm được ngay" />}</button>
             <button type="button" className="sc" onClick={() => openWin('alchemy')}><Icon name="lotus" size={17} /><span>Luyện Đan</span></button>
           </div>
@@ -956,6 +960,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'jobs' && <JobsScreen st={st} act={act} onClose={() => setModal(null)} />}
+      {modal === 'raid' && <RaidScreen st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} onGuide={() => setReplay(true)} onBook={() => setBook(true)} />}
       {modal === 'daily' && <DailyModal st={st} onClose={() => setModal(null)} onLore={() => setCodex('daily')} />}
       {modal === 'alchemy' && <AlchemyModal st={st} act={act} onClose={() => setModal(null)} />}

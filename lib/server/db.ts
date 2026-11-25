@@ -83,6 +83,12 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS presence_day ON presence (day)`,
   `CREATE TABLE IF NOT EXISTS market_inbox (id bigserial PRIMARY KEY, acc text NOT NULL, item jsonb NOT NULL, kind text NOT NULL, note jsonb NOT NULL DEFAULT '{}', created bigint NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS market_inbox_acc ON market_inbox (acc)`,
+  // Phó Bản (lib/raid.ts, lib/server/raid.ts): one row per day (the Dị Thú, when it is fought, and once fought the whole record of the fight); one row per fighter of a day
+  // (the snapshot of their numbers, their place in the record and their reward until they take it); raid_auto: who joins every day by themselves, with their last snapshot.
+  `CREATE TABLE IF NOT EXISTS raids (day text PRIMARY KEY, boss text NOT NULL, at bigint NOT NULL, status text NOT NULL DEFAULT 'open', n int NOT NULL DEFAULT 0, film jsonb, done bigint)`,
+  `CREATE TABLE IF NOT EXISTS raid_entries (day text NOT NULL, acc text NOT NULL, fighter jsonb NOT NULL, joined bigint NOT NULL, idx int, reward jsonb, claimed boolean NOT NULL DEFAULT false, PRIMARY KEY (day, acc))`,
+  `CREATE INDEX IF NOT EXISTS raid_entries_acc ON raid_entries (acc, day DESC)`,
+  `CREATE TABLE IF NOT EXISTS raid_auto (acc text PRIMARY KEY, fighter jsonb NOT NULL, at bigint NOT NULL)`,
 ];
 
 // Create the tables once per server process. Everything runs in ONE transaction under a transaction-level advisory lock, so two

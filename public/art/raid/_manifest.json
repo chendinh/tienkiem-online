@@ -1,0 +1,218 @@
+{
+ "bachho/bg": {
+  "model": "google/nano-banana-2.1",
+  "requestId": "01a2125d-753c-7913-adcb-6a1c5874b807",
+  "usd": 0.05,
+  "date": "2026-11-25T11:01:00.534Z",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render, cinematic xianxia environment, epic boss arena. an ancient sword tomb on a high mountain plateau: thousands of rusted and broken swords stuck in the cracked stone ground, crumbling stone steles, golden light rays breaking through clouds. Tall vertical 9:16 composition seen from a low dramatic angle. The upper half has a clear open area in the middle where a giant creature could stand; the lower half is open air and space for a battle. No creatures, no animals. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 182261
+ },
+ "bachho/boss": {
+  "model": "google/nano-banana-2.1/edit",
+  "requestId": "01a2125d-bee9-7862-be88-1f1371f0a6b5",
+  "usd": 0.07,
+  "date": "2026-11-25T11:01:22.346Z",
+  "prompt": "Edit this image. Add a colossal white tiger demon king with fur like brushed silver, gleaming plates of metal armour along its spine and shoulders, long blade-like sabre fangs, glowing golden eyes, and a fan of ancient floating swords hovering behind its back like a crown into the scene. It is the boss of the place: enormous and menacing, in the upper middle of the picture, centred horizontally, facing the viewer in a three-quarter front view, its whole body visible inside the frame, its head about one third from the top of the picture. fantasy realistic creature, hyper-realistic anatomy and musculature, ultra detailed fur, scales and feathers, majestic AAA game boss design, not a cartoon, not cute. Keep the rest of the scene exactly the same: the same background, lighting and camera. Keep the lower third of the picture clear of the creature. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 189654
+ },
+ "cuvien/bg": {
+  "model": "google/nano-banana-2.1",
+  "requestId": "01a2125e-357f-71f1-843b-67b6651ab8f5",
+  "usd": 0.05,
+  "date": "2026-11-25T11:01:53.486Z",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render, cinematic xianxia environment, epic boss arena. a primeval forest of colossal ancient trees with roots like stone bridges, glowing green spores floating in the air, shafts of green light through a high canopy, a wide mossy clearing. Tall vertical 9:16 composition seen from a low dramatic angle. The upper half has a clear open area in the middle where a giant creature could stand; the lower half is open air and space for a battle. No creatures, no animals. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 185933
+ },
+ "cuvien/boss": {
+  "model": "google/nano-banana-2.1/edit",
+  "requestId": "01a2125e-8c7b-7190-bb48-195aa9f0bd49",
+  "usd": 0.07,
+  "date": "2026-11-25T11:02:14.033Z",
+  "prompt": "Edit this image. Add a gigantic ancient ape demon with dark green moss-covered fur, thick vines and blooming white flowers growing over its shoulders and long arms, bark-like plates on its chest, huge fists, glowing emerald eyes into the scene. It is the boss of the place: enormous and menacing, in the upper middle of the picture, centred horizontally, facing the viewer in a three-quarter front view, its whole body visible inside the frame, its head about one third from the top of the picture. fantasy realistic creature, hyper-realistic anatomy and musculature, ultra detailed fur, scales and feathers, majestic AAA game boss design, not a cartoon, not cute. Keep the rest of the scene exactly the same: the same background, lighting and camera. Keep the lower third of the picture clear of the creature. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 174339
+ },
+ "cuuanh/bg": {
+  "model": "google/nano-banana-2.1",
+  "requestId": "01a2125e-d3d1-7140-84e0-44b4ff1856de",
+  "usd": 0.05,
+  "date": "2026-11-25T11:02:33.493Z",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render, cinematic xianxia environment, epic boss arena. a vast stormy sea between jagged black rocks, huge waves and spray, dark swirling clouds with a single break of pale light, a wide stretch of churning water. Tall vertical 9:16 composition seen from a low dramatic angle. The upper half has a clear open area in the middle where a giant creature could stand; the lower half is open air and space for a battle. No creatures, no animals. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 109949
+ },
+ "cuuanh/boss": {
+  "model": "google/nano-banana-2.1/edit",
+  "requestId": "01a2125f-2916-7052-8233-9c2c386f1968",
+  "usd": 0.07,
+  "date": "2026-11-25T11:02:54.234Z",
+  "prompt": "Edit this image. Add a colossal nine-headed water serpent hydra rising from the sea, deep blue scales edged with glowing aqua, fins like torn sails, water streaming down its necks, nine fierce heads with glowing cyan eyes into the scene. It is the boss of the place: enormous and menacing, in the upper middle of the picture, centred horizontally, facing the viewer in a three-quarter front view, its whole body visible inside the frame, its head about one third from the top of the picture. fantasy realistic creature, hyper-realistic anatomy and musculature, ultra detailed fur, scales and feathers, majestic AAA game boss design, not a cartoon, not cute. Keep the rest of the scene exactly the same: the same background, lighting and camera. Keep the lower third of the picture clear of the creature. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 140757
+ },
+ "kylan/bg": {
+  "model": "google/nano-banana-2.1",
+  "requestId": "01a2125f-70c2-76f3-b511-27c36d21e4c9",
+  "usd": 0.05,
+  "date": "2026-11-25T11:03:33.830Z",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render, cinematic xianxia environment, epic boss arena. a volcanic caldera with glowing rivers of lava between black basalt rocks, falling ash, a dark red sky lit from below, a wide flat ledge of cooled lava. Tall vertical 9:16 composition seen from a low dramatic angle. The upper half has a clear open area in the middle where a giant creature could stand; the lower half is open air and space for a battle. No creatures, no animals. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 132908
+ },
+ "kylan/boss": {
+  "model": "google/nano-banana-2.1/edit",
+  "requestId": "01a21260-1500-77d1-b241-063ad25d0258",
+  "usd": 0.07,
+  "date": "2026-11-25T11:03:55.374Z",
+  "prompt": "Edit this image. Add a huge fire qilin with crimson and black scales, a flowing mane and tail of living flame, golden branching antlers, hooves wreathed in fire, smouldering embers rising from its back, fierce glowing eyes into the scene. It is the boss of the place: enormous and menacing, in the upper middle of the picture, centred horizontally, facing the viewer in a three-quarter front view, its whole body visible inside the frame, its head about one third from the top of the picture. fantasy realistic creature, hyper-realistic anatomy and musculature, ultra detailed fur, scales and feathers, majestic AAA game boss design, not a cartoon, not cute. Keep the rest of the scene exactly the same: the same background, lighting and camera. Keep the lower third of the picture clear of the creature. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 151356
+ },
+ "huyenvu/bg": {
+  "model": "google/nano-banana-2.1",
+  "requestId": "01a21260-5fac-7743-bfc7-4b2047808d1c",
+  "usd": 0.05,
+  "date": "2026-11-25T11:04:11.415Z",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render, cinematic xianxia environment, epic boss arena. a desolate canyon of red-brown cliffs with floating broken rocks, swirling dust in the air, a wide cracked stone floor, low golden sun. Tall vertical 9:16 composition seen from a low dramatic angle. The upper half has a clear open area in the middle where a giant creature could stand; the lower half is open air and space for a battle. No creatures, no animals. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 159607
+ },
+ "huyenvu/boss": {
+  "model": "google/nano-banana-2.1/edit",
+  "requestId": "01a21260-abfd-7dc1-aff6-5bb5c11c5b58",
+  "usd": 0.07,
+  "date": "2026-11-25T11:04:32.172Z",
+  "prompt": "Edit this image. Add a mountain-sized ancient black tortoise whose shell is a craggy mountain covered with pine trees and boulders, a long black serpent coiled around its body with its head raised, glowing amber cracks in the shell and on its thick scaly legs into the scene. It is the boss of the place: enormous and menacing, in the upper middle of the picture, centred horizontally, facing the viewer in a three-quarter front view, its whole body visible inside the frame, its head about one third from the top of the picture. fantasy realistic creature, hyper-realistic anatomy and musculature, ultra detailed fur, scales and feathers, majestic AAA game boss design, not a cartoon, not cute. Keep the rest of the scene exactly the same: the same background, lighting and camera. Keep the lower third of the picture clear of the creature. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 164238
+ },
+ "loibang/bg": {
+  "model": "google/nano-banana-2.1",
+  "requestId": "01a21260-ef5d-74d2-8ac6-e0cafbe2b650",
+  "usd": 0.05,
+  "date": "2026-11-25T11:04:50.173Z",
+  "prompt": "High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D rendering, luminous cinematic lighting, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render, cinematic xianxia environment, epic boss arena. the summit of a storm-wracked stone peak above a sea of black thunderclouds, lightning branching across a violet sky, a wide flat rock ledge. Tall vertical 9:16 composition seen from a low dramatic angle. The upper half has a clear open area in the middle where a giant creature could stand; the lower half is open air and space for a battle. No creatures, no animals. No text, no letters, no watermark, no logo, no border, no people.",
+  "bytes": 115990
+ },
+ "bachho/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21261-7235-7562-b23f-e458040d2325",
+  "usd": 0.35,
+  "date": "2026-11-25T11:08:02.135Z",
+  "prompt": "The giant white tiger roars furiously and a storm of glowing golden flying swords bursts out from behind it and shoots straight toward the camera, metal shards and sparks fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 2120720
+ },
+ "bachho/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21261-7208-7053-a315-4fd3d4f5abc0",
+  "usd": 0.35,
+  "date": "2026-11-25T11:11:09.843Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: its chest heaves with deep breaths, it shifts its weight on its paws, its head turns slowly and it bares its fangs, its tail swishes, its fur ripples in the wind and the floating swords behind it drift and slowly turn. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 244256
+ },
+ "cuuanh/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21267-765b-7800-a9ae-47e153d83d97",
+  "usd": 0.35,
+  "date": "2026-11-25T11:15:06.332Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: its nine necks sway and coil slowly, each head turns and hisses, water streams and splashes from its scales, the sea churns around it and spray drifts. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 354262
+ },
+ "cuvien/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21267-7645-7a30-b1d7-ec5135d8941a",
+  "usd": 0.35,
+  "date": "2026-11-25T11:15:11.375Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: its chest heaves with deep breaths, its huge shoulders rise and fall, it shifts its weight on its knuckles, its head turns slowly and it snarls, the vines on its back sway and leaves and spores drift around it. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 276951
+ },
+ "cuvien/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21267-7e33-7431-9f7a-1cd84876e619",
+  "usd": 0.35,
+  "date": "2026-11-25T11:16:37.952Z",
+  "prompt": "The giant moss ape beats its chest and slams both fists into the ground, giant thorned vines erupt from the earth and lash straight toward the camera, leaves and splinters fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 2000349
+ },
+ "kylan/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a2126c-09fb-72a1-9841-c974af831caa",
+  "usd": 0.35,
+  "date": "2026-11-25T11:18:40.866Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: its chest heaves with deep breaths, it paws the ground, its head turns slowly and smoke curls from its nostrils, its flame mane and tail flicker and flow strongly, embers rise around it. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 448293
+ },
+ "cuuanh/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a2126a-b841-7ab0-8615-739987870014",
+  "usd": 0.35,
+  "date": "2026-11-25T11:19:24.032Z",
+  "prompt": "All nine heads of the giant sea serpent rear up and roar, then a colossal tidal wave rises behind it and crashes straight toward the camera, water and foam fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 1429928
+ },
+ "kylan/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a2126a-a602-7f73-ae9f-fcf5fede5d6f",
+  "usd": 0.35,
+  "date": "2026-11-25T11:19:42.032Z",
+  "prompt": "The fire qilin rears up on its hind legs and breathes a gigantic torrent of fire that blasts straight toward the camera, flames and embers fill the whole screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 2406645
+ },
+ "huyenvu/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a2126e-94b3-7d23-a387-ea4acb794436",
+  "usd": 0.35,
+  "date": "2026-11-25T11:21:29.618Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: it breathes slowly and heavily, its head and the serpent coiled around it sway and turn, dust and small rocks fall from its shell, the glowing cracks pulse. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 308516
+ },
+ "loibang/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a2126e-d9de-7a71-8bb6-3e5e9642ea6d",
+  "usd": 0.35,
+  "date": "2026-11-25T11:21:49.666Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: it hovers in place beating its huge wings slowly and powerfully, its head turns and it screeches, lightning crackles along its feathers and the clouds swirl. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 423098
+ },
+ "huyenvu/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a2126d-ed08-7a32-a32a-f5f184c605ba",
+  "usd": 0.35,
+  "date": "2026-11-25T11:22:33.277Z",
+  "prompt": "The giant mountain tortoise stomps the ground, the earth cracks open and a wave of giant stone spikes erupts and rushes straight toward the camera, rocks and dust fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 1420180
+ },
+ "thienlang/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21271-7885-7f81-8675-4145b048b99d",
+  "usd": 0.35,
+  "date": "2026-11-25T11:24:12.305Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: its chest heaves with deep breaths, it lowers its head and growls, its ears twitch, its fur and the ghostly mist around it flow strongly, its eyes glow. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 256957
+ },
+ "thienlang/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21270-cf23-7472-a3ec-869706159670",
+  "usd": 0.35,
+  "date": "2026-11-25T11:24:21.144Z",
+  "prompt": "The giant ghost wolf howls at the moon, then a wave of ghostly violet shadow wolves charges straight toward the camera, mist and frost fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 1315580
+ },
+ "loibang/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21270-7dd3-7043-8669-9ae6809f8bb7",
+  "usd": 0.35,
+  "date": "2026-11-25T11:24:24.854Z",
+  "prompt": "The giant thunder roc spreads its wings and screeches, a storm of lightning bolts rains down and branches straight toward the camera, blinding flashes fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 1686783
+ },
+ "suvuong/ult": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21272-fa14-7e71-9cf7-81b35dfbcd99",
+  "usd": 0.35,
+  "date": "2026-11-25T11:26:02.721Z",
+  "prompt": "The golden lion roars and a blinding beam of sunlight blasts from its mouth straight toward the camera, golden light and sparks fill the screen. Epic cinematic boss attack, dramatic and powerful, the energy rushes toward the viewer, slight camera shake. Keep the creature's design unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 1702289
+ },
+ "suvuong/loop": {
+  "model": "fal-ai/kling-video/v2.6/pro/image-to-video",
+  "requestId": "01a21273-2b5c-7ec0-b495-a59b391642eb",
+  "usd": 0.35,
+  "date": "2026-11-25T11:27:07.993Z",
+  "prompt": "The giant creature stays on the same spot and is clearly alive and menacing during the whole clip: its chest heaves with deep breaths, its head turns slowly and it bares its fangs, its radiant mane flows strongly, the sun halo behind it pulses and light motes drift. The mist, clouds and light particles of the background drift. At the end it settles back into exactly the pose it started from. The camera is completely static. The animation loops seamlessly: the last frame returns exactly to the first frame. Keep the creature's design and colors unchanged. Cinematic fantasy realism, no cuts, no text, no people.",
+  "bytes": 292811
+ }
+}

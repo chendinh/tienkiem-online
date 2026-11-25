@@ -12,6 +12,7 @@ import { STARTER_IDS } from '../starter';
 import { TOUR_IDS } from '../tour';
 import { publish } from './ranking';
 import * as M from './market';
+import * as RD from './raid';
 import { PURE_INTENTS } from '../intents';
 import { ensureDaily, claimRelic, giveRelic, releaseHeld } from './dailystore';
 import { dailyVersion, dailyPacks, relicSig } from '../daily';
@@ -146,6 +147,7 @@ const INTENTS: Record<string, Handler> = {
 type AsyncHandler = (acc: string, st: G.GameState, b: any, now: number) => Promise<G.Res>;
 const ASYNC_INTENTS: Record<string, AsyncHandler> = {
   market_list: M.list, market_cancel: M.cancel, market_offer: M.offer, market_withdraw: M.withdraw, market_accept: M.accept, market_decline: M.decline, market_claim: M.claim,
+  raid_join: RD.join, raid_leave: RD.leave, raid_auto: RD.setAuto, raid_claim: RD.claim,
 };
 const READ_ONLY = new Set(['preview']);
 
@@ -193,6 +195,7 @@ function settleCopy(st: G.GameState, now: number): { work: G.GameState; out: G.S
 // and wrote the whole save (200 KB or more), which also made every click wait behind a poll.
 export async function getGame(id: string, logsSince = 0): Promise<Out> {
   await ensureDaily();
+  await RD.resolveSoon(serverNow());   // Phó Bản fights at its time even if nobody opens it (once per 20 s per server instance)
   const acct0 = await readAcct(id);
   if (!acct0) throw new ApiError('E_AUTH', 401);
   if (!acct0.state) return { ok: true, state: null };

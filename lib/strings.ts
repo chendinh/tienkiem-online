@@ -80,6 +80,8 @@ export const ERR = {
   E_WORK_FIT: 'Linh Thú này không đúng yêu cầu của việc.',
   E_WORK_NOT_YET: 'Việc này chưa làm xong, đợi thêm chút nữa.',
   E_BEAST_BUSY: 'Linh Thú này đang bận: đang đi làm hoặc đang bày ở Triển Lãm.',
+  E_RAID_CLOSED: 'Phó Bản hôm nay đã khai chiến, không ghi danh hay rút tên được nữa.',
+  E_RAID_CLAIMED: 'Thưởng Phó Bản ngày này đã nhận rồi.',
   E_OFFER_GONE: 'Vị khách đó đã đi rồi, món này cũng không còn ở đó nữa.',
   E_BAD_COSMETIC: 'Dữ liệu hình ảnh hoặc tiểu sử không hợp lệ.',
 } as const;
