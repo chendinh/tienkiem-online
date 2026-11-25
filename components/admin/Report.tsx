@@ -182,7 +182,7 @@ function Redraw({ adminKey }: { adminKey: string }) {
   );
 }
 
-// The owner's button to draw the pictures that are still missing: item icons (new weapons and gear) first, then the fixed pictures (book covers, scenes ... the files of public/art).
+// The owner's button to draw the pictures that are still missing: the interface pictures (a few) first, then item icons (new weapons and gear), then the other fixed pictures (book covers, scenes ... the files of public/art).
 // The server draws them with the image service of the game (same style, same spend cap) a few dozen at a time and keeps them in the database; the game shows them in place of the
 // missing ones. `npm run pregen` later turns the fixed pictures into files for free.
 interface ArtStat {

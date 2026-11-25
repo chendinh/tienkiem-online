@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { artJobs, artKey, artKeyOfSpec, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, commonLooks, missingLooks, wantedDrawable, fixedTodos, blockedBy } from '../lib/artjobs';
+import { artJobs, artKey, artKeyOfSpec, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, commonLooks, missingLooks, wantedDrawable, fixedTodos, drawOrder, blockedBy } from '../lib/artjobs';
 import { keyOfSpec } from '../lib/assetKey';
 import * as C from '../lib/content';
 import { missingArt, shippedArt } from '../lib/server/artfiles';
@@ -138,4 +138,13 @@ test('a press skips pictures that cannot be drawn: only really queued ones use u
   }
   assert.equal(queued, DRAW_POINTS);
   assert.equal(looked, DRAW_POINTS + 10);
+});
+
+test('art: the owner\'s button draws the interface pictures first, then item icons, then the other fixed pictures', () => {
+  const looks = commonLooks().slice(0, 3), fixed = fixedTodos([...artJobs('books').slice(0, 2), ...artJobs('shop').filter((j) => j.dest.startsWith('/art/ui/expo_'))]);
+  const order = drawOrder(looks, fixed);
+  assert.equal(order.length, looks.length + fixed.length);
+  const kinds = order.map((t) => (t.dest && t.dest.startsWith('/art/ui/') ? 'ui' : t.group === 'looks' ? 'looks' : 'fixed'));
+  assert.deepEqual(kinds, ['ui', 'ui', 'looks', 'looks', 'looks', 'fixed', 'fixed']);
+  assert.ok(order[0].dest!.startsWith('/art/ui/expo_'));
 });

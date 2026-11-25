@@ -75,6 +75,11 @@ export function missingLooks(common: Todo[], wanted: any[], have: { has(k: strin
   return out;
 }
 export const fixedTodos = (jobs: ArtJob[]): Todo[] => jobs.map((j) => ({ spec: j.spec, label: j.dest.replace(/^\/art\//, ''), group: j.group, dest: j.dest }));
+/** The order the owner's button draws in: the few interface pictures first (every player sees them as soon as the tab opens, and there are only a handful), then the item icons, then the other fixed pictures. */
+export function drawOrder(looks: Todo[], fixed: Todo[]): Todo[] {
+  const ui = (t: Todo) => !!t.dest && t.dest.startsWith('/art/ui/');
+  return [...fixed.filter(ui), ...looks, ...fixed.filter((t) => !ui(t))];
+}
 
 // Why the image service would refuse a new drawing right now (null when it would not): drawing off, the provider locked, today's money used up, or this instance's hourly limit.
 // Asked from the same numbers request() uses (lib/imagegen.ts), so the owner sees the real reason instead of a button that seems to do nothing.

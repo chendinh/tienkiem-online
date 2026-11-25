@@ -320,7 +320,7 @@ test('expo: the five looks are plain emoji drawn in code, so there is no picture
 
 test('expo: the stone stand and the chest are drawn too, seen from a little above, and cut out for the stage', () => {
   const jobs = artJobs('shop');
-  for (const id of ['expo_stand', 'expo_chest']) {
+  for (const id of ['expo_slab', 'expo_chest']) {
     const j = jobs.find((x) => x.dest === C.uiArt(id));
     assert.ok(j, `${id} is drawn by pregen`);
     const p = buildPlan(j!.spec);
@@ -332,8 +332,27 @@ test('expo: the stone stand and the chest are drawn too, seen from a little abov
 });
 
 test('expo: the stone stand is a thin slab of real stone, not a gilded drum', () => {
-  const t = C.PROP_EN.ui_expo_stand;
+  const t = C.PROP_EN.ui_expo_slab;
   assert.ok(/thin/.test(t) && /granite/.test(t) && /one fifth as tall/.test(t), 'a low disc of granite');
   assert.ok(/no gold/.test(t), 'no gold');
   assert.ok(!/gold band|marble|drum/.test(t));
+});
+
+// ---- a picture the server drew has no cut-out file: the browser cuts the black away itself
+import { cutBlack } from '../lib/cutout';
+test('cutout: the black that touches the edge goes, the dark inside the object stays, and the box is what is left', () => {
+  const w = 8, h = 8, px = new Uint8ClampedArray(w * h * 4);
+  for (let p = 0; p < w * h; p++) px[p * 4 + 3] = 255;
+  const set = (x: number, y: number, v: number) => { const p = (y * w + x) * 4; px[p] = px[p + 1] = px[p + 2] = v; };
+  for (let y = 2; y < 6; y++) for (let x = 2; x < 6; x++) set(x, y, 150);
+  set(3, 3, 0);   // black inside the object
+  const box = cutBlack(px, w, h);
+  assert.deepEqual(box, { x: 2, y: 2, w: 4, h: 4 });
+  assert.equal(px[(0 * w + 0) * 4 + 3], 0, 'the corner is transparent');
+  assert.equal(px[(1 * w + 4) * 4 + 3], 0, 'next to the object is transparent');
+  assert.equal(px[(3 * w + 3) * 4 + 3], 255, 'the dark inside stays');
+  assert.equal(px[(2 * w + 2) * 4 + 3], 255, 'the object stays');
+  const blank = new Uint8ClampedArray(w * h * 4);
+  for (let p = 0; p < w * h; p++) blank[p * 4 + 3] = 255;
+  assert.equal(cutBlack(blank, w, h), null, 'all black: nothing is left');
 });

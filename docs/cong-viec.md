@@ -140,14 +140,15 @@ Khách được đúng 2 điểm thì lặng thinh, không hiện gì. Hàng nă
 
 Hai hình còn lại do AI vẽ, đều là `ui_*` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`, vẽ trên nền đen:
 
-- `ui_expo_stand`: bệ đá dưới mỗi món bày. Là một phiến đá granite xám nhạt thật, tròn và mỏng (cao chỉ bằng khoảng một phần năm bề ngang), không vàng, không kim loại (mây phía sau bệ vẽ bằng CSS).
+- `ui_expo_slab`: bệ đá dưới mỗi món bày. Là một phiến đá granite xám nhạt thật, tròn và mỏng (cao chỉ bằng khoảng một phần năm bề ngang), không vàng, không kim loại (mây phía sau bệ vẽ bằng CSS). Đặt tên `slab` (không phải `stand`) để bệ cũ, nếu máy chủ đã vẽ rồi, không che mất ảnh mới: ảnh mới luôn nằm trong danh sách còn thiếu.
 - `ui_expo_chest`: hòm quà.
 
-Vẽ một lần (2 ảnh, khoảng 0,1 USD). Nếu đã vẽ bệ cũ thì xoá `public/art/ui/expo_stand.jpg` và `public/art/ui/cut/expo_stand.png` trước, vì pregen chỉ vẽ ảnh còn thiếu:
+Cách vẽ, chọn một:
 
-    npm run pregen -- --only shop
+- **Nút vẽ ảnh còn thiếu ở trang quản trị**: hai ảnh này nằm đầu danh sách (hình giao diện vẽ trước, rồi icon đồ, rồi các ảnh cố định khác; `drawOrder` trong `lib/artjobs.ts`), khoảng 4 điểm trong 36 điểm một lần bấm, khoảng 0,1 USD. Máy chủ giữ ảnh trong cơ sở dữ liệu và gửi ra đúng địa chỉ `/art/ui/expo_slab.jpg`.
+- Hoặc vẽ ra file bằng `npm run pregen -- --only shop` hay workflow "Draw missing art". Sau khi vẽ nó chạy `npm run thumbs`, cắt nền đen thành `public/art/ui/cut/{id}.png` (bệ và hòm 288 px).
 
-hoặc workflow "Draw missing art". `npm run pregen` chạy `npm run thumbs` sau khi vẽ: thumbs cắt nền đen thành `public/art/ui/cut/{id}.png` (bệ và hòm 288 px). Màn hình dùng ảnh đã cắt (`C.cutArt`, `components/CutImg.tsx`). Chưa có ảnh thì tự vẽ hình tạm: bệ đá mỏng bằng CSS, hòm bằng biểu tượng, nên tính năng chạy được ngay.
+Màn hình (`components/CutImg.tsx`) lấy ảnh theo thứ tự: file đã cắt `cut/{id}.png` nếu có; không có (ảnh do máy chủ vẽ chỉ có bản gốc nền đen) thì tải ảnh gốc `/art/ui/{id}.jpg` rồi **cắt nền đen ngay trong trình duyệt** (`lib/cutbrowser.ts`, cùng cách loang từ mép như thumbs, nằm ở `lib/cutout.ts`, làm một lần mỗi lần mở trang), nên ảnh máy chủ vẽ hiện đúng mà không cần chạy thumbs hay commit file. Chưa có ảnh nào thì tự vẽ hình tạm: bệ đá mỏng bằng CSS, hòm bằng biểu tượng, nên tính năng chạy được ngay.
 
 ### Khách bay (cảm giác)
 

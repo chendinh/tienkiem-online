@@ -157,7 +157,7 @@ const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) 
     <div className={`xStand${v ? ' on' : ' empty'}`} role="button" tabIndex={0} aria-label={v ? `Bệ ${i + 1}: ${nameOf(v)}` : `Bệ ${i + 1}, còn trống`} style={{ left: `${p.x}%`, top: `${p.y}%`, '--rc': C.RCOLOR[tier] } as CSSProperties}
       onClick={() => onStand(i)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStand(i); } }}>
       {v && <i className="xAura" style={{ '--dl': `${-(i * 0.9)}s` } as CSSProperties} />}
-      <span className="xPed"><i className="xPuff" /><CutImg id="expo_stand" className="xPedImg" fb={<i className="xStone" />} /></span>
+      <span className="xPed"><i className="xPuff" /><CutImg id="expo_slab" className="xPedImg" fb={<i className="xStone" />} /></span>
       <div key={key} ref={(el) => { pieces.current[i] = el; }} className={`xPiece${v ? '' : ' empty'}`} style={{ '--pd': `${i * 0.07}s` } as CSSProperties}>
         {v ? (v.kind === 'item' ? <ItemIcon it={v.item} size={56} /> : <BeastArt b={v.beast} box={64} mine onOpen={() => onStand(i)} />) : <Icon name="plus" size={20} />}
       </div>
