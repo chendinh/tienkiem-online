@@ -159,14 +159,30 @@ export function RaidScene(p: Props) {
     for (const e of tl.events) if (e.k === 'hurt' && slotOf.has(e.j)) { if (!hurtT.has(e.j)) hurtT.set(e.j, []); hurtT.get(e.j)!.push(e.t); if (e.ko) koT.set(e.j, e.t); }
     const near = (list: number[] | undefined, t: number, before: number, after: number, f: (dt: number) => void) => { if (list) for (const x of list) { const dt = t - x; if (dt > -before && dt < after) f(dt); } };
     const enterAt = (s: number) => 1300 + s * Math.min(70, 1800 / Math.max(1, shown.length));
-    // a flying cultivator: its loop, a dash toward the Dị Thú as its technique leaves, thrown back when hit
+    // a flying cultivator: its loop, surging in at the Dị Thú and falling back at its own pace, a dash as its technique leaves, thrown back when hit;
+    // during the clip of the great attack it holds its ground, battered (shaking harder and pushed back as the blast grows), then thrown back as the blow lands
+    const novaWin = P.novasOf(tl);
+    const surge = new Map<number, [number, number, number, number]>();
+    const braceAt = (t: number) => { let w = 0; for (const [a, h] of novaWin) { if (t < a - 300 || t > h + 900) continue; w = Math.max(w, t < a ? (t - a + 300) / 300 : t <= h ? 1 : 1 - (t - h) / 900); } return clamp(w, 0, 1); };
     const flyPx = (s: number, i: number, t: number) => {
       const q = P.flyAt(home[s], keys[i], t);
       let x = (q.x / 100) * W, y = (q.y / 100) * H;
       const c = bossC(), dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy) || 1;
-      near(bigT.get(i), t, 600, 600, (dt) => { const w = Math.exp(-(((dt - 40) / 190) ** 2)) * W * 0.085; x += (dx / d) * w; y += (dy / d) * w; });
-      near(hurtT.get(i), t, 0, 520, (dt) => { const w = Math.sin(Math.PI * (dt / 520)) * W * 0.04; x -= (dx / d) * w; y -= (dy / d) * w; });
-      return { x, y };
+      let sg = surge.get(i);
+      if (!sg) { const h = hash32(`surge|${keys[i]}`); sg = [2400 + unit(h, 0) * 2000, unit(h, 10) * TAU, unit(h, 20) * TAU, unit(h, 3) * TAU]; surge.set(i, sg); }
+      const brace = braceAt(t), wave = Math.sin((TAU * t) / sg[0] + sg[1]);
+      const in_ = (wave > 0 ? wave ** 1.4 : wave * 0.55) * W * 0.1 * (1 - brace);   // further in than out
+      x += (dx / d) * in_; y += (dy / d) * in_;
+      near(bigT.get(i), t, 700, 700, (dt) => { const w = Math.exp(-(((dt - 40) / 230) ** 2)) * W * 0.15; x += (dx / d) * w; y += (dy / d) * w; });
+      near(hurtT.get(i), t, 0, 620, (dt) => { const w = Math.sin(Math.PI * (dt / 620)) * W * 0.07; x -= (dx / d) * w; y -= (dy / d) * w; });
+      if (brace > 0) {
+        let u = 0; for (const [a, h] of novaWin) if (t >= a - 300 && t <= h + 900) u = clamp((t - a) / (h - a), 0, 1) * (t > h ? 1 - (t - h) / 900 : 1);
+        const back = W * (0.025 + 0.05 * u * u) * brace, amp = W * (0.003 + 0.011 * u) * brace;
+        x -= (dx / d) * back; y -= (dy / d) * back;
+        x += amp * (Math.sin(t * 0.071 + sg[2]) + 0.6 * Math.sin(t * 0.173 + sg[3]));
+        y += amp * 0.7 * (Math.sin(t * 0.089 + sg[3]) + 0.6 * Math.sin(t * 0.211 + sg[2]));
+      }
+      return { x, y: Math.max(y, H * 0.2) };
     };
     // the whole pose at a moment: where, tilt, size, how visible (the fall of the fallen included)
     const poseOf = (s: number, i: number, t: number) => {
@@ -191,7 +207,19 @@ export function RaidScene(p: Props) {
     const chestAt = (i: number, t: number) => { const s = slotOf.get(i); if (s === undefined) return null; const q = poseOf(s, i, t); return { x: q.x, y: q.y - cardH * 0.42 }; };
 
     // ---- the numbers, banners, hits (DOM)
-    const shake = (amp: number, ms = 320) => { if (low) return; stage.current?.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${-amp}px,${amp * 0.6}px)` }, { transform: `translate(${amp}px,${-amp * 0.5}px)` }, { transform: `translate(${-amp * 0.5}px,${amp * 0.3}px)` }, { transform: 'translate(0,0)' }], { duration: ms, easing: 'linear' }); };
+    // the screen shakes: random jolts that die away (steady: a rumble that keeps its strength); a weaker shake does not cut into a stronger one still running
+    let shakeTill = 0, shakeAmp = 0;
+    const shake = (amp: number, ms = 360, steady = false) => {
+      const st = stage.current; if (low || !st) return;
+      const now = performance.now(); if (now < shakeTill && amp < shakeAmp * 0.8) return;
+      shakeTill = now + ms * 0.6; shakeAmp = amp;
+      const n = Math.max(5, Math.round(ms / 50)), kf: Keyframe[] = [];
+      for (let k = 0; k <= n; k++) {
+        const u = k / n, a = k === 0 || k === n ? 0 : amp * (steady ? 0.75 + 0.25 * Math.random() : (1 - u) ** 1.3 + 0.06), ang = Math.random() * TAU;
+        kf.push({ transform: `translate(${(Math.cos(ang) * a).toFixed(1)}px, ${(Math.sin(ang) * a * 0.8).toFixed(1)}px) rotate(${((Math.random() - 0.5) * a * 0.06).toFixed(2)}deg) scale(${(1 + a / Math.max(200, W)).toFixed(3)})` });
+      }
+      st.animate(kf, { duration: ms, easing: 'linear' });
+    };
     const pop = (text: string, q: { x: number; y: number }, cls: string, color: string) => {
       const l = layer.current; if (!l) return;
       const el = document.createElement('span');
@@ -210,7 +238,7 @@ export function RaidScene(p: Props) {
       const g = glow.current; if (!g) return;
       g.style.setProperty('--c', color);
       g.animate([{ opacity: 0, transform: 'translate(-50%,-50%) scale(0.6)' }, { opacity: crit ? 0.9 : 0.5, transform: 'translate(-50%,-50%) scale(1)', offset: 0.2 }, { opacity: 0, transform: 'translate(-50%,-50%) scale(1.25)' }], { duration: 420, easing: 'ease-out' });
-      if (loop.current && !low) loop.current.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${crit ? 5 : 2}px,-1px)` }, { transform: 'translate(0,0)' }], { duration: 140 });
+      if (loop.current && !low) loop.current.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${crit ? 9 : 4}px,${crit ? -3 : -1}px)` }, { transform: `translate(${crit ? -5 : -2}px,1px)` }, { transform: 'translate(0,0)' }], { duration: crit ? 220 : 160 });
     };
     const say = (text: string, cls: string, sub?: string) => setBanner({ k: Math.random(), text, cls, sub });
 
@@ -248,7 +276,7 @@ export function RaidScene(p: Props) {
             const color = fxOfSkill(f, 0).color, c = bossC(), r = bossR(), j = { x: c.x + (Math.random() - 0.5) * r * 0.9, y: c.y + (Math.random() - 0.5) * r * 0.4 };
             pop(e.c ? `Bạo kích ${shortNum(e.d)}` : shortNum(e.d), j, `blow ${e.c ? 'crit ' : ''}${mine ? 'mine' : ''}`, mine ? '#ffe08a' : C.EL[f.el]?.color || color);
             bossHit(C.EL[f.el]?.color || color, !!e.c);
-            if (e.c) shake(3);
+            shake(e.c ? 8 : 3, e.c ? 340 : 200);
           } else if (mine && e.d > 0) { const c = bossC(), r = bossR(); pop(shortNum(e.d), { x: c.x + (Math.random() - 0.5) * r, y: c.y + (Math.random() - 0.2) * r * 0.5 }, 'tiny mine', '#ffe08a'); }
           break;
         }
@@ -278,7 +306,7 @@ export function RaidScene(p: Props) {
           const q = chestAt(e.j, e.t);
           if (q) pop(shortNum(e.d), { x: q.x, y: q.y - cardH * 0.25 }, `hurt${e.j === film.me ? ' mine' : ''}`, '#ff6a5c');
           fig.current[s]?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(2.8) saturate(0.3)', offset: 0.15 }, { filter: 'brightness(1)' }], { duration: 380, easing: 'ease-out' });
-          if (firstHurt !== e.t && e.t - firstHurt > 900) { firstHurt = e.t; shake(e.s === 2 ? 9 : e.s === 1 ? 5 : 4, e.s === 2 ? 700 : 380); if (e.s === 2) fx.flash('gold'); }
+          if (firstHurt !== e.t && e.t - firstHurt > 900) { firstHurt = e.t; shake(e.s === 2 ? 22 : e.s === 1 ? 12 : 9, e.s === 2 ? 1200 : e.s === 1 ? 560 : 440); if (e.s === 2) fx.flash('gold'); }
           if (e.ko && e.j === film.me) sfx('fail');
           break;
         }
@@ -297,14 +325,15 @@ export function RaidScene(p: Props) {
           // its own clip over the whole stage (it starts on the very picture of the loop, so the cut is invisible); without it, a flash and a hard shake
           if (!live) break;
           const v = ult.current;
-          if (!v || !ultReady.current || low) { fx.flash('gold'); shake(6, 600); break; }
+          shake(5, P.ULT_MS - 300, true);   // the ground rumbles under the clip
+          if (!v || !ultReady.current || low) { fx.flash('gold'); shake(14, 800); break; }
           v.currentTime = 0; void v.play().catch(() => {});
           v.animate([{ opacity: 0 }, { opacity: 1, offset: 0.06 }, { opacity: 1, offset: 0.92 }, { opacity: 0 }], { duration: P.ULT_MS + 400, fill: 'both' });
           break;
         }
         case 'rage': {
           setRage(true);
-          if (live) { say(`${boss.name} cuồng nộ!`, 'rage', 'Đạn dày hơn, sát thương tăng mạnh'); sfx('thunder'); shake(7, 700); fx.flash('violet'); }
+          if (live) { say(`${boss.name} cuồng nộ!`, 'rage', 'Đạn dày hơn, sát thương tăng mạnh'); sfx('thunder'); shake(15, 900); fx.flash('violet'); }
           break;
         }
         case 'stun': {
@@ -327,7 +356,7 @@ export function RaidScene(p: Props) {
       const v = loop.current;
       if (!live) { if (v) v.style.opacity = '0'; setOver(film.win ? 'win' : 'flee'); return; }
       if (film.win) {
-        hp = 0; sfx('levelup'); shake(10, 1200);
+        hp = 0; sfx('levelup'); shake(22, 1500);
         const a = bossC(), sr = stage.current?.getBoundingClientRect();
         if (sr) { const x = sr.left + a.x, y = sr.top + a.y; fx.ring({ x, y, color: '#fff3c4', size: 200 }); fx.burst({ x, y, kind: 'gold', count: 40 }); later(600, () => fx.burst({ x, y, kind: 'qi', color: elColor, count: 30 })); }
         v?.animate([{ filter: 'brightness(1) blur(0)', opacity: 1 }, { filter: 'brightness(2.6) blur(0)', opacity: 1, offset: 0.35 }, { filter: 'brightness(3.2) blur(6px)', opacity: 0 }], { duration: 2600, easing: 'ease-in', fill: 'forwards' });
@@ -400,6 +429,21 @@ export function RaidScene(p: Props) {
       if (wNow >= 0 && teNow <= tl.outro && !P.pausedAt(tl, teNow) && t - teNow < 220) { ctx.globalAlpha = (1 - (t - teNow) / 220) * 0.8 * fade; const z = r * 1.1; put(glowSprite(elColor), c.x, c.y, 0, z, z); ctx.globalAlpha = 1; }
       // the great attack lands: a ring of force sweeps the whole stage
       for (const nt of novas) { const v = (t - nt) / 750; if (v < 0 || v >= 1) continue; const z = (0.3 + v * 2.6) * W; ctx.globalAlpha = 1 - v; const im = tex.ring; if (im) put(im, c.x, c.y, 0, z, z); else put(glowSprite(elColor), c.x, c.y, 0, z * 0.6, z * 0.6); ctx.globalAlpha = 1; }
+      // the clip of the great attack: its power swirls round every cultivator still standing, stronger as the blast grows
+      for (const [a, hh] of novaWin) {
+        if (t < a || t > hh + 250) continue;
+        const u = clamp((t - a) / (hh - a), 0, 1), g = glowSprite(elColor), g2 = glowSprite(accent), b = Math.floor(t / 90);
+        for (let s = 0; s < shown.length; s++) {
+          const i = shown[s], k = koT.get(i); if (k !== undefined && k <= t) continue;
+          const q = chestAt(i, t); if (!q) continue;
+          const h = hash32(`eng|${s}|${b}`), z = (42 + 70 * u + unit(h, 0) * 22) * sc;
+          ctx.globalAlpha = (0.3 + 0.6 * u) * (0.75 + unit(h, 10) * 0.25);
+          put(g, q.x + (unit(h, 3) - 0.5) * 16 * sc, q.y + (unit(h, 13) - 0.5) * 22 * sc, 0, z, z);
+          if ((!low && !crowd) || (s & 1) === 0) { ctx.globalAlpha *= 0.8; put(g2, q.x + (unit(h, 6) - 0.5) * 26 * sc, q.y + cardH * 0.2 + (unit(h, 16) - 0.5) * 18 * sc, 0, z * 0.55, z * 0.55); }
+          if (u > 0.45 && tex.star && (unit(h, 8) < u - 0.3)) { ctx.globalAlpha = 0.55 * u; put(tex.star, q.x + (unit(h, 9) - 0.5) * 20 * sc, q.y + (unit(h, 19) - 0.5) * 24 * sc, unit(h, 4) * TAU, z * 0.8, z * 0.8); }   // the blast already bites
+        }
+        ctx.globalAlpha = 1;
+      }
       // a fallen cultivator hits the ground: a puff of dust
       for (const [i, k] of koT) {
         const v = (t - k - 820) / 520; if (v < 0 || v >= 1) continue;

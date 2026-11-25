@@ -43,7 +43,7 @@ export const sizeFor = (n: number) => (n <= 6 ? 20 : n <= 12 ? 17.5 : 15);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const unit = (h: number, shift: number) => ((h >>> shift) % 1000) / 1000;
 const TAU = Math.PI * 2;
-export const FLY_X = 11, FLY_Y = 6;   // how far a cultivator swings from its spot (percent of the width / height)
+export const FLY_X = 17, FLY_Y = 9;   // how far a cultivator swings from its spot (percent of the width / height)
 /** Where a cultivator flies at film time `t` (ms): its spot plus a loop of two waves on each axis, at its own speeds and phases (from its key), so the crowd never moves in step. */
 const flyKeys = new Map<string, [number, number]>();
 export function flyAt(home: Pt, key: string, t: number): Pt {
@@ -102,6 +102,7 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
 
     // ---- the Dị Thú's blows of this round (worked out first: who falls, and when, decides how long they shoot)
     const koAt = new Map<number, number>();
+    let quiet: [number, number] | null = null;   // the clip of the great attack: the cultivators brace and hold their fire
     if (b && b.stun) {
       seg.stun = t1 - 0.3 * SEG_MS;
       events.push({ k: 'stun', t: seg.stun });
@@ -111,6 +112,7 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
       if (nova) {
         seg.tele = t0 + 0.18 * SEG_MS; seg.ult = seg.tele + 700; hitStart = seg.ult + ULT_MS - 250;
         pauses.push([seg.tele, hitStart + 250]);
+        quiet = [seg.ult - 100, hitStart + 200];
       } else {
         hitStart = t1 - 0.15 * SEG_MS; seg.tele = hitStart - BOSS_SHOT_MS - 350;
       }
@@ -130,6 +132,7 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
     }
 
     // ---- the cultivators: a stream of bolts each, and its technique once
+    const held = (x: number, fly: number) => !!quiet && x + fly >= quiet[0] && x <= quiet[1];
     let offD = 0;
     const offWho = new Set<number>();
     for (const a of r.f) {
@@ -141,13 +144,18 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
         const ct = Math.round(t0 + (0.62 + unit(h, 10) * 0.12) * SEG_MS);
         events.push({ k: 'cast', t: ct, i: a.i, a });
         if (a.f === 'heal' && a.t !== undefined && a.h !== undefined) events.push({ k: 'heal', t: ct + HEAL_MS, i: a.i, j: a.t, h: a.h });
-        for (let x = t0 + 80 + unit(h, 20) * every; x <= lastLaunch; x += every * 1.5) if (Math.abs(x - ct) > 220) shots.push({ t: Math.round(x), land: Math.round(x) + SHOT_MS, i: a.i, d: 0, k: a.k, q: q++ });
+        for (let x = t0 + 80 + unit(h, 20) * every; x <= lastLaunch; x += every * 1.5) if (Math.abs(x - ct) > 220 && !held(x, SHOT_MS)) shots.push({ t: Math.round(x), land: Math.round(x) + SHOT_MS, i: a.i, d: 0, k: a.k, q: q++ });
         continue;
       }
       let tb = t0 + (0.18 + unit(h, 10) * 0.4) * len;
       if (tb > lastLaunch - 40) tb = Math.max(t0 + 60, lastLaunch - 200);
+      if (quiet && held(tb, BIG_MS)) {
+        // not during the clip: after it when there is time (the fallen of the great attack have none), else before it
+        const a0 = quiet[1] + 150, a1 = lastLaunch - 200;
+        tb = a1 >= a0 ? a0 + unit(h, 15) * (a1 - a0) : Math.max(t0 + 60, Math.min(quiet[0] - BIG_MS - 120, t0 + 200 + unit(h, 15) * Math.max(0, quiet[0] - BIG_MS - 320 - t0)));
+      }
       const small: number[] = [];
-      for (let x = t0 + 60 + unit(h, 20) * every; x <= lastLaunch; x += every) if (Math.abs(x - tb) > 170) small.push(Math.round(x));
+      for (let x = t0 + 60 + unit(h, 20) * every; x <= lastLaunch; x += every) if (Math.abs(x - tb) > 170 && !held(x, SHOT_MS)) small.push(Math.round(x));
       const st = small.length ? Math.floor(a.d * 0.6) : 0, per = small.length ? Math.floor(st / small.length) : 0, rem = st - per * small.length;
       small.forEach((x, n) => {
         const d = per + (n < rem ? 1 : 0);
@@ -161,8 +169,10 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
     // the ones off the stage: their bolts come in from below, a few per stretch, and one number for all of them
     if (offWho.size) {
       const per = Math.floor(offD / OFF_SHOTS);
+      // spread over the stretch, the clip of a great attack left out
+      const gap = quiet ? quiet[1] - quiet[0] + 900 : 0, span = len - gap, at = (u: number) => { const x = t0 + u * span; return quiet && x + 450 >= quiet[0] ? x + gap : x; };
       for (let n = 0; n < OFF_SHOTS; n++) {
-        const land = Math.round(t0 + ((n + 0.7) / OFF_SHOTS) * len * 0.92), d = n === OFF_SHOTS - 1 ? offD - per * (OFF_SHOTS - 1) : per;
+        const land = Math.round(at(((n + 0.7) / OFF_SHOTS) * 0.92)), d = n === OFF_SHOTS - 1 ? offD - per * (OFF_SHOTS - 1) : per;
         shots.push({ t: land - 450, land, i: -1, d, k: 0, q: q++ });
         events.push({ k: 'off', t: land, d, n: offWho.size, ...(n === OFF_SHOTS - 1 ? { sum: offD } : {}) });
         if (n === OFF_SHOTS - 1) seg.off = { t: land, d: offD, n: offWho.size };
@@ -193,6 +203,8 @@ function maxOf(rounds: Round[]): number {
 
 /** Whether the barrage holds its fire at film time t. */
 export const pausedAt = (tl: Pick<Timeline, 'pauses'>, t: number) => tl.pauses.some(([a, b]) => t >= a && t < b);
+/** The clips of the great attack: from the clip's start to when its blows land (the cultivators brace, are battered, then thrown back). */
+export const novasOf = (tl: Pick<Timeline, 'rounds'>): [number, number][] => tl.rounds.filter((r) => r.ult !== null && r.hits).map((r) => [r.ult!, r.hits![0]]);
 
 /** Everything the screen shows at a moment of the film: the Dị Thú's Sinh Lực, every fighter's Sinh Lực, who has fallen, the round. Used to start the film in the middle. */
 export function stateAt(max: number, fs: Pick<Fighter, 'hp'>[], tl: Timeline, t: number) {

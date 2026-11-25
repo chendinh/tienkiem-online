@@ -16,7 +16,8 @@
   .rdLoop { z-index: 1; }
   .rdLoop.still { animation: rd-breathe 5.5s ease-in-out infinite; transform-origin: 50% 40%; }
   @keyframes rd-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.012) translateY(-0.3%); } }
-  .rdUlt { z-index: 30; opacity: 0; }
+  /* the clip of the great attack plays behind the cultivators: they stay on the stage, battered by it (components/RaidScene.tsx) */
+  .rdUlt { z-index: 6; opacity: 0; }
   .rdTint { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; background: radial-gradient(70% 55% at 50% 35%, transparent 20%, rgb(0 0 0 / 0.75) 100%); }
   .rdStage.rage::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(85% 70% at 50% 40%, transparent 45%, rgb(190 20 20 / 0.42) 100%); animation: rd-rage 1.6s ease-in-out infinite; }
   @keyframes rd-rage { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }

@@ -122,6 +122,8 @@ test('the film: who is drawn, where, and a timeline of non-stop fighting that en
     const koAt = new Map<number, number>();
     for (const e of tl.events) if (e.k === 'hurt' && e.ko) koAt.set(e.j, e.t);
     for (const s of tl.shots) { assert.ok(s.land > s.t); if (s.i >= 0 && koAt.has(s.i)) assert.ok(s.t < koAt.get(s.i)!, `fighter ${s.i} shoots after falling`); }
+    // during the clip of a great attack the cultivators brace: nothing of theirs is in the air
+    for (const [a, h] of P.novasOf(tl)) for (const s of tl.shots) assert.ok(s.land < a - 100 || s.t > h + 200, `a shot at ${s.t}–${s.land} during the clip ${a}–${h}`);
     for (const s of tl.bshots) assert.ok(s.land > s.t && sh.includes(s.j));
     // every cultivator's Sinh Lực changes in the order of the record (heals and blows)
     const rec = new Map<number, number[]>(), film = new Map<number, number[]>();
