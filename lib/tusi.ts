@@ -1,6 +1,6 @@
 // The cultivators drawn on the stages (Phó Bản, Triển lãm, the result cards): pictures drawn by AI once (scripts/gen-tusi.ts), one kind per môn of weapon, a woman and a man
 // each, in a few outfits. Nothing per player but the weapon: a player is drawn with the kind of their weapon's môn (lib/content.ts WEAPON_CLASS), empty-handed with none.
-// Until a kind has pictures (lib/tusi-art.ts, written by the script) the figure drawn in code (components/Cultivator.tsx) stands in for it.
+// Until a kind has pictures (lib/tusi-art.ts, written by the script) it borrows a drawn one (tusiArt); with none drawn at all, the figure drawn in code (components/Cultivator.tsx) stands in.
 import { TUSI_ART, TUSI_REV } from './tusi-art';
 
 export interface TusiKind { id: string; name: string; weapon: string /* what the character holds, and how (for the prompt) */ }
@@ -35,8 +35,11 @@ export function tusiKind(cls: string | undefined, arch: string, h: number): stri
   const l = ARCH_KINDS[arch] || ARCH_KINDS['Tán Tu'];
   return l[(h >>> 5) % l.length];
 }
-/** Its picture, if that kind has been drawn (h picks one of the outfits), else null. */
+/** Its picture (h picks one of the outfits). While only some kinds are drawn (a demo: even one picture), a kind not drawn yet borrows one that is, of the same sex
+ *  if there is one: every cultivator shows a picture drawn by AI. null only when none is drawn at all (the figure drawn in code stands in). */
 export function tusiArt(kind: string, g: 'f' | 'm', h: number): string | null {
-  const n = TUSI_ART[`${kind}_${g}`] || 0;
-  return n ? `/art/tusi/${kind}_${g}_${(h >>> 0) % n}.webp?v=${TUSI_REV}` : null;
+  let key = `${kind}_${g}`;
+  if (!TUSI_ART[key]) key = Object.keys(TUSI_ART).find((k) => k.endsWith(`_${g}`)) || Object.keys(TUSI_ART)[0] || '';
+  const n = TUSI_ART[key] || 0;
+  return n ? `/art/tusi/${key}_${(h >>> 0) % n}.webp?v=${TUSI_REV}` : null;
 }

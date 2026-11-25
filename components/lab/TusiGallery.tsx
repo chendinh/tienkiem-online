@@ -35,7 +35,7 @@ export function TusiGallery() {
                 {(n ? Array.from({ length: n }, (_, v) => v) : [0]).map((v) => (
                   <figure key={v} className={`tsFig${n ? '' : ' none'}`} style={{ '--w': `${100 / Math.min(most, TUSI_LOOKS.length)}%` } as CSSProperties}>
                     <div className="tsBox"><Cultivator look={{ ...lookOf('Tán Tu', sx, v, k.id), h: v }} /></div>
-                    <figcaption>{n ? `${k.id}_${sx}_${v}` : 'chưa vẽ (hình code)'}</figcaption>
+                    <figcaption>{n ? `${k.id}_${sx}_${v}` : total ? 'chưa vẽ (mượn hình khác)' : 'chưa vẽ (hình code)'}</figcaption>
                   </figure>
                 ))}
               </div>
