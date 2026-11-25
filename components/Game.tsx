@@ -439,7 +439,16 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
         if (seenFeed.current !== null && top > seenFeed.current) seenFeed.current = top;
         held.current = null;   // the answer is the newest state, an older one kept aside must not replace it later
         commit(out.state);
-      } else apply(out.state);
+      } else {
+        apply(out.state);
+        // the answer brought new fights, so apply() kept it aside until they are replayed. The player's own click must still show at once (a creature sent to work
+        // is locked on its card right away, not when the window is closed and the replay has run): it is shown now with only the rows of the fights still to replay
+        // left out, and the whole state follows when the last fight ends (nextFight).
+        if (held.current === out.state) {
+          const hide = new Set([...(stageNow.current ? [stageNow.current.id] : []), ...fightQ.current.map((f) => f.id)]);
+          commit({ ...out.state, feed: out.state.feed.filter((x) => !hide.has(x.id)) });
+        }
+      }
     }
     return { ok: out.ok, msg: out.ok ? out.msg || '' : out.msg || errText(out.code || 'E_SERVER'), data: out.data, code: out.code };
   }, [apply, onSignOut, logCache]);
