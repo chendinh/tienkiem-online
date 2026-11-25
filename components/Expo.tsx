@@ -7,7 +7,7 @@ import { Icon } from './ds/Icon';
 import { BeastArt, ItemIcon, fmt } from './ui';
 import { ReactIcon } from './ReactIcon';
 import { shortNum } from '@/lib/shortnum';
-import { ExpoScene } from './ExpoScene';
+import { ExpoScene, heldBack, type HeldMap } from './ExpoScene';
 import { expoView } from '@/lib/game';
 import { useFx } from './fx/FxProvider';
 import { sfx } from '@/lib/audio';
@@ -109,6 +109,9 @@ function OfferCard({ o, name, onGone, onYes }: { o: XP.Offer; name: string; onGo
 
 export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   const e = XP.isExpo(st.expo) ? st.expo : null;
+  // what the visitors still flying have not given yet (ExpoScene holds it back until each reaction, coin and gift lands): the box and the totals below show the rest
+  const [held, setHeld] = useState<HeldMap>({});
+  const shown = useMemo(() => heldBack(e, held), [e, held]);
   const [pick, setPick] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const openedAt = useRef(e ? e.n : 0), [gone, setGone] = useState<number[]>([]);
@@ -125,6 +128,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
     if (!has) return;
     const r = await act('expoCollect');
     if (!r.ok) { setNote(r.msg); return; }
+    setHeld({});   // the whole box was taken, what was on its way too
     const d = (r.data || {}) as { stones?: number; weapons?: number; pills?: number; books?: number; left?: number };
     const parts = [d.stones ? `+${fmt(d.stones)} Linh Thạch` : '', d.weapons ? `${d.weapons} pháp khí` : '', d.pills ? `${d.pills} đan` : '', d.books ? `${d.books} Bí Công` : ''].filter(Boolean);
     const rc = document.querySelector('.xChest')?.getBoundingClientRect();
@@ -134,7 +138,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   }, [act, fx, has]);
   return (
     <div className="xpo">
-      <ExpoScene st={st} onStand={onStand} onChest={collect} />
+      <ExpoScene st={st} onStand={onStand} onChest={collect} held={held} hold={setHeld} />
       {offer && offerName && <OfferCard key={offer.n} o={offer} name={offerName} onGone={onGone} onYes={onYes} />}
       <div className="xBar">
         <p className={`xState${n < XP.MIN_OPEN ? ' warn' : ''}`}>
@@ -142,12 +146,12 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
             ? <>Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</>
             : <>Đang mở cửa với <b>{n}</b> món. Cứ khoảng {Math.round(XP.INTERVAL_SEC[n])} giây lại có khách ghé, có lúc vài người cùng đến.</>}
         </p>
-        {e && <BoxView b={e.box} />}
+        {shown && <BoxView b={shown.box} />}
         <button type="button" className="btn hot" disabled={!has} onClick={collect}>Thu quà</button>
       </div>
       {note && <div className="hint ordWarn" role="status">{note}</div>}
-      {e && <Totals e={e} />}
-      {pick !== null && <Pick key={pick} st={st} e={e} slot={pick} act={act} onClose={closePick} onErr={setNote} />}
+      {shown && <Totals e={shown} />}
+      {pick !== null && <Pick key={pick} st={st} e={shown} slot={pick} act={act} onClose={closePick} onErr={setNote} />}
     </div>
   );
 }

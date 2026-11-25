@@ -1,5 +1,5 @@
 'use client';
-import { Fragment, memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
 import * as C from '@/lib/content';
 import * as XP from '@/lib/expo';
 import * as FL from '@/lib/expofly';
@@ -60,8 +60,47 @@ function Sparks({ at, delay, color, count, seed }: { at: FL.Pt; delay: number; c
   return <>{Array.from({ length: count }, (_, i) => <i key={i} ref={(el) => { els.current[i] = el; }} className="xSpark" style={{ '--c': color } as CSSProperties} />)}</>;
 }
 
-type FlightT = { key: string; v: XP.Visit; delay: number };
-const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; pieces: Els; chest: RefObject<HTMLElement | null>; onDone: (key: string) => void }) {
+// ---- what is still on its way: the server adds a visit's Linh Thạch, gift and reactions the moment it makes the visit, but on the screen the visitor has yet to fly in and look.
+// Each part of a new visit is held back (left out of the numbers shown) until its moment in the flight: a reaction when its face pops up, the Linh Thạch when the last coin lands
+// in the chest, the gift when it lands. Ids are `${visit n}|...`, so a whole visit can be let go at once.
+export type Held = { slot: number; ri: number } | { stones: number } | { gift: XP.Gift };
+export type HeldMap = Record<string, Held>;
+export type Hold = Dispatch<SetStateAction<HeldMap>>;
+const heldOf = (v: XP.Visit): HeldMap => {
+  const m: HeldMap = {};
+  v.route.forEach((s, i) => {
+    if (s.r) m[`${v.n}|r${i}`] = { slot: s.slot, ri: XP.REACTIONS.indexOf(s.r) };
+    if (s.stones > 0) m[`${v.n}|c${i}`] = { stones: s.stones };
+  });
+  if (v.gift) m[`${v.n}|g`] = { gift: v.gift };
+  return m;
+};
+const letGo = (hold: Hold, pred: (id: string) => boolean) => hold((m) => {
+  const ids = Object.keys(m).filter(pred);
+  if (!ids.length) return m;
+  const n = { ...m }; for (const id of ids) delete n[id];
+  return n;
+});
+/** The expo as the screen should show it: what the server says, less what is still held back. */
+export function heldBack(e: XP.Expo | null, m: HeldMap): XP.Expo | null {
+  const parts = Object.values(m);
+  if (!e || !parts.length) return e;
+  const stands = e.stands.map((s) => (s ? { ...s, tally: [...s.tally] as XP.Tally } : s));
+  const box: XP.Box = { stones: e.box.stones, weapons: [...e.box.weapons], pills: [...e.box.pills], books: { ...e.box.books } };
+  let weapons = 0;
+  for (const p of parts) {
+    if ('ri' in p) { const t = stands[p.slot]?.tally; if (t && p.ri >= 0) t[p.ri] = Math.max(0, t[p.ri] - 1); }
+    else if ('stones' in p) box.stones = Math.max(0, box.stones - p.stones);
+    else if (p.gift.kind === 'weapon') weapons++;
+    else if (p.gift.kind === 'pill') box.pills[p.gift.grade] = Math.max(0, (box.pills[p.gift.grade] || 0) - p.gift.n);
+    else if (box.books[p.gift.name]) { box.books[p.gift.name]--; if (box.books[p.gift.name] <= 0) delete box.books[p.gift.name]; }
+  }
+  if (weapons) box.weapons = box.weapons.slice(0, Math.max(0, box.weapons.length - weapons));
+  return { ...e, stands, box };
+}
+
+type FlightT = { key: string; v: XP.Visit; delay: number; held?: boolean };
+const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: FlightT; pieces: Els; chest: RefObject<HTMLElement | null>; onDone: (key: string) => void; hold: Hold }) {
   const v = f.v;
   const plan = useMemo(() => FL.planOf(v), [v]);
   const look = useMemo(() => lookOf(v.who.arch, v.who.g, hash32(`${v.who.name}|${v.n}`)), [v]);
@@ -72,6 +111,9 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
     const el = fly.current, stage = el?.parentElement;
     if (!el || !stage || !canFly()) { onDone(f.key); return; }
     let alive = true;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    // let a held part of this visit show, at `when` ms into the flight (only a visit that was held: the replays of old visits were already counted)
+    const release = (id: string, when: number) => { if (f.held) timers.push(setTimeout(() => letGo(hold, (k) => k === id), Math.max(0, f.delay + when))); };
     const W = stage.clientWidth, H = stage.clientHeight, w = el.offsetWidth, h = el.offsetHeight;
     const at = (p: FL.Pt, ox: number, oy: number) => `translate(${(p.x / 100) * W - ox}px, ${(p.y / 100) * H - oy}px)`;
     const run: Animation[] = [];
@@ -96,6 +138,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
         { opacity: 0, transform: `${base} translateY(-32px) scale(0.9)` },
       ], { duration: 1500, delay: t0 });
       const ringAt = at(sp, 32, 32);
+      release(`${v.n}|r${i}`, t0 + 200);
       go(ring.current[i], [{ opacity: 0.9, transform: `${ringAt} scale(0.35)` }, { opacity: 0, transform: `${ringAt} scale(${s.r === 'sad' ? 1.3 : 1.8})` }], { duration: s.r === 'sad' ? 950 : 700, delay: t0, easing: 'ease-out' });
       const pic = pieces.current[s.slot]?.firstElementChild;
       if (s.r === 'love' || s.r === 'wow') go(pic, [{ transform: 'scale(1)' }, { transform: 'scale(1.16)', offset: 0.35 }, { transform: 'scale(1)' }], { duration: 520, delay: t0, easing: 'ease-out' });
@@ -108,6 +151,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
         for (let u = 0; u <= 8; u++) { const q = FL.arcAt(sp, FL.CHEST_AT, u / 8); kf.push({ offset: u / 8, opacity: u === 0 ? 0 : u >= 8 ? 0 : 1, transform: `${at(q, 6, 6)} scale(${(1 - 0.35 * (u / 8)).toFixed(2)})` }); }
         go(coin.current[ci++], kf, { duration: dur, delay: d0, easing: 'linear' });
         bump(d0 + dur - 120, 1.1);
+        if (k === coinN[i] - 1) release(`${v.n}|c${i}`, d0 + dur - 120);
       }
     });
     // the gift: a round token that spins to the chest
@@ -117,9 +161,10 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
       const a = go(gift.current, kf, { duration: 1150, delay: g0, easing: 'linear' });
       if (a) a.onfinish = () => { if (alive) sfx('chime'); };
       bump(g0 + 1000, 1.28);
+      release(`${v.n}|g`, g0 + 1000);
     }
     Promise.allSettled(run.map((a) => a.finished)).then(() => { if (alive) onDone(f.key); });
-    return () => { alive = false; run.forEach((a) => a.cancel()); };
+    return () => { alive = false; timers.forEach(clearTimeout); run.forEach((a) => a.cancel()); };
   }, []);
   const gk = v.gift ? v.gift.kind : null, gc = gk ? GIFT_COL[gk] : '#ffd36b';
   let ck = 0;
@@ -144,7 +189,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone }: { f: FlightT; 
       )}
     </>
   );
-}, (a, b) => a.f.key === b.f.key);   // a visitor is made once and then runs by itself: the screen updating around it does not touch it
+}, (a, b) => a.f.key === b.f.key && a.hold === b.hold);   // a visitor is made once and then runs by itself: the screen updating around it does not touch it
 
 // ---- the stands
 const standSig = (v: StandView) => (v ? `${v.kind}:${v.kind === 'item' ? `${v.item.id}:${v.item.level}:${v.item.tier}` : `${v.beast.id}:${v.beast.level}:${v.beast.mut}`}` : 'x');
@@ -177,9 +222,10 @@ const makeAmb = (n: number): Amb[] => Array.from({ length: n }, (_, i) => {
   return { y: 6 + r() * 86, w, d: 6 + r() * 10, dl: -r() * 16, rev: r() < 0.5, op: 0.3 + r() * 0.3, look: lookOf(arch, r() < 0.5 ? 'f' : 'm', Math.floor(r() * 1000) + i), ph: r() * 2 };
 });
 
-export interface SceneProps { st: GS; onStand: (slot: number) => void; onChest: () => void }
-export function ExpoScene({ st, onStand, onChest }: SceneProps) {
-  const e = XP.isExpo(st.expo) ? st.expo : null;
+export interface SceneProps { st: GS; onStand: (slot: number) => void; onChest: () => void; held: HeldMap; hold: Hold }
+export function ExpoScene({ st, onStand, onChest, held, hold }: SceneProps) {
+  const real = XP.isExpo(st.expo) ? st.expo : null;
+  const e = useMemo(() => heldBack(real, held), [real, held]);   // the numbers shown: without what the visitors on their way have not given yet
   const views = useMemo(() => expoView(st), [st.expo, st.bag, st.stash, st.beasts]);
   const calm = useCalm();
   const [flights, setFlights] = useState<FlightT[]>([]);
@@ -187,7 +233,7 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
   const [amb, setAmb] = useState<Amb[]>([]);
   useEffect(() => { if (!calm) setAmb(makeAmb(5 + Math.floor(Math.random() * 3))); else setAmb([]); }, [calm]);
   const pieces = useRef<(HTMLElement | null)[]>([]), chest = useRef<HTMLButtonElement>(null), seen = useRef<number | null>(null), had = useRef(false);
-  const top = e && e.log.length ? e.log[e.log.length - 1].n : 0, has = !!e && XP.boxCount(e.box) > 0;
+  const top = e && e.log.length ? e.log[e.log.length - 1].n : 0, has = !!real && XP.boxCount(real.box) > 0, shows = !!e && XP.boxCount(e.box) > 0;
   // what the chest says without opening it: how many Linh Thạch, and how many gifts besides (weapons, pills, books)
   const stones = e ? e.box.stones : 0, gifts = e ? e.box.weapons.length + e.box.pills.reduce((a, n) => a + n, 0) + Object.values(e.box.books).reduce((a, n) => a + n, 0) : 0;
   const tapChest = () => {
@@ -206,7 +252,12 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
     if (top > seen.current) {
       const from = seen.current, fresh = log.filter((x) => x.n > from).slice(-3);
       seen.current = top;
-      setFlights((cur) => (cur.length >= MAX_LIVE ? cur : [...cur, ...fresh.map((x, k) => ({ key: `n${x.n}`, v: x, delay: 150 + k * 1500 }))].slice(0, MAX_LIVE)));
+      setFlights((cur) => {
+        // only the visitors that will really fly are held back; the rest (too many at once) count at once
+        const take = fresh.slice(0, Math.max(0, MAX_LIVE - cur.length));
+        if (take.length) hold((m) => Object.assign({}, m, ...take.map(heldOf)));
+        return [...cur, ...take.map((x, k) => ({ key: `n${x.n}`, v: x, delay: 150 + k * 1500, held: true }))];
+      });
     }
   }, [top, calm, !!e]);
   // the box was emptied (collected): the chest opens
@@ -217,7 +268,14 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
     }
     had.current = has;
   }, [has, calm]);
-  const done = useMemo(() => (key: string) => setFlights((cur) => cur.filter((x) => x.key !== key)), []);
+  // a visitor that has gone lets go of whatever of it is still held (its timers may have been cut short)
+  const done = useMemo(() => (key: string) => {
+    setFlights((cur) => cur.filter((x) => x.key !== key));
+    if (key[0] === 'n') { const n = key.slice(1); letGo(hold, (id) => id.startsWith(`${n}|`)); }
+  }, [hold]);
+  // leaving the stage (or calm turned on): nothing is held any more
+  useEffect(() => () => hold({}), [hold]);
+  useEffect(() => { if (calm) hold({}); }, [calm, hold]);
   return (
     <div className="xStage" role="group" aria-label="Triển lãm trên mây">
       <div className="xSky" />
@@ -231,12 +289,12 @@ export function ExpoScene({ st, onStand, onChest }: SceneProps) {
         const top = e && e.stands[i] ? XP.topReaction(e.stands[i]!.tally) : null;
         return top ? <div key={`t${i}`} className="xTally" style={{ left: `${p.x}%`, top: `${p.y}%` }} title={`${XP.REACTION_NAME[top.r]}: ${top.n}`}><span><ReactIcon r={top.r} size={18} />{shortNum(top.n)}</span></div> : null;
       })}
-      <button type="button" ref={chest} className={`xChest${has ? ' full' : ''}`} onClick={tapChest} aria-label={has ? `Thu quà khách để lại: ${fmt(stones)} Linh Thạch, ${gifts} món quà` : 'Hòm quà của khách, đang trống'}>
+      <button type="button" ref={chest} className={`xChest${shows ? ' full' : ''}`} onClick={tapChest} aria-label={has ? `Thu quà khách để lại: ${fmt(stones)} Linh Thạch, ${gifts} món quà` : 'Hòm quà của khách, đang trống'}>
         <span className="xChestIn"><CutImg id="expo_chest" className="xChestImg" fb={<span className="xChestPlate"><Icon name="chest" size={30} /></span>} /></span>
         {gifts > 0 && <i className="xChestN">{gifts > 99 ? '99+' : gifts}</i>}
         {stones > 0 && <span className="xChestTx"><Icon name="stone" size={11} />{fmt(stones)}</span>}
       </button>
-      {flights.map((f) => <Flight key={f.key} f={f} pieces={pieces} chest={chest} onDone={done} />)}
+      {flights.map((f) => <Flight key={f.key} f={f} pieces={pieces} chest={chest} onDone={done} hold={hold} />)}
       {burst > 0 && <Sparks key={burst} at={FL.CHEST_AT} delay={0} color="#ffd36b" count={12} seed={burst} />}
     </div>
   );

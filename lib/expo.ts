@@ -5,7 +5,7 @@
 // save always gets the same visitors. The server makes the visits on its tick (lib/game.ts runExpo); the browser only shows them and collects the box (the pieces below).
 //
 //   Who comes        visitorOf(seed, n): a kind of cultivator (C.NPC_TITLES), a name, a favourite element and how demanding they are (`bar`: the rarity they are used to).
-//   What they think  scoreOf(): the rarity of the piece against `bar`, a favourite element, what that kind of cultivator likes, a little luck. reactionOf(): love, wow, like, nothing, sad, angry.
+//   What they think  scoreOf(): the rarity of the piece against `bar`, a favourite element, what that kind of cultivator likes, a little luck, and one visitor in four is harsh. reactionOf(): love, wow, like, nothing, sad, angry.
 //   What they give   a share of what the piece is worth in Linh Thạch (love, wow, like only), and sometimes a gift that fits the kind of cultivator: a weapon, pills or a Bí Công.
 //   How often        one visitor about every 5 seconds while 3 or more stands are filled (a little quicker with more stands), up to what 12 offline hours bring. Pay is scaled to the pace (payScale).
 import * as C from './content';
@@ -47,12 +47,14 @@ export const payScale = (open: number): number => { const k = Math.max(MIN_OPEN,
 export interface Exhibit { kind: 'item' | 'beast'; tier: number; el: string; slot?: string; mut?: boolean; level: number; value: number }
 
 // ---- who comes
-export interface Visitor { who: { name: string; g: 'f' | 'm'; arch: string }; el: string; bar: number; gen: number }
+export interface Visitor { who: { name: string; g: 'f' | 'm'; arch: string }; el: string; bar: number; gen: number; harsh?: boolean }
+/** Out of 100 visitors, how many are hard to please (a critic, a jealous rival): whatever the piece, they mostly shrug, sigh or sneer. Without them a row of rare pieces only ever got love. */
+export const HARSH_PCT = 25, HARSH_COST = 6;
 const BARS = [1, 1, 2, 2, 2, 3];
 export function visitorOf(seed: number, n: number): Visitor {
   const key = `${seed}|expo|${n}`, arch = pick(C.NPC_TITLES, `xa|${key}`);
   const bar = Math.max(0, BARS[hash32(`xb|${key}`) % BARS.length] - (arch === 'Tán Tu' ? 1 : 0));   // a wandering rogue is easy to please
-  return { who: buyerNamed(key, arch), el: pick(C.EO, `xe|${key}`), bar, gen: 0.8 + (hash32(`xg|${key}`) % 5) * 0.1 };
+  return { who: buyerNamed(key, arch), el: pick(C.EO, `xe|${key}`), bar, gen: 0.8 + (hash32(`xg|${key}`) % 5) * 0.1, harsh: hash32(`xh|${key}`) % 100 < HARSH_PCT };
 }
 
 // ---- what they think
@@ -73,14 +75,16 @@ export function scoreOf(v: Visitor, x: Exhibit, key: string): number {
   let s = x.tier - v.bar + 3;
   if (x.el === v.el) s += 1;
   s += liking(v.who.arch, x);
+  if (v.harsh) s -= HARSH_COST;
   const luck = hash32(`xn|${key}`) % 4;
   return s + (luck === 0 ? -1 : luck === 3 ? 1 : 0);
 }
 export const reactionOf = (s: number): Reaction | null => (s >= 5 ? 'love' : s === 4 ? 'wow' : s === 3 ? 'like' : s === 2 ? null : s === 1 ? 'sad' : 'angry');
 
 // ---- what they give
-/** Share of the piece's worth, in hundredths of a percent. Ten times what it was at first (20, 12, 5): a full row of Thiên pieces earns about a third of their worth per hour. */
-export const STONE_BP: Partial<Record<Reaction, number>> = { love: 200, wow: 120, like: 50 };
+/** Share of the piece's worth, in hundredths of a percent. Ten times what it was at first (20, 12, 5), then a third more to make up for the harsh visitors (HARSH_PCT), who give nothing:
+ *  a full row of Thiên pieces earns about a third of their worth per hour. */
+export const STONE_BP: Partial<Record<Reaction, number>> = { love: 270, wow: 160, like: 65 };
 const STONE_MIN: Partial<Record<Reaction, number>> = { love: 20, wow: 10, like: 0 };
 /** What a reaction is worth before it is turned into whole Linh Thạch. */
 export const stoneShare = (r: Reaction | null, x: Exhibit, gen: number): number => {
@@ -94,7 +98,7 @@ export const stonesFor = (r: Reaction | null, x: Exhibit, gen: number, scale = 1
 };
 /** What each kind of cultivator gives when it is moved: weapons, pills or a Bí Công. */
 export const GIFT_OF: Record<string, 'weapon' | 'pill' | 'book'> = { 'Kiếm Tu': 'weapon', 'Thể Tu': 'weapon', 'Đan Sư': 'pill', 'Tán Tu': 'pill', 'Phù Sư': 'book', 'Ma Tu': 'book' };
-const GIFT_P: Partial<Record<Reaction, number>> = { love: 35, wow: 10 };   // per thousand: about two gifts an hour for a full row of Thiên pieces, and a gift is worth about what a few Linh Thạch gifts are
+const GIFT_P: Partial<Record<Reaction, number>> = { love: 47, wow: 13 };   // per thousand (a third more for the harsh visitors, as for the stones): about two gifts an hour for a full row of Thiên pieces, and a gift is worth about what a few Linh Thạch gifts are
 export interface GiftPlan { kind: 'weapon' | 'pill' | 'book'; tier: number }
 /** Does this reaction bring a gift (one per visit at most, decided by the best reaction), and of what tier? */
 export function giftOf(arch: string, r: Reaction | null, x: Exhibit, key: string, scale = 1): GiftPlan | null {
