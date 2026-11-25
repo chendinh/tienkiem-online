@@ -80,6 +80,23 @@ test('the fight is a hard contest at any size: neither always won nor always los
   for (let k = 1; k < st.length; k++) assert.ok(st[k] - st[k - 1] > R.STUN_GUARD, `stunned in rounds ${st.join(',')}`);
 });
 
+test('how often a group wins follows its size: 15% alone, 30% for 4 (never more), 40% for 6, 45% for 10, 50% at most', () => {
+  for (const [n, p] of [[1, 0.15], [4, 0.3], [6, 0.4], [10, 0.45], [20, 0.5], [60, 0.5], [200, 0.5]] as const) assert.ok(Math.abs(R.winChance(n) - p) < 1e-9, `n=${n}`);
+  for (let n = 1; n < 300; n++) assert.ok(R.winChance(n) <= 0.5 && R.winChance(n) >= R.winChance(Math.max(1, n - 1)), `n=${n}`);
+  // the days take turns: over any run of days the wins stay within two of the chance
+  for (const n of [4, 6, 10]) for (let len = 5; len <= 40; len += 5) for (let a = 0; a + len <= DAYS.length; a += 5) {
+    const w = DAYS.slice(a, a + len).filter((d) => R.winsOn(d, n)).length;
+    assert.ok(Math.abs(w - R.winChance(n) * len) <= 2.01, `n=${n}: ${w} wins in ${len} days from ${DAYS[a]}`);
+  }
+  // and the fight ends as the day decided
+  for (const n of [4, 10]) {
+    const fs_ = crowd(n);
+    let match = 0;
+    for (const d of DAYS) match += R.fight(R.bossOfDay(d), fs_, d).win === R.winsOn(d, n) ? 1 : 0;
+    assert.ok(match >= DAYS.length - 1, `n=${n}: ${match}/${DAYS.length} fights end as decided`);
+  }
+});
+
 test('rewards: by level, more for a win and for a bigger share, a Bí Kíp only for the best of a win', () => {
   const day = DAYS[3], boss = R.bossOfDay(day), fs_ = crowd(8);
   const res = R.fight(boss, fs_, day);

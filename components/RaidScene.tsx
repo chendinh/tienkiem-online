@@ -27,6 +27,8 @@ type Props =
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // techniques that fly from the caster (SkillFx plays them from the cultivator); the others appear on the Dị Thú, so a glowing orb carries them there first
 const FLYING = new Set(['bolt', 'arc', 'sweep', 'beam']);
+// How large the cultivators' blows on the Dị Thú are drawn (their bolts, sparks and techniques): twice the size they were (2026-11-26).
+const HIT_FX = 2;
 const DIRECTIONAL = new Set(['thrust', 'arrow', 'blade_wave', 'sound', 'phoenix', 'dragon', 'moon', 'shadow']);
 const fxOfSkill = (f: R.Fighter, k: number): { fx: SkillFx; color: string; s: ReturnType<typeof R.skillOfFighter> } => {
   const s = R.skillOfFighter(f, k);
@@ -426,7 +428,7 @@ export function RaidScene(p: Props) {
       if (!landing && slot !== undefined) { const c0 = card.current[slot]; c0?.classList.add('act'); later(650, () => c0?.classList.remove('act')); }
       if (!l || plain(s) || FLYING.has(rec.m) === landing) return;
       const to = aimOf(s.q), from0 = landing ? to : chestAt(s.i, s.t) || to;
-      playSkill({ layer: l, fx: rec, color, from: from0, to, k: 0.85, level: lvl, crit: !!s.c, scale: s.c ? 1.3 : 1.75 });
+      playSkill({ layer: l, fx: rec, color, from: from0, to, k: 0.85, level: lvl, crit: !!s.c, scale: (s.c ? 1.3 : 1.75) * HIT_FX });
     };
     const outro = (live: boolean) => {
       const v = loop.current;
@@ -557,19 +559,19 @@ export function RaidScene(p: Props) {
         const color = shotColor(s), g = glowSprite(color), dst = aimOf(s.q);
         if (t > s.land) {   // the spark on the Dị Thú
           const v = (t - s.land) / (big ? 320 : 200); if (v >= 1) continue;
-          ctx.globalAlpha = (1 - v) * 0.9; const z = (big ? 40 + 90 * v : 14 + 34 * v) * sc; put(g, dst.x, dst.y, 0, z, z); ctx.globalAlpha = 1;
+          ctx.globalAlpha = (1 - v) * 0.9; const z = (big ? 40 + 90 * v : 14 + 34 * v) * sc * HIT_FX; put(g, dst.x, dst.y, 0, z, z); ctx.globalAlpha = 1;
           continue;
         }
         let src = srcC.get(s.q);
         if (!src) { src = s.i >= 0 ? (chestAt(s.i, s.t) || dst) : { x: (0.06 + unit(hash32(`off|${s.q}`), 0) * 0.88) * W, y: H * 1.04 }; srcC.set(s.q, src); }
         const u = (t - s.t) / (s.land - s.t), dx = dst.x - src.x, dy = dst.y - src.y, d = Math.hypot(dx, dy) || 1;
-        const side = ((s.q & 1) ? 1 : -1) * (big ? 34 : 16) * sc * Math.sin(Math.PI * u);
+        const side = ((s.q & 1) ? 1 : -1) * (big ? 34 : 16) * sc * HIT_FX * Math.sin(Math.PI * u);
         const x = src.x + dx * u + (-dy / d) * side, y = src.y + dy * u + (dx / d) * side, ang = Math.atan2(dy, dx);
         if (big) {
-          for (let k = 4; k >= 1; k--) { const uu = Math.max(0, u - k * 0.05), sd = ((s.q & 1) ? 1 : -1) * 34 * sc * Math.sin(Math.PI * uu); ctx.globalAlpha = 0.5 - k * 0.1; const z = (40 - k * 5) * sc; put(g, src.x + dx * uu + (-dy / d) * sd, src.y + dy * uu + (dx / d) * sd, 0, z, z); }
-          ctx.globalAlpha = 1; put(g, x, y, 0, 56 * sc, 56 * sc); put(g, x, y, 0, 26 * sc, 26 * sc);
+          for (let k = 4; k >= 1; k--) { const uu = Math.max(0, u - k * 0.05), sd = ((s.q & 1) ? 1 : -1) * 34 * sc * HIT_FX * Math.sin(Math.PI * uu); ctx.globalAlpha = 0.5 - k * 0.1; const z = (40 - k * 5) * sc * HIT_FX; put(g, src.x + dx * uu + (-dy / d) * sd, src.y + dy * uu + (dx / d) * sd, 0, z, z); }
+          ctx.globalAlpha = 1; put(g, x, y, 0, 56 * sc * HIT_FX, 56 * sc * HIT_FX); put(g, x, y, 0, 26 * sc * HIT_FX, 26 * sc * HIT_FX);
         } else {
-          const mine = s.i === film.me, len = (mine ? 40 : 32) * sc, wid = (mine ? 12 : 10) * sc;
+          const mine = s.i === film.me, len = (mine ? 40 : 32) * sc * HIT_FX, wid = (mine ? 12 : 10) * sc * HIT_FX;
           put(g, x - Math.cos(ang) * len * 0.45, y - Math.sin(ang) * len * 0.45, ang, len * 1.6, wid * 0.8);   // the trail
           put(mine ? glowSprite('#ffe08a') : g, x, y, ang, len, wid);
         }

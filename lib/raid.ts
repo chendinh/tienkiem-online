@@ -137,15 +137,34 @@ export interface Result { win: boolean; rounds: Round[]; max: number; dmg: numbe
 export const MAX_ROUNDS = 14;
 export const RAGE_AT = 0.3;      // under this share of its Sinh Lực the Dị Thú goes berserk
 export const RAGE_MULT = 1.3;
-// How hard it is (tuned on simulated fights, 2026-11-25: a group of any size wins about 30–50% of the days, alone 10–20%; from a few (well geared, with support) to
-// half (new players with their starting techniques) of the cultivators fall; the fights go to the last rounds, and a Dị Thú that flees has about a tenth of its Sinh Lực left).
+// How hard it is. How often a group wins is set by its size (WIN_CURVE, 2026-11-26): alone 15% of the days, 4 together 30%, 6: 40%, 10: 45%, 20 and more 50%, never
+// more; in between on a straight line. The day decides first whether the group wins, the Dị Thú's Sinh Lực is then set so the fight ends that way (bossStats). From a
+// few (well geared, with support) to half (new players with their starting techniques) of the cultivators fall; the fights go to the last rounds.
+export const WIN_CURVE: readonly (readonly [number, number])[] = [[1, 0.15], [4, 0.3], [6, 0.4], [10, 0.45], [20, 0.5]];
+export function winChance(n: number): number {
+  const c = WIN_CURVE;
+  if (n <= c[0][0]) return c[0][1];
+  for (let k = 1; k < c.length; k++) if (n <= c[k][0]) { const [a, pa] = c[k - 1], [b, pb] = c[k]; return pa + ((pb - pa) * (n - a)) / (b - a); }
+  return c[c.length - 1][1];
+}
+/** Whether the group wins on this day: the days take turns (a golden-ratio sequence over the days, not a die), so over any run of days a group wins as often as
+ *  winChance says, give or take two wins (measured over ten years, runs of 7 to 60 days): no lucky streak above it, at most two wins in a row. */
+export function winsOn(day: string, n: number): boolean {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  const u = Number.isFinite(t) ? (((Math.round(t / 86400000) * 0.6180339887498949) % 1) + 1) % 1 : rng(`raid|win|${day}`)();
+  return u < winChance(n);
+}
 export const BOSS_POWER = 0.7;   // all the Dị Thú's blows, as a share of each target's own Sinh Lực (see battle)
-// The Dị Thú's Sinh Lực: a share (HP_SHARE, up to HP_SPREAD more, drawn from the day) of what the group deals in a whole fight against a Dị Thú that cannot fall (bossStats)
-export const HP_SHARE = 0.84, HP_SPREAD = 0.3;
+// The Dị Thú's Sinh Lực: a share of what the group deals in this very fight against a Dị Thú that cannot fall: drawn in WIN_SHARE on a day it is won (it falls late in
+// the fight), in LOSE_SHARE on a day it is lost (it flees with a little of its Sinh Lực left); then the fight is fought, and the share moved until it ends as decided.
+export const WIN_SHARE: readonly [number, number] = [0.74, 0.93], LOSE_SHARE: readonly [number, number] = [1.05, 1.25];
 // A group that keeps its shields up, weakens the Dị Thú and heals would take next to nothing: the Dị Thú's blows grow by what that support took away in the measuring
 // fight, to the power SUPPORT_PAYS, at most TEAM_POW times (support still pays: heals and shields work hardest when the blows are hardest). A group with no support
 // (new players: starting techniques only) gets no more.
 export const SUPPORT_PAYS = 1.0, TEAM_POW = 6;
+// The cultivators' blows in a Phó Bản count this many times (2026-11-26: bigger numbers on the stage). The Dị Thú's Sinh Lực is measured from them (bossStats), so it
+// grows with them: the same odds, the same fight.
+export const HIT_MULT = 2;
 export const STUN_GUARD = 3;   // after losing a turn to a stun the Dị Thú shakes stuns off for this many rounds
 export const NOVA_EVERY = 4;
 export const STRIKE_FRAC = 0.2, SWEEP_FRAC = 0.45;     // its great attack comes in rounds 3, 7, 11 (then every 4)
@@ -179,26 +198,36 @@ export function expectedPerRound(f: Fighter, boss: Pick<Boss, 'el'>, def: number
     const s = skillOfFighter(f, pick); if (s.cd) cd[pick] = r + s.cd + 1;
     sum += f.atk * best * crit;
   }
-  return (sum / 12) * B.combatPace;
+  return (sum / 12) * B.combatPace * HIT_MULT;
 }
-/** The Dị Thú's Sinh Lực and Phòng Ngự for these fighters. The Sinh Lực is measured, not guessed: the same group first fights a Dị Thú that cannot fall (its techniques,
- *  its buffs and heals, its losses to the Dị Thú's blows all count, whatever its size), and the Dị Thú gets a share of what they dealt in the whole fight. So a group of any size
- *  wins about as often: when the day's share is low and the group fights well. */
+/** The Dị Thú's Sinh Lực and Phòng Ngự for these fighters. The Sinh Lực is measured, not guessed: the group first fights a Dị Thú that cannot fall (its techniques, its
+ *  buffs and heals, its losses to the Dị Thú's blows all count, whatever its size), and the Dị Thú gets a share of what they dealt, chosen so the day ends as winsOn
+ *  decided (checked by fighting it). So the odds are winChance's, whatever the group's strength. */
 export function bossStats(fs: Fighter[], day: string, boss: Boss) {
   const r = rng(`raid|hp|${day}`);
   const avgAtk = fs.reduce((a, f) => a + f.atk, 0) / Math.max(1, fs.length);
   const def = Math.round(avgAtk * 0.55);
-  const dry = battle(boss, fs, `${day}|dry`, Infinity, def, 1), dealt = dry.dmg.reduce((a, d) => a + d, 0);
+  const dry = battle(boss, fs, `${day}|dry`, Infinity, def, 1);
   // how much of its blows the group's shields, weakening and heals took away in that fight: the Dị Thú hits that much harder (part of it: support still pays)
   const kept = dry.press.want > 0 ? clamp((dry.press.took - dry.press.healed) / dry.press.want, 0.15, 1) : 1;
-  return { hp: Math.max(300, Math.round(dealt * (HP_SHARE + r() * HP_SPREAD))), def, pow: Math.min(TEAM_POW, (1 / kept) ** SUPPORT_PAYS) };
+  const pow = Math.min(TEAM_POW, (1 / kept) ** SUPPORT_PAYS);
+  // the same fight (same day, same blows) against a Dị Thú that cannot fall: what this group deals in it
+  const win = winsOn(day, fs.length), full = battle(boss, fs, day, Infinity, def, pow), dealt = full.dmg.reduce((a, d) => a + d, 0);
+  const [lo, hi] = win ? WIN_SHARE : LOSE_SHARE;
+  let share = lo + r() * (hi - lo), hp = 0;
+  for (let k = 0; k < 8; k++) {
+    hp = Math.max(100 * HIT_MULT, Math.round(dealt * share));
+    if (battle(boss, fs, day, hp, def, pow).win === win) break;
+    share *= win ? 0.9 : 1.1;   // a Dị Thú gone berserk can turn a fight: a little frailer (sturdier) and again
+  }
+  return { hp, def, pow, win };
 }
 
 /** The whole fight. Fighters act fastest first, then the Dị Thú answers. Deterministic from the day and the fighters. hpMul (the demo stage only, lib/raiddemo.ts)
  *  makes the Dị Thú sturdier or frailer, to show a given ending. */
 export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result {
   const bs = bossStats(fs, day, boss);
-  const { win, rounds, max, dmg, ko, mvp } = battle(boss, fs, day, hpMul === 1 ? bs.hp : Math.max(300, Math.round(bs.hp * hpMul)), bs.def, bs.pow);
+  const { win, rounds, max, dmg, ko, mvp } = battle(boss, fs, day, hpMul === 1 ? bs.hp : Math.max(100 * HIT_MULT, Math.round(bs.hp * hpMul)), bs.def, bs.pow);
   return { win, rounds, max, dmg, ko, mvp };
 }
 /** The fight against a Dị Thú of this Sinh Lực and Phòng Ngự, its blows times pow. Also how hard it pressed: the Sinh Lực its blows would have taken (want), what they took
@@ -252,7 +281,7 @@ function battle(boss: Boss, fs: Fighter[], seed: string, max: number, bossDef: n
       for (let h = 0; h < (s.hits || 1); h++) {
         const v = 0.88 + rnd() * 0.24, cr = rnd() < (f.crit + (critUp.until >= r ? critUp.amt : 0) + (s.crit || 0)) / 100;
         const atk = f.atk * up;
-        d += Math.max(1, Math.round(atk * s.coef * elMult(s.el || f.el, boss.el) * v * (atk / (atk + dd)) * (cr ? f.critdmg / 100 : 1) * B.combatPace));
+        d += Math.max(1, Math.round(atk * s.coef * elMult(s.el || f.el, boss.el) * v * (atk / (atk + dd)) * (cr ? f.critdmg / 100 : 1) * B.combatPace * HIT_MULT));
         c = c || cr;
       }
       hp = Math.max(0, hp - d); dmg[i] += d;
