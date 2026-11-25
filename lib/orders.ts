@@ -1,9 +1,10 @@
-// Khách Cầu Mua (Phường Thị): cultivators come to the market asking for something, and the player hands over what is spare in the bag, a piece at a time.
+// Công việc "Tìm đồ" (Phường Thị): cultivators come to the market asking for something, and the player hands over what is spare in the bag, a piece at a time.
 // A buyer stays until everything asked for has been handed over; only then does a new buyer take the place. There are six places on the board:
-//   one  x3  a single item (a kind of item and a rarity; Huyền names a slot and an element instead of a kind), paid 3 times what dissolving it gives
-//   set  x2  a set of 3 or 5 DIFFERENT pieces, one for each of the slots named, all of one rarity (Phàm or Hoàng), any kind of item; every piece is paid 3 times
-//            what dissolving gives as it is handed over, and when the set is complete there is a bonus (1 or 3 times the whole) and goods on top
-//   vip  x1  a guest who wants one Địa (rarely Thiên) item of an element, any slot, paid 2.5 times, plus better goods
+//   set  x3  a set of 3 or 5 DIFFERENT pieces, one for each of the slots named, all of one rarity (Phàm, Hoàng, or a set of 3 of Huyền), any kind of item; every piece is paid
+//            3 times what dissolving gives as it is handed over, and when the set is complete there is a bonus (1 or 3 times the whole) and goods on top
+//   one  x2  a single Địa (rarely Thiên) item. Only these two rarities are ever asked for one at a time, and always with an element, plus a slot or a least level (or neither); paid 3 times
+//   vip  x1  a guest who wants one Địa or Thiên item of an element and of a least level (and sometimes a slot), paid 4 times, plus better goods
+// A single piece of a low rarity is never asked: those only come as a set.
 // Handing over is "có bao nhiêu đưa bấy nhiêu": each piece is paid on the spot and ticked off, so nothing is lost if the player stops half way or sends the buyer away.
 // The buyers are made from the world seed and a running number alone (no random number is drawn from the game's streams), and they are written into the save,
 // so server, browser and offline settling agree and the browser needs no seed. A finished buyer is replaced on the server's next tick (lib/game.ts ensureOrders).
@@ -12,8 +13,8 @@ import * as A from './arts';
 import type { Item } from './game';
 
 export type OrderKind = 'one' | 'set' | 'vip';
-// What an item must be to count: `tier` always; the rest only when given. `cls` is the môn of a weapon (lib/arts.ts), `el` an element.
-export interface Want { tier: number; slot?: string; base?: string; cls?: string; el?: string }
+// What an item must be to count: `tier` always; the rest only when given. `cls` is the môn of a weapon (lib/arts.ts), `el` an element, `minLv` the least level of the item.
+export interface Want { tier: number; slot?: string; base?: string; cls?: string; el?: string; minLv?: number }
 // Goods paid on top of the Linh Thạch (they are the shop's own goods: Khế Ước Phù, Hồi Khí Đan, Phá Cảnh Đan, Độ Kiếp Phù, or a material).
 export type Extra = { kind: 'taming' | 'hp' | 'bt'; idx: number; n: number } | { kind: 'trib'; n: number } | { kind: 'mat'; id: string; n: number };
 export interface Buyer { name: string; g: 'f' | 'm'; arch: string }
@@ -21,11 +22,11 @@ export interface Part { want: Want; got?: boolean }
 // `mult` is the pay for each piece as a percentage of what dissolving it would give (300 = three times); `bonus` the same for the whole of what was handed over, paid when the last piece comes.
 // `sum` is the dissolve worth handed over so far and `paid` the Linh Thạch paid so far. `done`: everything handed over; `left`: sent away. Either one means the place is given to a new buyer.
 export interface Order { id: string; kind: OrderKind; who: Buyer; line: number; parts: Part[]; mult: number; bonus: number; sum: number; paid: number; extra?: Extra; done: boolean; left?: boolean }
-export interface Board { v: 2; n: number; list: Order[] }
+export interface Board { v: 3; n: number; list: Order[] }
 
-export const LAYOUT: OrderKind[] = ['one', 'one', 'one', 'set', 'set', 'vip'];
-export const MULT = { part: 300, vip: 250, bonus3: 100, bonus5: 300 } as const;
-export const BOARD_VERSION = 2;
+export const LAYOUT: OrderKind[] = ['set', 'set', 'set', 'one', 'one', 'vip'];
+export const MULT = { part: 300, vip: 400, bonus3: 100, bonus5: 300 } as const;
+export const BOARD_VERSION = 3;
 
 export const hash32 = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 2246822507); h ^= h >>> 13; h = Math.imul(h, 3266489909); h ^= h >>> 16; return h >>> 0; };
 export const pick = <T,>(arr: T[], key: string): T => arr[hash32(key) % arr.length];
@@ -49,21 +50,34 @@ const buyerFor = (key: string, kind: OrderKind, want: Want): Buyer => buyerNamed
 
 // ---- what is asked
 const elFor = (key: string, week?: string) => (week && C.EO.includes(week) ? week : pick(C.EO, `ordel|${key}`));
-function wantOne(key: string, week?: string): Want {
-  const r = hash32(`ordt|${key}`) % 100, tier = r < 40 ? 0 : r < 90 ? 1 : 2;
-  const slot = pick(C.SLOTS, `ordslot|${key}`);
-  if (tier === 2) return { tier, slot, el: elFor(key, week) };   // a Huyền piece is asked by slot and element only (the week's element more often: the theme of the week is what the market wants)
-  return slot === 'Weapon' ? { tier, slot, cls: pick(A.ARTS, `ordcls|${key}`).id } : { tier, slot, base: pick(C.SLOT_BASE[slot], `ordbase|${key}`) };
+/** A least level for an item that can still be found: between half and 85% of the top level of the best zone the player may enter. */
+export function minLvFor(key: string, level: number): number {
+  const top = Math.max(2, ...C.ZONES.filter((z) => z.minLevel <= level).map((z) => z.lv[1]));
+  return Math.max(2, Math.round(top * (0.5 + 0.35 * ((hash32(`ordlv|${key}`) % 100) / 100))));
 }
+// A single piece is only asked in Địa (90%) or Thiên (10%), always with an element (the week's more often: the theme of the week is what the market wants), and then
+// a slot (40%), a least level (35%) or nothing more (25%): the rarer the piece, the more it is worth keeping an eye on the element and the level of what drops.
+function wantOne(key: string, week?: string, level = 1): Want {
+  const w: Want = { tier: hash32(`ordt|${key}`) % 100 < 90 ? 3 : 4, el: elFor(key, week) };
+  const r = hash32(`ordx2|${key}`) % 100;
+  if (r < 40) w.slot = pick(C.SLOTS, `ordslot|${key}`); else if (r < 75) w.minLv = minLvFor(key, level);
+  return w;
+}
+// Sets are where the low rarities are asked: 3 or 5 different pieces of Phàm (45%) or Hoàng (45%), or 3 of Huyền (10%).
 function wantSet(key: string): Want[] {
-  const tier = hash32(`ordt|${key}`) % 100 < 60 ? 0 : 1, n = hash32(`ordn|${key}`) % 2 ? 5 : 3;
+  const r = hash32(`ordt|${key}`) % 100, tier = r < 45 ? 0 : r < 90 ? 1 : 2, n = tier === 2 ? 3 : hash32(`ordn|${key}`) % 2 ? 5 : 3;
   return distinct(C.SLOTS, n, `ordslots|${key}`).map((slot) => ({ tier, slot }));
 }
-const wantVip = (key: string, week?: string): Want => ({ tier: hash32(`ordt|${key}`) % 100 < 90 ? 3 : 4, el: elFor(key, week) });
-const wantsKey = (parts: Part[]) => parts.map((p) => [p.want.tier, p.want.slot, p.want.base, p.want.cls, p.want.el].join('|')).sort().join(';');
+// The guest: Địa (80%) or Thiên (20%), an element and a least level, and a slot too in 40%.
+function wantVip(key: string, week?: string, level = 1): Want {
+  const w: Want = { tier: hash32(`ordt|${key}`) % 100 < 80 ? 3 : 4, el: elFor(key, week), minLv: minLvFor(key, level) };
+  if (hash32(`ordx2|${key}`) % 100 < 40) w.slot = pick(C.SLOTS, `ordslot|${key}`);
+  return w;
+}
+const wantsKey = (parts: Part[]) => parts.map((p) => [p.want.tier, p.want.slot, p.want.base, p.want.cls, p.want.el, p.want.minLv].join('|')).sort().join(';');
 
 // ---- goods on top (all are things the shop sells; the worth stays small next to the shop price of the same thing)
-const ONE_EXTRA: Extra[] = [{ kind: 'hp', idx: 0, n: 2 }, { kind: 'taming', idx: 0, n: 2 }, { kind: 'mat', id: 'linhthao', n: 3 }];
+const ONE_EXTRA: Extra[] = [{ kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 1, n: 2 }, { kind: 'mat', id: 'ngoc', n: 4 }, { kind: 'mat', id: 'hoatinh', n: 3 }];
 const SET_EXTRA: Extra[] = [{ kind: 'taming', idx: 0, n: 3 }, { kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 0, n: 3 }, { kind: 'hp', idx: 1, n: 2 }, { kind: 'mat', id: 'truc', n: 4 }, { kind: 'mat', id: 'ngoc', n: 3 }];
 const vipExtras = (realm: number): Extra[] => [{ kind: 'taming', idx: 2, n: 2 }, { kind: 'hp', idx: 2, n: 3 }, { kind: 'trib', n: 1 }, ...(realm >= 0 && realm <= 1 ? [{ kind: 'bt' as const, idx: realm, n: 1 }] : [])];
 // The shop's id of a piece of goods (its name, price and picture are the shop's), and the number of it.
@@ -76,7 +90,7 @@ export const extraArt = (x: Extra): string => (x.kind === 'mat' ? C.matArt(x.id)
 
 // ---- the words of a buyer: a line for each kind, one of them is chosen by the key
 export const ONE_LINES = [
-  'Ta còn thiếu đúng một món cho đủ bộ, ngươi có thì nhường lại, ta trả hậu.',
+  'Ta đang săn một món báu đúng hệ, ngươi có thì nhường lại, ta trả hậu.',
   'Gấp lắm, ai có xin nhượng giúp, ta không cò kè.',
   'Tìm mãi chưa thấy món này, ngươi mà có là cứu ta một phen.',
   'Sư phụ dặn phải tìm cho bằng được, giá cả cứ nói.',
@@ -97,21 +111,21 @@ export const lineOf = (o: Pick<Order, 'kind' | 'line'>): string => { const l = o
 // ---- the board
 export const isOpen = (o: Order): boolean => !o.done && !o.left;
 /** One new buyer for place `i` of the board; `n` is the running number of buyers made so far (it is what makes every buyer different). `others` are the buyers there now, none of them is asked the same thing. */
-export function makeOrder(i: number, n: number, seed: number | string, others: Order[], opt: { week?: string; realm?: number } = {}): Order {
+export function makeOrder(i: number, n: number, seed: number | string, others: Order[], opt: { week?: string; realm?: number; level?: number } = {}): Order {
   const kind = LAYOUT[i % LAYOUT.length];
   let parts: Part[] = [], key = '';
   for (let a = 0; a < 8; a++) {
     key = `${seed}|${i}|${n}|${a}`;
-    parts = (kind === 'set' ? wantSet(key) : [kind === 'vip' ? wantVip(key, opt.week) : wantOne(key, opt.week)]).map((want) => ({ want }));
+    parts = (kind === 'set' ? wantSet(key) : [kind === 'vip' ? wantVip(key, opt.week, opt.level) : wantOne(key, opt.week, opt.level)]).map((want) => ({ want }));
     if (!others.some((o) => isOpen(o) && wantsKey(o.parts) === wantsKey(parts))) break;
   }
   const o: Order = { id: `${kind}${i}-${n}`, kind, who: buyerFor(key, kind, parts[0].want), line: hash32(`ordline|${key}`), parts, mult: MULT.part, bonus: 0, sum: 0, paid: 0, done: false };
   if (kind === 'set') { o.bonus = parts.length === 5 ? MULT.bonus5 : MULT.bonus3; o.extra = pick(SET_EXTRA, `ordx|${key}`); }
-  if (kind === 'one' && hash32(`ordx?|${key}`) % 100 < 25) o.extra = pick(ONE_EXTRA, `ordx|${key}`);
+  if (kind === 'one') o.extra = pick(ONE_EXTRA, `ordx|${key}`);
   if (kind === 'vip') { o.mult = MULT.vip; o.extra = pick(vipExtras(opt.realm ?? 9), `ordx|${key}`); }
   return o;
 }
-export function newBoard(seed: number | string, opt: { week?: string; realm?: number } = {}): Board {
+export function newBoard(seed: number | string, opt: { week?: string; realm?: number; level?: number } = {}): Board {
   const list: Order[] = [];
   LAYOUT.forEach((_, i) => list.push(makeOrder(i, i, seed, list, opt)));
   return { v: BOARD_VERSION, n: LAYOUT.length, list };
@@ -121,8 +135,9 @@ export const isBoard = (b: any): b is Board => !!b && b.v === BOARD_VERSION && A
 export const progress = (o: Order): { got: number; total: number } => ({ got: o.parts.filter((p) => p.got).length, total: o.parts.length });
 
 // ---- matching
-export function matchesWant(w: Want, it: Pick<Item, 'slot' | 'base' | 'tier' | 'el'>): boolean {
+export function matchesWant(w: Want, it: Pick<Item, 'slot' | 'base' | 'tier' | 'el'> & { level?: number }): boolean {
   if (it.tier !== w.tier) return false;
+  if (w.minLv && (it.level ?? 0) < w.minLv) return false;
   if (w.slot && it.slot !== w.slot) return false;
   if (w.base && it.base !== w.base) return false;
   if (w.cls && A.weaponClass(it.base) !== w.cls) return false;
@@ -140,23 +155,11 @@ export function assign(o: Order, items: Item[]): number[] | string {
   return out;
 }
 /** The open parts that this item would fill. */
-export function wantedBy(b: Board | undefined, it: Pick<Item, 'slot' | 'base' | 'tier' | 'el'>): { order: Order; part: number }[] {
+export function wantedBy(b: Board | undefined, it: Pick<Item, 'slot' | 'base' | 'tier' | 'el'> & { level?: number }): { order: Order; part: number }[] {
   const out: { order: Order; part: number }[] = [];
   if (!isBoard(b)) return out;
   for (const o of b.list) if (isOpen(o)) o.parts.forEach((p, part) => { if (!p.got && matchesWant(p.want, it)) out.push({ order: o, part }); });
   return out;
-}
-/** What the buyers wait for is kept from the cleaning ("Dọn túi"): for every open part, the weakest of the pieces held that fit it (a locked piece is kept anyway). */
-export function keepIds(b: Board | undefined, held: Item[]): Set<number> {
-  const keep = new Set<number>();
-  if (!isBoard(b)) return keep;
-  for (const o of b.list) if (isOpen(o)) for (const p of o.parts) {
-    if (p.got) continue;
-    const fit = held.filter((x) => matchesWant(p.want, x));
-    if (!fit.length || fit.some((x) => x.locked)) continue;
-    keep.add(fit.reduce((a, x) => (x.power < a.power || (x.power === a.power && x.id < a.id) ? x : a)).id);
-  }
-  return keep;
 }
 /** A new item arrives: does a buyer wait for it, and nothing held fits that part yet? Then auto-dissolve leaves it alone. */
 export function keepNew(b: Board | undefined, held: Item[], x: Item): boolean {
@@ -170,7 +173,7 @@ export const payFor = (mult: number, dissolveSum: number): number => Math.floor(
 /** What one part asks for, in words. */
 export function partText(w: Want): string {
   const what = w.base || (w.cls ? `vũ khí ${A.ART(w.cls).name}` : w.slot ? C.SLOT_VI[w.slot] : 'pháp khí');
-  return `${what} hạng ${C.RARITY[w.tier]}${w.el ? `, hệ ${w.el}` : ''}`;
+  return `${what} hạng ${C.RARITY[w.tier]}${w.el ? `, hệ ${w.el}` : ''}${w.minLv ? `, cấp ${w.minLv} trở lên` : ''}`;
 }
 /** The short name of what one part asks for (under its picture on a card). */
 export const partShort = (w: Want): string => w.base || (w.cls ? `Vũ khí ${A.ART(w.cls).name}` : w.slot ? C.SLOT_VI[w.slot] : 'Pháp khí');

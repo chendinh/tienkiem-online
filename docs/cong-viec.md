@@ -10,13 +10,13 @@ Vài tu sĩ đến Phường Thị nhờ tìm đồ cụ thể. Người chơi c
 
 ### Luật
 
-Bảng khách luôn có 6 chỗ: 3 khách lẻ, 2 khách gom bộ, 1 khách quý.
+Bảng khách luôn có 6 chỗ: 3 khách gom bộ, 2 khách lẻ, 1 khách quý. **Đồ hạng thấp chỉ được hỏi theo bộ (3 hoặc 5 món). Hỏi một món lẻ thì chỉ có hạng Địa và Thiên, luôn kèm hệ.**
 
 | Loại | Hỏi gì | Trả |
 | --- | --- | --- |
-| Khách lẻ (`one`) | 1 món hạng Phàm (40%), Hoàng (50%) hoặc Huyền (10%). Phàm và Hoàng hỏi đúng tên món (vũ khí thì hỏi theo môn). Huyền hỏi theo ô và hệ, không hỏi tên món (hệ của tuần được hỏi nhiều hơn) | gấp 3 lần giá phân giải. 25% kèm quà |
-| Khách gom bộ (`set`) | 3 hoặc 5 món khác nhau, mỗi ô một món, cùng một hạng (Phàm 60%, Hoàng 40%), loại món nào cũng được | mỗi món gấp 3 lần ngay lúc giao. Giao đủ thì thưởng thêm gấp 1 lần (bộ 3) hoặc 3 lần (bộ 5) trên tổng, và luôn có quà |
-| Khách quý (`vip`) | 1 món hạng Địa (90%) hoặc Thiên (10%), chỉ hỏi hệ, ô nào cũng được | gấp 2,5 lần, luôn có quà (Khế Ước Phù hạng Địa, Hồi Khí Đan hạng 3, Độ Kiếp Phù, hoặc Phá Cảnh Đan khi cảnh giới còn thấp) |
+| Khách lẻ (`one`) | 1 món hạng Địa (90%) hoặc Thiên (10%), luôn kèm **hệ** (hệ của tuần được hỏi nhiều hơn), và thêm một điều kiện: ô cụ thể (40%), **cấp từ N trở lên** (35%), hoặc không thêm gì (25%) | mỗi món gấp 3 lần giá phân giải, luôn có quà (Khế Ước Phù hạng Hoàng hay Huyền, Hồi Khí Đan hạng 2, Hàn Ngọc Tủy hoặc Hỏa Tinh Thạch) |
+| Khách gom bộ (`set`) | 3 hoặc 5 món khác nhau, mỗi ô một món, cùng một hạng (Phàm 45%, Hoàng 45%, hoặc bộ 3 món hạng Huyền 10%), loại món nào cũng được | mỗi món gấp 3 lần ngay lúc giao. Giao đủ thì thưởng thêm gấp 1 lần (bộ 3) hoặc 3 lần (bộ 5) trên tổng, và luôn có quà |
+| Khách quý (`vip`) | 1 món hạng Địa (80%) hoặc Thiên (20%), kèm hệ **và cấp từ N trở lên**, thêm ô cụ thể trong 40% | gấp 4 lần, luôn có quà (Khế Ước Phù hạng Địa, Hồi Khí Đan hạng 3, Độ Kiếp Phù, hoặc Phá Cảnh Đan khi còn ở hai cảnh giới đầu) |
 
 - Khách **ở lại đến khi giao đủ**, không đổi theo ngày. Xong một khách thì chỗ đó có khách mới (máy chủ thay ở tick kế tiếp).
 - Giao nộp là "có bao nhiêu đưa bấy nhiêu": mỗi món giao được trả ngay và đánh dấu xong phần đó. Dừng giữa chừng không mất gì.
@@ -26,11 +26,11 @@ Bảng khách luôn có 6 chỗ: 3 khách lẻ, 2 khách gom bộ, 1 khách quý
 
 ### Chừa đồ cho khách
 
-Đồ khách cần không bị phân giải mất:
+Đồ khách cần được nhận ra, nhưng việc dọn không bị ép chừa gì:
 
 - **Nhãn trong túi.** Món hợp với một phần khách đang cần có biểu tượng cuộn giấy ở góc ô. Mở món lên có nút "Giao cho khách" (giao ngay, hỏi lại nếu món đó mạnh hơn đồ đang mặc).
 - **Tự phân giải** (`dissolveMax`) chừa lại món vừa nhặt nếu khách đang cần và trong túi/kho chưa có món nào hợp phần đó.
-- **Dọn túi** chừa lại món yếu nhất hợp với mỗi phần khách đang cần (`keepIds` trong `lib/orders.ts`), và thông báo "giữ lại N món công việc Tìm đồ đang cần".
+- **Dọn túi** và **Bán nhanh các con dư** dọn hết như từ trước đến giờ, không phân biệt đồ hay thú đó có khách chờ hay không, để người không chơi Công việc không phải gánh gì thêm. Ai chơi thì tự khóa món cần giữ.
 - Phân giải tay từng món thì không bị chặn.
 
 ### Cách chạy
@@ -40,12 +40,20 @@ Bảng khách luôn có 6 chỗ: 3 khách lẻ, 2 khách gom bộ, 1 khách quý
 - `lib/intents.ts`: `fillOrder` và `dismissOrder` là intent thuần, trình duyệt chạy ngay như máy chủ, máy chủ có tiếng nói cuối. Trình duyệt chỉ đánh dấu khách xong, khách mới xuất hiện ở lần cập nhật kế tiếp từ máy chủ. `forkState` trong `components/Game.tsx` sao chép cả `orders`.
 - `components/Jobs.tsx`: cửa sổ Công việc và danh sách `JOB_KINDS`.
 - `components/Orders.tsx`: bảng của loại Tìm đồ. Mỗi thẻ có các ô cần giao (có dấu ✓ khi đã giao, số món hợp trong túi), "Giao nộp" mở danh sách món hợp từng phần (món yếu nhất, không phải đồ nâng cấp, được chọn sẵn), bấm Giao. Thành công không hiện thông báo.
-- `components/Equip.tsx`: nhãn trên ô túi, nút "Giao cho khách" trong cửa sổ món, và `Dọn túi` chừa món khách cần.
+- `components/Equip.tsx`: nhãn trên ô túi và nút "Giao cho khách" trong cửa sổ món.
 - Test: `tests/orders.test.ts`.
 
 ### Hiệu ứng khi hoàn thành
 
-Giao món cuối cùng (cả bốn loại việc) thì: một con dấu đỏ "Hoàn thành" đóng lên thẻ khoảng 3 giây, kèm số Linh Thạch vừa nhận và quà; chuông ngân hai tiếng; một dòng "Hoàn Thành" bay lên trên thẻ (qua `useCue().jobDone`, ở mức hiệu ứng Tắt thì chỉ còn con dấu). Danh sách khóa theo ô chứ không theo khách, nên khách mới của máy chủ vào đúng ô đó và hiện ra khi con dấu mờ đi (`components/JobDone.tsx`). Giao món cuối từ cửa sổ món trong túi thì chỉ có chuông và dòng bay lên, vì cửa sổ Công việc không mở.
+Giao món cuối cùng (cả bốn loại việc) thì: một con dấu xanh lá "Hoàn thành" đóng lên thẻ khoảng 3 giây, kèm số Linh Thạch vừa nhận và quà; chuông ngân hai tiếng; một dòng "Hoàn Thành" bay lên trên thẻ (qua `useCue().jobDone`, ở mức hiệu ứng Tắt thì chỉ còn con dấu). Danh sách khóa theo ô chứ không theo khách, nên khách mới của máy chủ vào đúng ô đó và hiện ra khi con dấu mờ đi (`components/JobDone.tsx`). Giao món cuối từ cửa sổ món trong túi thì chỉ có chuông và dòng bay lên, vì cửa sổ Công việc không mở.
+
+Con dấu phải hiện ngay khi bấm, không đợi. Thẻ biết trước mình có đủ hàng hay không (`full`), nên đóng dấu luôn trong cùng lần vẽ với số liệu mới (`useFin().mark`), rồi mới nhận số thật từ luật (`patch`). Nếu luật từ chối thì gỡ dấu (`clear`). Âm thanh và dòng bay lên chờ lần vẽ kế tiếp (`afterPaint`) để việc dựng âm thanh không giữ con dấu lại. Con dấu chỉ dùng chuyển động `transform` và độ mờ, không có bóng mờ (text-shadow, box-shadow) vì chúng bị vẽ lại khi dấu phóng to.
+
+### Mở cửa sổ cho nhanh
+
+- Cửa sổ và các thẻ tab hiện trước, các thẻ khách dựng sau hai khung hình (`useAfterOpen` trong `components/Jobs.tsx`). Bấm đổi tab thì tab sáng lên ngay, thẻ cũ mờ đi đến khi thẻ mới dựng xong (`useDeferredValue`).
+- Đội xuất chiến tính một lần cho cả danh sách (`J.partyOf`), không sắp lại cả chuồng cho từng con. Chấm xanh trên tab dùng `fillableCount` và `readyCount`, chỉ hỏi "có món hợp không" nên không sắp xếp, không sao chép.
+- Khách mới vẫn tạo ở máy chủ (`tick`), trình duyệt không tạo. Ảnh món trong thẻ Tìm đồ đi qua `/api/image` như mọi pháp khí; Thiên và Địa chưa có ảnh thì máy chủ không vẽ mới (chỉ ghi nhu cầu), nên mở cửa sổ không tốn tiền vẽ.
 
 ### Chân dung khách
 
@@ -66,14 +74,28 @@ Ba loại việc hỏi **một số lượng** của một thứ (khác Tìm đ�
 | Nguyên liệu (`mat`) | Một loại nguyên liệu của các vùng đã mở, số lượng sao cho tổng giá tiệm khoảng 40 đến 80 Linh Thạch (từ 3 đến 50 cái) | mỗi cái gấp 2 lần giá tiệm, đủ hàng thưởng thêm 50% tổng giá, và tặng Hồi Khí Đan hạng 1 hoặc 2, hoặc Khế Ước Phù hạng Phàm |
 
 - **Linh Thú Dị Biến không bao giờ được hỏi và không giao được** (`E_MUTANT`). Con đang xuất chiến hoặc đang treo trong khung không được chọn sẵn, nếu chọn thì hỏi lại. Giao con nào thì con đó rời chuồng.
-- **Giữ lại con khách cần.** "Bán nhanh các con dư" chừa lại những con yếu nhất hợp với mỗi khách đang chờ (`keepBeastIds`), và báo "giữ lại N con công việc Tìm thú đang cần". Trong Chuồng, con khách đang cần có nhãn vàng ở góc.
+- Trong Chuồng, con khách đang cần có nhãn vàng ở góc. "Bán nhanh các con dư" vẫn bán hết như thường.
 - **Không để việc đan thành chỗ kiếm lời từ tiệm.** Đan mua được ở tiệm, nên giá trả luôn thấp hơn giá tiệm bán (75%), không có thưởng đủ hàng bằng Linh Thạch, và quà chỉ là nguyên liệu rẻ. `tests/jobs.test.ts` kiểm tra với mọi khách sinh ra rằng mua đan ở tiệm để giao luôn lỗ. Thú và nguyên liệu không mua được ở tiệm nên trả cao hơn giá bán.
 - Giao đan và nguyên liệu bằng một nút (giao hết số có, tối đa số còn thiếu). Giao thú thì chọn từng con, con dư được chọn sẵn.
+
+### Bậc (Đặt đan và Nguyên liệu)
+
+Làm mãi một vòng "gom nguyên liệu, luyện đan, giao đan" mà đơn cứ nhỏ như nhau thì chán, nên hai loại này có **bậc** riêng, đếm số khách đã giao đủ (`board.done`). Bỏ khách đi không được tính. Bậc 1 đến 6: Tập Sự (0 việc), Học Việc (3), Thạo Việc (8), Lão Luyện (15), Đại Sư (25), Tông Sư (40). Khách mới của loại đó lớn dần theo bậc (`J.QTY` = 1, 1,5, 2,2, 3,2, 4,5, 6 lần cỡ đơn bậc đầu):
+
+| | Bậc 1 | Bậc 6 |
+| --- | --- | --- |
+| Đặt đan | đa số hỏi đan hạng 1, 5 đến 10 viên (hạng 2: 3 đến 6, hạng 3: 2 đến 4) | hỏi đan hạng cao nhiều hơn rất nhiều, gấp 6 lần số viên (tối đa 80); quà nguyên liệu hiếm hơn và nhiều hơn |
+| Nguyên liệu | nguyên liệu nào cũng như nhau, tổng giá tiệm khoảng 40 đến 80 | ưu tiên nguyên liệu đắt (hiếm), tổng giá gấp 6 lần; trả gấp 2,6 lần giá tiệm (bậc 1: 2 lần), thưởng đủ hàng 100% (bậc 1: 50%), quà tốt và nhiều hơn |
+
+- Hỏi gì vẫn bị giới hạn bởi cấp người chơi (vùng đã mở), nên không bao giờ hỏi thứ chưa tìm được.
+- Đặt đan vẫn giữ luật chống lách: mỗi viên trả 75% giá tiệm và quà chỉ là nguyên liệu trị giá tối đa 40% phần chênh, ở **mọi bậc**. Phần thưởng tăng theo số lượng và độ hiếm của quà chứ không tăng giá mỗi viên (`tests/jobs.test.ts` kiểm với mọi bậc).
+- Lên bậc thì thông báo ngay trên con dấu "Hoàn thành". Đầu cửa sổ của hai loại này có thanh bậc, thẻ khách ghi "Đơn bậc N".
+- Tìm thú không có bậc (nó đã theo cấp người chơi).
 
 ### Cách chạy
 
 - `lib/jobs.ts`: phần thuần. `makeJob(i, n, seed, others, { level })`, `newBoard`, `beastMatches`, `keepBeastIds`, `beastWantedBy`, `askText/askShort/askArt`. Hỏi gì phụ thuộc cấp người chơi (`speciesAt`, `matsAt`, `gradesAt`, theo các vùng đã mở), nên khách luôn hỏi thứ tìm được.
-- `lib/game.ts`: `ensureJobs` (trong `tick`, chỉ ở máy chủ), `fillJob(st, id, { ids | n })`, `dismissJob`. `releaseMany` chừa con khách cần.
+- `lib/game.ts`: `ensureJobs` (trong `tick`, chỉ ở máy chủ), `fillJob(st, id, { ids | n })`, `dismissJob`.
 - `lib/intents.ts`: `fillJob` và `dismissJob` là intent thuần, chạy ngay ở trình duyệt. `forkState` trong `components/Game.tsx` sao chép `jobs`.
 - `components/JobCards.tsx`: thẻ khách chung cho cả ba loại, ba bảng `BeastJobs`, `PillJobs`, `MatJobs` (đăng ký trong `JOB_KINDS`), `readyCount` cho chấm vàng.
 - Test: `tests/jobs.test.ts`.

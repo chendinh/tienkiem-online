@@ -20,7 +20,7 @@ function item(st: G.GameState, over: Partial<G.Item>): G.Item {
 }
 // A buyer made by hand: a list of parts and a few numbers.
 const mk = (parts: O.Want[], over: Partial<O.Order> = {}): O.Order => ({ id: 'one0-0', kind: parts.length > 1 ? 'set' : 'one', who: { name: 'Lý Vân', g: 'f', arch: 'Kiếm Tu' }, line: 0, parts: parts.map((want) => ({ want })), mult: O.MULT.part, bonus: 0, sum: 0, paid: 0, done: false, ...over });
-const withBoard = (st: G.GameState, ...list: O.Order[]) => { st.orders = { v: 2, n: 100, list }; return st; };
+const withBoard = (st: G.GameState, ...list: O.Order[]) => { st.orders = { v: O.BOARD_VERSION, n: 100, list }; return st; };
 const ringWant = (i = 0, tier = 0): O.Want => ({ tier, slot: 'Ring', base: base('Ring', i) });
 const rank = (st: G.GameState) => st.orders as O.Board;
 
@@ -29,10 +29,11 @@ test('orders: the same seed always gives the same board, and another seed anothe
   assert.notDeepEqual(O.newBoard(1), O.newBoard(2));
 });
 
-test('orders: the board has 3 single buyers, 2 set buyers and a guest, each place of its own kind', () => {
+test('orders: the board has 3 set buyers, 2 single-piece buyers and a guest, each place of its own kind', () => {
   for (let seed = 1; seed <= 40; seed++) {
     const b = O.newBoard(seed, { realm: seed % 4 });
-    assert.equal(b.v, 2); assert.equal(b.list.length, O.LAYOUT.length);
+    assert.equal(b.v, O.BOARD_VERSION); assert.equal(b.list.length, O.LAYOUT.length);
+    assert.deepEqual(O.LAYOUT.slice().sort(), ['one', 'one', 'set', 'set', 'set', 'vip']);
     assert.deepEqual(b.list.map((o) => o.kind), O.LAYOUT);
     assert.equal(new Set(b.list.map((o) => o.id)).size, b.list.length, 'two buyers share an id');
     assert.equal(b.n, b.list.length);
@@ -55,16 +56,24 @@ test('orders: what a buyer asks for is always something the game can give', () =
         if (w.el) assert.ok(C.EO.includes(w.el), w.el);
         if (w.base) assert.ok(C.SLOT_BASE[w.slot!].includes(w.base));
       }
-      if (o.kind === 'one') { assert.equal(o.parts.length, 1); const w = o.parts[0].want; assert.ok(w.tier <= 2 && w.slot); if (w.tier === 2) assert.ok(w.el && !w.base && !w.cls, 'Huyền: slot and element only'); else assert.ok(w.base || w.cls); }
+      // a single piece is only ever asked in Địa or Thiên: the low rarities come as sets
+      if (o.parts.length === 1) assert.ok(o.parts[0].want.tier >= 3, `a single piece of rarity ${o.parts[0].want.tier} is asked`);
+      if (o.kind === 'one') {
+        assert.equal(o.parts.length, 1); const w = o.parts[0].want;
+        assert.ok(w.tier === 3 || w.tier === 4); assert.ok(w.el, 'a single piece always names an element');
+        assert.ok(!w.base && !w.cls, 'no exact kind of item for a single piece');
+        assert.ok(!(w.slot && w.minLv), 'a slot or a level, not both'); assert.ok(o.extra, 'a single piece always carries goods');
+      }
       if (o.kind === 'set') {
         assert.ok(o.parts.length === 3 || o.parts.length === 5, 'a set is 3 or 5 pieces');
         assert.equal(new Set(o.parts.map((p) => p.want.slot)).size, o.parts.length, 'every piece is of a different slot');
         assert.equal(new Set(o.parts.map((p) => p.want.tier)).size, 1, 'one rarity for the set');
-        assert.ok(o.parts[0].want.tier <= 1);
+        assert.ok(o.parts[0].want.tier <= 2); if (o.parts[0].want.tier === 2) assert.equal(o.parts.length, 3, 'a Huyền set is of 3');
+        assert.ok(o.parts.every((p) => !p.want.el && !p.want.minLv), 'a set asks no element or level');
         assert.equal(o.bonus, o.parts.length === 5 ? O.MULT.bonus5 : O.MULT.bonus3);
         assert.ok(o.extra, 'a set always carries goods');
       }
-      if (o.kind === 'vip') { const w = o.parts[0].want; assert.ok(o.parts.length === 1 && (w.tier === 3 || w.tier === 4) && w.el && !w.slot); assert.equal(o.mult, O.MULT.vip); assert.ok(o.extra); }
+      if (o.kind === 'vip') { const w = o.parts[0].want; assert.ok(o.parts.length === 1 && (w.tier === 3 || w.tier === 4) && w.el && w.minLv); assert.equal(o.mult, O.MULT.vip); assert.ok(o.extra); }
       assert.ok(O.lineOf(o).length > 5 && O.wantText(o).length > 3);
       assert.ok(C.NPC_TITLES.includes(o.who.arch) && (o.who.g === 'f' || o.who.g === 'm') && o.who.name.length > 3);
       if (o.extra) assert.ok(O.extraName(o.extra).length > 1 && O.extraArt(o.extra).startsWith('/art/'));
@@ -235,31 +244,59 @@ test('dismissOrder: the buyer leaves, what was handed over stays paid, and a new
 test('orders: a finished buyer is replaced on the next tick and the others stay as they were', () => {
   const st = fresh(12); G.settle(st, 3);
   const before = structuredClone(rank(st));
-  const o = rank(st).list[0], w = o.parts[0].want;
-  const it = item(st, { id: 9101, slot: w.slot, base: w.base, tier: w.tier });
-  if (w.cls) it.base = Object.keys(C.WEAPON_CLASS).find((b) => C.WEAPON_CLASS[b] === w.cls)!;
+  const at = O.LAYOUT.indexOf('one'), o = rank(st).list[at], w = o.parts[0].want;
+  const it = item(st, { id: 9101, slot: w.slot || 'Ring', tier: w.tier, el: w.el, level: w.minLv || 5 });
   st.bag.push(it);
   assert.ok(G.fillOrder(st, o.id, [9101]).ok, 'the piece fits');
   assert.ok(o.done);
   G.settle(st, 1);
   const after = rank(st);
-  assert.notEqual(after.list[0].id, before.list[0].id);
-  assert.ok(O.isOpen(after.list[0]));
-  for (let i = 1; i < after.list.length; i++) assert.deepEqual(after.list[i], before.list[i]);
+  assert.notEqual(after.list[at].id, before.list[at].id);
+  assert.ok(O.isOpen(after.list[at])); assert.equal(after.list[at].kind, 'one');
+  for (let i = 0; i < after.list.length; i++) if (i !== at) assert.deepEqual(after.list[i], before.list[i]);
   assert.equal(after.n, before.n + 1);
 });
 
-test('keeping what buyers wait for: Dọn túi leaves the weakest piece for each open part', () => {
+test('orders: an element and a least level are looked at, and a level that no zone offers is never asked', () => {
+  const ring = (over: Partial<G.Item>) => item(fresh(), { slot: 'Ring', base: base('Ring'), tier: 3, el: 'Hỏa', level: 20, ...over });
+  const w: O.Want = { tier: 3, el: 'Hỏa', minLv: 12 };
+  assert.ok(O.matchesWant(w, ring({})));
+  assert.ok(!O.matchesWant(w, ring({ el: 'Kim' })), 'wrong element');
+  assert.ok(!O.matchesWant(w, ring({ level: 11 })), 'level too low');
+  assert.ok(O.matchesWant(w, ring({ level: 12 })), 'the level is a least, so 12 counts');
+  assert.ok(!O.matchesWant(w, ring({ tier: 2 })), 'wrong rarity');
+  assert.ok(!O.matchesWant({ tier: 3, minLv: 5 }, { slot: 'Ring', base: 'x', tier: 3, el: 'Hỏa' }), 'an item without a level never fits a level');
+  assert.match(O.partText(w), /hạng Địa, hệ Hỏa, cấp 12 trở lên/);
+  for (const level of [1, 5, 12, 30, 60]) {
+    const top = Math.max(2, ...C.ZONES.filter((z) => z.minLevel <= level).map((z) => z.lv[1]));
+    for (let k = 0; k < 200; k++) { const v = O.minLvFor(`k${k}`, level); assert.ok(v >= 2 && v <= Math.ceil(top * 0.85) + 1 && v >= Math.floor(top * 0.5) - 1 || v === 2, `level ${level}: ${v} of top ${top}`); }
+  }
+  // a board made for a player of level 30 asks levels that fit the zones open to them
+  let found = 0;
+  for (let seed = 1; seed <= 40; seed++) for (const o of O.newBoard(seed, { level: 30 }).list) for (const p of o.parts) if (p.want.minLv) { found++; assert.ok(p.want.minLv <= 36, String(p.want.minLv)); }
+  assert.ok(found > 20, 'levels are asked often enough to be seen');
+});
+
+test('orders: a single piece is never asked in a low rarity, over many boards', () => {
+  for (let seed = 1; seed <= 80; seed++) {
+    const b = O.newBoard(seed, { week: 'Thủy', realm: seed % 4, level: 1 + (seed % 40) });
+    for (let k = 0; k < 30; k++) { const i = k % b.list.length; b.list[i] = O.makeOrder(i, b.n++, seed, b.list, { week: 'Thủy', realm: 0, level: 1 + (k % 40) }); }
+    for (const o of b.list) { if (o.parts.length === 1) assert.ok(o.parts[0].want.tier >= 3, `${o.kind} asks tier ${o.parts[0].want.tier} alone`); else assert.ok(o.parts.length >= 3); }
+  }
+});
+
+test('Dọn túi: dissolves everything as it always did, whether a buyer waits for it or not', () => {
   const st = fresh();
   for (const s of C.SLOTS) st.eq[s] = item(st, { id: 500 + C.SLOTS.indexOf(s), slot: s, tier: 3, power: 9999 });   // strong gear everywhere, so nothing in the bag is an upgrade
   const w1 = item(st, { id: 601, slot: 'Ring', base: base('Ring'), tier: 0, power: 10 }), w2 = item(st, { id: 602, slot: 'Ring', base: base('Ring'), tier: 0, power: 5 }), other = item(st, { id: 603, slot: 'Ring', base: base('Ring', 1), tier: 0, power: 1 });
   st.bag.push(w1, w2, other);
   withBoard(st, mk([ringWant()]));
-  assert.deepEqual([...O.keepIds(st.orders, [...st.bag, ...st.stash])], [602], 'the weakest of the two');
+  const s0 = st.stones;
   const r = G.dissolveMany(st, 1);
   assert.ok(r.ok, r.msg);
-  assert.deepEqual(st.bag.map((x) => x.id), [602]);
-  assert.match(r.msg, /Tìm đồ/);
+  assert.deepEqual(st.bag.map((x) => x.id), [], 'the pieces the buyer waits for go too');
+  assert.equal((r.data as any).n, 3); assert.ok(st.stones > s0);
+  assert.doesNotMatch(r.msg, /công việc|Tìm đồ/);
 });
 
 test('keeping what buyers wait for: auto-dissolve spares one piece for an open part, not the rest', () => {

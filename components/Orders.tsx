@@ -1,5 +1,5 @@
 'use client';
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as O from '@/lib/orders';
 import type { GS } from '@/lib/client/types';
@@ -9,7 +9,7 @@ import { askConfirm } from './ds/Dialog';
 import { ElIcon, SlotIcon } from './Icons';
 import { Img, ItemIcon, fmt } from './ui';
 import type { Act } from './Panels';
-import { DoneSeal, useFin } from './JobDone';
+import { DoneSeal, afterPaint, useFin } from './JobDone';
 import { useCue } from './fx/Cue';
 
 // Tìm đồ: the first kind of job in Công việc (components/Jobs.tsx). A buyer stays until everything asked has been handed over, and the player gives what there is ("có bao nhiêu đưa bấy nhiêu").
@@ -18,21 +18,27 @@ import { useCue } from './fx/Cue';
 const isUp = (st: GS, it: Item) => { const w = st.eq[it.slot]; return !w || it.power > w.power; };
 type Cand = { part: number; items: Item[] };
 // For each part still open, the pieces of the bag and the stash that fit it: spare ones first (weakest first), upgrades last.
-export function candidates(st: GS, o: O.Order): Cand[] {
-  const held = [...st.bag, ...st.stash].filter((it) => !it.locked);
+export function candidates(st: GS, o: O.Order, held: Item[] = heldOf(st)): Cand[] {
   return o.parts.flatMap((p, part) => (p.got ? [] : [{ part, items: held.filter((it) => O.matchesWant(p.want, it)).sort((a, b) => Number(isUp(st, a)) - Number(isUp(st, b)) || a.power - b.power) }]));
 }
+/** The pieces that may be handed over (the bag and the stash, without the locked ones). Made once per screen update, not once per buyer. */
+const heldOf = (st: GS): Item[] => { const out: Item[] = []; for (const it of st.bag) if (!it.locked) out.push(it); for (const it of st.stash) if (!it.locked) out.push(it); return out; };
 /** The buyers of the board (none until the first tick has made them). */
 export const buyers = (st: GS): O.Order[] => (O.isBoard(st.orders) ? st.orders.list : []);
 /** How many buyers could be given something right now (shown on the tab). */
-export const fillableCount = (st: GS): number => buyers(st).filter((o) => O.isOpen(o) && candidates(st, o).some((c) => c.items.length)).length;
+export const fillableCount = (st: GS): number => {
+  const open = buyers(st).filter(O.isOpen);
+  if (!open.length) return 0;
+  const held = heldOf(st);   // only whether something fits, so nothing is sorted or copied
+  return open.filter((o) => o.parts.some((p) => !p.got && held.some((it) => O.matchesWant(p.want, it)))).length;
+};
 const times = (m: number) => String(m / 100).replace('.', ',');
 
 // What one part looks like on a card: the picture of the kind asked for if there is one, otherwise the slot in the colour of the rarity.
 function PartPic({ w, size }: { w: O.Want; size: number }) {
   const s = O.sampleItem(w);
   if (s) return <ItemIcon it={s} size={size} />;
-  return <span className="ordRar" style={{ '--rc': C.RCOLOR[w.tier], width: size, height: size } as CSSProperties}>{w.slot ? <SlotIcon slot={w.slot} size={Math.round(size * 0.5)} /> : <Icon name="stone" size={Math.round(size * 0.5)} />}{w.el && <i className="ordEl"><ElIcon el={w.el} size={14} /></i>}</span>;
+  return <span className="ordRar" style={{ '--rc': C.RCOLOR[w.tier], width: size, height: size } as CSSProperties}>{w.slot ? <SlotIcon slot={w.slot} size={Math.round(size * 0.5)} /> : <Icon name="stone" size={Math.round(size * 0.5)} />}{w.el && <i className="ordEl"><ElIcon el={w.el} size={14} /></i>}{w.minLv ? <i className="ordLv">Lv{w.minLv}+</i> : null}</span>;
 }
 
 export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
@@ -40,23 +46,24 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Record<number, number>>({});   // part index -> item id chosen for it
   const [err, setErr] = useState('');
-  const { fin, mark } = useFin(), cue = useCue();
+  const { fin, mark, patch, clear } = useFin(), cue = useCue();
+  const held = useMemo(() => heldOf(st), [st.bag, st.stash]);
   const start = (o: O.Order) => {
     setErr('');
     if (open === o.id) { setOpen(null); return; }
     const pick: Record<number, number> = {};
-    for (const c of candidates(st, o)) if (c.items.length && !isUp(st, c.items[0])) pick[c.part] = c.items[0].id;   // spare pieces are ready; an upgrade has to be chosen on purpose
+    for (const c of candidates(st, o, held)) if (c.items.length && !isUp(st, c.items[0])) pick[c.part] = c.items[0].id;   // spare pieces are ready; an upgrade has to be chosen on purpose
     setSel(pick); setOpen(o.id);
   };
   const choose = (part: number, id: number) => setSel((cur) => { const n = { ...cur }; if (n[part] === id) delete n[part]; else n[part] = id; return n; });
-  const give = async (o: O.Order, ids: number[], slot: number, card: Element | null) => {
+  const give = async (o: O.Order, ids: number[], slot: number, card: Element | null, closing: boolean, pay: number) => {
+    const gift = o.extra ? `${o.extra.n} ${O.extraName(o.extra)}` : undefined;
+    const seal = (stones: number) => { mark(slot, { stones, gift }); afterPaint(() => cue.jobDone(card, `+${fmt(stones)} Linh Thạch`)); };
+    if (closing) seal(pay);   // the last piece: the seal starts in the same screen update as the new numbers, the sound on the next paint
     const r = await act('fillOrder', { id: o.id, items: ids });
-    if (!r.ok) { setErr(r.msg); return; }
+    if (!r.ok) { if (closing) clear(slot); setErr(r.msg); return; }
     setOpen(null); setErr('');
-    if (r.data && r.data.done) {   // the last piece: a seal on the card, a sound and a line over it
-      const gift = o.extra ? `${o.extra.n} ${O.extraName(o.extra)}` : undefined;
-      mark(slot, { stones: r.data.stones, gift }); cue.jobDone(card, `+${fmt(r.data.stones)} Linh Thạch`);
-    }
+    if (r.data && r.data.done) { if (closing) patch(slot, { stones: r.data.stones }); else seal(r.data.stones); }
   };
   const sendAway = async (o: O.Order) => {
     const { got } = O.progress(o);
@@ -69,12 +76,12 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
   if (!list.length) return <div className="empty">Khách đang tới Phường Thị, đợi vài giây rồi xem lại.</div>;
   return (
     <div className="ordPanel">
-      <div className="hint">Khách ở lại đến khi ngươi giao đủ. Mỗi món giao được trả ngay gấp nhiều lần giá phân giải, giao đủ thì thưởng thêm và có khách mới tới. Món khách cần có nhãn <Icon name="scroll" size={12} /> trong túi. Dọn túi và tự phân giải sẽ chừa lại một món cho mỗi phần khách cần.</div>
+      <div className="hint">Khách ở lại đến khi ngươi giao đủ. Mỗi món giao được trả ngay gấp nhiều lần giá phân giải, giao đủ thì thưởng thêm và có khách mới tới. Món khách cần có nhãn <Icon name="scroll" size={12} /> trong túi. Đồ thấp chỉ được hỏi theo bộ, đồ lẻ chỉ có hạng Địa và Thiên, kèm hệ hoặc cấp. Tự phân giải chừa lại một món cho mỗi phần khách cần, còn Dọn túi thì dọn hết như thường.</div>
       {wasted && <div className="hint ordWarn">Ngươi đang cài tự phân giải đồ hạng {C.RARITY[st.set.dissolveMax]} trở xuống. Món khách đang cần vẫn được chừa lại một cái cho mỗi phần, nhưng các món thừa khác thì mất.</div>}
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">
         {list.map((o, slot) => {
-          const { got, total } = O.progress(o), cs = candidates(st, o), have = cs.reduce((a, c) => a + (c.items.length ? 1 : 0), 0);
+          const { got, total } = O.progress(o), cs = candidates(st, o, held), have = cs.reduce((a, c) => a + (c.items.length ? 1 : 0), 0);
           const chosen = cs.flatMap((c) => c.items.filter((x) => sel[c.part] === x.id));
           const sum = chosen.reduce((a, x) => a + dissolveValue(x), 0), full = got + chosen.length === total && chosen.length > 0;
           const pay = chosen.reduce((a, x) => a + O.payFor(o.mult, dissolveValue(x)), 0) + (full ? O.payFor(o.bonus, o.sum + sum) : 0);
@@ -126,7 +133,7 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
                     </div>
                   )}
                   {open === o.id && have > 0
-                    ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(null)}>Thôi</button><button type="button" className="btn hot" disabled={chosen.length === 0} onClick={(e) => give(o, chosen.map((x) => x.id), slot, e.currentTarget.closest('.ordCard'))}>Giao {chosen.length} món · +{fmt(pay)} Linh Thạch</button></div>
+                    ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(null)}>Thôi</button><button type="button" className="btn hot" disabled={chosen.length === 0} onClick={(e) => give(o, chosen.map((x) => x.id), slot, e.currentTarget.closest('.ordCard'), full, pay)}>Giao {chosen.length} món · +{fmt(pay)} Linh Thạch</button></div>
                     : <button type="button" className="btn" disabled={have === 0} onClick={() => start(o)}>{have > 0 ? `Giao nộp (${cs.reduce((a, c) => a + c.items.length, 0)} món hợp)` : 'Chưa có món nào hợp'}</button>}
                 </>
               )}

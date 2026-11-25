@@ -16,6 +16,7 @@ import * as O from '@/lib/orders';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
 import { useCue } from './fx/Cue';
+import { afterPaint } from './JobDone';
 
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
@@ -99,7 +100,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     const r = await act('fillOrder', { id: orderId, items: [id] });
     if (!r.ok) { say(r.msg || errText(r.code || 'E_SERVER'), false); re(); return false; }
     setSel(null); re();
-    if (r.data && r.data.done) cue.jobDone(null, `+${fmt(r.data.stones)} Linh Thạch`);   // the last piece the buyer waited for (the window of Công việc is not open here, so the seal is not either)
+    if (r.data && r.data.done) afterPaint(() => cue.jobDone(null, `+${fmt(r.data.stones)} Linh Thạch`));   // the last piece the buyer waited for (the window of Công việc is not open here, so the seal is not either)
     return true;
   }, [stRef, act, say, re, cue]);
   const open = useCallback((id: number) => setSel(id), []);
@@ -223,15 +224,13 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
   const [clean, setClean] = useState(1);         // "Dọn túi": rarity up to which everything not locked is dissolved
   const [cleaning, setCleaning] = useState(false);
   // what the cleaning would do, the same rule as the server (lib/game.ts dissolveMany): an upgrade (stronger than what is worn there, or an empty slot) is always kept
-  const wait = O.keepIds(st.orders, [...st.bag, ...st.stash]);   // the weakest piece for each part a buyer waits for stays (lib/game.ts dissolveMany)
   const plan = [...st.bag, ...st.stash].reduce((p, it) => {
     if (it.locked) { p.locked++; return p; }
     if (it.tier > clean) return p;
     const cur = st.eq[it.slot];
     if (!cur || it.power > cur.power) { p.kept++; return p; }
-    if (wait.has(it.id)) { p.asked++; return p; }
     p.n++; p.stones += dissolveValue(it); return p;
-  }, { n: 0, kept: 0, asked: 0, locked: 0, stones: 0 });
+  }, { n: 0, kept: 0, locked: 0, stones: 0 });
   const fromEq = !!held && held.from === 'eq';
   const tile = (it: Item, from: 'bag' | 'stash') => {
     const cur = st.eq[it.slot], d = cur ? it.power - cur.power : null, tooHigh = it.level > L;
@@ -272,7 +271,6 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
           <div className="cleanSum">
             <span className="cs go"><b>{plan.n}</b> món sẽ phân giải{plan.n > 0 && <> · <Icon name="stone" size={12} /> ≈ {fmt(plan.stones)} Linh Thạch</>}</span>
             <span className="cs keep" title="Mạnh hơn món đang mặc ở cùng ô, hoặc ô còn trống: luôn được giữ để ngươi tự quyết"><b>{plan.kept}</b> món mũi tên xanh được giữ lại</span>
-            {plan.asked > 0 && <span className="cs keep" title="Công việc Tìm đồ đang chờ những món này"><Icon name="scroll" size={11} /> <b>{plan.asked}</b> món công việc Tìm đồ đang cần được giữ lại</span>}
             {plan.locked > 0 && <span className="cs lock"><Icon name="lock" size={11} /> {plan.locked} món đã khóa được giữ</span>}
           </div>
           <div className="cleanAct">

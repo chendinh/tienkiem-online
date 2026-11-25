@@ -1,5 +1,5 @@
 'use client';
-import { useState, type ComponentType } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, type ComponentType } from 'react';
 import type { GS } from '@/lib/client/types';
 import { Icon, type IconName } from './ds/Icon';
 import { BeastJobs, PillJobs, MatJobs, readyCount } from './JobCards';
@@ -19,26 +19,39 @@ export const JOB_KINDS: JobKind[] = [
 /** How many jobs could be done right now, over every kind (the badge on the Công việc buttons). */
 export const jobsReady = (st: GS): number => JOB_KINDS.reduce((n, k) => n + k.ready(st), 0);
 
+/** False for the first two frames after the window shows: the window and its tabs are drawn first, the cards (pictures, lists) follow, so opening never waits for them. */
+function useAfterOpen(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let a = requestAnimationFrame(() => { a = requestAnimationFrame(() => setOn(true)); });
+    return () => cancelAnimationFrame(a);
+  }, []);
+  return on;
+}
+
 export function JobsPanel({ st, act }: { st: GS; act: Act }) {
-  const [kind, setKind] = useState(JOB_KINDS[0].id);
+  const [tab, setTab] = useState(JOB_KINDS[0].id);
+  const kind = useDeferredValue(tab);   // the tab lights up at once; the cards of the new kind are built right after, without holding the tap
   const k = JOB_KINDS.find((x) => x.id === kind) || JOB_KINDS[0];
+  const shown = useAfterOpen();
+  const ready = useMemo(() => JOB_KINDS.map((x) => x.ready(st)), [st]);   // the dots of the tabs: worked out once per state, not once per redraw
   return (
     <div className="jobsPanel">
       {JOB_KINDS.length > 1
         ? (
           <div className="jobTabs" role="tablist" aria-label="Loại công việc">
-            {JOB_KINDS.map((x) => (
-              <button key={x.id} type="button" role="tab" aria-selected={x.id === k.id} className={`jobTab${x.id === k.id ? ' on' : ''}`} onClick={() => setKind(x.id)}>
+            {JOB_KINDS.map((x, i) => (
+              <button key={x.id} type="button" role="tab" aria-selected={x.id === tab} className={`jobTab${x.id === tab ? ' on' : ''}`} onClick={() => setTab(x.id)}>
                 <span className="jobTabIco"><Icon name={x.icon} size={20} /></span>
                 <span className="jobTabNm">{x.name}</span>
-                {x.ready(st) > 0 && <i className="navDot" aria-label="Có việc làm được ngay" />}
+                {ready[i] > 0 && <i className="navDot" aria-label="Có việc làm được ngay" />}
               </button>
             ))}
           </div>
         )
         : <h4 className="jobKind"><Icon name="job" size={16} /> {k.name}</h4>}
       <div className="hint">{k.line}</div>
-      <k.Panel st={st} act={act} />
+      {shown ? <div className={`jobsBody${kind !== tab ? ' stale' : ''}`}><k.Panel st={st} act={act} /></div> : <div className="jobsWait" aria-busy="true" />}
     </div>
   );
 }

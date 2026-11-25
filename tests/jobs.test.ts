@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as G from '../lib/game';
 import * as C from '../lib/content';
 import * as J from '../lib/jobs';
+import * as O from '../lib/orders';
 import { BALANCE as B } from '../lib/balance';
 
 const T0 = 1_800_000_000_000;
@@ -149,17 +150,14 @@ test('jobs: an old save without the board gets one, and the board survives a cop
   assert.equal(J.isBoard({ v: 0, list: [], n: 1 }), false);
 });
 
-test('jobs: "Bán nhanh" keeps the weakest beasts that fit what a buyer waits for', () => {
+test('jobs: "Bán nhanh" sells every spare creature as before, whether a buyer waits for it or not', () => {
   const st = fresh(14), sp = C.SPECIES[0].id, other = C.SPECIES[1].id;
   withBoard(st, mk('beast', { t: 'beast', sp }, { need: 2 }));
   st.beasts = [mkBeast(1, other, 50), mkBeast(2, other, 40), mkBeast(3, other, 30), mkBeast(4, sp, 20), mkBeast(5, sp, 10), mkBeast(6, sp, 5), mkBeast(7, sp, 3)];
   const r = G.releaseMany(st);
   assert.ok(r.ok, r.msg);
-  const left = st.beasts.map((b) => b.id).sort((a, b) => a - b);
-  // the strongest three go to the Party; of the four that fit, the two weakest (7 and 6) are kept for the buyer, and the rest are sold
-  assert.deepEqual(left, [1, 2, 3, 6, 7].sort((a, b) => a - b).filter((x) => left.includes(x)));
-  assert.ok(left.includes(6) && left.includes(7), `kept ${left}`);
-  assert.ok(!left.includes(4) && !left.includes(5), `sold ${left}`);
+  assert.deepEqual(st.beasts.map((b) => b.id).sort((a, b) => a - b), [1, 2, 3], 'only the Party stays');
+  assert.doesNotMatch(r.msg, /công việc|Tìm thú/);
 });
 
 test('jobs: the buyers stay out of the economy: buying pills only to hand them over always loses Linh Thạch', () => {
@@ -167,15 +165,16 @@ test('jobs: the buyers stay out of the economy: buying pills only to hand them o
     const price = C.SHOP_ITEM(`hp${grade}`)!.price, pay = J.payFor(J.MULT.pill, J.sellBack(grade));
     assert.ok(pay < price, `grade ${grade}: ${pay} paid for a pill that costs ${price}`);
   }
-  for (let seed = 1; seed <= 60; seed++) for (const level of [1, 5, 10, 25]) {
-    const b = J.newBoard(seed, { level });
-    for (let k = 0; k < 12; k++) { const i = k % b.list.length; b.list[i] = J.makeJob(i, b.n++, seed, b.list, { level }); }
+  for (const done of [0, 3, 8, 15, 25, 40, 200]) for (let seed = 1; seed <= 40; seed++) for (const level of [1, 5, 10, 25, 50]) {
+    const b = J.newBoard(seed, { level, done: { pill: done, mat: done } });
+    for (let k = 0; k < 12; k++) { const i = k % b.list.length; b.list[i] = J.makeJob(i, b.n++, seed, b.list, { level, done: { pill: done, mat: done } }); }
     for (const j of b.list.filter((x) => x.type === 'pill')) {
       const a = j.ask as { t: 'pill'; grade: number }, cost = j.need * C.SHOP_ITEM(`hp${a.grade}`)!.price;
       const gain = j.need * J.payFor(j.mult, J.sellBack(a.grade)) + J.payFor(j.bonus, j.need * J.sellBack(a.grade));
       const goods = j.extra && j.extra.kind === 'mat' ? j.extra.n * C.MAT(j.extra.id).price : 0;   // even if the materials are sold at their full price
       assert.ok(j.extra && j.extra.kind === 'mat', 'a pill buyer only gives materials');
-      assert.ok(gain + goods < cost, `seed ${seed} level ${level}: ${j.need} pills of grade ${a.grade} cost ${cost}, the buyer gives ${gain} + ${goods}`);
+      assert.equal(j.bonus, 0, 'a pill buyer pays no bonus in Linh Thạch');
+      assert.ok(gain + goods < cost, `done ${done} seed ${seed} level ${level}: ${j.need} pills of grade ${a.grade} cost ${cost}, the buyer gives ${gain} + ${goods}`);
     }
   }
 });
@@ -192,4 +191,74 @@ test('jobs: the intents are registered as pure intents, so they run at once on t
   const I = await import('../lib/intents');
   const names = Object.keys((I as any).PURE_INTENTS || {});
   assert.ok(names.includes('fillJob') && names.includes('dismissJob'), names.join(','));
+});
+
+test('jobs: the rank follows the jobs finished in a kind', () => {
+  assert.deepEqual(J.RANK_AT.map((a) => J.rankOf(a)), [0, 1, 2, 3, 4, 5]);
+  assert.equal(J.rankOf(0), 0); assert.equal(J.rankOf(2), 0); assert.equal(J.rankOf(3), 1); assert.equal(J.rankOf(7), 1); assert.equal(J.rankOf(40), 5); assert.equal(J.rankOf(9999), 5);
+  assert.equal(J.toNext(0), 3); assert.equal(J.toNext(2), 1); assert.equal(J.toNext(3), 5); assert.equal(J.toNext(40), null);
+  assert.equal(J.RANK_NAME.length, J.RANK_AT.length); assert.equal(J.QTY.length, J.RANK_AT.length);
+  assert.equal(J.doneOf(undefined, 'pill'), 0); assert.equal(J.doneOf({ v: 1, n: 1, list: [] }, 'pill'), 0, 'a board without counts counts as 0');
+});
+
+test('jobs: the higher the rank, the bigger and rarer the asks, and the better they pay', () => {
+  const level = 30, stats = (type: J.JobType, done: number) => {
+    let n = 0, need = 0, grade = 0, price = 0, mult = 0, bonus = 0, goods = 0;
+    for (let seed = 1; seed <= 120; seed++) {
+      const j = J.makeJob(type === 'pill' ? 2 : 4, seed, seed, [], { level, done: { pill: done, mat: done } });
+      assert.equal(j.rank, J.rankOf(done)); n++; need += j.need; mult += j.mult; bonus += j.bonus;
+      if (j.ask.t === 'pill') grade += j.ask.grade; if (j.ask.t === 'mat') price += C.MAT(j.ask.id).price;
+      goods += j.extra ? j.extra.n * (j.extra.kind === 'mat' ? C.MAT(j.extra.id).price : (C.SHOP_ITEM(O.extraId(j.extra))?.price || 0)) : 0;
+    }
+    return { need: need / n, grade: grade / n, price: price / n, mult: mult / n, bonus: bonus / n, goods: goods / n };
+  };
+  const p0 = stats('pill', 0), p5 = stats('pill', 40), m0 = stats('mat', 0), m5 = stats('mat', 40);
+  assert.ok(p5.need > p0.need * 3, `pills ${p0.need} -> ${p5.need}`); assert.ok(p5.grade > p0.grade + 0.4, `grade ${p0.grade} -> ${p5.grade}`); assert.ok(p5.goods > p0.goods * 2, `pill goods ${p0.goods} -> ${p5.goods}`);
+  assert.ok(m5.price > m0.price * 1.8, `material price ${m0.price} -> ${m5.price}`); assert.ok(m5.mult > m0.mult && m5.bonus > m0.bonus, 'materials pay more'); assert.ok(m5.goods > m0.goods * 1.5, `mat goods ${m0.goods} -> ${m5.goods}`);
+  // the value asked grows too (what the material is worth times how many), and stays within the caps
+  const value = (done: number) => { let v = 0; for (let seed = 1; seed <= 120; seed++) { const j = J.makeJob(4, seed, seed, [], { level, done: { mat: done } }); assert.ok(j.need >= 3 && j.need <= Math.round(50 * J.QTY[J.rankOf(done)])); v += j.need * J.unitValue(j.ask); } return v / 120; };
+  assert.ok(value(40) > value(0) * 4, `${value(0)} -> ${value(40)}`);
+  for (let seed = 1; seed <= 60; seed++) for (const d of [0, 8, 40]) assert.ok(J.makeJob(2, seed, seed, [], { level: 30, done: { pill: d } }).need <= 80);
+  // beasts do not get harder with the count
+  assert.deepEqual(J.makeJob(0, 5, 5, [], { level, done: { beast: 0 } }).ask, J.makeJob(0, 5, 5, [], { level, done: { beast: 99 } }).ask);
+});
+
+test('jobs: finishing a buyer counts for its kind, a rank-up is told, and the next buyer of the kind is bigger', () => {
+  const st = fresh(21); G.settle(st, 3);
+  const b = board(st), at = b.list.findIndex((x) => x.type === 'mat');
+  b.done = { mat: 2 };
+  const j = b.list[at]; j.got = j.need - 1; j.done = false; j.left = false;
+  const a = j.ask as { t: 'mat'; id: string }; st.inv.mat[a.id] = 5;
+  const r = G.fillJob(st, j.id, { n: 1 });
+  assert.ok(r.ok, r.msg); assert.ok(j.done); assert.equal(b.done.mat, 3); assert.equal((r.data as any).rankUp, 1); assert.match(r.msg, /Lên bậc Học Việc/);
+  G.settle(st, 1);
+  const nj = board(st).list[at];
+  assert.notEqual(nj.id, j.id); assert.equal(nj.rank, 1);
+  // a finished buyer that does not make a new rank says nothing about it
+  const b2 = board(st), j2 = b2.list[at]; j2.got = j2.need - 1; st.inv.mat[(j2.ask as any).id] = 5;
+  const r2 = G.fillJob(st, j2.id, { n: 1 });
+  assert.ok(r2.ok && !('rankUp' in (r2.data as any)) && !/Lên bậc/.test(r2.msg), r2.msg); assert.equal(b2.done!.mat, 4);
+  // a dismissed buyer does not count; beasts count but have no rank
+  const k = board(st).list.findIndex((x) => x.type === 'pill'); const before = JSON.stringify(board(st).done);
+  assert.ok(G.dismissJob(st, board(st).list[k].id).ok); assert.equal(JSON.stringify(board(st).done), before);
+  // a board saved before the counts existed still works
+  const old = fresh(22); G.settle(old, 2); delete (board(old) as any).done;
+  const m = board(old).list.find((x) => x.type === 'mat')!; m.got = m.need - 1; old.inv.mat[(m.ask as any).id] = 3;
+  assert.ok(G.fillJob(old, m.id, { n: 1 }).ok); assert.equal(board(old).done!.mat, 1);
+});
+
+test('jobs: the Party is worked out once, and the spare creatures come first, weakest first', () => {
+  const beasts = [mkBeast(1, 'x', 9), mkBeast(2, 'x', 3), mkBeast(3, 'x', 6), mkBeast(4, 'x', 1), mkBeast(5, 'x', 8)];
+  const party = J.partyOf(beasts, 2);
+  assert.deepEqual([...party].sort(), [1, 5]);   // the two strongest
+  assert.equal(J.partyOf(beasts, 0).size, 0);
+  assert.equal(J.partyOf([], 3).size, 0);
+  assert.equal(beasts.map((b) => b.id).join(), '1,2,3,4,5');   // the pen itself is not reordered
+  const j = mk('beast', { t: 'beast', sp: 'x' });
+  const order = J.beastCands(j, beasts, party, 3).map((b) => b.id);   // 3 is the framed one
+  assert.deepEqual(order, [4, 2, 3, 5, 1]);   // spare ones weakest first, then the framed one and the Party by power
+  const spare = order.filter((id) => J.isSpare({ id }, party, 3)), rest = order.filter((id) => !J.isSpare({ id }, party, 3));
+  assert.deepEqual(spare, [4, 2]);   // 4 (power 10) before 2 (power 30)
+  assert.deepEqual(order, [...spare, ...rest]);   // the Party and the framed one come last
+  assert.equal(J.isSpare({ id: 3 }, party, 3), false); assert.equal(J.isSpare({ id: 1 }, party, null), false); assert.equal(J.isSpare({ id: 4 }, party, null), true);
 });

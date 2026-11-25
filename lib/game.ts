@@ -575,29 +575,26 @@ export function releaseBeast(st: GameState, id: number): Res {
 // "Dọn túi": dissolves what is not locked up to a rarity, but always keeps an upgrade (the green arrow: stronger than what is worn in that slot, or the slot is empty), so the player decides about those by hand.
 export function dissolveMany(st: GameState, maxTier: number): Res {
   if (!Number.isInteger(maxTier) || maxTier < 0 || maxTier > 5) return fail('E_BAD_REQUEST');
-  let n = 0, gain = 0, kept = 0, asked = 0;
-  const wait = O.keepIds(st.orders, [...st.bag, ...st.stash]);   // what the buyers wait for stays (the weakest piece that fits each open part)
+  let n = 0, gain = 0, kept = 0;
   for (const list of [st.bag, st.stash]) {
     for (let i = list.length - 1; i >= 0; i--) {
       const it = list[i];
       if (it.locked || it.tier > maxTier) continue;
       const cur = st.eq[it.slot];
       if (!cur || it.power > cur.power) { kept++; continue; }
-      if (wait.has(it.id)) { asked++; continue; }
       list.splice(i, 1); shareRelic(st, it); gain += earn(st, dissolveValue(it), 'dissolve'); n++;
     }
   }
-  const keepNote = (kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '') + (asked > 0 ? ` Giữ lại ${asked} món công việc Tìm đồ đang cần.` : '');
-  return n === 0 ? fail('E_NOT_FOUND', `Không có món nào phù hợp để phân giải.${keepNote}`) : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain, kept, asked });
+  const keepNote = (kept > 0 ? ` Giữ lại ${kept} món mạnh hơn đồ đang mặc (mũi tên xanh) để ngươi tự quyết.` : '');
+  return n === 0 ? fail('E_NOT_FOUND', `Không có món nào phù hợp để phân giải.${keepNote}`) : ok(`Đã phân giải ${n} món, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain, kept });
 }
 // Sell every Linh Thú that is not in the Party and not a Dị Biến.
 export function releaseMany(st: GameState): Res {
   const keep = new Set(bestParty(st).map((b) => b.id));
   if (st.player.showcase && st.player.showcase.kind === 'beast') keep.add(st.player.showcase.id);   // the framed beast stays
-  const wait = J.keepBeastIds(st.jobs, st.beasts, keep);   // what the beast buyers wait for stays (the weakest creatures that fit each open job)
   let n = 0, gain = 0;
-  st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut || wait.has(b.id)) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
-  const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = (mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '') + (wait.size ? ` Giữ lại ${wait.size} con công việc Tìm thú đang cần.` : '');
+  st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
+  const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = (mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '');
   return n === 0 ? fail('E_NOT_FOUND', `Không có Linh Thú nào phù hợp để bán.${keepNote}`) : ok(`Đã bán ${n} Linh Thú, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain });
 }
 
@@ -1062,7 +1059,7 @@ function taskHit(st: GameState, h: T.Hit, rep?: Report) {
 // Khách Cầu Mua (lib/orders.ts): the board is made on the first tick (or when it is of an older kind), and a buyer that is done or sent away is replaced on a later tick. The new buyer comes from the world seed and a
 // running number alone (no random number is drawn), so this runs on the server only: the browser has no seed, it just marks the buyer done and waits for the server's next tick.
 function ensureOrders(st: GameState): O.Board {
-  const opt = { week: W.weekAt(st.clock).el, realm: st.player.realm };
+  const opt = { week: W.weekAt(st.clock).el, realm: st.player.realm, level: levelOf(st.player) };
   if (!O.isBoard(st.orders)) return (st.orders = O.newBoard(st.seed, opt));
   const b = st.orders;
   b.list.forEach((o, i) => { if (!O.isOpen(o)) b.list[i] = O.makeOrder(i, b.n++, st.seed, b.list, opt); });
@@ -1111,9 +1108,8 @@ export function dismissOrder(st: GameState, id: any): Res {
 }
 // Công việc that ask for a number of something (lib/jobs.ts): the board is made on the first tick, and a buyer that is done or sent away is replaced on a later tick (server only, no random number is drawn).
 function ensureJobs(st: GameState): J.JobBoard {
-  const opt = { level: levelOf(st.player) };
-  if (!J.isBoard(st.jobs)) return (st.jobs = J.newBoard(st.seed, opt));
-  const b = st.jobs;
+  if (!J.isBoard(st.jobs)) return (st.jobs = J.newBoard(st.seed, { level: levelOf(st.player) }));
+  const b = st.jobs, opt = { level: levelOf(st.player), done: b.done };   // the new buyer's size follows how many of its kind have been finished (bậc)
   b.list.forEach((j, i) => { if (!J.isOpen(j)) b.list[i] = J.makeJob(i, b.n++, st.seed, b.list, opt); });
   return b;
 }
@@ -1146,11 +1142,17 @@ export function fillJob(st: GameState, id: any, a: any): Res {
   }
   j.got += n; j.sum += sum;
   const complete = j.got >= j.need;
-  if (complete) { pay += J.payFor(j.bonus, j.sum); j.done = true; if (j.extra) giveExtra(st, j.extra); }
+  let rankUp: number | undefined;
+  if (complete) {
+    pay += J.payFor(j.bonus, j.sum); j.done = true; if (j.extra) giveExtra(st, j.extra);
+    const board = st.jobs as J.JobBoard, before = J.doneOf(board, j.type);   // one more finished in this kind: the next buyers of it are bigger once the rank goes up
+    board.done = { ...(board.done || {}), [j.type]: before + 1 };
+    if (J.RANKED.includes(j.type) && J.rankOf(before + 1) > J.rankOf(before)) rankUp = J.rankOf(before + 1);
+  }
   const paid = earn(st, pay, 'job');
   j.paid += paid;
-  const end = complete ? ` Khách đã đủ hàng${j.bonus ? ', thưởng thêm' : ''}${j.extra ? ` và ${j.extra.n} ${O.extraName(j.extra)}` : ''}.` : ` Còn thiếu ${J.left(j)}.`;
-  return ok(`${j.who.name} nhận ${n}, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete, n });
+  const end = complete ? ` Khách đã đủ hàng${j.bonus ? ', thưởng thêm' : ''}${j.extra ? ` và ${j.extra.n} ${O.extraName(j.extra)}` : ''}.${rankUp !== undefined ? ` Lên bậc ${J.RANK_NAME[rankUp]}: việc sau sẽ lớn hơn và thưởng hậu hơn.` : ''}` : ` Còn thiếu ${J.left(j)}.`;
+  return ok(`${j.who.name} nhận ${n}, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete, n, ...(rankUp !== undefined ? { rankUp } : {}) });
 }
 // Send a buyer away (the place goes to a new buyer on the server's next tick). What was already handed over stays paid; only the bonus and the goods are lost.
 export function dismissJob(st: GameState, id: any): Res {
