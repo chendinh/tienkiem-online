@@ -129,6 +129,14 @@ test('the film: who is drawn, where, and a timeline of non-stop fighting that en
     // during the clip of a great attack the cultivators brace: nothing of theirs is in the air
     for (const [a, h] of P.novasOf(tl)) for (const s of tl.shots) assert.ok(s.land < a - 100 || s.t > h + 200, `a shot at ${s.t}–${s.land} during the clip ${a}–${h}`);
     for (const s of tl.bshots) assert.ok(s.land > s.t && sh.includes(s.j));
+    // each blow is a volley of homing missiles: the target's Sinh Lực only goes down along it, and the last missile is the record's blow
+    for (const r of r2.rounds) if (r.b && !r.b.stun) r.b.t.forEach((j, n) => {
+      const fin = tl.events.find((e) => e.k === 'hurt' && e.j === j && e.h === r.b!.h[n] && e.d === r.b!.d[n])!;
+      const pelts = tl.events.filter((e) => e.k === 'pelt' && e.j === j && e.t < fin.t && e.t >= fin.t - P.VOLLEY_GAP * (P.VOLLEY[r.b!.s] - 1));
+      assert.equal(pelts.length, P.VOLLEY[r.b!.s] - 1, 'missiles before the last');
+      let was = Infinity; for (const e of pelts) { const h = (e as { h: number }).h; assert.ok(h < was && h >= r.b!.h[n]); was = h; }
+      if (sh.includes(j)) assert.equal(tl.bshots.filter((x) => x.j === j && x.land > fin.t - P.VOLLEY_GAP * P.VOLLEY[r.b!.s] && x.land <= fin.t).length, P.VOLLEY[r.b!.s]);
+    });
     // every cultivator's Sinh Lực changes in the order of the record (heals and blows)
     const rec = new Map<number, number[]>(), film = new Map<number, number[]>();
     const add = (m: Map<number, number[]>, j: number, h: number) => { if (!m.has(j)) m.set(j, []); m.get(j)!.push(h); };

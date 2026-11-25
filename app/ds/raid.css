@@ -19,7 +19,14 @@
   /* the clip of the great attack plays behind the cultivators: they stay on the stage, battered by it (components/RaidScene.tsx) */
   .rdUlt { z-index: 6; opacity: 0; }
   .rdTint { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; background: radial-gradient(70% 55% at 50% 35%, transparent 20%, rgb(0 0 0 / 0.75) 100%); }
-  .rdStage.rage::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(85% 70% at 50% 40%, transparent 45%, rgb(190 20 20 / 0.42) 100%); animation: rd-rage 1.6s ease-in-out infinite; }
+  /* the camera: everything on the stage but the HUD (components/RaidScene.tsx shakes it and makes it reel) */
+  .rdCam { position: absolute; inset: 0; }
+  /* the sky darkens when the Dị Thú gathers a technique: deep behind the cultivators, a little over them; the glare of its blows and of lightning over everything */
+  .rdDark { position: absolute; inset: 0; will-change: opacity; z-index: 2; pointer-events: none; opacity: 0; background: radial-gradient(90% 70% at 50% 30%, rgb(10 10 26 / 0.8), rgb(2 3 10 / 0.96)); }
+  .rdDim { position: absolute; inset: 0; will-change: opacity; z-index: 12; pointer-events: none; opacity: 0; background: rgb(4 6 18 / 0.72); }
+  .rdGlare { position: absolute; inset: 0; will-change: opacity; z-index: 42; pointer-events: none; opacity: 0; background: radial-gradient(80% 60% at var(--gx, 50%) var(--gy, 35%), #fff 0%, rgb(255 251 238 / 0.94) 40%, rgb(255 244 222 / 0.72) 100%); }
+  .rdRage { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; background: radial-gradient(85% 70% at 50% 40%, transparent 45%, rgb(190 20 20 / 0.42) 100%); }
+  .rdStage.rage .rdRage { animation: rd-rage 1.6s ease-in-out infinite; }
   @keyframes rd-rage { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
   .rdGlow { position: absolute; z-index: 3; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; opacity: 0; mix-blend-mode: screen; background: radial-gradient(circle, color-mix(in srgb, var(--c, #fff) 85%, white) 0%, color-mix(in srgb, var(--c, #fff) 45%, transparent) 35%, transparent 70%); }
   .rdMist { position: absolute; inset: auto 0 0 0; height: 38%; z-index: 4; pointer-events: none; overflow: hidden; }
@@ -205,5 +212,5 @@
   /* calm (effects off or reduced motion): the stage stands still */
   .rdStage.calm .rdFbob, .rdStage.calm .rdMist i, .rdStage.calm .rdLoop.still { animation: none; }
   [data-fx='off'] .rdFbob, [data-fx='off'] .rdMist i { animation: none; }
-  @media (prefers-reduced-motion: reduce) { .rdFbob, .rdMist i, .rdLoop.still, .rdStage.rage::after { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .rdFbob, .rdMist i, .rdLoop.still { animation: none; } .rdStage.rage .rdRage { animation: none; opacity: 0.8; } }
 }

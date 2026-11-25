@@ -62,17 +62,24 @@ export const SEG_MS = 3400;            // one round of the record, played as a s
 export const ULT_MS = 4400;            // the clip of the great attack (of its 5 seconds): a round with it lasts this much longer
 export const SHOT_MS = 430, BIG_MS = 520, BOSS_SHOT_MS = 680, HEAL_MS = 460, OFF_SHOTS = 6;
 export const WAVE_MS = 420;            // the Dị Thú's barrage: one wave of bullets this often (components/RaidScene.tsx)
+// Each blow of the Dị Thú comes as a volley of homing missiles at its target: so many for its strike, its sweep, its great attack, one after another every VOLLEY_GAP ms.
+// The target's Sinh Lực drops missile by missile (VOLLEY_W: the share of each; the last carries the most, and shows the number of the whole blow).
+export const VOLLEY: readonly [number, number, number] = [5, 3, 2];
+export const VOLLEY_GAP = 110;
+const VOLLEY_W = [[1, 1, 1, 1, 3], [1, 1, 2], [1, 2]];
 
 /** A shot of a cultivator at the Dị Thú. i: the fighter (-1: the ones off the stage); t: when it leaves; land: when it hits; k: the technique (big: the technique itself, else a qi bolt). */
 export interface Shot { t: number; land: number; i: number; d: number; k: number; big?: 1; c?: 1; q: number /* its number in the film (for the aim) */ }
-/** An aimed blow of the Dị Thú (one of the record's): s its technique, j the target, d the damage, h the target's Sinh Lực after. */
-export interface BossShot { t: number; land: number; j: number; s: 0 | 1 | 2; d: number; h: number; ko?: 1 }
+/** A homing missile of the Dị Thú's blow (one of the record's): s its technique, j the target, d the damage of the whole blow, h the target's Sinh Lực after it;
+ *  v its place in the volley (last: the one that carries the most and shows the number). */
+export interface BossShot { t: number; land: number; j: number; s: 0 | 1 | 2; d: number; h: number; v: number; last?: 1; ko?: 1 }
 export type FilmEvent =
   | { k: 'hit'; t: number; i: number; d: number; big?: 1; c?: 1 }        // a shot of a drawn cultivator lands
   | { k: 'off'; t: number; d: number; n: number; sum?: number }          // a bolt of the ones off the stage lands (the last of the round carries their total)
   | { k: 'cast'; t: number; i: number; a: FAct }                          // a support technique (a heal lands HEAL_MS later)
   | { k: 'heal'; t: number; i: number; j: number; h: number }
-  | { k: 'hurt'; t: number; j: number; d: number; h: number; s: 0 | 1 | 2; ko?: 1 }
+  | { k: 'pelt'; t: number; j: number; s: 0 | 1 | 2; h: number }          // a missile of a volley lands before the last (h: at most this Sinh Lực left)
+  | { k: 'hurt'; t: number; j: number; d: number; h: number; s: 0 | 1 | 2; ko?: 1 }   // the last missile: the record's blow, d the whole of it
   | { k: 'tele'; t: number; s: 0 | 1 | 2; rage?: 1; g?: 1 }               // the Dị Thú gathers the technique of its blows
   | { k: 'ult'; t: number }                                               // the clip of its great attack starts
   | { k: 'rage'; t: number }
@@ -122,13 +129,22 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
       // the fallen first, then the others, one after another (all at once for the great attack)
       const order = b.t.map((_, n) => n).sort((x, y) => Number(b.ko.includes(b.t[y])) - Number(b.ko.includes(b.t[x])) || x - y);
       const step = nova ? Math.min(30, 700 / Math.max(1, order.length)) : Math.min(170, (0.68 * SEG_MS) / Math.max(1, order.length));
+      const vw = VOLLEY_W[b.s], vsum = vw.reduce((x, y) => x + y, 0);
       order.forEach((n, m) => {
-        const j = b.t[n], land = Math.round(hitStart + m * step), ko = b.ko.includes(j);
-        if (ko) koAt.set(j, land);
-        events.push({ k: 'hurt', t: land, j, d: b.d[n], h: b.h[n], s: b.s, ...(ko ? { ko: 1 as const } : {}) });
-        if (drawn.has(j)) bshots.push({ t: land - BOSS_SHOT_MS, land, j, s: b.s, d: b.d[n], h: b.h[n], ...(ko ? { ko: 1 as const } : {}) });
+        const j = b.t[n], first = Math.round(hitStart + m * step), ko = b.ko.includes(j), d = b.d[n], h = b.h[n];
+        let took = 0;
+        vw.forEach((w, v) => {
+          const land = first + v * VOLLEY_GAP, last = v === vw.length - 1, hv = hash32(`vl|${r.r}|${j}|${v}`);
+          took += w;
+          if (!last) events.push({ k: 'pelt', t: land, j, s: b.s, h: h + Math.round((d * (vsum - took)) / vsum) });
+          else {
+            if (ko) koAt.set(j, land);
+            events.push({ k: 'hurt', t: land, j, d, h, s: b.s, ...(ko ? { ko: 1 as const } : {}) });
+          }
+          if (drawn.has(j)) bshots.push({ t: land - BOSS_SHOT_MS + Math.round((unit(hv, 0) - 0.4) * 300), land, j, s: b.s, d, h, v, ...(last ? { last: 1 as const } : {}), ...(last && ko ? { ko: 1 as const } : {}) });
+        });
       });
-      seg.hits = [Math.round(hitStart), Math.round(hitStart + Math.max(0, order.length - 1) * step)];
+      seg.hits = [Math.round(hitStart), Math.round(hitStart + Math.max(0, order.length - 1) * step + (vw.length - 1) * VOLLEY_GAP)];
     }
 
     // ---- the cultivators: a stream of bolts each, and its technique once
@@ -215,6 +231,7 @@ export function stateAt(max: number, fs: Pick<Fighter, 'hp'>[], tl: Timeline, t:
     if (e.t > t) break;
     if (e.k === 'hit' || e.k === 'off') hp = Math.max(0, hp - e.d);
     else if (e.k === 'heal') fhp[e.j] = e.h;
+    else if (e.k === 'pelt') fhp[e.j] = Math.min(fhp[e.j], e.h);
     else if (e.k === 'hurt') { fhp[e.j] = e.h; if (e.ko) down[e.j] = true; }
     else if (e.k === 'rage') rage = true;
   }
