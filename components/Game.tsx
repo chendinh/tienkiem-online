@@ -836,7 +836,6 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             <button type="button" className="sc" onClick={() => openWin('pen')}><Icon name="paw" size={17} /><span>Linh Thú</span><em>{st.beasts.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('dex')}><Icon name="book" size={17} /><span>Sưu Tập</span><em>{seenSpecies}/{speciesAll.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('market')}><Icon name="stone" size={17} /><span>Phường Thị</span></button>
-            <button type="button" className="sc" onClick={() => openWin('raid')}><Icon name="atk" size={17} /><span>Trảm Dị Thú</span><em>{bossOfDay(raidDay(Date.now())).name}</em></button>
             <button type="button" className="sc" onClick={() => openWin('jobs')}><Icon name="job" size={17} /><span>Công việc</span>{jobs > 0 && <i className="navDot inl" aria-label="Có việc làm được ngay" />}</button>
             <button type="button" className="sc" onClick={() => openWin('alchemy')}><Icon name="lotus" size={17} /><span>Luyện Đan</span></button>
           </div>
