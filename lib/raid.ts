@@ -132,7 +132,9 @@ const baseDef = (level: number) => Math.max(1, Math.round(baseStatOf(level, 3)))
 export interface FAct { i: number; k: number; d: number; c?: 1; f?: C.FxKind; t?: number; h?: number }
 /** The Dị Thú's action. s: index of its skill (0 strike, 1 sweep, 2 nova), t: targets, d: damage to each, h: their Sinh Lực after, ko: who fell. stun: it lost the turn. */
 export interface BAct { s: 0 | 1 | 2; t: number[]; d: number[]; h: number[]; ko: number[]; stun?: 1; g?: 1 /* a shield took part of it */ }
-export interface Round { r: number; f: FAct[]; b: BAct | null; hp: number /* the Dị Thú's Sinh Lực after this round */; rage?: 1 /* it went berserk this round */; bite?: number /* the fighter it bit this round (gone at once) */ }
+export interface Round { r: number; f: FAct[]; b: BAct | null; hp: number /* the Dị Thú's Sinh Lực after this round */; rage?: 1 /* it went berserk this round */; bite?: number[] /* the fighters it bit this round (gone at once) */ }
+/** Who was bitten in a round (a film recorded before 2026-11-26 has one number there). */
+export const bitesOf = (r: Pick<Round, 'bite'>): number[] => (r.bite === undefined ? [] : Array.isArray(r.bite) ? r.bite : [r.bite as unknown as number]);
 export interface Result { win: boolean; rounds: Round[]; max: number; dmg: number[]; ko: number[] /* round each fighter fell in (0: stood to the end) */; mvp: number }
 
 export const MAX_ROUNDS = 14;
@@ -168,12 +170,17 @@ export const SUPPORT_PAYS = 1.0, TEAM_POW = 6;
 export const HIT_MULT = 2;
 export const STUN_GUARD = 3;   // after losing a turn to a stun the Dị Thú shakes stuns off for this many rounds
 export const NOVA_EVERY = 4;
-// The bite (2026-11-26): from round 2, in a round that is not its great attack and not stunned, the Dị Thú may bite one cultivator standing, any of them: it falls at once,
-// whatever its Sinh Lực. Never the last one standing (a lone cultivator is not ended by a bite). Which one is drawn at random among those standing (not by Sinh Lực,
-// not by damage), so whoever it bites keeps the damage dealt before it. How often grows with the size of the group: each round BITE_BASE plus BITE_STEP for each
-// doubling of the group, at most BITE_MAX; BITE_RAGE times that once it has gone berserk. So a few cultivators are bitten in under half of their fights, a crowd in
-// nearly every one, two or three times.
+// The bite (2026-11-26): the Dị Thú bites a cultivator standing, any of them: it falls at once, whatever its Sinh Lực. Which one is drawn at random among those standing
+// (not by Sinh Lực, not by damage), so whoever it bites keeps the damage dealt before it. Never the last one standing, never in round 1 nor in its great attack (a stun
+// only takes its blow: on the stage the bite comes before the stun lands). How many: from BITE_FROM cultivators on, a set number planned at the start of the fight:
+// 1 at BITE_FROM, BITE_PER more for every cultivator above (4 more, one more bite for sure; the fraction left is a die), each in a round drawn among rounds 2, 4, 5, 6
+// (up to BITE_BY: a won fight ends in round 8 at the earliest, so every planned bite happens). Fewer than BITE_FROM: a chance each round, BITE_BASE plus BITE_STEP for
+// each doubling of the group (BITE_RAGE times that once it has gone berserk), so two are bitten in under a third of their fights, four in about 60%.
+export const BITE_FROM = 5, BITE_PER = 0.25, BITE_BY = 6;
 export const BITE_BASE = 0.02, BITE_STEP = 0.03, BITE_MAX = 0.28, BITE_RAGE = 1.5;
+/** How many bites a group of n is planned to take in a fight (from BITE_FROM; 0 below, where it is a chance each round instead). */
+export const bitesFor = (n: number) => (n >= BITE_FROM ? 1 + BITE_PER * (n - BITE_FROM) : 0);
+const biteRound = (r: number) => r >= 2 && r % NOVA_EVERY !== 3;
 export const biteChance = (n: number, rage: boolean) => Math.min(BITE_MAX, BITE_BASE + BITE_STEP * Math.log2(Math.max(2, n))) * (rage ? BITE_RAGE : 1);
 export const STRIKE_FRAC = 0.2, SWEEP_FRAC = 0.45;     // its great attack comes in rounds 3, 7, 11 (then every 4)
 
@@ -249,6 +256,14 @@ function battle(boss: Boss, fs: Fighter[], seed: string, max: number, bossDef: n
   let atkUp = { amt: 0, until: 0 }, guard = { amt: 0, until: 0 }, critUp = { amt: 0, until: 0 }, defDown = { amt: 0, until: 0 }, atkDown = { amt: 0, until: 0 };
   const rounds: Round[] = [];
   const alive = () => order.filter((i) => cur[i] > 0);
+  // the bites, on a die of their own (so the rest of the fight rolls the same whatever the number of bites): planned per round from BITE_FROM cultivators on
+  const bitRnd = rng(`raid|bite|${seed}|${fs.length}`), plan = new Map<number, number>();
+  if (fs.length >= BITE_FROM) {
+    const e = bitesFor(fs.length), n = Math.floor(e) + (bitRnd() < e - Math.floor(e) ? 1 : 0), when: number[] = [];
+    for (let r = 2; r <= BITE_BY; r++) if (biteRound(r)) when.push(r);
+    for (let k = 0; k < n; k++) { const r = when[Math.floor(bitRnd() * when.length)]; plan.set(r, (plan.get(r) || 0) + 1); }
+  }
+  let owed = 0;   // planned bites not taken yet (only when nobody but the last one stands)
   for (let r = 1; r <= MAX_ROUNDS && hp > 0 && alive().length; r++) {
     const round: Round = { r, f: [], b: null, hp };
     for (const i of order) {
@@ -298,9 +313,14 @@ function battle(boss: Boss, fs: Fighter[], seed: string, max: number, bossDef: n
     // the Dị Thú answers
     if (hp > 0) {
       if (!rage && hp < max * RAGE_AT) { rage = true; round.rage = 1; }
-      if (!stun && r >= 2 && r % NOVA_EVERY !== 3) {
-        const up = alive();
-        if (up.length > 1 && rnd() < biteChance(fs.length, rage)) { const j = up[Math.floor(rnd() * up.length)]; cur[j] = 0; ko[j] = r; round.bite = j; }
+      owed += plan.get(r) || 0;
+      if (biteRound(r) && (fs.length >= BITE_FROM || !stun)) {
+        let n = fs.length >= BITE_FROM ? owed : bitRnd() < biteChance(fs.length, rage) ? 1 : 0;
+        for (; n > 0; n--) {
+          const up = alive(); if (up.length <= 1) break;
+          const j = up[Math.floor(bitRnd() * up.length)]; cur[j] = 0; ko[j] = r; (round.bite || (round.bite = [])).push(j);
+          if (fs.length >= BITE_FROM) owed--;
+        }
       }
       const live = alive();
       const kind: 0 | 1 | 2 = r % NOVA_EVERY === 3 ? 2 : r % 2 === 0 && live.length > 1 ? 1 : 0;

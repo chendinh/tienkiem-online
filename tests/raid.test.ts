@@ -59,7 +59,7 @@ test('the fight is the same every time it is computed, and its record adds up', 
   const down = new Set<number>();
   for (const r of a.rounds) {
     for (const x of r.f) assert.ok(!down.has(x.i), `fighter ${x.i} acts after falling`);
-    if (r.bite !== undefined) { assert.ok(!down.has(r.bite), `bitten twice: ${r.bite}`); down.add(r.bite); if (r.b) assert.ok(!r.b.t.includes(r.bite), 'a bitten one is hit after'); }
+    for (const j of R.bitesOf(r)) { assert.ok(!down.has(j), `bitten twice: ${j}`); down.add(j); if (r.b) assert.ok(!r.b.t.includes(j), 'a bitten one is hit after'); }
     if (r.b) { r.b.ko.forEach((i) => down.add(i)); r.b.t.forEach((i, k) => assert.ok(r.b!.h[k] >= 0)); }
   }
   assert.deepEqual([...down].sort(), a.ko.map((k, i) => (k ? i : -1)).filter((i) => i >= 0).sort());
@@ -208,4 +208,22 @@ test('the prize: three Thiên pieces a day, strong, made at the winner level, ea
   const won = L.lootWon(DAYS[3], L.lootOfDay(DAYS[3], () => []), fs_.map((f) => f.level), res.dmg), total = res.dmg.reduce((a, b) => a + b, 0);
   assert.equal(won.length, 3);
   for (const w of won) { assert.ok(res.dmg[w.to] > 0); assert.equal(w.item.level, fs_[w.to].level); assert.ok(Math.abs(w.p - res.dmg[w.to] / total) < 1e-9); }
+});
+
+test('the bites: from five cultivators one for sure, and a quarter more for every cultivator above; never the last one standing', () => {
+  assert.equal(R.bitesFor(4), 0); assert.equal(R.bitesFor(5), 1); assert.equal(R.bitesFor(9), 2); assert.equal(R.bitesFor(13), 3); assert.equal(R.bitesFor(6), 1.25);
+  for (const n of [5, 9, 13, 30]) {
+    const fs_ = crowd(n), e = R.bitesFor(n);
+    let all = 0;
+    for (const d of DAYS) {
+      const r = R.fight(R.bossOfDay(d), fs_, d), bit = r.rounds.flatMap((x) => R.bitesOf(x));
+      assert.ok(bit.length >= Math.floor(e) && bit.length <= Math.ceil(e), `n=${n} ${d}: ${bit.length} bites for ${e}`);
+      assert.equal(new Set(bit).size, bit.length, 'nobody bitten twice');
+      for (const x of r.rounds) if (R.bitesOf(x).length) assert.ok(x.r >= 2 && x.r % R.NOVA_EVERY !== 3, 'not in round 1 nor in its great attack');
+      all += bit.length;
+    }
+    assert.ok(Math.abs(all / DAYS.length - e) < 0.35, `n=${n}: ${all / DAYS.length} bites a fight for ${e}`);
+  }
+  // a lone cultivator is never bitten
+  for (const d of DAYS) assert.equal(R.fight(R.bossOfDay(d), crowd(1), d).rounds.flatMap((x) => R.bitesOf(x)).length, 0);
 });

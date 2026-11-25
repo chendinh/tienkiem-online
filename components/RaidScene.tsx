@@ -462,14 +462,20 @@ export function RaidScene(p: Props) {
         }
         case 'bite': {
           setF(e.j, 0); down[e.j] = true;
-          const s = slotOf.get(e.j), f = film.fighters[e.j], mine = e.j === film.me;
+          const s = slotOf.get(e.j);
           if (s !== undefined) card.current[s]?.classList.add('ko');
           if (!live) break;
           const q = s !== undefined ? chestAt(e.j, e.t) : null;
-          // the banner on the other half of the stage from the jaws
-          say(`${boss.name} cạp chết ${f.name}`, `bite ${q && q.y < H * 0.55 ? 'lo' : 'hi'}`, mine ? 'Bạn bị cạp một ngụm, gục tại chỗ' : 'Một ngụm, không kịp trở tay');
-          shake(26, 900); sway(1400, 1.8); sfx('gong'); if (mine) sfx('fail');
           if (q) pop('CẠP!', { x: q.x, y: q.y - cardH * 0.55 }, 'bite', '#ff3b30');
+          if (e.all) {
+            // one banner for the round's bites (on the other half of the stage from the first jaws): the name of the one bitten, or how many
+            const all = e.all, n = all.length, mine = film.me >= 0 && all.includes(film.me), nm = (j: number) => film.fighters[j]?.name || '';
+            const title = n === 1 ? `${boss.name} cạp chết ${nm(all[0])}` : `${boss.name} cạp chết ${n}\u00a0tu\u00a0sĩ`;
+            const sub = n === 1 ? (mine ? 'Bạn bị cạp một ngụm, gục tại chỗ' : 'Một ngụm, không kịp trở tay')
+              : mine ? `Có cả bạn, cùng ${n - 1} người khác` : `${nm(all[0])}, ${nm(all[1])}${n > 2 ? ` và ${n - 2} người khác` : ''}`;
+            say(title, `bite ${q && q.y < H * 0.55 ? 'lo' : 'hi'}`, sub);
+            shake(26, 900); sway(1400, 1.8); sfx('gong'); if (mine) sfx('fail');
+          } else if (q) shake(12, 380);
           break;
         }
         case 'stun': {

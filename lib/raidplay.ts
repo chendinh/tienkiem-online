@@ -9,7 +9,7 @@
 // Who falls in a round is hit first in that round's blows, so nobody shoots after falling; heals land after the blows of the round before, as in the record.
 //
 // The stage is a 9:16 box of REF_W x REF_H reference pixels; points are percent of the box. The Dị Thú is part of the picture behind (lib/raid.ts Boss.at says where).
-import type { Boss, Fighter, FAct, Round } from './raid';
+import { bitesOf, type Boss, type Fighter, type FAct, type Round } from './raid';
 import { hash32 } from './orders';
 
 export const REF_W = 360, REF_H = 640;
@@ -63,6 +63,8 @@ export const ULT_MS = 4400;            // the clip of the great attack (of its 5
 export const SHOT_MS = 430, BIG_MS = 520, BOSS_SHOT_MS = 680, HEAL_MS = 460, OFF_SHOTS = 6;
 // The bite: the jaws close BITE_AT of the way into the round (before its blows are gathered), opening BITE_MS before
 export const BITE_AT = 0.4, BITE_MS = 1100;
+export const BITE_GAP = 240;   // several bites in one round: the jaws of the ones on the stage close one after another, this far apart (at most BITE_STAGGER of them; the rest close with the last)
+const BITE_STAGGER = 7;
 export const WAVE_MS = 420;            // the Dị Thú's barrage: one wave of bullets this often (components/RaidScene.tsx)
 // Each blow of the Dị Thú comes as a volley of homing missiles at its target: so many for its strike, its sweep, its great attack, one after another every VOLLEY_GAP ms.
 // The target's Sinh Lực drops missile by missile (VOLLEY_W: the share of each; the last carries the most, and shows the number of the whole blow).
@@ -86,7 +88,7 @@ export type FilmEvent =
   | { k: 'ult'; t: number }                                               // the clip of its great attack starts
   | { k: 'rage'; t: number }
   | { k: 'stun'; t: number }
-  | { k: 'bite'; t: number; j: number };                                  // the jaws close on a cultivator (they open BITE_MS before): it is gone
+  | { k: 'bite'; t: number; j: number; all?: number[] };                  // the jaws close on a cultivator (they open BITE_MS before): it falls. `all`: on the round's first bite, everyone bitten in it (one banner for them)
 export interface SegBeat {
   r: number; t0: number; end: number; hp: number /* the Dị Thú's Sinh Lực after the round (the record's) */;
   tele: number | null; ult: number | null; rage: number | null; stun: number | null; hits: [number, number] | null /* when its blows of the round land */;
@@ -113,7 +115,15 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
     // ---- the Dị Thú's blows of this round (worked out first: who falls, and when, decides how long they shoot)
     const koAt = new Map<number, number>();
     let quiet: [number, number] | null = null;   // the clip of the great attack: the cultivators brace and hold their fire
-    if (r.bite !== undefined) { const bt = Math.round(t0 + BITE_AT * SEG_MS); koAt.set(r.bite, bt); events.push({ k: 'bite', t: bt, j: r.bite }); }
+    const bit = bitesOf(r);
+    if (bit.length) {
+      // the ones drawn on the stage one after another (their jaws must not all snap at once), the others with the first; the first carries the banner of the round
+      const base = Math.round(t0 + BITE_AT * SEG_MS), seen = bit.filter((j) => drawn.has(j)), off = bit.filter((j) => !drawn.has(j));
+      [...seen, ...off].forEach((j, k) => {
+        const bt = base + (k < seen.length ? Math.min(k, BITE_STAGGER - 1) * BITE_GAP : 0);
+        koAt.set(j, bt); events.push({ k: 'bite', t: bt, j, ...(k === 0 ? { all: bit } : {}) });
+      });
+    }
     if (b && b.stun) {
       seg.stun = t1 - 0.3 * SEG_MS;
       events.push({ k: 'stun', t: seg.stun });
