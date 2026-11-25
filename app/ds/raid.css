@@ -105,6 +105,10 @@
   .raidStageWrap.big .raidCtl { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
   .raidStageWrap.big .raidResult { position: fixed; left: 12px; right: 12px; bottom: 64px; max-width: 440px; margin: 0 auto; }
   .raidStageWrap:fullscreen { background: #000; }
+  /* while the stage is full screen the Phó Bản bar goes away. iPhone Safari has no element full screen, and it frames a fixed child inside its scrolling
+     parent, so the bar stayed visible above the stage: the bar is hidden and the scroll box stops scrolling, so the stage really covers the whole screen */
+  .raidScreen.bigOn .jobsBar { display: none; }
+  .raidScreen.bigOn .jobsScroll { overflow: hidden; -webkit-overflow-scrolling: auto; }
 
   /* the result over the lower part of the stage, once the film has ended */
   .raidResult { position: absolute; left: 3cqw; right: 3cqw; bottom: 3cqw; z-index: 55; display: grid; gap: 8px; padding: 14px; border-radius: 16px 5px 16px 5px; background: linear-gradient(180deg, rgb(10 14 18 / 0.86), rgb(6 9 12 / 0.94)); border: 1px solid var(--line-gold-strong, var(--line)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: jobs-in 0.4s ease-out both; }

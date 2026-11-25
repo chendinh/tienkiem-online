@@ -150,7 +150,7 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
   const myPid = film && film.me >= 0 ? film.fighters[film.me].pid : null;
 
   return (
-    <div className="jobsScreen raidScreen" role="dialog" aria-modal="true" aria-label="Phó Bản">
+    <div className={`jobsScreen raidScreen${big ? ' bigOn' : ''}`} role="dialog" aria-modal="true" aria-label="Phó Bản">
       <Bar close={close} sub={boss.name} />
       <div className="jobsScroll">
         <div className="raidInner">
