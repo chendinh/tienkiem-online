@@ -50,3 +50,26 @@ Mỗi loại tu sĩ (`C.NPC_TITLES`, 6 loại) có một ảnh nữ và một �
 - Mô tả từng loại: `C.BUYER_EN` trong `lib/content.ts`. Prompt dựng ở `lib/imageprompt.ts` (spec `buyer`, kiểu `portrait`), spec từ `buyerSpec` trong `lib/avatarSpec.ts`.
 - Nhóm `buyers` trong `lib/artjobs.ts`. Vẽ bằng `npm run pregen -- --only buyers` (thử khô: `npx tsx scripts/pregen.ts --dry --only buyers`), hoặc workflow "Draw missing art" trên GitHub. Trang quản trị cũng liệt kê nhóm này là còn thiếu cho đến khi ảnh có mặt.
 - Chưa có ảnh thì thẻ khách hiện biểu tượng cuộn giấy thay thế, đơn vẫn dùng được.
+
+## Loại 2, 3, 4: Tìm thú, Đặt đan, Nguyên liệu
+
+Ba loại việc hỏi **một số lượng** của một thứ (khác Tìm đồ hỏi từng món). Luật chung giống Tìm đồ: khách ở lại đến khi giao đủ, "có bao nhiêu đưa bấy nhiêu", mỗi đơn vị giao được trả ngay, đủ hàng thì thưởng thêm và tặng quà, ✕ để tiễn khách, xong thì máy chủ thay khách mới ở tick kế tiếp. Bảng riêng `st.jobs = { v: 1, n, list }`, 6 chỗ theo `J.LAYOUT`: 2 khách thú, 2 khách đan, 2 khách nguyên liệu. Khách và chân dung dùng cùng cách đặt tên và bộ ảnh với Tìm đồ.
+
+| Loại | Hỏi gì | Trả |
+| --- | --- | --- |
+| Tìm thú (`beast`) | Một loài 1 đến 3 con (55%), một con cỡ Lớn trở lên của một loài (20%), hoặc 3 con cùng một hệ, loài nào cũng được (25%). Chỉ loài và hệ có ở các vùng người chơi đã mở | mỗi con gấp 2 lần giá bán ở chuồng (`releaseValue`). Khách cần từ 2 con trở lên thưởng thêm gấp 1 lần tổng giá, và tặng Khế Ước Phù hạng Phàm hoặc Hoàng, hoặc Hồi Khí Đan hạng 1 |
+| Đặt đan (`pill`) | Hồi Khí Đan hạng 1 (60%, 5 đến 10 viên), hạng 2 (30%, 3 đến 6), hạng 3 (10%, 2 đến 4); chỉ hạng mà người chơi đã gom được nguyên liệu để luyện | mỗi viên gấp 1,5 lần giá thu mua của tiệm (tức 75% giá tiệm bán), không thưởng thêm. Quà chỉ là nguyên liệu |
+| Nguyên liệu (`mat`) | Một loại nguyên liệu của các vùng đã mở, số lượng sao cho tổng giá tiệm khoảng 40 đến 80 Linh Thạch (từ 3 đến 50 cái) | mỗi cái gấp 2 lần giá tiệm, đủ hàng thưởng thêm 50% tổng giá, và tặng Hồi Khí Đan hạng 1 hoặc 2, hoặc Khế Ước Phù hạng Phàm |
+
+- **Linh Thú Dị Biến không bao giờ được hỏi và không giao được** (`E_MUTANT`). Con đang xuất chiến hoặc đang treo trong khung không được chọn sẵn, nếu chọn thì hỏi lại. Giao con nào thì con đó rời chuồng.
+- **Giữ lại con khách cần.** "Bán nhanh các con dư" chừa lại những con yếu nhất hợp với mỗi khách đang chờ (`keepBeastIds`), và báo "giữ lại N con công việc Tìm thú đang cần". Trong Chuồng, con khách đang cần có nhãn vàng ở góc.
+- **Không để việc đan thành chỗ kiếm lời từ tiệm.** Đan mua được ở tiệm, nên giá trả luôn thấp hơn giá tiệm bán (75%), không có thưởng đủ hàng bằng Linh Thạch, và quà chỉ là nguyên liệu rẻ. `tests/jobs.test.ts` kiểm tra với mọi khách sinh ra rằng mua đan ở tiệm để giao luôn lỗ. Thú và nguyên liệu không mua được ở tiệm nên trả cao hơn giá bán.
+- Giao đan và nguyên liệu bằng một nút (giao hết số có, tối đa số còn thiếu). Giao thú thì chọn từng con, con dư được chọn sẵn.
+
+### Cách chạy
+
+- `lib/jobs.ts`: phần thuần. `makeJob(i, n, seed, others, { level })`, `newBoard`, `beastMatches`, `keepBeastIds`, `beastWantedBy`, `askText/askShort/askArt`. Hỏi gì phụ thuộc cấp người chơi (`speciesAt`, `matsAt`, `gradesAt`, theo các vùng đã mở), nên khách luôn hỏi thứ tìm được.
+- `lib/game.ts`: `ensureJobs` (trong `tick`, chỉ ở máy chủ), `fillJob(st, id, { ids | n })`, `dismissJob`. `releaseMany` chừa con khách cần.
+- `lib/intents.ts`: `fillJob` và `dismissJob` là intent thuần, chạy ngay ở trình duyệt. `forkState` trong `components/Game.tsx` sao chép `jobs`.
+- `components/JobCards.tsx`: thẻ khách chung cho cả ba loại, ba bảng `BeastJobs`, `PillJobs`, `MatJobs` (đăng ký trong `JOB_KINDS`), `readyCount` cho chấm vàng.
+- Test: `tests/jobs.test.ts`.

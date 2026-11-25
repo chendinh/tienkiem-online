@@ -72,6 +72,8 @@ export const ERR = {
   E_MARKET_EMPTY: 'Hòm thư Chợ Đêm đang trống.',
   E_ORDER_GONE: 'Khách này đã đi rồi hoặc đơn đã giao.',
   E_ORDER_ITEMS: 'Những món này không đúng yêu cầu của khách.',
+  E_JOB_GONE: 'Khách này đã đi rồi hoặc đã giao đủ hàng.',
+  E_JOB_GIVE: 'Linh Thú này không đúng yêu cầu của khách.',
   E_BAD_COSMETIC: 'Dữ liệu hình ảnh hoặc tiểu sử không hợp lệ.',
 } as const;
 export type ErrCode = keyof typeof ERR;

@@ -98,7 +98,7 @@ function FeedRowInner({ e }: { e: FeedEntry }) {
 // `pend` (what the engine counts for the report) is not sent to the browser, but the rules still write to it.
 const forkState = (st: GS): GS => ({
   ...st, bag: st.bag.map((x) => ({ ...x })), stash: st.stash.map((x) => ({ ...x })), eq: Object.fromEntries(Object.entries(st.eq).map(([k, v]) => [k, v ? { ...v } : v])) as GS['eq'],
-  player: { ...st.player }, beasts: [...st.beasts], inv: structuredClone(st.inv), set: structuredClone(st.set), arts: structuredClone(st.arts), orders: st.orders ? structuredClone(st.orders) : st.orders, feed: [...st.feed], pend: {},
+  player: { ...st.player }, beasts: [...st.beasts], inv: structuredClone(st.inv), set: structuredClone(st.set), arts: structuredClone(st.arts), orders: st.orders ? structuredClone(st.orders) : st.orders, jobs: st.jobs ? structuredClone(st.jobs) : st.jobs, feed: [...st.feed], pend: {},
 } as GS);
 
 function ZoomBridge({ r }: { r: { current: ((z: any) => void) | null } }) { r.current = useZoom(); return null; }

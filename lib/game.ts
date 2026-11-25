@@ -8,6 +8,7 @@ import * as X from './codex';
 import * as W from './weekly';
 import * as T from './tasks';
 import * as O from './orders';
+import * as J from './jobs';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -68,6 +69,7 @@ export interface GameState {
   starter?: { done: string[] };   // Nhập Môn (lib/starter.ts): the first jobs already finished and paid. A save older than the feature gets it in the server's upgrade()
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
   orders?: O.Board;   // Khách Cầu Mua (lib/orders.ts): the buyers waiting at Phường Thị. They stay until everything they ask is handed over; a save older than the feature, or from its first version, simply gets a new board on its next tick
+  jobs?: J.JobBoard;   // Công việc Tìm thú, Đặt đan, Nguyên liệu (lib/jobs.ts): the buyers who ask for a number of beasts, pills or materials. Made and replaced on the server's tick, like `orders`.
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
 export interface NpcFoe { name: string; level: number; el: string[]; stats: number[]; pers: number; power: number; elite?: boolean }
@@ -592,9 +594,10 @@ export function dissolveMany(st: GameState, maxTier: number): Res {
 export function releaseMany(st: GameState): Res {
   const keep = new Set(bestParty(st).map((b) => b.id));
   if (st.player.showcase && st.player.showcase.kind === 'beast') keep.add(st.player.showcase.id);   // the framed beast stays
+  const wait = J.keepBeastIds(st.jobs, st.beasts, keep);   // what the beast buyers wait for stays (the weakest creatures that fit each open job)
   let n = 0, gain = 0;
-  st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
-  const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '';
+  st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut || wait.has(b.id)) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
+  const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = (mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '') + (wait.size ? ` Giữ lại ${wait.size} con công việc Tìm thú đang cần.` : '');
   return n === 0 ? fail('E_NOT_FOUND', `Không có Linh Thú nào phù hợp để bán.${keepNote}`) : ok(`Đã bán ${n} Linh Thú, nhận ${gain} Linh Thạch.${keepNote}`, { n, stones: gain });
 }
 
@@ -1106,6 +1109,56 @@ export function dismissOrder(st: GameState, id: any): Res {
   o.left = true;
   return ok(`${o.who.name} đã rời Phường Thị.`);
 }
+// Công việc that ask for a number of something (lib/jobs.ts): the board is made on the first tick, and a buyer that is done or sent away is replaced on a later tick (server only, no random number is drawn).
+function ensureJobs(st: GameState): J.JobBoard {
+  const opt = { level: levelOf(st.player) };
+  if (!J.isBoard(st.jobs)) return (st.jobs = J.newBoard(st.seed, opt));
+  const b = st.jobs;
+  b.list.forEach((j, i) => { if (!J.isOpen(j)) b.list[i] = J.makeJob(i, b.n++, st.seed, b.list, opt); });
+  return b;
+}
+// Hand over what the buyer asks for. Beasts: `a.ids`, the creatures chosen one by one. Pills and materials: `a.n`, how many (more than asked or owned is cut down to what fits: "có bao nhiêu đưa bấy nhiêu").
+// Every unit is paid at once; the last one also pays the bonus and gives the goods on top, and a new buyer takes the place on the server's next tick. No random number is drawn, so the browser runs this at once too.
+export function fillJob(st: GameState, id: any, a: any): Res {
+  const j = J.isBoard(st.jobs) ? st.jobs.list.find((x) => x.id === id) : undefined;
+  if (!j || !J.isOpen(j)) return fail('E_JOB_GONE');
+  const want = J.left(j);
+  let n = 0, sum = 0, pay = 0;
+  if (j.type === 'beast') {
+    const ids = a && a.ids;
+    if (!Array.isArray(ids) || ids.length < 1 || ids.length > want || !ids.every((x) => Number.isInteger(x)) || new Set(ids).size !== ids.length) return fail('E_BAD_REQUEST');
+    const bs = ids.map((x: number) => st.beasts.find((b) => b.id === x));
+    for (const b of bs) { if (!b) return fail('E_NOT_FOUND'); if (b.mut) return fail('E_MUTANT'); if (!J.beastMatches(j.ask, b)) return fail('E_JOB_GIVE'); }
+    for (const b of bs as Beast[]) {
+      st.beasts.splice(st.beasts.findIndex((x) => x.id === b.id), 1);
+      if (st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === b.id) delete st.player.showcase;
+      const v = releaseValue(b); sum += v; pay += J.payFor(j.mult, v); n++;
+    }
+  } else {
+    const ask = j.ask;
+    const have = ask.t === 'pill' ? st.inv.hp[ask.grade] || 0 : ask.t === 'mat' ? st.inv.mat[ask.id] || 0 : 0;
+    const q = a && a.n;
+    if (!Number.isInteger(q) || q < 1) return fail('E_BAD_REQUEST');
+    n = Math.min(q, want, have);
+    if (n < 1) return fail('E_NO_STOCK');
+    if (ask.t === 'pill') st.inv.hp[ask.grade] -= n; else if (ask.t === 'mat') st.inv.mat[ask.id] -= n;
+    sum = n * J.unitValue(ask); pay = n * J.payFor(j.mult, J.unitValue(ask));
+  }
+  j.got += n; j.sum += sum;
+  const complete = j.got >= j.need;
+  if (complete) { pay += J.payFor(j.bonus, j.sum); j.done = true; if (j.extra) giveExtra(st, j.extra); }
+  const paid = earn(st, pay, 'job');
+  j.paid += paid;
+  const end = complete ? ` Khách đã đủ hàng${j.bonus ? ', thưởng thêm' : ''}${j.extra ? ` và ${j.extra.n} ${O.extraName(j.extra)}` : ''}.` : ` Còn thiếu ${J.left(j)}.`;
+  return ok(`${j.who.name} nhận ${n}, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete, n });
+}
+// Send a buyer away (the place goes to a new buyer on the server's next tick). What was already handed over stays paid; only the bonus and the goods are lost.
+export function dismissJob(st: GameState, id: any): Res {
+  const j = J.isBoard(st.jobs) ? st.jobs.list.find((x) => x.id === id) : undefined;
+  if (!j || !J.isOpen(j)) return fail('E_JOB_GONE');
+  j.left = true;
+  return ok(`${j.who.name} đã rời Phường Thị.`);
+}
 // Nhập Môn: a job that is true now and not yet paid pays once (fixed numbers, no random draw). Done jobs are remembered in st.starter.
 export function starterCheck(st: GameState, rep?: Report) {
   const s = st.starter;
@@ -1325,6 +1378,7 @@ export function tick(st: GameState, rep?: Report) {
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
   ensureTasks(st);
+  ensureJobs(st);   // the buyers of Tìm thú, Đặt đan and Nguyên liệu (lib/jobs.ts): same rule as the line below
   ensureOrders(st);   // the buyers of Phường Thị (lib/orders.ts): a new board, or a new buyer for each place that is finished (no random numbers are drawn)
   ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
   // daily content: the day's chronicle headline once, and a journey beat every few minutes of adventure (no random numbers, no game numbers change)

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
+import * as J from '@/lib/jobs';
 import type { GS } from '@/lib/client/types';
 import * as D from '@/lib/daily';
 import { allSpecies } from '@/lib/daily';
@@ -620,6 +621,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
         {beasts.map((b) => (
           <button key={b.id} className={`penTile ${b.mut ? 'mutc' : ''}`} onClick={() => setSel(b.id)} aria-label={`${b.name} cấp ${b.level}`}>
             <BeastArt b={b} box={72} mine onOpen={() => setSel(b.id)} />
+            {J.beastWantedBy(st.jobs, b).length > 0 && <i className="reqMark" title="Công việc Tìm thú đang cần con này"><Icon name="job" size={10} /></i>}
             <span className="pn">{party.has(b.id) ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</span>
             <small>Lv{b.level} · {C.SIZE_CLASS[b.cls]}</small>
           </button>

@@ -27,8 +27,8 @@ export const LAYOUT: OrderKind[] = ['one', 'one', 'one', 'set', 'set', 'vip'];
 export const MULT = { part: 300, vip: 250, bonus3: 100, bonus5: 300 } as const;
 export const BOARD_VERSION = 2;
 
-const hash32 = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 2246822507); h ^= h >>> 13; h = Math.imul(h, 3266489909); h ^= h >>> 16; return h >>> 0; };
-const pick = <T,>(arr: T[], key: string): T => arr[hash32(key) % arr.length];
+export const hash32 = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 2246822507); h ^= h >>> 13; h = Math.imul(h, 3266489909); h ^= h >>> 16; return h >>> 0; };
+export const pick = <T,>(arr: T[], key: string): T => arr[hash32(key) % arr.length];
 /** `n` different members of `arr`, in an order that depends only on the key. */
 const distinct = <T,>(arr: T[], n: number, key: string): T[] => arr.map((x, i) => ({ x, h: hash32(`${key}|${i}`) })).sort((a, b) => a.h - b.h).slice(0, n).map((e) => e.x);
 
@@ -38,12 +38,14 @@ const SYL_M2 = ['Vũ', 'Dương', 'Hiên', 'Thần', 'Phàm', 'Nhiên', 'Quân',
 const ARCH_OF_SLOT: Record<string, string> = { Headwear: 'Phù Sư', Robe: 'Đan Sư', Footwear: 'Tán Tu', Back: 'Thể Tu', Accessory: 'Đan Sư', Ring: 'Ma Tu', Talisman: 'Phù Sư' };
 const ARCH_OF_CLS: Record<string, string> = { kiem: 'Kiếm Tu', thuong: 'Kiếm Tu', cung: 'Kiếm Tu', dao: 'Kiếm Tu', quyen: 'Thể Tu', cam: 'Tán Tu', tieu: 'Tán Tu', phat: 'Phù Sư' };
 const archOf = (kind: OrderKind, w: Want, key: string): string => (kind === 'one' ? (w.slot === 'Weapon' ? ARCH_OF_CLS[w.cls || ''] : w.slot ? ARCH_OF_SLOT[w.slot] : '') : '') || pick(C.NPC_TITLES, `ordarch|${key}`);
-function buyerFor(key: string, kind: OrderKind, want: Want): Buyer {
+/** A buyer of the given kind of cultivator, with a name made from the key. (Shared with the other kinds of job, lib/jobs.ts.) */
+export function buyerNamed(key: string, arch: string): Buyer {
   const g: 'f' | 'm' = hash32(`ordg|${key}`) % 2 ? 'f' : 'm';
   const fam = pick(C.FAMILY, `ordfam|${key}`);
   const name = g === 'f' ? `${fam} ${pick(C.SYL1, `ords1|${key}`)} ${pick(C.SYL2, `ords2|${key}`)}` : `${fam} ${pick(SYL_M1, `ordm1|${key}`)} ${pick(SYL_M2, `ordm2|${key}`)}`;
-  return { name, g, arch: archOf(kind, want, key) };
+  return { name, g, arch };
 }
+const buyerFor = (key: string, kind: OrderKind, want: Want): Buyer => buyerNamed(key, archOf(kind, want, key));
 
 // ---- what is asked
 const elFor = (key: string, week?: string) => (week && C.EO.includes(week) ? week : pick(C.EO, `ordel|${key}`));

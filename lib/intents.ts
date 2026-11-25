@@ -22,6 +22,8 @@ export const PURE_INTENTS: Record<string, PureHandler> = {
   buy: (st, b) => (typeof b.item === 'string' ? G.buy(st, b.item, b.qty) : bad()),
   fillOrder: (st, b) => (typeof b.id === 'string' && Array.isArray(b.items) && b.items.length <= 10 ? G.fillOrder(st, b.id, b.items) : bad()),
   dismissOrder: (st, b) => (typeof b.id === 'string' ? G.dismissOrder(st, b.id) : bad()),
+  fillJob: (st, b) => (typeof b.id === 'string' ? G.fillJob(st, b.id, { ids: b.ids, n: b.n }) : bad()),
+  dismissJob: (st, b) => (typeof b.id === 'string' ? G.dismissJob(st, b.id) : bad()),
   sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : bad()),
   pill: (st, b) => G.useHpPill(st, b.grade),
   craft: (st, b) => G.craft(st, b.id, b.qty),
