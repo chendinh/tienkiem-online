@@ -5,6 +5,7 @@ import { Icon, type IconName } from './ds/Icon';
 import { BeastJobs, PillJobs, MatJobs, readyCount } from './JobCards';
 import { OrdersPanel, fillableCount } from './Orders';
 import { ExpoPanel } from './Expo';
+import { WorkPanel, workReady } from './Work';
 import { Window, type Act } from './Panels';
 
 // Công việc: a place of its own for jobs a player may take up if they like (it is not the daily quests, and nothing is lost by leaving a job alone).
@@ -16,6 +17,7 @@ export const JOB_KINDS: JobKind[] = [
   { id: 'beasts', name: 'Tìm thú', icon: 'paw', line: 'Khách nhờ tìm Linh Thú. Con nào hợp thì giao, giá cao hơn bán ở chuồng.', ready: (st) => readyCount(st, 'beast'), Panel: BeastJobs },
   { id: 'pills', name: 'Đặt đan', icon: 'flame', line: 'Khách đặt Hồi Khí Đan. Luyện được bao nhiêu giao bấy nhiêu.', ready: (st) => readyCount(st, 'pill'), Panel: PillJobs },
   { id: 'mats', name: 'Nguyên liệu', icon: 'sparkle', line: 'Khách thu nguyên liệu. Gom được bao nhiêu giao bấy nhiêu.', ready: (st) => readyCount(st, 'mat'), Panel: MatJobs },
+  { id: 'work', name: 'Thú đi làm', icon: 'zoo', line: 'Cử Linh Thú hợp yêu cầu đi làm. Làm xong nhận thưởng, thú vẫn là của ngươi.', ready: workReady, Panel: WorkPanel },
   { id: 'expo', name: 'Triển lãm', icon: 'cloud', line: 'Bày 3 đến 6 món của ngươi trên mây. Khách tu sĩ ghé xem, ai mê thì tặng quà, ai chê thì ngươi cũng chẳng mất gì.', ready: () => 0 /* a place to look at, not a job to finish: no green dot */, Panel: ExpoPanel },
 ];
 /** How many jobs could be done right now, over every kind (the badge on the Công việc buttons). */

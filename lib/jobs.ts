@@ -54,6 +54,9 @@ const spOf = (id: string): SpLite | undefined => {
   if (!SP_BY_ID) { SP_BY_ID = new Map(); for (const s of D.dailySpecies()) SP_BY_ID.set(s.id, s as SpLite); for (const s of C.SPECIES) SP_BY_ID.set(s.id, s as SpLite); }
   return SP_BY_ID.get(id);
 };
+/** The name and the elements of a species (Thú đi làm, lib/work.ts, asks for creatures the same way). */
+export const speciesName = (id: string): string | undefined => spOf(id)?.name;
+export const speciesEls = (id: string): string[] => spOf(id)?.el || [];
 /** The first element of a species (the fallback picture of a beast ask). */
 export const speciesEl = (id: string): string | undefined => spOf(id)?.el[0];
 export const elementsAt = (level: number): string[] => uniq(speciesAt(level).map((id) => spOf(id)?.el[0]).filter((x): x is string => !!x));

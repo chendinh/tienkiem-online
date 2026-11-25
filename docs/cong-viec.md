@@ -173,3 +173,35 @@ Màn hình (`components/CutImg.tsx`) lấy ảnh theo thứ tự: file đã cắ
 ### Khách bay (cảm giác)
 
 Mỗi chuyến tự khác nhau nhưng cùng một chuyến thì luôn bay y hệt (số rút từ số thứ tự khách): tốc độ 0,85 đến 1,4 lần, độ cao lúc vào, nửa số chuyến lượn ngang qua sân khấu rồi quay lại, 30% có đường vòng giữa hai bệ, mỗi lần ngắm 0,95 đến 1,5 giây, đôi khi quay đầu bay ra phía bên kia. Ba bệ khoảng 7 giây. Năm đến bảy khách đi xa mờ bay ngang nền, mỗi lần mở tab được rút ngẫu nhiên lại (độ cao, cỡ, tốc độ 6 đến 16 giây, hướng).
+
+## Loại 6: Thú đi làm
+
+Người chơi cử Linh Thú của mình đi làm thuê. Thú làm theo **thời gian thật** (cả lúc người chơi không mở game, tối đa như phần offline 12 giờ), xong thì người chơi nhận thưởng. Thú không bao giờ mất: nó vẫn là của người chơi, chỉ **bận** từ lúc cử đến lúc nhận thưởng (không bán, không thả, không giao cho khách Tìm thú, không bày ở Triển lãm, không đi làm hai việc cùng lúc). **Thú đang làm vẫn ra trận cùng đội xuất chiến**, việc làm thuê không rút gì khỏi hành trình. Muốn thú đi làm rút khỏi đội thì sửa `bestParty` (và chỗ chọn đội ở `components/Panels.tsx`, `components/JobCards.tsx`, `lib/server/ranking.ts`).
+
+### Hệ có phụ thuộc loài không?
+
+**Có.** Mỗi loài có đúng một hệ (68 loài, 8 hệ, mỗi hệ 8 đến 9 loài, không loài nào hai hệ; `tests/work.test.ts` kiểm). Nên "đúng hệ" là hỏi **một trong 8 đến 9 loài**, "đúng loài" là hỏi một loài. Hỏi cả hai thì thừa, nên không có việc nào hỏi đủ hai thứ: hệ thì rộng (dễ), loài thì hẹp (khó hơn), loài kèm cấp thì hẹp hơn nữa.
+
+### Luật (`lib/work.ts`, không bốc số ngẫu nhiên)
+
+Bảng luôn có 6 chỗ giữ nguyên độ khó, lưu trong `st.work`. Việc sinh từ `seed` và số thứ tự nên cùng save luôn có cùng việc; thưởng và thời gian chốt lúc sinh.
+
+| Độ khó | Số chỗ | Hỏi gì | Thời gian | Lương mỗi giờ | Quà |
+|---|---|---|---|---|---|
+| Dễ | 2 | **đúng hệ**, loài nào của hệ đó cũng được | khoảng 20 phút | 1 lần | 35%: Hồi Khí Đan hạng 1 ×2 hoặc Khế Ước Phù hạng Hoàng |
+| Vừa | 2 | **đúng loài** | khoảng 1 giờ | 1,4 lần | luôn có một món (Khế Ước Phù Hoàng ×2, đan hạng 1 ×4 hoặc đan hạng 2) |
+| Khó | 1 | **đúng loài và cấp** từ cấp người chơi trừ 3 đến cấp người chơi trở lên; loài phải gặp được ở vùng người chơi đã mở với cấp đó | khoảng 3 giờ | 2 lần | luôn có một món cỡ Huyền (Khế Ước Phù Huyền ×2, đan hạng 2 ×3 hoặc Khế Ước Phù Hoàng ×5) |
+| Đặc biệt | 1 | **chỉ Dị Biến**, đúng hệ (65%) hoặc đúng loài (35%) | khoảng 6 giờ | 4 lần | luôn có hai món: Khế Ước Phù Địa ×2 hoặc Huyền ×5, và đan hạng 3 ×2, đan hạng 2 ×6 hoặc Độ Kiếp Phù |
+
+- Mỗi việc dài 80% đến 120% thời gian trên. Lương = `RATE` (30) × cấp người chơi × hệ số × số giờ, tròn đến 5 Linh Thạch. Ở cấp 12: Dễ khoảng 120 Linh Thạch (20 phút), Vừa 504 (1 giờ), Khó 2.160 (3 giờ), Đặc biệt 8.640 (6 giờ) kèm quà. Nếu cả 6 chỗ luôn có thú làm và luôn được thay ngay thì tối đa khoảng 3.900 Linh Thạch mỗi giờ ở cấp 12 (hành trình bình thường khoảng 2.300), nên dùng thật thì thấp hơn nhiều: phải có đúng thú, phải vào nhận và cử lại.
+- Dị Biến cũng làm được việc thường (nó vẫn là thú của loài đó), nhưng chỉ Dị Biến mới làm được việc Đặc biệt.
+- Hai chỗ cùng độ khó không bao giờ hỏi giống nhau. Việc không bị hết hạn: nằm trên bảng đến khi làm xong hoặc người chơi từ chối (✕).
+- Ba lệnh của người chơi đều là intent thuần, chạy ngay ở trình duyệt, máy chủ có tiếng nói cuối: `workSend` (cử một thú hợp, lưu `beast`, `start`, `end` theo `st.clock`), `workCollect` (chỉ khi `st.clock >= end`; trả Linh Thạch và quà, thú rảnh), `workDismiss` (từ chối việc chưa cử, hoặc gọi thú về giữa chừng thì không nhận gì; việc đã xong thì phải nhận, không từ chối được). Chỗ đã xong hoặc đã từ chối được máy chủ thay việc mới ở tick kế tiếp (`ensureWork`).
+- Thú bận được bảo vệ ở mọi chỗ thú rời chuồng: `releaseBeast`, `releaseMany` (giữ lại), `fillJob` của Tìm thú, và `expoSet` (mã lỗi `E_BEAST_BUSY`).
+
+### Cách chạy
+
+- `lib/work.ts`: luật thuần (`makePost`, `newBoard`, `fits`, `candidates`, `stageOf`, `payFor`, chữ). `lib/game.ts`: `ensureWork` (trong `tick`, chỉ ở máy chủ), `workSend`, `workCollect`, `workDismiss`. `lib/intents.ts`: ba intent. `components/Game.tsx` `forkState` sao chép `work`.
+- `components/Work.tsx`: bảng và thẻ việc. Thẻ dùng lại giao diện của các loại khác (`ordCard`, con dấu "Hoàn thành" `useFin`/`DoneSeal`), thêm thẻ độ khó (sao và màu: xanh lá, xanh dương, tím, vàng), thú đang làm kèm thanh tiến độ và "còn N phút". Thời gian còn lại đếm tiếp từ `st.clock` của lần cập nhật gần nhất bằng đồng hồ máy (`useGameNow`), nên máy lệch giờ cũng không sai; nút Nhận chỉ hiện khi `st.clock` của máy chủ đã quá `end`. `app/ds/work.css`: phần riêng của loại này.
+- Chấm xanh trên tab: có việc đã xong chờ nhận, hoặc có việc trống và có thú hợp đang rảnh (`workReady`).
+- Test: `tests/work.test.ts`.

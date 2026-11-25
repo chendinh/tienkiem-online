@@ -1,0 +1,16 @@
+@layer game {
+  /* Thú đi làm (components/Work.tsx): the cards are the cards of the other kinds of Công việc (orders.css); what is here is what is only theirs: the tier tag, the creature at work and its bar. */
+  .wkCard .ordHead { flex-wrap: nowrap; }
+  .wkTier { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: var(--r-pill); border: 1px solid currentColor; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; background: rgb(0 0 0 / 0.25); }
+  .wkTier.t0 { color: #7bd88f; } .wkTier.t1 { color: #5ab0ff; } .wkTier.t2 { color: #c084fc; } .wkTier.t3 { color: #ffb454; }
+  .wkCard.w-3 { border-color: var(--gold-300); background: linear-gradient(180deg, rgb(120 90 20 / 0.24), rgb(0 0 0 / 0.3)); box-shadow: 0 0 18px -6px color-mix(in srgb, var(--gold-400) 70%, transparent); }
+  .wkCard.ready { border-color: var(--jade-300); box-shadow: 0 0 16px -6px color-mix(in srgb, var(--jade-400) 80%, transparent); }
+  .wkJob { color: var(--gold-200); font-weight: 600; margin-right: 2px; }
+  .wkPay { gap: 4px var(--sp-3); }
+  .wkPay > span { display: inline-flex; align-items: center; gap: 4px; }
+  .wkWorker { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .wkWorkerTx { display: grid; min-width: 0; }
+  .wkWorkerTx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); }
+  .wkWorkerTx small { color: var(--text-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+  .wkCard .jobBar i { transition: width 4s linear; }
+}

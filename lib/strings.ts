@@ -76,6 +76,10 @@ export const ERR = {
   E_JOB_GIVE: 'Linh Thú này không đúng yêu cầu của khách.',
   E_EXPO_TWICE: 'Món này đã đứng trên một bệ khác rồi.',
   E_EXPO_EMPTY: 'Chưa có quà nào của khách trong hòm.',
+  E_WORK_GONE: 'Việc này đã xong hoặc không còn nữa.',
+  E_WORK_FIT: 'Linh Thú này không đúng yêu cầu của việc.',
+  E_WORK_NOT_YET: 'Việc này chưa làm xong, đợi thêm chút nữa.',
+  E_BEAST_BUSY: 'Linh Thú này đang bận: đang đi làm hoặc đang bày ở Triển Lãm.',
   E_OFFER_GONE: 'Vị khách đó đã đi rồi, món này cũng không còn ở đó nữa.',
   E_BAD_COSMETIC: 'Dữ liệu hình ảnh hoặc tiểu sử không hợp lệ.',
 } as const;

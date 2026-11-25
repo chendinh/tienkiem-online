@@ -10,6 +10,7 @@ import * as T from './tasks';
 import * as O from './orders';
 import * as J from './jobs';
 import * as XP from './expo';
+import * as WK from './work';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -70,6 +71,7 @@ export interface GameState {
   starter?: { done: string[] };   // Nhập Môn (lib/starter.ts): the first jobs already finished and paid. A save older than the feature gets it in the server's upgrade()
   questDone?: number;   // how many times the daily quest was finished in all (questDays keeps only the latest 30); shown as a tag on the ranking
   orders?: O.Board;   // Khách Cầu Mua (lib/orders.ts): the buyers waiting at Phường Thị. They stay until everything they ask is handed over; a save older than the feature, or from its first version, simply gets a new board on its next tick
+  work?: WK.WorkBoard;   // Thú đi làm (lib/work.ts): the six postings and the creatures sent to them. Made and replaced on the server's tick; the player sends, collects and sends away.
   expo?: XP.Expo;   // Triển Lãm (lib/expo.ts): up to 6 stands with pieces or Linh Thú on them, the latest visits and the box of gifts. Made when the first piece is put on a stand; visitors come on the server's tick.
   jobs?: J.JobBoard;   // Công việc Tìm thú, Đặt đan, Nguyên liệu (lib/jobs.ts): the buyers who ask for a number of beasts, pills or materials. Made and replaced on the server's tick, like `orders`.
 }
@@ -566,6 +568,7 @@ export function releaseBeast(st: GameState, id: number): Res {
   const i = st.beasts.findIndex((b) => b.id === id);
   if (i < 0) return fail('E_NOT_FOUND');
   if (st.beasts[i].mut) return fail('E_MUTANT');   // a Dị Biến is never sold or let go: it is too rare and other features use it
+  if (WK.bookedIds(st.work).has(id)) return fail('E_BEAST_BUSY');   // it is out at work
   const b = st.beasts.splice(i, 1)[0];
   if (st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === id) delete st.player.showcase;
   const v = earn(st, releaseValue(b), 'release');
@@ -595,6 +598,7 @@ export function releaseMany(st: GameState): Res {
   const keep = new Set(bestParty(st).map((b) => b.id));
   if (st.player.showcase && st.player.showcase.kind === 'beast') keep.add(st.player.showcase.id);   // the framed beast stays
   if (XP.isExpo(st.expo)) for (const s of st.expo.stands) if (s && s.kind === 'beast') keep.add(s.id);   // so do the ones on a stand of Triển Lãm
+  for (const id of WK.bookedIds(st.work)) keep.add(id);   // and the ones out at work (Thú đi làm)
   let n = 0, gain = 0;
   st.beasts = st.beasts.filter((b) => { if (keep.has(b.id) || b.mut) return true; gain += earn(st, releaseValue(b), 'release'); n++; return false; });
   const mutKept = st.beasts.filter((b) => b.mut).length, keepNote = (mutKept ? ` Giữ lại ${mutKept} Dị Biến.` : '');
@@ -1127,7 +1131,8 @@ export function fillJob(st: GameState, id: any, a: any): Res {
     const ids = a && a.ids;
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > want || !ids.every((x) => Number.isInteger(x)) || new Set(ids).size !== ids.length) return fail('E_BAD_REQUEST');
     const bs = ids.map((x: number) => st.beasts.find((b) => b.id === x));
-    for (const b of bs) { if (!b) return fail('E_NOT_FOUND'); if (b.mut) return fail('E_MUTANT'); if (!J.beastMatches(j.ask, b)) return fail('E_JOB_GIVE'); }
+    const busy = WK.bookedIds(st.work);
+    for (const b of bs) { if (!b) return fail('E_NOT_FOUND'); if (b.mut) return fail('E_MUTANT'); if (busy.has(b.id)) return fail('E_BEAST_BUSY'); if (!J.beastMatches(j.ask, b)) return fail('E_JOB_GIVE'); }
     for (const b of bs as Beast[]) {
       st.beasts.splice(st.beasts.findIndex((x) => x.id === b.id), 1);
       if (st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === b.id) delete st.player.showcase;
@@ -1203,6 +1208,7 @@ export function expoSet(st: GameState, slot: unknown, kind: unknown, id: unknown
     if (f.where === 'eq') return fail('E_WORN');
     it = f.it;
   } else if (!st.beasts.some((b) => b.id === id)) return fail('E_NOT_FOUND');
+  else if (WK.bookedIds(st.work).has(id as number)) return fail('E_BEAST_BUSY');   // out at work
   st.expo = e;
   expoFree(st, at);   // what stood there leaves first (its lock goes back to what it was)
   const was = it ? !!it.locked : false;
@@ -1262,6 +1268,48 @@ export function expoDeal(st: GameState, n: unknown): Res {
   }
   const paid = earn(st, o.price || 0, 'expo');
   return ok(`${o.who.name} mua ${old.name}, trả ${paid} Linh Thạch.`, { kind: 'buy', stones: paid });
+}
+
+// ---------- Thú đi làm (lib/work.ts): the board is made and refilled on the server's tick; the three moves of the player are pure, so the browser runs them at once and the server replays them.
+function ensureWork(st: GameState): WK.WorkBoard {
+  if (!WK.isBoard(st.work)) return (st.work = WK.newBoard(st.seed, { level: levelOf(st.player) }));
+  const b = st.work, opt = { level: levelOf(st.player) };
+  b.list.forEach((p, i) => { if (!WK.isOpen(p)) b.list[i] = WK.makePost(i, b.n++, st.seed, b.list, opt); });
+  return b;
+}
+const workPost = (st: GameState, id: unknown): WK.Post | undefined => (WK.isBoard(st.work) ? st.work.list.find((x) => x.id === id) : undefined);
+/** A creature is busy when it is out at work or stands on a stand of Triển Lãm. */
+const beastBusy = (st: GameState, id: number): boolean => WK.bookedIds(st.work).has(id) || (XP.isExpo(st.expo) && st.expo.stands.some((s) => !!s && s.kind === 'beast' && s.id === id));
+/** Send a creature to a posting that fits it. It works until `secs` have passed on the game clock; it keeps going out to fight meanwhile. */
+export function workSend(st: GameState, id: unknown, beastId: unknown): Res {
+  const p = workPost(st, id);
+  if (!p || !WK.isOpen(p) || p.beast !== undefined) return fail('E_WORK_GONE');
+  if (!Number.isInteger(beastId)) return fail('E_BAD_REQUEST');
+  const b = st.beasts.find((x) => x.id === beastId);
+  if (!b) return fail('E_NOT_FOUND');
+  if (!WK.fits(p.ask, b)) return fail('E_WORK_FIT');
+  if (beastBusy(st, b.id)) return fail('E_BEAST_BUSY');
+  p.beast = b.id; p.start = st.clock; p.end = st.clock + p.secs * 1000;
+  return ok(`${b.name} đi làm cho ${p.who.name}.`);
+}
+/** The time is up: pay the Linh Thạch and the goods. The creature is free again and the place gets a new posting on the server's next tick. */
+export function workCollect(st: GameState, id: unknown): Res {
+  const p = workPost(st, id);
+  if (!p || !WK.isOpen(p) || p.beast === undefined) return fail('E_WORK_GONE');
+  if (st.clock < (p.end ?? Infinity)) return fail('E_WORK_NOT_YET');
+  const name = st.beasts.find((b) => b.id === p.beast)?.name || 'Linh Thú';
+  p.done = true;
+  const stones = earn(st, p.stones, 'work');
+  for (const x of p.extra || []) giveExtra(st, x);
+  return ok(`${name} làm xong việc cho ${p.who.name}, nhận ${stones} Linh Thạch.`, { stones, goods: WK.goodsText(p), tier: p.tier });
+}
+/** Send a posting away (a creature still working is called back and nothing is paid; once the time is up the pay is there to be collected, not thrown away). */
+export function workDismiss(st: GameState, id: unknown): Res {
+  const p = workPost(st, id);
+  if (!p || !WK.isOpen(p)) return fail('E_WORK_GONE');
+  if (WK.stageOf(p, st.clock) === 'ready') return fail('E_WORK_GONE');
+  p.left = true;
+  return ok('Đã từ chối việc này.');
 }
 /** The visitors whose time has come (server tick only: it makes pieces for the box): one about every 5 seconds, so usually one a tick and now and then two or three. A few seconds of work at most, even for 12 offline hours of visitors. */
 function runExpo(st: GameState) {
@@ -1537,6 +1585,7 @@ export function tick(st: GameState, rep?: Report) {
   }
   ensureTasks(st);
   ensureJobs(st);   // the buyers of Tìm thú, Đặt đan and Nguyên liệu (lib/jobs.ts): same rule as the line below
+  ensureWork(st);   // the postings of Thú đi làm (lib/work.ts): a new board, or a new posting for each place that is finished
   runExpo(st);   // Triển Lãm (lib/expo.ts): a visitor when it is time (no random numbers are drawn from the journey's streams)
   ensureOrders(st);   // the buyers of Phường Thị (lib/orders.ts): a new board, or a new buyer for each place that is finished (no random numbers are drawn)
   ensureQuest(st);   // today's daily quest exists from the first tick of the day (no random numbers are drawn)
