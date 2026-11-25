@@ -131,12 +131,15 @@ test('work: a creature at work cannot be sold, let go in bulk or handed over to 
   assert.equal(G.fillJob(st, j.id, { ids: [b.id] }).code, 'E_BEAST_BUSY');
 });
 
-test('work: sending away a posting: free or running goes (the creature comes back with nothing), a finished one is collected instead', () => {
-  const st = fresh(16), a = post(st, 0), p = post(st, 1), b = workerFor(st, p);
-  assert.ok(G.workDismiss(st, a.id).ok); assert.equal(a.left, true); assert.equal(G.workDismiss(st, a.id).code, 'E_WORK_GONE');
-  assert.ok(G.workSend(st, p.id, b.id).ok); const stones = st.stones; assert.ok(G.workDismiss(st, p.id).ok);
-  assert.equal(st.stones, stones); assert.ok(!WK.bookedIds(st.work).has(b.id)); G.settle(st, 1);
-  const c = post(st, 1), d = workerFor(st, c); assert.ok(G.workSend(st, c.id, d.id).ok); st.clock = c.end!; assert.equal(G.workDismiss(st, c.id).code, 'E_WORK_GONE'); assert.ok(G.workCollect(st, c.id).ok);
+test('work: no way out: a posting cannot be sent away and a creature at work cannot be called back', () => {
+  assert.equal((G as any).workDismiss, undefined); assert.equal(PURE_INTENTS.workDismiss, undefined);   // neither the engine nor the server table has it
+  const st = fresh(16), p = post(st, 1), b = workerFor(st, p);
+  assert.ok(G.workSend(st, p.id, b.id).ok);
+  assert.equal(G.releaseBeast(st, b.id).code, 'E_BEAST_BUSY');   // locked until the pay is collected
+  G.settle(st, 12); const q = st.work!.list.find((x) => x.id === p.id)!; assert.equal(q.beast, b.id); assert.ok(WK.isOpen(q));   // nothing takes it off the board
+  st.clock = q.end!; assert.ok(G.workCollect(st, q.id).ok); assert.ok(!WK.bookedIds(st.work).has(b.id));   // only finishing frees it
+  // a saved posting that was sent away before this rule is still replaced by a new one
+  const old = post(st, 0); old.left = true; G.settle(st, 1); assert.ok(!st.work!.list.some((x) => x.id === old.id));
 });
 
 test('work: only a Dị Biến can do the special work, and its pay is the biggest', () => {
@@ -156,7 +159,7 @@ test('work: the candidates are the free creatures that fit, the weakest first an
 
 test('work: durations and the actions are pure intents', () => {
   assert.equal(WK.durText(30), '30 giây'); assert.equal(WK.durText(60), '1 phút'); assert.equal(WK.durText(61), '2 phút'); assert.equal(WK.durText(3600), '1 giờ'); assert.equal(WK.durText(3900), '1 giờ 5 phút');
-  for (const k of ['workSend', 'workCollect', 'workDismiss']) assert.equal(typeof PURE_INTENTS[k], 'function', k);
+  for (const k of ['workSend', 'workCollect']) assert.equal(typeof PURE_INTENTS[k], 'function', k);
   const st = fresh(19); assert.equal(PURE_INTENTS.workSend(st, null).code, 'E_WORK_GONE'); assert.equal(PURE_INTENTS.workCollect(st, undefined).code, 'E_WORK_GONE');
   const p = post(st, 1), b = workerFor(st, p); assert.ok(PURE_INTENTS.workSend(st, { id: p.id, beast: b.id }).ok);
 });

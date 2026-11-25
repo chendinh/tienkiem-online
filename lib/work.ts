@@ -50,7 +50,7 @@ const goodsOf = (tier: Tier, key: string): O.Extra[] | undefined => {
 export interface Ask { sp?: string; el?: string; minLv?: number; mut?: true }
 // `beast` the creature sent, `start`/`end` the game clock (ms) of when it left and when it is done. `done`: the pay was collected, `left`: sent away (or the creature was called back with nothing).
 // Either one means the place goes to a new posting on the server's next tick.
-export interface Post { id: string; tier: Tier; who: O.Buyer; job: string; line: number; ask: Ask; secs: number; stones: number; extra?: O.Extra[]; beast?: number; start?: number; end?: number; done?: boolean; left?: boolean }
+export interface Post { id: string; tier: Tier; who: O.Buyer; job: string; line: number; ask: Ask; secs: number; stones: number; extra?: O.Extra[]; beast?: number; start?: number; end?: number; done?: boolean; left?: boolean /* only in saves from before a posting could no longer be sent away */ }
 export interface WorkBoard { v: 1; n: number; list: Post[] }
 export const isBoard = (b: any): b is WorkBoard => !!b && b.v === BOARD_VERSION && Array.isArray(b.list) && typeof b.n === 'number';
 export const isOpen = (p: Post): boolean => !p.done && !p.left;

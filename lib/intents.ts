@@ -34,7 +34,6 @@ export const PURE_INTENTS: Record<string, PureHandler> = {
   expoDeal: (st, b) => G.expoDeal(st, b && b.n),
   workSend: (st, b) => G.workSend(st, b && b.id, b && b.beast),
   workCollect: (st, b) => G.workCollect(st, b && b.id),
-  workDismiss: (st, b) => G.workDismiss(st, b && b.id),
   sell: (st, b) => (typeof b.item === 'string' ? G.sell(st, b.item, b.qty) : bad()),
   pill: (st, b) => G.useHpPill(st, b.grade),
   craft: (st, b) => G.craft(st, b.id, b.qty),

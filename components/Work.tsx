@@ -7,14 +7,13 @@ import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
 import type { Beast } from '@/lib/game';
 import { Icon } from './ds/Icon';
-import { askConfirm } from './ds/Dialog';
 import { ElIcon } from './Icons';
 import { BeastArt, Img, fmt } from './ui';
 import type { Act } from './Panels';
 import { DoneSeal, afterPaint, useFin, type Fin } from './JobDone';
 import { useCue } from './fx/Cue';
 
-// Thú đi làm: the sixth kind of Công việc (rules in lib/work.ts and lib/game.ts workSend, workCollect, workDismiss; all three run on the screen at once and nothing pops up when it worked).
+// Thú đi làm: the sixth kind of Công việc (rules in lib/work.ts and lib/game.ts workSend, workCollect). A posting cannot be sent away and a creature at work cannot be called back: both stay until the work is done and collected. Collecting runs on the screen at once; sending waits for the server.
 // Six postings on a board. A free one shows what it asks, how long it takes and what it pays; one tap opens the creatures that fit and one more tap sends one. A working one shows the creature and the
 // time left; when the time is up the same place holds the button that collects the pay, and the seal of Công việc is stamped on the card.
 
@@ -83,20 +82,12 @@ function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act:
     if (!r.ok) { finish.undo(); onErr(r.msg); return; }
     finish.sure(r.data && r.data.stones != null ? r.data.stones : p.stones);
   };
-  const dismiss = async () => {
-    if (stage === 'run' && !(await askConfirm({ title: 'Gọi Linh Thú về', body: `${worker ? worker.name : 'Linh Thú'} đang làm việc cho ${p.who.name}. Gọi về giữa chừng thì không nhận được gì.`, ok: 'Gọi về' }))) return;
-    setOpen(false);
-    const r = await act('workDismiss', { id: p.id });
-    if (!r.ok) onErr(r.msg);
-  };
-
   return (
     <div className={`ordCard jobCard wkCard w-${p.tier}${gone ? ' done' : ''}${fin ? ' sealed' : ''}${stage === 'ready' ? ' ready' : ''}${stage === 'run' ? ' run' : ''}`}>
       {fin && <DoneSeal f={fin} />}
       <div className="ordHead">
         <Img src={C.buyerArt(p.who.arch, p.who.g)} className="ordFace" fb={<Icon name="scroll" size={26} />} />
         <div className="ordWho"><b>{p.who.name}</b><small>{p.who.arch} <span className={`wkTier t${p.tier}`} title={`Việc ${WK.TIER_NAME[p.tier].toLowerCase()}`}>{stars(p.tier)} {WK.TIER_NAME[p.tier]}</span></small></div>
-        {(stage === 'free' || stage === 'run') && !leaving && <button type="button" className="ordX" aria-label={stage === 'run' ? 'Gọi Linh Thú về' : 'Từ chối việc này'} title={stage === 'run' ? 'Gọi Linh Thú về' : 'Từ chối việc này'} onClick={dismiss}><Icon name="close" size={14} /></button>}
       </div>
       <p className="ordLine"><b className="wkJob">{p.job}</b> “{WK.lineOf(p)}”</p>
       <div className="jobAsk">
@@ -135,7 +126,7 @@ function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act:
           {stage === 'ready' && <button type="button" className="btn hot" onClick={(e) => collect(e.currentTarget.closest('.ordCard'))}>Nhận thưởng · +{fmt(p.stones)}</button>}
         </>
       )}
-      {gone && <div className="ordDone"><Icon name="check" size={14} /> {p.done ? 'Đã nhận thưởng, đang có việc mới' : 'Đã từ chối, đang có việc mới'}</div>}
+      {gone && <div className="ordDone"><Icon name="check" size={14} /> {p.done ? 'Đã nhận thưởng, đang có việc mới' : 'Việc đã đóng, đang có việc mới'}</div>}
     </div>
   );
 }
@@ -156,7 +147,7 @@ export function WorkPanel({ st, act }: { st: GS; act: Act }) {
   if (!list.length) return <div className="empty">Việc đang được đưa lên bảng, đợi vài giây rồi xem lại.</div>;
   return (
     <div className="ordPanel">
-      <div className="hint">Cử Linh Thú hợp yêu cầu đi làm, xong thì nhận thưởng. Thú làm cả lúc ngươi không mở game, vẫn ra trận, chỉ không bán, giao hay bày được cho đến khi nhận thưởng. Việc Đặc biệt chỉ Linh Thú Dị Biến làm được, thưởng rất hậu.</div>
+      <div className="hint">Cử Linh Thú hợp yêu cầu đi làm: đã cử là làm đến xong, không gọi về được, việc cũng không bỏ qua được. Thú làm cả lúc ngươi không mở game, vẫn ra trận, chỉ không bán, giao hay bày được cho đến khi nhận thưởng. Việc Đặc biệt chỉ Linh Thú Dị Biến làm được, thưởng rất hậu.</div>
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">
         {list.map((p, slot) => (

@@ -1303,14 +1303,6 @@ export function workCollect(st: GameState, id: unknown): Res {
   for (const x of p.extra || []) giveExtra(st, x);
   return ok(`${name} làm xong việc cho ${p.who.name}, nhận ${stones} Linh Thạch.`, { stones, goods: WK.goodsText(p), tier: p.tier });
 }
-/** Send a posting away (a creature still working is called back and nothing is paid; once the time is up the pay is there to be collected, not thrown away). */
-export function workDismiss(st: GameState, id: unknown): Res {
-  const p = workPost(st, id);
-  if (!p || !WK.isOpen(p)) return fail('E_WORK_GONE');
-  if (WK.stageOf(p, st.clock) === 'ready') return fail('E_WORK_GONE');
-  p.left = true;
-  return ok('Đã từ chối việc này.');
-}
 /** The visitors whose time has come (server tick only: it makes pieces for the box): one about every 5 seconds, so usually one a tick and now and then two or three. A few seconds of work at most, even for 12 offline hours of visitors. */
 function runExpo(st: GameState) {
   const e = st.expo;
