@@ -4,6 +4,7 @@ import * as C from '@/lib/content';
 import * as J from '@/lib/jobs';
 import * as O from '@/lib/orders';
 import * as XP from '@/lib/expo';
+import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
 import { releaseValue, type Beast } from '@/lib/game';
 import { Icon } from './ds/Icon';
@@ -21,13 +22,14 @@ const times = (m: number) => String(m / 100).replace('.', ',');
 const board = (st: GS, t: J.JobType): J.Job[] => J.ofType(st.jobs, t);
 
 // ---- what the player could give right now
-// The creatures that are not handed over by themselves: the Party, the framed one and the ones on a stand of Triển Lãm. Worked out once per screen update and handed to every card (sorting the whole pen once per creature was the slow way).
+// The creatures that are not handed over by themselves: the Party, the framed one, the ones on a stand of Triển Lãm and the ones out at work (Thú đi làm: locked until the pay is collected). Worked out once per screen update and handed to every card (sorting the whole pen once per creature was the slow way).
 type Hold = ReadonlySet<number>;
 const NOBODY: Hold = new Set();
 const holdOf = (st: GS): Hold => {
   const keep = J.partyOf(st.beasts, st.caps.party), f = st.player.showcase;
   if (f && f.kind === 'beast') keep.add(f.id);
   if (XP.isExpo(st.expo)) for (const s of st.expo.stands) if (s && s.kind === 'beast') keep.add(s.id);
+  for (const id of WK.bookedIds(st.work)) keep.add(id);
   return keep;
 };
 /** How many of this pill or material the player has. */
@@ -155,7 +157,7 @@ function RankBar({ done }: { done: number }) {
 function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; hint: string }) {
   const list = board(st, type), [err, setErr] = useState('');
   const { fin, mark, patch, clear } = useFin(), cue = useCue();
-  const hold = useMemo(() => (type === 'beast' ? holdOf(st) : NOBODY), [type, st.beasts, st.caps.party, st.player.showcase, st.expo]);
+  const hold = useMemo(() => (type === 'beast' ? holdOf(st) : NOBODY), [type, st.beasts, st.caps.party, st.player.showcase, st.expo, st.work]);
   const rankName = (r?: number) => (r === undefined ? undefined : J.RANK_NAME[r]);
   const finishOf = (slot: number, j: J.Job): Finish => ({
     done: (stones, card, rankUp) => {   // the seal now, the sound and the floating line on the next paint

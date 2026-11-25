@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as C from '@/lib/content';
 import * as XP from '@/lib/expo';
+import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
 import { BeastArt, ItemIcon, fmt } from './ui';
@@ -51,7 +52,8 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
   const [tab, setTab] = useState<'item' | 'beast'>(cur ? cur.kind : 'item');
   const used = useMemo(() => new Set(e ? e.stands.flatMap((s, i) => (s && i !== slot ? [`${s.kind}${s.id}`] : [])) : []), [e, slot]);   // what stands on another stand
   const items = useMemo(() => [...st.bag, ...st.stash].filter((it) => !used.has(`item${it.id}`)).sort((a, b) => b.tier - a.tier || b.power - a.power).slice(0, 80), [st.bag, st.stash, used]);
-  const beasts = useMemo(() => st.beasts.filter((b) => !used.has(`beast${b.id}`)).sort((a, b) => XP.beastTier(b.cls, b.mut) - XP.beastTier(a.cls, a.mut) || b.power - a.power).slice(0, 80), [st.beasts, used]);
+  const working = useMemo(() => WK.bookedIds(st.work), [st.work]);   // out at work (Thú đi làm): locked until the pay is collected
+  const beasts = useMemo(() => st.beasts.filter((b) => !used.has(`beast${b.id}`) && !working.has(b.id)).sort((a, b) => XP.beastTier(b.cls, b.mut) - XP.beastTier(a.cls, a.mut) || b.power - a.power).slice(0, 80), [st.beasts, used, working]);
   const go = (type: string, payload: object) => { onClose(); void act(type, payload).then((r) => { if (!r.ok) onErr(r.msg); }); };
   const place = (kind: 'item' | 'beast', id: number) => go('expoSet', { slot, kind, id });
   return (
