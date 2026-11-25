@@ -192,6 +192,8 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: Fli
 }, (a, b) => a.f.key === b.f.key && a.hold === b.hold);   // a visitor is made once and then runs by itself: the screen updating around it does not touch it
 
 // ---- the stands
+// A tap on the creature also reaches the stand, which opens its sheet: the creature itself must do nothing, or the sheet opens and closes at once (onStand toggles).
+const openNothing = () => {};
 const standSig = (v: StandView) => (v ? `${v.kind}:${v.kind === 'item' ? `${v.item.id}:${v.item.level}:${v.item.tier}` : `${v.beast.id}:${v.beast.level}:${v.beast.mut}`}` : 'x');
 const nameOf = (v: StandView) => (v ? (v.kind === 'item' ? v.item.name : v.beast.name) : '');
 interface StandProps { i: number; v: StandView; sig: string; onStand: (i: number) => void; pieces: Els }
@@ -205,7 +207,7 @@ const Stand = memo(function Stand({ i, v, onStand, pieces }: StandProps) {
       {v && <i className="xAura" style={{ '--dl': `${-(i * 0.9)}s` } as CSSProperties} />}
       <span className="xPed"><i className="xPuff" /><CutImg id="expo_slab" className="xPedImg" fb={<i className="xStone" />} /></span>
       <div key={key} ref={(el) => { pieces.current[i] = el; }} className={`xPiece${v ? '' : ' empty'}`} style={{ '--pd': `${i * 0.07}s` } as CSSProperties}>
-        {v ? (v.kind === 'item' ? <ItemIcon it={v.item} size={56} /> : <BeastArt b={v.beast} box={64} mine onOpen={() => onStand(i)} />) : <Icon name="plus" size={20} />}
+        {v ? (v.kind === 'item' ? <ItemIcon it={v.item} size={56} /> : <BeastArt b={v.beast} box={64} mine onOpen={openNothing} />) : <Icon name="plus" size={20} />}
       </div>
     </div>
   );

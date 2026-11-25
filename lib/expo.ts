@@ -120,8 +120,8 @@ export function bookFor(el: string, tier: number, level: number, key: string): s
 
 // ---- offers: now and then a visitor who loved a piece asks for it
 // About one visit in twenty, the visitor offers the player a deal for the piece they liked best (a piece of equipment, never a Linh Thú):
-//   buy   the asking price: the base (5 times what the piece dissolves for) plus what the player added on the stand (`extra`, at most the base again). The more is added,
-//         the fewer buyers take it (buyChance): a little helps, too much and nobody buys. The best is about a third over the base.
+//   buy   the asking price: the base (what the piece dissolves for, the number the bag shows) plus what the player added on the stand (`extra`, up to twice the base: x3).
+//         The more is added, the fewer buyers take it (buyChance): up to x2 most still do at a small markup, from x2 to x3 hardly anyone (2% and less).
 //   swap  one for one with a random piece of the same rarity and the same kind (made when the player says yes; it goes to the bag, the stand is free again),
 //   book  a Bí Công of the rarity Địa or Thiên (only for a Địa piece and better), of the visitor's favourite element.
 // The server makes the offer with the visit (lib/game.ts runExpo, from the seed and the visit number alone) and keeps the last few for OFFER_KEEP_MS; the player answers with expoDeal.
@@ -133,15 +133,19 @@ export const OFFER_MAX = 3;
 export type OfferKind = 'buy' | 'swap' | 'book';
 export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; book?: string }
 const OFFER_W: Record<OfferKind, number> = { buy: 50, swap: 40, book: 10 };
-/** The base price a buyer pays for a piece worth `value` (what it dissolves for). */
-export const basePrice = (value: number): number => Math.max(1, Math.round(value * 5));
-/** The most a player may add on top of the base: the base again. */
-export const maxExtra = (base: number): number => base;
+/** The base price of a piece worth `value`: exactly what it dissolves for (the "Phân giải" number the bag shows). */
+export const basePrice = (value: number): number => Math.max(1, Math.round(value));
+/** The most a player may add on top of the base: twice the base, so the price is at most x3. */
+export const maxExtra = (base: number): number => base * 2;
 const nice = (x: number): number => { if (x < 1) return 1; const p = 10 ** Math.floor(Math.log10(x)), m = x / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; };
-/** The three buttons that add Linh Thạch to the price: about 5%, 10% and 25% of the base, as round numbers, so they fit the rarity (a rarer piece has a far higher base). */
-export const priceSteps = (base: number): number[] => [...new Set([nice(base * 0.05), nice(base * 0.1), nice(base * 0.25)])];
-/** Out of 10,000, how likely a buyer still asks at this price: 1 - (extra / base)^2. +10%: 99%, +33%: 89% (the best income), +50%: 75%, +100%: nobody. */
-export const buyChance = (base: number, extra: number): number => { const x = Math.max(0, Math.min(1, extra / Math.max(1, base))); return Math.round(10_000 * (1 - x * x)); };
+/** The three buttons that add Linh Thạch to the price: about 10%, 25% and 50% of the base, as round numbers, so they fit the rarity (a rarer piece has a far higher base). */
+export const priceSteps = (base: number): number[] => [...new Set([nice(base * 0.1), nice(base * 0.25), nice(base * 0.5)])];
+/** Out of 10,000, how likely a buyer still asks at this price. Up to x2 (`extra` = base): 1 - 0.98 (extra / base)^2, so +10%: 99%, +33%: 89% (the best income), +50%: 76%, x2: 2%.
+ *  From x2 to x3 it keeps falling from 2% to 0.2%: always 2% or less. */
+export const buyChance = (base: number, extra: number): number => {
+  const x = Math.max(0, Math.min(2, extra / Math.max(1, base)));
+  return Math.round(x <= 1 ? 10_000 * (1 - 0.98 * x * x) : 200 * (1 - 0.9 * (x - 1)));
+};
 /** What a buyer pays for a piece worth `value` with `extra` added. */
 export const askPrice = (value: number, extra = 0): number => { const b = basePrice(value); return b + Math.max(0, Math.min(maxExtra(b), Math.floor(extra))); };
 /** A Bí Công of the technique rarity `techTier` (0 Hoàng, 1 Huyền, 2 Địa, 3 Thiên) of the favourite element, one the player will be able to learn soon. From the key alone. */

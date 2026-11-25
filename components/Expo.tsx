@@ -50,8 +50,9 @@ function BoxView({ b }: { b: XP.Box }) {
 
 // The asking price of a piece on a stand: the base (lib/expo.ts basePrice) and what the player adds with the buttons (round sums that fit the rarity, priceSteps), up to the base again.
 // The line under it says how many buyers still ask at that price, so the player sees what adding costs.
+const fmtX = (k: number) => `x${(Math.round(k * 100) / 100).toLocaleString('vi-VN')}`;
 function Price({ it, extra, set }: { it: Item; extra: number; set: (extra: number) => void }) {
-  const base = XP.basePrice(dissolveValue(it)), max = XP.maxExtra(base), add = Math.min(extra, max), chance = Math.round(XP.buyChance(base, add) / 100);
+  const base = XP.basePrice(dissolveValue(it)), max = XP.maxExtra(base), add = Math.min(extra, max), pc = XP.buyChance(base, add) / 100, chance = pc >= 10 ? Math.round(pc) : Math.round(pc * 10) / 10;
   return (
     <div className="xPrice" role="group" aria-label="Giá bán cho khách hỏi mua">
       <div className="xPriceSum">
@@ -65,7 +66,7 @@ function Price({ it, extra, set }: { it: Item; extra: number; set: (extra: numbe
         {XP.priceSteps(base).map((s) => <button key={s} type="button" className="btn sm" disabled={add >= max} onClick={() => set(Math.min(max, add + s))}>+{fmt(s)}</button>)}
         <button type="button" className="btn sm ghost" disabled={!add} onClick={() => set(0)}>Về giá gốc</button>
       </div>
-      <small className={`xPriceNote${chance < 60 ? ' warn' : ''}`}>{add >= max ? 'Giá đã gấp đôi giá gốc: không khách nào chịu mua.' : add ? `Đắt hơn thì ít khách hỏi mua hơn: còn khoảng ${chance}% số khách chịu giá này.` : 'Cộng thêm một ít thì bán được giá hơn, cộng nhiều quá thì không ai mua.'}</small>
+      <small className={`xPriceNote${chance < 60 ? ' warn' : ''}`}>{add ? `Giá gấp ${fmtX((base + add) / base)} giá gốc: còn khoảng ${chance}% số khách chịu giá này.${add >= base ? ' Từ x2 trở lên hầu như không ai mua.' : ''}` : 'Giá gốc bằng giá phân giải. Cộng thêm một ít thì bán được giá hơn, tối đa gấp 3, nhưng càng đắt càng ít khách mua.'}</small>
     </div>
   );
 }
