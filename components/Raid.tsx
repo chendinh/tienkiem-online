@@ -113,30 +113,7 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
     return r;
   };
 
-  // ---- full screen, like a video player: the stage alone, as big as the screen allows. The browser's own full screen where it exists; where it does not
-  // (an iPhone only lets a <video> go full screen) the stage covers the page itself. Esc, the button or the phone's Back leaves it.
-  const wrap = useRef<HTMLDivElement>(null);
-  const [big, setBig] = useState(false);
-  useEffect(() => {
-    const on = () => setBig(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
-    document.addEventListener('fullscreenchange', on); document.addEventListener('webkitfullscreenchange', on);
-    return () => { document.removeEventListener('fullscreenchange', on); document.removeEventListener('webkitfullscreenchange', on); };
-  }, []);
-  const toggleBig = useCallback(async () => {
-    const el = wrap.current as any, d = document as any;
-    if (d.fullscreenElement || d.webkitFullscreenElement) { await (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); setBig(false); return; }
-    if (big) { setBig(false); return; }
-    const req = el && (el.requestFullscreen || el.webkitRequestFullscreen);
-    if (req) { try { await req.call(el, { navigationUI: 'hide' }); setBig(true); return; } catch { /* refused: cover the page instead */ } }
-    setBig(true);
-  }, [big]);
-  useEffect(() => {
-    if (!big) return;
-    // Esc leaves full screen only (it must not also close the Phó Bản screen behind it)
-    const key = (e: KeyboardEvent) => { if (e.key !== 'Escape') return; e.stopImmediatePropagation(); const d = document as any; if (d.fullscreenElement || d.webkitFullscreenElement) void (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); setBig(false); };
-    window.addEventListener('keydown', key, true);
-    return () => window.removeEventListener('keydown', key, true);
-  }, [big]);
+  const { wrap, big, toggleBig } = useFullStage();
 
   if (!v) return (
     <div className="jobsScreen raidScreen" role="dialog" aria-modal="true" aria-label="Phó Bản">
@@ -235,6 +212,34 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
   );
 }
 
+// Full screen, like a video player: the stage alone, as big as the screen allows. The browser's own full screen where it exists; where it does not
+// (an iPhone only lets a <video> go full screen) the stage covers the page itself. Esc, the button or the phone's Back leaves it.
+export function useFullStage() {
+  const wrap = useRef<HTMLDivElement>(null);
+  const [big, setBig] = useState(false);
+  useEffect(() => {
+    const on = () => setBig(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    document.addEventListener('fullscreenchange', on); document.addEventListener('webkitfullscreenchange', on);
+    return () => { document.removeEventListener('fullscreenchange', on); document.removeEventListener('webkitfullscreenchange', on); };
+  }, []);
+  const toggleBig = useCallback(async () => {
+    const el = wrap.current as any, d = document as any;
+    if (d.fullscreenElement || d.webkitFullscreenElement) { await (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); setBig(false); return; }
+    if (big) { setBig(false); return; }
+    const req = el && (el.requestFullscreen || el.webkitRequestFullscreen);
+    if (req) { try { await req.call(el, { navigationUI: 'hide' }); setBig(true); return; } catch { /* refused: cover the page instead */ } }
+    setBig(true);
+  }, [big]);
+  useEffect(() => {
+    if (!big) return;
+    // Esc leaves full screen only (it must not also close the Phó Bản screen behind it)
+    const key = (e: KeyboardEvent) => { if (e.key !== 'Escape') return; e.stopImmediatePropagation(); const d = document as any; if (d.fullscreenElement || d.webkitFullscreenElement) void (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); setBig(false); };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [big]);
+  return { wrap, big, toggleBig };
+}
+
 function Bar({ close, sub }: { close: () => void; sub: string }) {
   return (
     <header className="jobsBar">
@@ -254,7 +259,7 @@ function RewardList({ r }: { r: R.Reward }) {
   );
 }
 
-function ResultCard({ film, boss, onReplay }: { film: FilmOut; boss: R.Boss; onReplay: () => void }) {
+export function ResultCard({ film, boss, onReplay, demo }: { film: FilmOut; boss: R.Boss; onReplay: () => void; demo?: boolean }) {
   const mine = film.me >= 0, total = film.dmg.reduce((a, b) => a + b, 0) || 1;
   const rank = mine ? film.fighters.map((_, i) => i).sort((a, b) => film.dmg[b] - film.dmg[a]).indexOf(film.me) + 1 : 0;
   const mvp = film.fighters[film.mvp];
@@ -263,7 +268,7 @@ function ResultCard({ film, boss, onReplay }: { film: FilmOut; boss: R.Boss; onR
       <h3>{film.win ? 'Đại thắng' : 'Dị Thú trốn thoát'}</h3>
       <p>{film.win ? `${boss.name} đã bị ${film.fighters.length} tu sĩ trảm sau ${film.rounds.length} hiệp.` : `${boss.name} bỏ chạy sau ${film.rounds.length} hiệp, còn ${Math.round(((film.rounds[film.rounds.length - 1]?.hp || 0) / film.max) * 100)}% Sinh Lực.`}</p>
       {mvp && film.fighters.length > 1 && <div className="raidMvp"><span className="fig"><Cultivator look={lookOf(mvp.arch, mvp.g, mvp.hair)} /></span><span><small>Công đầu</small><b>{mvp.name}</b><em>{fmt(film.dmg[film.mvp])} sát thương</em></span></div>}
-      {mine
+      {demo ? null : mine
         ? <div className="raidMine"><span>Ngươi: hạng <b>{rank}</b>/{film.fighters.length} · {fmt(film.dmg[film.me])} sát thương ({Math.round((film.dmg[film.me] / total) * 100)}%){film.ko[film.me] ? ` · trọng thương ở hiệp ${film.ko[film.me]}` : ''}</span>{film.reward && <RewardList r={film.reward} />}{film.reward && film.claimed && <small className="ok">Đã nhận thưởng</small>}</div>
         : <div className="raidMine"><span>Ngươi không tham gia trận này.</span></div>}
       <button type="button" className="btn ghost" onClick={onReplay}><Icon name="play" size={15} /> Xem lại</button>
@@ -271,7 +276,7 @@ function ResultCard({ film, boss, onReplay }: { film: FilmOut; boss: R.Boss; onR
   );
 }
 
-function Board({ film, myPid }: { film: FilmOut; myPid: string | null }) {
+export function Board({ film, myPid, sub }: { film: FilmOut; myPid: string | null; sub?: string }) {
   const order = film.fighters.map((_, i) => i).sort((a, b) => film.dmg[b] - film.dmg[a]);
   const top = order.slice(0, 20), meAt = order.findIndex((i) => film.fighters[i].pid === myPid);
   const max = film.dmg[order[0]] || 1;
@@ -288,14 +293,14 @@ function Board({ film, myPid }: { film: FilmOut; myPid: string | null }) {
   };
   return (
     <section className="raidCard board">
-      <header><Icon name="crown" size={18} /><div><h3>Bảng sát thương</h3><small>{film.fighters.length} tu sĩ · {dayName(film.day)}</small></div></header>
+      <header><Icon name="crown" size={18} /><div><h3>Bảng sát thương</h3><small>{film.fighters.length} tu sĩ · {sub ?? dayName(film.day)}</small></div></header>
       <ol className="raidBoard">{top.map(row)}{meAt >= 20 && row(order[meAt], meAt)}</ol>
     </section>
   );
 }
 
 // The full-screen sign of a video player: four corners pointing out (or in, to leave).
-function FullIcon({ out }: { out: boolean }) {
+export function FullIcon({ out }: { out: boolean }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {out

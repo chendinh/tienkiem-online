@@ -1,0 +1,25 @@
+/* The Phó Bản demo page (components/lab/RaidDemo.tsx). The stage and the cards are the Phó Bản screen's own (app/ds/raid.css); this adds the page and the settings. */
+.rdDemo { min-height: 100dvh; padding-top: env(safe-area-inset-top); }
+.rdDemoBar { width: min(1060px, 100%); margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.rdDemoBar > div { flex: 1; min-width: 0; }
+.rdDemoBar h1 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); color: var(--gold-200); line-height: 1.2; }
+.rdDemoBar small { display: block; color: var(--text-3); font-size: var(--fs-xs); }
+.rdDemoSet { gap: 14px; }
+.rdDemoField { display: grid; gap: 7px; min-width: 0; }
+.rdDemoField .lbl { display: flex; align-items: baseline; gap: 6px; color: var(--text-2); font-size: var(--fs-sm); font-weight: 600; }
+.rdDemoField .lbl b { font-size: var(--fs-lg); color: var(--gold-200); }
+.rdDemoField .lbl small { color: var(--text-3); font-weight: 400; font-size: var(--fs-xs); }
+.rdDemoBosses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.rdDemoBosses button { position: relative; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px 4px 12px 4px; background: #000; cursor: pointer; }
+.rdDemoBosses img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0.6; transform: scale(1.6); transition: opacity var(--dur-fast, 0.15s); }
+.rdDemoBosses span { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 3px 4px; font-size: 10px; line-height: 1.15; color: #fff; text-align: center; background: linear-gradient(transparent, rgb(0 0 0 / 0.88)); }
+.rdDemoBosses button.on { outline: 2px solid var(--el, var(--gold-300)); outline-offset: -2px; box-shadow: 0 0 16px -4px var(--el, var(--gold-300)); }
+.rdDemoBosses button.on img { opacity: 1; }
+.rdDemoChips { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.rdDemoChips button { min-width: 0; padding: 6px 0; border: 1px solid var(--line); border-radius: var(--r-pill, 999px); background: rgb(0 0 0 / 0.3); color: var(--text-2); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.rdDemoChips button.on { color: #2b1c05; border-color: transparent; background: var(--gold-lacquer); }
+.rdDemoField select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgb(0 0 0 / 0.35); color: var(--text-1); font: inherit; font-size: 16px; }
+.rdDemo .rdDemoField .seg { display: flex; width: 100%; }
+.rdDemo .rdDemoField .seg > button { flex: 1 1 0; }
+.rdDemoGo { width: 100%; justify-content: center; gap: 8px; }
+.rdDemoSet .hint { margin: 0; }

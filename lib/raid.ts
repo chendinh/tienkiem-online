@@ -182,10 +182,11 @@ export function bossStats(fs: Fighter[], day: string, boss: Pick<Boss, 'el'> = {
   return { hp: Math.max(300, Math.round(per * rounds)), def };
 }
 
-/** The whole fight. Fighters act fastest first, then the Dị Thú answers. Deterministic from the day and the fighters. */
-export function fight(boss: Boss, fs: Fighter[], day: string): Result {
+/** The whole fight. Fighters act fastest first, then the Dị Thú answers. Deterministic from the day and the fighters. hpMul (the demo stage only, lib/raiddemo.ts)
+ *  makes the Dị Thú sturdier or frailer, to show a given ending. */
+export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result {
   const rnd = rng(`raid|fight|${day}|${fs.length}`);
-  const { hp: max, def: bossDef } = bossStats(fs, day, boss);
+  const bs = bossStats(fs, day, boss), bossDef = bs.def, max = hpMul === 1 ? bs.hp : Math.max(300, Math.round(bs.hp * hpMul));
   let hp = max, rage = false, stun = 0;
   const cur = fs.map((f) => f.hp), dmg = fs.map(() => 0), ko = fs.map(() => 0), cd = fs.map(() => ({} as Record<number, number>));
   const order = fs.map((_, i) => i).sort((a, b) => fs[b].spd - fs[a].spd || a - b);

@@ -10,19 +10,12 @@ import { loadAccount, decodeState } from './store';
 import { publicId } from './ranking';
 import { giveStack, stackInfo } from '../goods';
 import * as C from '../content';
+import { fighterOf } from '../raidfighter';
+export { fighterOf };
 
 // The fight time of a day. RAID_FIGHT_MINUTE (minutes after midnight, Vietnam time) moves it, to test without waiting for the evening.
 const fightMinute = () => { const m = Number(process.env.RAID_FIGHT_MINUTE); return Number.isInteger(m) && m >= 0 && m < 1440 ? m : R.FIGHT_HOUR * 60; };
 export const fightAt = (day: string) => R.fightAtOf(day, fightMinute());
-
-/** A player's fighting numbers, taken from the save (lib/raid.ts Fighter). */
-export function fighterOf(st: G.GameState, pid: string): R.Fighter {
-  const p = st.player, S = G.pstats(st), cls = G.classOf(st), el = G.auraElement(st);
-  return {
-    pid, name: p.name, g: p.look.g, arch: R.archOf(cls, el), hair: parseInt(pid.slice(0, 6), 16) || 0, level: G.levelOf(p), realm: p.realm, sub: p.sub, el, cls,
-    skills: G.playerSkills(st), atk: S.atk, def: S.def, spd: S.spd, hp: S.maxHp, crit: S.crit, critdmg: S.critdmg, power: G.combatPower(st), ...(p.avatar && p.avatar.url ? { av: p.avatar.url } : {}),
-  };
-}
 
 // RAID_BOSS (an id of lib/raid.ts BOSSES) fixes the Dị Thú of a new day, to test one in particular.
 const bossFor = (day: string) => { const id = process.env.RAID_BOSS; return id && R.BOSSES.some((b) => b.id === id) ? id : R.bossOfDay(day).id; };
