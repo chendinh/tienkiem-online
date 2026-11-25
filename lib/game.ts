@@ -1107,12 +1107,6 @@ export function fillOrder(st: GameState, id: any, ids: any): Res {
   return ok(`${o.who.name} nhận ${items.length} món, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete });
 }
 // Send a buyer away (the place goes to a new buyer on the server's next tick). What was already handed over stays paid; only the bonus and the goods are lost.
-export function dismissOrder(st: GameState, id: any): Res {
-  const o = O.isBoard(st.orders) ? st.orders.list.find((x) => x.id === id) : undefined;
-  if (!o || !O.isOpen(o)) return fail('E_ORDER_GONE');
-  o.left = true;
-  return ok(`${o.who.name} đã rời Phường Thị.`);
-}
 // Công việc that ask for a number of something (lib/jobs.ts): the board is made on the first tick, and a buyer that is done or sent away is replaced on a later tick (server only, no random number is drawn).
 function ensureJobs(st: GameState): J.JobBoard {
   if (!J.isBoard(st.jobs)) return (st.jobs = J.newBoard(st.seed, { level: levelOf(st.player) }));
@@ -1163,12 +1157,6 @@ export function fillJob(st: GameState, id: any, a: any): Res {
   return ok(`${j.who.name} nhận ${n}, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete, n, ...(rankUp !== undefined ? { rankUp } : {}) });
 }
 // Send a buyer away (the place goes to a new buyer on the server's next tick). What was already handed over stays paid; only the bonus and the goods are lost.
-export function dismissJob(st: GameState, id: any): Res {
-  const j = J.isBoard(st.jobs) ? st.jobs.list.find((x) => x.id === id) : undefined;
-  if (!j || !J.isOpen(j)) return fail('E_JOB_GONE');
-  j.left = true;
-  return ok(`${j.who.name} đã rời Phường Thị.`);
-}
 // ---------- Triển Lãm (lib/expo.ts): 3 to 6 of the player's own pieces and Linh Thú on stands among the clouds; visitors look, react and give. Nothing is ever taken from the player.
 // A piece of equipment on a stand is locked (so no clean-up touches it) and gets back the lock it had when it leaves; a Linh Thú stays in the pen. If a piece is gone later (worn, sold, let go) its stand is simply empty.
 export type StandView = { kind: 'item'; item: Item } | { kind: 'beast'; beast: Beast } | null;
@@ -1216,6 +1204,15 @@ export function expoSet(st: GameState, slot: unknown, kind: unknown, id: unknown
   e.stands[at] = { kind, id: id as number, ...(was ? { was: true } : {}), tally: XP.emptyTally() };
   return ok('');
 }
+/** Set what the player adds to the base price of the piece on a stand (Linh Thạch, 0 up to the base again). Buyers who come after pay the new price, or are put off by it (lib/expo.ts buyChance). */
+export function expoPrice(st: GameState, slot: unknown, extra: unknown): Res {
+  if (!Number.isInteger(slot) || (slot as number) < 0 || (slot as number) >= XP.STANDS || !Number.isInteger(extra) || (extra as number) < 0) return fail('E_BAD_REQUEST');
+  const e = XP.isExpo(st.expo) ? st.expo : null, s = e ? e.stands[slot as number] : null, x = s ? exhibitOf(expoView(st)[slot as number]) : null;
+  if (!e || !s || s.kind !== 'item' || !x) return fail('E_NOT_FOUND');
+  const v = Math.min(extra as number, XP.maxExtra(XP.basePrice(x.ex.value)));
+  if (v > 0) s.extra = v; else delete s.extra;
+  return ok('');
+}
 export function expoClear(st: GameState, slot: unknown): Res {
   if (!Number.isInteger(slot) || (slot as number) < 0 || (slot as number) >= XP.STANDS) return fail('E_BAD_REQUEST');
   expoFree(st, slot as number);
@@ -1253,11 +1250,10 @@ export function expoDeal(st: GameState, n: unknown): Res {
   const arr = f.where === 'bag' ? st.bag : st.stash, old = f.it, key = `${st.seed}|expo|${o.n}|deal`;
   if (o.kind === 'swap') {
     const it = giftItem(st, old.tier, old.slot, levelOf(st.player), key);
-    it.locked = true;
-    arr[f.i] = it;   // the new piece takes the place of the old one, on the same stand, with the tally of a new piece
-    e.stands[o.slot] = { kind: 'item', id: it.id, tally: XP.emptyTally() };
+    arr[f.i] = it;   // the new piece takes the place of the old one in the bag (or the stash), so it always fits; the stand is free again
+    e.stands[o.slot] = null;
     e.offers = e.offers!.filter((x) => x.slot !== o.slot); if (!e.offers.length) delete e.offers;
-    return ok(`${o.who.name} đổi ${old.name} lấy ${it.name}.`, { kind: 'swap', name: it.name, tier: it.tier });
+    return ok(`${o.who.name} đổi ${old.name} lấy ${it.name}.`, { kind: 'swap', name: it.name, tier: it.tier, item: it, old: old.name, where: f.where });
   }
   arr.splice(f.i, 1);
   e.stands[o.slot] = null;
@@ -1352,7 +1348,7 @@ function expoVisit(st: GameState, e: XP.Expo): boolean {
   // an offer for that piece, now and then: the last few are kept for a minute and a half, an older one is forgotten
   const fresh = (e.offers || []).filter((o) => st.clock - o.at <= XP.OFFER_KEEP_MS);
   const stand = like ? e.stands[like.slot] : null;
-  const offer = like && stand ? XP.offerOf(v, n, key, st.clock, { slot: like.slot, id: stand.id, ex: like.ex }, levelOf(st.player)) : null;
+  const offer = like && stand ? XP.offerOf(v, n, key, st.clock, { slot: like.slot, id: stand.id, ex: like.ex, extra: stand.extra }, levelOf(st.player)) : null;
   if (offer && !fresh.some((o) => o.slot === offer.slot)) fresh.push(offer);   // one deal at a time for a piece
   if (fresh.length) e.offers = fresh.slice(-XP.OFFER_MAX); else delete e.offers;
   return true;

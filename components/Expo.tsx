@@ -1,15 +1,17 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import * as C from '@/lib/content';
 import * as XP from '@/lib/expo';
 import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
-import { BeastArt, ItemIcon, fmt } from './ui';
+import { BeastArt, Img, ItemCard, ItemIcon, fmt } from './ui';
+import { ModalClose, XSeal } from './ds/ModalClose';
 import { ReactIcon } from './ReactIcon';
 import { shortNum } from '@/lib/shortnum';
 import { ExpoScene, heldBack, type HeldMap } from './ExpoScene';
-import { expoView } from '@/lib/game';
+import { dissolveValue, expoView, type Item } from '@/lib/game';
 import { useFx } from './fx/FxProvider';
 import { sfx } from '@/lib/audio';
 import type { Act } from './Panels';
@@ -46,9 +48,32 @@ function BoxView({ b }: { b: XP.Box }) {
   );
 }
 
+// The asking price of a piece on a stand: the base (lib/expo.ts basePrice) and what the player adds with the buttons (round sums that fit the rarity, priceSteps), up to the base again.
+// The line under it says how many buyers still ask at that price, so the player sees what adding costs.
+function Price({ it, extra, set }: { it: Item; extra: number; set: (extra: number) => void }) {
+  const base = XP.basePrice(dissolveValue(it)), max = XP.maxExtra(base), add = Math.min(extra, max), chance = Math.round(XP.buyChance(base, add) / 100);
+  return (
+    <div className="xPrice" role="group" aria-label="Giá bán cho khách hỏi mua">
+      <div className="xPriceSum">
+        <span><small>Giá gốc</small><b><Icon name="stone" size={13} />{fmt(base)}</b></span>
+        <i aria-hidden="true">+</i>
+        <span className={add ? 'up' : ''}><small>Cộng thêm</small><b><Icon name="stone" size={13} />{fmt(add)}</b></span>
+        <i aria-hidden="true">=</i>
+        <span className="tot"><small>Giá bán</small><b><Icon name="stone" size={13} />{fmt(base + add)}</b></span>
+      </div>
+      <div className="xPriceBtns">
+        {XP.priceSteps(base).map((s) => <button key={s} type="button" className="btn sm" disabled={add >= max} onClick={() => set(Math.min(max, add + s))}>+{fmt(s)}</button>)}
+        <button type="button" className="btn sm ghost" disabled={!add} onClick={() => set(0)}>Về giá gốc</button>
+      </div>
+      <small className={`xPriceNote${chance < 60 ? ' warn' : ''}`}>{add >= max ? 'Giá đã gấp đôi giá gốc: không khách nào chịu mua.' : add ? `Đắt hơn thì ít khách hỏi mua hơn: còn khoảng ${chance}% số khách chịu giá này.` : 'Cộng thêm một ít thì bán được giá hơn, cộng nhiều quá thì không ai mua.'}</small>
+    </div>
+  );
+}
+
 // The sheet for one stand: what stands there, what the visitors thought of it, and what could stand there instead (the bag, the stash, the pen). It sticks to the bottom of the window.
 function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null; slot: number; act: Act; onClose: () => void; onErr: (m: string) => void }) {
   const cur = e ? e.stands[slot] : null;
+  const curItem = useMemo(() => { const v = cur && cur.kind === 'item' ? expoView(st)[slot] : null; return v && v.kind === 'item' ? v.item : null; }, [cur, st.bag, st.stash, slot]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<'item' | 'beast'>(cur ? cur.kind : 'item');
   const used = useMemo(() => new Set(e ? e.stands.flatMap((s, i) => (s && i !== slot ? [`${s.kind}${s.id}`] : [])) : []), [e, slot]);   // what stands on another stand
   const items = useMemo(() => [...st.bag, ...st.stash].filter((it) => !used.has(`item${it.id}`)).sort((a, b) => b.tier - a.tier || b.power - a.power).slice(0, 80), [st.bag, st.stash, used]);
@@ -61,9 +86,10 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
       <div className="xPickHead">
         <b>Bệ {slot + 1}</b>
         <small>{cur ? 'Đổi món khác hoặc gỡ xuống' : 'Chọn món bày lên'}</small>
-        <button type="button" className="xClose" aria-label="Đóng" onClick={onClose}><Icon name="close" size={16} /></button>
+        <button type="button" className="xClose static" aria-label="Đóng" title="Đóng" onClick={onClose}><XSeal size={34} /></button>
       </div>
       {cur && cur.tally.some((n) => n > 0) && <Strip tally={cur.tally} label={`Khách nghĩ gì về món ở bệ ${slot + 1}`} />}
+      {curItem && cur && <Price it={curItem} extra={cur.extra || 0} set={(extra) => void act('expoPrice', { slot, extra }).then((r) => { if (!r.ok) onErr(r.msg); })} />}
       <div className="xPickTabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'item'} className={tab === 'item' ? 'on' : ''} onClick={() => setTab('item')}>Pháp khí ({items.length})</button>
         <button type="button" role="tab" aria-selected={tab === 'beast'} className={tab === 'beast' ? 'on' : ''} onClick={() => setTab('beast')}>Linh Thú ({beasts.length})</button>
@@ -94,19 +120,45 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
 // A visitor asks for the piece they liked best (lib/expo.ts offers): one thin card at the top of the stage, over the empty sky, with the deal in a line and one button. It shows for 25 seconds
 // and goes by itself; the close button sends the visitor away. Only the visitors that came while this panel was open can ask (the panel notes the visit number it opened on), so with the window
 // closed there are no deals, and a piece that is no longer on its stand takes its deal with it.
-function OfferCard({ o, name, onGone, onYes }: { o: XP.Offer; name: string; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
+function OfferCard({ o, it, onGone, onYes }: { o: XP.Offer; it: Item; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
   useEffect(() => { const t = setTimeout(() => onGone(o.n), XP.OFFER_SHOW_MS); return () => clearTimeout(t); }, [o.n, onGone]);
-  // the first line is who asks and for what (it may be cut short, the piece is on its stand anyway); the second is the deal itself, which must never be cut: it is short, except a book's name
-  const what = o.kind === 'buy' ? <>Trả <b>{fmt(o.price || 0)}</b> <Icon name="stone" size={12} /></>
-    : o.kind === 'swap' ? <>Đổi món hạng <b>{C.RARITY[o.tier]}</b> cùng loại</>
-    : <>Đổi Bí Công: <b>{o.book}</b></>;
+  const ask = o.kind === 'buy' ? 'hỏi mua' : 'muốn đổi';
+  const what = o.kind === 'buy' ? <>Trả <b><Icon name="stone" size={13} />{fmt(o.price || 0)}</b></>
+    : o.kind === 'swap' ? <>Đổi lấy một món <b style={{ color: C.RCOLOR[o.tier] }}>{C.RARITY[o.tier]}</b> cùng loại</>
+    : <>Đổi lấy Bí Công <b>{o.book}</b></>;
   return (
-    <div className="xOffer" role="alertdialog" aria-label={`${o.who.name} hỏi mua ${name}`}>
-      <p><small>{o.who.arch} {o.who.name} hỏi {name}</small><span>{what}</span></p>
-      <button type="button" className="btn hot sm" onClick={() => onYes(o)}>{o.kind === 'buy' ? 'Bán' : 'Đổi'}</button>
-      <button type="button" className="xClose" aria-label="Từ chối" onClick={() => onGone(o.n)}><Icon name="close" size={14} /></button>
+    <div className="xOffer" role="alertdialog" aria-label={`${o.who.name} ${ask} ${it.name}`} style={{ '--ms': `${XP.OFFER_SHOW_MS}ms` } as CSSProperties}>
+      <Img src={C.buyerArt(o.who.arch, o.who.g)} className="xOfferFace" fb={<Icon name="scroll" size={22} />} />
+      <div className="xOfferTx">
+        <small><b>{o.who.name}</b> · {o.who.arch} {ask}</small>
+        <span className="xOfferIt"><ItemIcon it={it} size={26} /><em style={{ color: C.RCOLOR[it.tier] }}>{it.name}</em></span>
+        <span className="xOfferDeal">{what}</span>
+      </div>
+      <button type="button" className="btn hot sm" onClick={() => onYes(o)}>{o.kind === 'buy' ? 'Bán' : 'Đồng ý'}</button>
+      <button type="button" className="xClose static" aria-label="Từ chối" title="Từ chối" onClick={() => onGone(o.n)}><XSeal size={30} /></button>
+      <i className="xOfferTime" aria-hidden="true" />
     </div>
   );
+}
+
+// What the player got from a deal: for a swap the new piece with its picture and every number (it is in the bag now), for a Bí Công its name, for a sale the Linh Thạch.
+type Got = { kind: 'swap'; item: Item; old: string; where: string } | { kind: 'book'; name: string } | { kind: 'buy'; stones: number };
+function GotModal({ g, onClose }: { g: Got; onClose: () => void }) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Giao dịch xong">
+      <ModalClose onClose={onClose} />
+      <div className="modalBody xGot" onClick={(e) => e.stopPropagation()}>
+        <h3>Giao dịch xong</h3>
+        {g.kind === 'swap' && <>
+          <p>Đã đổi <b>{g.old}</b> lấy món mới. Món này đã nằm trong {g.where === 'stash' ? 'kho' : 'túi'}.</p>
+          <ItemCard it={g.item} />
+        </>}
+        {g.kind === 'book' && <p>Nhận Bí Công <b>{g.name}</b>. Xem ở mục Bí Công.</p>}
+        {g.kind === 'buy' && <p className="xGotSum"><Icon name="stone" size={22} /> +{fmt(g.stones)} Linh Thạch</p>}
+        <button type="button" className="btn hot" onClick={onClose}>Nhận</button>
+      </div>
+    </div>, document.body);
 }
 
 export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
@@ -118,9 +170,20 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   const [note, setNote] = useState('');
   const openedAt = useRef(e ? e.n : 0), [gone, setGone] = useState<number[]>([]);
   const offer = XP.liveOffer(e, openedAt.current, gone);
-  const offerName = useMemo(() => { const v = offer ? expoView(st)[offer.slot] : null; return v && v.kind === 'item' ? v.item.name : ''; }, [offer, st.expo, st.bag, st.stash]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const offerItem = useMemo(() => { const v = offer ? expoView(st)[offer.slot] : null; return v && v.kind === 'item' ? v.item : null; }, [offer, st.expo, st.bag, st.stash]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const [got, setGot] = useState<Got | null>(null);
   const onGone = useCallback((n: number) => setGone((g) => (g.includes(n) ? g : [...g, n])), []);
-  const onYes = useCallback((o: XP.Offer) => { setGone((g) => [...g, o.n]); void act('expoDeal', { n: o.n }).then((r) => { if (!r.ok) setNote(r.msg); }); }, [act]);
+  const onYes = useCallback((o: XP.Offer) => {
+    setGone((g) => [...g, o.n]);
+    void act('expoDeal', { n: o.n }).then((r) => {
+      if (!r.ok) { setNote(r.msg); return; }
+      const d = (r.data || {}) as { kind?: string; item?: Item; old?: string; where?: string; name?: string; stones?: number };
+      if (d.kind === 'swap' && d.item) setGot({ kind: 'swap', item: d.item, old: d.old || '', where: d.where || 'bag' });
+      else if (d.kind === 'book' && d.name) setGot({ kind: 'book', name: d.name });
+      else if (d.kind === 'buy') setGot({ kind: 'buy', stones: d.stones || 0 });
+      sfx('chime');
+    });
+  }, [act]);
   const fx = useFx();
   const n = e ? XP.filled(e) : 0, has = !!e && XP.boxCount(e.box) > 0;
   const onStand = useCallback((slot: number) => { setNote(''); setPick((p) => (p === slot ? null : slot)); }, []);
@@ -141,18 +204,17 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
   return (
     <div className="xpo">
       <ExpoScene st={st} onStand={onStand} onChest={collect} held={held} hold={setHeld} />
-      {offer && offerName && <OfferCard key={offer.n} o={offer} name={offerName} onGone={onGone} onYes={onYes} />}
       <div className="xBar">
-        <p className={`xState${n < XP.MIN_OPEN ? ' warn' : ''}`}>
-          {n < XP.MIN_OPEN
-            ? <>Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</>
-            : <>Đang mở cửa với <b>{n}</b> món. Cứ khoảng {Math.round(XP.INTERVAL_SEC[n])} giây lại có khách ghé, có lúc vài người cùng đến.</>}
-        </p>
+        {/* a visitor's deal takes the place of the line of words under the stage, where nothing covers it; the line itself only says what is missing to open */}
+        {offer && offerItem
+          ? <OfferCard key={offer.n} o={offer} it={offerItem} onGone={onGone} onYes={onYes} />
+          : n < XP.MIN_OPEN && <p className="xState warn">Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</p>}
         {shown && <BoxView b={shown.box} />}
         <button type="button" className="btn hot" disabled={!has} onClick={collect}>Thu quà</button>
       </div>
       {note && <div className="hint ordWarn" role="status">{note}</div>}
       {shown && <Totals e={shown} />}
+      {got && <GotModal g={got} onClose={() => setGot(null)} />}
       {pick !== null && <Pick key={pick} st={st} e={shown} slot={pick} act={act} onClose={closePick} onErr={setNote} />}
     </div>
   );

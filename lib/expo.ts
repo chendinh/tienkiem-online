@@ -22,7 +22,7 @@ export const REACTIONS: Reaction[] = ['love', 'wow', 'like', 'sad', 'angry'];
 export const REACTION_NAME: Record<Reaction, string> = { love: 'Mê', wow: 'Ngạc nhiên', like: 'Thích', sad: 'Thất vọng', angry: 'Chê' };
 export type Tally = [number, number, number, number, number];   // how many times each reaction of REACTIONS happened in front of this stand
 
-export interface Stand { kind: 'item' | 'beast'; id: number; was?: boolean /* the piece was locked before it was put here: it stays locked when taken away */; tally: Tally }
+export interface Stand { kind: 'item' | 'beast'; id: number; was?: boolean /* the piece was locked before it was put here: it stays locked when taken away */; tally: Tally; extra?: number /* Linh Thạch the player adds to the base price (askPrice) */ }
 export type Gift = { kind: 'weapon'; name: string; tier: number } | { kind: 'pill'; grade: number; n: number } | { kind: 'book'; name: string };
 export interface Step { slot: number; r: Reaction | null; stones: number }
 export interface Visit { n: number; at: number; who: { name: string; g: 'f' | 'm'; arch: string }; side: 0 | 1; route: Step[]; gift?: Gift }
@@ -120,8 +120,9 @@ export function bookFor(el: string, tier: number, level: number, key: string): s
 
 // ---- offers: now and then a visitor who loved a piece asks for it
 // About one visit in twenty, the visitor offers the player a deal for the piece they liked best (a piece of equipment, never a Linh Thú):
-//   buy   a high price in Linh Thạch (4 to 6 times what the piece dissolves for),
-//   swap  one for one with a random piece of the same rarity and the same kind (made when the player says yes),
+//   buy   the asking price: the base (5 times what the piece dissolves for) plus what the player added on the stand (`extra`, at most the base again). The more is added,
+//         the fewer buyers take it (buyChance): a little helps, too much and nobody buys. The best is about a third over the base.
+//   swap  one for one with a random piece of the same rarity and the same kind (made when the player says yes; it goes to the bag, the stand is free again),
 //   book  a Bí Công of the rarity Địa or Thiên (only for a Địa piece and better), of the visitor's favourite element.
 // The server makes the offer with the visit (lib/game.ts runExpo, from the seed and the visit number alone) and keeps the last few for OFFER_KEEP_MS; the player answers with expoDeal.
 // The screen shows only the offers of visitors that came while it was open (liveOffer), so with the window closed Triển Lãm has no deals to answer, and nothing waits for the player.
@@ -132,13 +133,24 @@ export const OFFER_MAX = 3;
 export type OfferKind = 'buy' | 'swap' | 'book';
 export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; book?: string }
 const OFFER_W: Record<OfferKind, number> = { buy: 50, swap: 40, book: 10 };
+/** The base price a buyer pays for a piece worth `value` (what it dissolves for). */
+export const basePrice = (value: number): number => Math.max(1, Math.round(value * 5));
+/** The most a player may add on top of the base: the base again. */
+export const maxExtra = (base: number): number => base;
+const nice = (x: number): number => { if (x < 1) return 1; const p = 10 ** Math.floor(Math.log10(x)), m = x / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; };
+/** The three buttons that add Linh Thạch to the price: about 5%, 10% and 25% of the base, as round numbers, so they fit the rarity (a rarer piece has a far higher base). */
+export const priceSteps = (base: number): number[] => [...new Set([nice(base * 0.05), nice(base * 0.1), nice(base * 0.25)])];
+/** Out of 10,000, how likely a buyer still asks at this price: 1 - (extra / base)^2. +10%: 99%, +33%: 89% (the best income), +50%: 75%, +100%: nobody. */
+export const buyChance = (base: number, extra: number): number => { const x = Math.max(0, Math.min(1, extra / Math.max(1, base))); return Math.round(10_000 * (1 - x * x)); };
+/** What a buyer pays for a piece worth `value` with `extra` added. */
+export const askPrice = (value: number, extra = 0): number => { const b = basePrice(value); return b + Math.max(0, Math.min(maxExtra(b), Math.floor(extra))); };
 /** A Bí Công of the technique rarity `techTier` (0 Hoàng, 1 Huyền, 2 Địa, 3 Thiên) of the favourite element, one the player will be able to learn soon. From the key alone. */
 export function bookOfTier(el: string, techTier: number, level: number, key: string): string | null {
   const pool = (A.CLASSES_BY_EL[el] || A.CLASSES_BY_EL.Kim).flatMap((c) => A.techsOf(c)).filter((t) => t.tier === techTier && t.minLevel <= level + 5);
   return pool.length ? pool[hash32(`xk|${key}`) % pool.length].name : null;
 }
 /** The offer of this visit for the piece it liked best, or null (most visits). Worked out from the key alone, so the same save has the same offers. */
-export function offerOf(v: Visitor, n: number, key: string, at: number, target: { slot: number; id: number; ex: Exhibit }, level: number): Offer | null {
+export function offerOf(v: Visitor, n: number, key: string, at: number, target: { slot: number; id: number; ex: Exhibit; extra?: number }, level: number): Offer | null {
   const x = target.ex;
   if (x.kind !== 'item' || hash32(`xo|${key}`) % 10_000 >= OFFER_BP) return null;
   const bookTier = x.tier >= 4 ? 3 : x.tier === 3 ? 2 : -1;
@@ -147,7 +159,11 @@ export function offerOf(v: Visitor, n: number, key: string, at: number, target: 
   let r = hash32(`xj|${key}`) % kinds.reduce((a, k) => a + OFFER_W[k], 0), kind = kinds[0];
   for (const k of kinds) { if (r < OFFER_W[k]) { kind = k; break; } r -= OFFER_W[k]; }
   const base: Offer = { n, at, slot: target.slot, id: target.id, kind, who: v.who, tier: x.tier };
-  if (kind === 'buy') return { ...base, price: Math.max(1, Math.round(x.value * (4 + (hash32(`xm|${key}`) % 3)))) };
+  if (kind === 'buy') {
+    const price = askPrice(x.value, target.extra), extra = price - basePrice(x.value);
+    if (extra > 0 && hash32(`xm|${key}`) % 10_000 >= buyChance(basePrice(x.value), extra)) return null;   // too dear for this buyer: no deal this time
+    return { ...base, price };
+  }
   if (kind === 'book') return { ...base, book: book! };
   return base;
 }

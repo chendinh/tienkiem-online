@@ -124,14 +124,42 @@
   .xPickHead { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .xPickHead b { color: var(--gold-200); font-family: var(--font-display); }
   .xPickHead small { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
-  /* the deal a visitor asks for: over the empty sky at the top of the stage, one line of words and one button */
-  .xOffer { position: absolute; top: 6px; left: 8px; right: 8px; z-index: 12; max-width: 464px; margin-inline: auto; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; border-radius: 14px 4px 14px 4px; border: 1px solid var(--gold-300); background: linear-gradient(180deg, #232846, #171b32); box-shadow: 0 4px 14px rgb(0 0 0 / 0.45); animation: xSheet 0.22s ease-out; }
-  .xOffer p { flex: 1; min-width: 0; margin: 0; display: grid; gap: 2px; font-size: 14px; line-height: 1.25; color: var(--text-1); }
-  .xOffer small { color: var(--text-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .xOffer span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .xOffer b { color: var(--gold-200); }
-  .xOffer .btn { flex: none; padding: 7px 14px; }
-  .xClose { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: rgb(255 255 255 / 0.06); color: var(--text-2); cursor: pointer; }
+  .xPickHead .xClose.static { width: 34px; height: 34px; flex: none; }
+  /* the deal a visitor asks for: in the bar under the stage, where the line of words was (nothing covers it there). The buyer's face, the piece asked for, the deal, one button,
+     the seal to say no; a thin bar along the bottom runs out with the time the offer stays */
+  .xOffer { position: relative; flex: 1 1 100%; display: flex; align-items: center; gap: 10px; padding: 8px 8px 10px 8px; border-radius: 16px 5px 16px 5px; border: 1px solid var(--gold-300); background: linear-gradient(180deg, #262b4c, #161a31); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 6px 18px -6px color-mix(in srgb, var(--gold-300) 45%, transparent); overflow: hidden; animation: xSheet 0.24s ease-out; }
+  .xOfferFace { flex: none; width: 46px; height: 46px; border-radius: 12px 4px 12px 4px; object-fit: cover; border: 1px solid var(--line-gold, var(--line)); background: rgb(0 0 0 / 0.3); display: grid; place-items: center; }
+  .xOfferTx { flex: 1; min-width: 0; display: grid; gap: 3px; line-height: 1.25; }
+  .xOfferTx small { color: var(--text-2); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xOfferTx small b { color: var(--text-1); }
+  .xOfferIt { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .xOfferIt em { font-style: normal; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xOfferDeal { font-size: 14px; color: var(--text-1); }
+  .xOfferDeal b { display: inline-flex; align-items: center; gap: 3px; color: var(--gold-200); }
+  .xOffer .btn { flex: none; padding: 8px 14px; }
+  .xOffer .xClose.static { flex: none; width: 32px; height: 32px; }
+  .xOfferTime { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--gold-300), var(--gold-200)); transform-origin: left; animation: xOfferRun var(--ms, 25s) linear both; }
+  @keyframes xOfferRun { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  /* the asking price of a piece, in the sheet of its stand */
+  .xPrice { display: grid; gap: 6px; padding: 8px; border-radius: 12px 4px 12px 4px; border: 1px solid var(--line); background: rgb(0 0 0 / 0.22); }
+  .xPriceSum { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+  .xPriceSum span { display: grid; justify-items: center; gap: 1px; min-width: 0; }
+  .xPriceSum small { font-size: 10.5px; color: var(--text-3, var(--text-2)); }
+  .xPriceSum b { display: inline-flex; align-items: center; gap: 3px; font-size: 14px; color: var(--text-1); white-space: nowrap; }
+  .xPriceSum span.up b { color: var(--jade-300, #6fe0b0); }
+  .xPriceSum span.tot b { color: var(--gold-200); font-size: 15px; }
+  .xPriceSum i { font-style: normal; color: var(--text-3, var(--text-2)); }
+  .xPriceBtns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .xPriceBtns .btn { flex: 1 1 0; min-width: 64px; }
+  .xPriceNote { font-size: 11.5px; color: var(--text-2); line-height: 1.3; }
+  .xPriceNote.warn { color: var(--gold-300); }
+  /* what a deal gave */
+  .modalBody.xGot { width: min(420px, 100%); display: grid; gap: 12px; text-align: center; }
+  .xGot h3 { margin: 0; font-family: var(--font-display); color: var(--gold-200); }
+  .xGot p { margin: 0; color: var(--text-2); }
+  .xGot p b { color: var(--text-1); }
+  .xGot .item { text-align: left; }
+  .xGotSum { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 22px; font-weight: 700; color: var(--gold-200) !important; }
   .xPickTabs { display: flex; gap: 6px; }
   .xPickTabs button { flex: 1; padding: 7px 8px; border-radius: 10px 3px 10px 3px; border: 1px solid var(--line); background: rgb(255 255 255 / 0.04); color: var(--text-2); font-weight: 600; cursor: pointer; }
   .xPickTabs button.on { color: var(--gold-200); border-color: var(--gold-300); background: color-mix(in srgb, var(--gold-400) 18%, rgb(0 0 0 / 0.3)); }
