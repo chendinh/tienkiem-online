@@ -232,8 +232,9 @@ export type DropEntry =
   | { kind: 'item'; w: number } | { kind: 'stones'; w: number; q: [number, number] } | { kind: 'taming'; w: number; grade: number; q: [number, number] }
   | { kind: 'pill'; w: number; grade: number; q: [number, number] } | { kind: 'material'; w: number; q: [number, number] } | { kind: 'none'; w: number };
 export const DROP_TABLE: DropEntry[] = [
-  { kind: 'item', w: 34 }, { kind: 'stones', w: 16, q: [1, 4] }, { kind: 'taming', w: 3, grade: 0, q: [1, 1] },
-  { kind: 'pill', w: 3, grade: 0, q: [1, 1] }, { kind: 'material', w: 14, q: [1, 2] }, { kind: 'none', w: 30 },
+  // 100 in all, so each weight is its percentage. Items were 34 (and "none" 30): items are 20 now and the 14 points went to "none", the other rewards are unchanged.
+  { kind: 'item', w: 20 }, { kind: 'stones', w: 16, q: [1, 4] }, { kind: 'taming', w: 3, grade: 0, q: [1, 1] },
+  { kind: 'pill', w: 3, grade: 0, q: [1, 1] }, { kind: 'material', w: 14, q: [1, 2] }, { kind: 'none', w: 44 },
 ];
 
 // ---------- Zone_Phenomenon (Thiên Địa Dị Tượng). Only these fields may change (Requirement 6.11): cult factor, Luck bonus, Encounter_Type weights, species weights.

@@ -78,6 +78,7 @@ test('Spirit_Stone equals the ledger sum after Settlement and shop actions (Requ
   G.settleTo(st, T0 + 6 * 3600_000);
   assert.equal(st.stones, G.ledgerSum(st));
   assert.ok(st.ledger.every((r) => r.amt !== 0 && Number.isInteger(r.amt)));
+  G.earn(st, 100, 'drop');   // enough for the buy whatever this seed happened to earn in six hours (a few dozen stones, it varies with the drops)
   assert.ok(G.buy(st, 'taming0', 1).ok); G.flushLedger(st, 'r1', T0 + 7 * 3600_000);
   assert.equal(st.stones, G.ledgerSum(st));
 });
@@ -976,7 +977,7 @@ test('a taming the player answers by hand also lands in the journey with its res
   assert.match(row.text, /Dị Biến/);
 });
 test('plain (Phàm) items and items dissolved by the setting are shown in the journey too', () => {
-  const st = fresh(960); st.set.autoEquip = false; st.set.dissolveMax = 5;
+  const st = fresh(962); st.set.autoEquip = false; st.set.dissolveMax = 5;   // a seed whose journey meets a Phàm item early (items are 20% of the drops)
   for (let i = 0; i < 400 && !st.feed.some((e) => e.kind === 'item' && e.item && e.item.tier === 0); i++) G.tick(st);
   const plain = st.feed.find((e) => e.kind === 'item' && e.item && e.item.tier === 0);
   assert.ok(plain, 'a Phàm item has its row');
