@@ -86,6 +86,34 @@ function puffSprite(tone: string): HTMLCanvasElement {
   }
   spriteCache.set(key, c); return c;
 }
+/** The upper jaw of the bite (the lower one is it upside down): a dark arch of a beast's jaw with a rim of the element's colour, the gum line curving up to the corners
+ *  of the mouth, a row of teeth with two long fangs. 256 x 150; the gum line is at JAW_GUM of its height in the middle. */
+const JAW_W = 256, JAW_H = 150, JAW_GUM = 92 / 150;
+function jawSprite(rim: string): HTMLCanvasElement {
+  const key = `jaw|${rim}`, had = spriteCache.get(key); if (had) return had;
+  const c = document.createElement('canvas'); c.width = JAW_W; c.height = JAW_H;
+  const g = c.getContext('2d')!, gum = (x: number) => 92 - 26 * ((x - 128) / 110) ** 2;
+  const arch = () => { g.beginPath(); g.moveTo(16, gum(16)); g.bezierCurveTo(30, 4, 226, 4, 240, gum(240)); for (let x = 240; x >= 16; x -= 8) g.lineTo(x, gum(x)); g.closePath(); };
+  // a glow round it, the jaw, its rim
+  g.save(); arch(); g.lineWidth = 16; g.strokeStyle = rgba(rim, 0.25); g.stroke(); g.restore();
+  arch(); const fill = g.createLinearGradient(0, 4, 0, 92); fill.addColorStop(0, '#2b1420'); fill.addColorStop(0.7, '#170a10'); fill.addColorStop(1, '#3d1219'); g.fillStyle = fill; g.fill();
+  g.lineWidth = 4; g.strokeStyle = rgba(rim, 0.95); g.stroke();
+  // scales on its back
+  g.strokeStyle = rgba(rim, 0.35); g.lineWidth = 2;
+  for (let k = 0; k < 7; k++) { const x = 52 + k * 25; g.beginPath(); g.arc(x, 34 + Math.abs(k - 3) * 6, 11, Math.PI * 0.15, Math.PI * 0.85); g.stroke(); }
+  // the gum
+  g.beginPath(); for (let x = 16; x <= 240; x += 8) (x === 16 ? g.moveTo(x, gum(x)) : g.lineTo(x, gum(x))); g.lineWidth = 7; g.strokeStyle = '#7d1d2b'; g.stroke();
+  // the teeth: two fangs near the corners, the others shorter towards the middle
+  const N = 11;
+  for (let k = 0; k < N; k++) {
+    const x = 30 + (k * 196) / (N - 1), y = gum(x) - 1, fang = k === 1 || k === N - 2, mid = Math.abs(k - (N - 1) / 2) / ((N - 1) / 2);
+    const len = fang ? 50 : 18 + 10 * mid, w = fang ? 17 : 12, lean = (x - 128) * 0.04;
+    const tg = g.createLinearGradient(0, y, 0, y + len); tg.addColorStop(0, '#fffaf0'); tg.addColorStop(1, '#cbbd98');
+    g.beginPath(); g.moveTo(x - w / 2, y); g.quadraticCurveTo(x - w * 0.3 + lean * 0.5, y + len * 0.6, x + lean, y + len); g.quadraticCurveTo(x + w * 0.3 + lean * 0.5, y + len * 0.6, x + w / 2, y); g.closePath();
+    g.fillStyle = tg; g.fill(); g.lineWidth = 1.5; g.strokeStyle = 'rgba(40,20,14,0.7)'; g.stroke();
+  }
+  spriteCache.set(key, c); return c;
+}
 /** A little star of a dazed head: four points, white-hot in the middle, gold, with a dark edge and a halo. */
 function starSprite(): HTMLCanvasElement {
   const had = spriteCache.get('star'); if (had) return had;
@@ -189,9 +217,11 @@ export function RaidScene(p: Props) {
     // tumbling the way it is thrown; then it reels, dazed, stars round its head (DIZZY ms)
     const KB = [0.2, 0.15, 0.27], KB_PELT = 0.055, KB_MAX = 0.34, KB_MS = 1400, DIZZY = [1500, 1100, 2100];
     const bigT = new Map<number, number[]>(), hurtT = new Map<number, [number, number][]>(), dizT = new Map<number, [number, number][]>(), koT = new Map<number, number>();
+    const biteT = new Map<number, number>();   // the bitten: when the jaws close on them (they are swallowed, they do not fall)
     const push = <T,>(m: Map<number, T[]>, k: number, v: T) => { let l = m.get(k); if (!l) m.set(k, (l = [])); l.push(v); };
     for (const s of tl.shots) if (s.big && s.i >= 0) push(bigT, s.i, s.t);
     for (const e of tl.events) {
+      if (e.k === 'bite') { if (slotOf.has(e.j)) { koT.set(e.j, e.t); biteT.set(e.j, e.t); } continue; }
       if ((e.k !== 'hurt' && e.k !== 'pelt') || !slotOf.has(e.j)) continue;
       push(hurtT, e.j, [e.t, e.k === 'pelt' ? KB_PELT : KB[e.s]]);
       if (e.k === 'hurt') { if (e.ko) koT.set(e.j, e.t); else push(dizT, e.j, [e.t, DIZZY[e.s]]); }
@@ -243,7 +273,15 @@ export function RaidScene(p: Props) {
         const u = clamp((t - e0) / 950, 0, 1), e = 1 - (1 - u) ** 3;
         x += (1 - e) * (home[s].x < 50 ? -40 : 40); y += (1 - e) * H * 0.6; scale = 0.6 + 0.4 * e; op = Math.min(1, u * 2.2);
       }
-      if (ko !== undefined && t > ko) {
+      const bt = biteT.get(i);
+      if (bt !== undefined && t > bt - P.BITE_MS) {
+        // drawn in by the Dị Thú (off the edges, a little towards it, so the jaws fit on the stage), trembling in the open jaws; then held where the jaws close
+        const u = clamp((Math.min(t, bt) - bt + P.BITE_MS) / P.BITE_MS, 0, 1), e = u < 0.6 ? 0.5 - 0.5 * Math.cos((Math.PI * u) / 0.6) : 1, bc = bossC();
+        const tx = clamp(x, W * 0.3, W * 0.7) + (bc.x - x) * 0.12, ty = clamp(y, H * 0.36, H * 0.82);
+        x += (tx - x) * e; y += (ty - y) * e;
+        if (t <= bt) { x += Math.sin(t * 0.11) * 2.6 * sc * u; y += Math.sin(t * 0.083) * 1.6 * sc * u; }
+        else { const v = clamp((t - bt) / 380, 0, 1); scale *= 1 - 0.7 * v; op = 1 - v; rot += 40 * v * -face(s); }   // swallowed
+      } else if (ko !== undefined && t > ko) {
         const u = clamp((t - ko) / 850, 0, 1), fy = H * (0.885 + unit(hash32(`floor|${keys[i]}`), 3) * 0.05), f = face(s);
         x += f * W * 0.04 * u; y += (fy - y) * u * u;
         const after = t - ko - 850; if (after > 0 && after < 300) y -= Math.sin((Math.PI * after) / 300) * H * 0.012;
@@ -323,7 +361,7 @@ export function RaidScene(p: Props) {
       const el = hpBar.current[s]; if (el) el.style.width = `${(fhp[i] / Math.max(1, film.fighters[i].hp)) * 100}%`;
     };
     film.fighters.forEach((_, i) => setF(i, fhp[i]));
-    shown.forEach((i, s) => card.current[s]?.classList.toggle('ko', down[i]));
+    shown.forEach((i, s) => { card.current[s]?.classList.toggle('ko', down[i]); card.current[s]?.classList.toggle('eaten', (biteT.get(i) ?? Infinity) <= from); });
     if (bossBar.current) bossBar.current.style.transition = 'none';
     if (bossLag.current) bossLag.current.style.transition = 'none';
     setRage(s0.rage); setTitle(from < P.INTRO_MS - 900); setOver(null);
@@ -413,6 +451,18 @@ export function RaidScene(p: Props) {
         case 'rage': {
           setRage(true);
           if (live) { say(`${boss.name} cuồng nộ!`, 'rage', 'Đạn dày hơn, sát thương tăng mạnh'); sfx('thunder'); shake(18, 1000); sway(1900, 1.5); }
+          break;
+        }
+        case 'bite': {
+          setF(e.j, 0); down[e.j] = true;
+          const s = slotOf.get(e.j), f = film.fighters[e.j], mine = e.j === film.me;
+          if (s !== undefined) card.current[s]?.classList.add('ko', 'eaten');
+          if (!live) break;
+          const q = s !== undefined ? chestAt(e.j, e.t) : null;
+          // the banner on the other half of the stage from the jaws
+          say(`${boss.name} cạp chết ${f.name}`, `bite ${q && q.y < H * 0.55 ? 'lo' : 'hi'}`, mine ? 'Bạn bị nuốt chửng trong một ngụm' : 'Một ngụm, không kịp trở tay');
+          shake(26, 900); sway(1400, 1.8); sfx('gong'); if (mine) sfx('fail');
+          if (q) pop('CẠP!', { x: q.x, y: q.y - cardH * 0.55 }, 'bite', '#ff3b30');
           break;
         }
         case 'stun': {
@@ -600,6 +650,7 @@ export function RaidScene(p: Props) {
       }
       // a fallen cultivator hits the ground: a puff of dust
       for (const [i, k] of koT) {
+        if (biteT.has(i)) continue;
         const v = (t - k - 820) / 520; if (v < 0 || v >= 1) continue;
         const s = slotOf.get(i); if (s === undefined) continue;
         const q = poseOf(s, i, k + 850), z = (50 + 70 * v) * sc;
@@ -763,6 +814,33 @@ export function RaidScene(p: Props) {
           for (let k = 0; k < 3; k++) { const a = dt * 0.0095 + (k * TAU) / 3, front = Math.sin(a), z = (12 + 3 * front) * sc; ctx.globalAlpha = fa * (0.7 + 0.3 * front); put(star, q.x + Math.cos(a) * 19 * sc, hy + front * 5 * sc, dt * 0.004, z, z); }
         }
       }
+      // the bite: a pair of giant jaws opens round a cultivator (wider and wider as it trembles), snaps shut, chews, and pulls back to the Dị Thú
+      for (const [i, bt] of biteT) {
+        const t0 = bt - P.BITE_MS; if (t < t0 || t > bt + 700) continue;
+        const q = poseOf(slotOf.get(i)!, i, Math.min(t, bt)), cy = q.y - cardH * 0.42, S = cardH * 1.25, jw = S * 2.3, jh = (jw * JAW_H) / JAW_W;
+        const p = (t - t0) / P.BITE_MS, ease = (v: number) => v * v * v;
+        // how far apart the gum lines are: opening wider, then the snap; then closed (teeth past each other), chewing
+        const gap = p < 0.62 ? S * (1.2 + 0.55 * (p / 0.62)) : p < 1 ? S * (1.75 - 2.07 * ease((p - 0.62) / 0.38)) : -S * 0.32 + Math.sin((t - bt) * 0.045) * S * 0.05;
+        const back = t > bt + 300 ? ((t - bt - 300) / 400) ** 2 : 0, fa = Math.min(1, p / 0.22) * (1 - back);
+        const jx = q.x + (c.x - q.x) * back * 0.5, jy = cy + (c.y - cy) * back * 0.5, js = 1 - 0.45 * back;
+        // the dark of its maw, and the light of its power round it
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.55 * fa; put(glowSprite(elColor), jx, jy, 0, jw * 1.3 * js, jw * 0.9 * js);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 0.6 * fa * clamp(1 - gap / (S * 1.9), 0, 1); put(puffSprite('#07030a'), jx, jy, 0, jw * 0.8 * js, Math.max(8, gap + S * 0.5) * js);
+        ctx.globalAlpha = fa;
+        const jaw = jawSprite(elColor);
+        ctx.setTransform(dpr * js, 0, 0, dpr * js, jx * dpr, (jy - (gap / 2) * js) * dpr); ctx.drawImage(jaw, -jw / 2, -JAW_GUM * jh, jw, jh);
+        ctx.setTransform(dpr * js * 0.92, 0, 0, -dpr * js * 0.92, jx * dpr, (jy + (gap / 2) * js) * dpr); ctx.drawImage(jaw, -jw / 2, -JAW_GUM * jh, jw, jh);
+        // the snap: a flash and sparks flying off the teeth
+        const ds = t - bt;
+        if (ds >= 0 && ds < 420) {
+          const v = ds / 420;
+          ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (1 - v) * 0.95; put(glowSprite('#ffffff'), jx, jy, 0, jw * (0.6 + 0.8 * v), jw * (0.35 + 0.5 * v));
+          ctx.globalCompositeOperation = 'source-over';
+          for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU + 0.3, d = (0.25 + 0.9 * v) * jw * 0.5, z = (16 - 8 * v) * sc; ctx.globalAlpha = 1 - v; put(star, jx + Math.cos(a) * d, jy + Math.sin(a) * d * 0.6, v * 3, z, z); }
+        }
+        ctx.globalAlpha = 1;
+      }
+      ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     };

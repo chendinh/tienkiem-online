@@ -61,6 +61,8 @@ export const INTRO_MS = 5200, OUTRO_MS = 6000;
 export const SEG_MS = 3400;            // one round of the record, played as a stretch of non-stop fighting
 export const ULT_MS = 4400;            // the clip of the great attack (of its 5 seconds): a round with it lasts this much longer
 export const SHOT_MS = 430, BIG_MS = 520, BOSS_SHOT_MS = 680, HEAL_MS = 460, OFF_SHOTS = 6;
+// The bite: the jaws close BITE_AT of the way into the round (before its blows are gathered), opening BITE_MS before
+export const BITE_AT = 0.4, BITE_MS = 1100;
 export const WAVE_MS = 420;            // the Dị Thú's barrage: one wave of bullets this often (components/RaidScene.tsx)
 // Each blow of the Dị Thú comes as a volley of homing missiles at its target: so many for its strike, its sweep, its great attack, one after another every VOLLEY_GAP ms.
 // The target's Sinh Lực drops missile by missile (VOLLEY_W: the share of each; the last carries the most, and shows the number of the whole blow).
@@ -83,7 +85,8 @@ export type FilmEvent =
   | { k: 'tele'; t: number; s: 0 | 1 | 2; rage?: 1; g?: 1 }               // the Dị Thú gathers the technique of its blows
   | { k: 'ult'; t: number }                                               // the clip of its great attack starts
   | { k: 'rage'; t: number }
-  | { k: 'stun'; t: number };
+  | { k: 'stun'; t: number }
+  | { k: 'bite'; t: number; j: number };                                  // the jaws close on a cultivator (they open BITE_MS before): it is gone
 export interface SegBeat {
   r: number; t0: number; end: number; hp: number /* the Dị Thú's Sinh Lực after the round (the record's) */;
   tele: number | null; ult: number | null; rage: number | null; stun: number | null; hits: [number, number] | null /* when its blows of the round land */;
@@ -110,6 +113,7 @@ export function timelineOf(rounds: Round[], shown: number[]): Timeline {
     // ---- the Dị Thú's blows of this round (worked out first: who falls, and when, decides how long they shoot)
     const koAt = new Map<number, number>();
     let quiet: [number, number] | null = null;   // the clip of the great attack: the cultivators brace and hold their fire
+    if (r.bite !== undefined) { const bt = Math.round(t0 + BITE_AT * SEG_MS); koAt.set(r.bite, bt); events.push({ k: 'bite', t: bt, j: r.bite }); }
     if (b && b.stun) {
       seg.stun = t1 - 0.3 * SEG_MS;
       events.push({ k: 'stun', t: seg.stun });
@@ -233,6 +237,7 @@ export function stateAt(max: number, fs: Pick<Fighter, 'hp'>[], tl: Timeline, t:
     else if (e.k === 'heal') fhp[e.j] = e.h;
     else if (e.k === 'pelt') fhp[e.j] = Math.min(fhp[e.j], e.h);
     else if (e.k === 'hurt') { fhp[e.j] = e.h; if (e.ko) down[e.j] = true; }
+    else if (e.k === 'bite') { fhp[e.j] = 0; down[e.j] = true; }
     else if (e.k === 'rage') rage = true;
   }
   return { hp, fhp, down, round, rage };

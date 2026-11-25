@@ -59,6 +59,7 @@ test('the fight is the same every time it is computed, and its record adds up', 
   const down = new Set<number>();
   for (const r of a.rounds) {
     for (const x of r.f) assert.ok(!down.has(x.i), `fighter ${x.i} acts after falling`);
+    if (r.bite !== undefined) { assert.ok(!down.has(r.bite), `bitten twice: ${r.bite}`); down.add(r.bite); if (r.b) assert.ok(!r.b.t.includes(r.bite), 'a bitten one is hit after'); }
     if (r.b) { r.b.ko.forEach((i) => down.add(i)); r.b.t.forEach((i, k) => assert.ok(r.b!.h[k] >= 0)); }
   }
   assert.deepEqual([...down].sort(), a.ko.map((k, i) => (k ? i : -1)).filter((i) => i >= 0).sort());
