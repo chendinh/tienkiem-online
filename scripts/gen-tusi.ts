@@ -1,7 +1,8 @@
 // Draws the cultivators of the stages (Phó Bản, Triển lãm, the result cards) with AI, once, into public/art/tusi/<kind>_<g>_<n>.webp. lib/tusi.ts says which kinds
 // (one per môn of weapon, and one empty-handed) and which outfits; nothing else about a player shows.
 // The character and the flying sword under its feet are drawn APART (drawn together, the swords came out crooked and broken), then put together here:
-//   1. the flying sword, once, from a prompt, alone (Nano Banana 2.1), its background removed, laid level (from the axis of the blade) with its point to the right
+//   1. the flying sword, once, from a prompt, alone, seen from straight above (Nano Banana 2.1), its background removed, laid level (from the axis of the blade) with
+//      its point to the right, and pressed into a board seen from a little above (its flat face up: what the feet stand on)
 //                                                                                                                                   about 0.07 USD
 //   2. the first man (the swordsman, outfit 0) from a prompt: standing upright in the air, feet together, NOTHING under the feet          about 0.05 USD
 //   3. the first woman is an EDIT of him, every other picture an EDIT of the first of its sex: one style, camera, size and stance for all  about 0.07 USD each
@@ -40,8 +41,10 @@ const DRAW = 'google/nano-banana-2.1', EDIT = 'google/nano-banana-2.1/edit', CUT
 const VER = 2;
 // Putting together, in the 480 x 360 box (4:3 like the figure drawn in code): the character (head to soles) CHAR_H of the box tall, the same for all; the sword
 // SWORD_L times that long, centred across, its lowest point at FOOT of the box's height; the feet FEET_AT of the way along it from the hilt, the soles SINK of the
-// way down the blade as seen (its flat top face, seen from a little above: the soles in the middle of it, standing on the face, not on the edge). What sticks out of the box (a long spear) makes the whole of it smaller.
-const BOX_W = 480, BOX_H = 360, FOOT = 0.87, CHAR_H = 0.68, SWORD_L = 1.1, FEET_AT = 0.44, SINK = 0.5, MARGIN = 3;
+// way down its face (the soles in the middle of the flat face, standing on it, not on an edge). What sticks out of the box (a long spear) makes the whole of it smaller.
+// The sword is drawn from straight above (its whole flat face, which AI draws well) and turned into a board seen from a little above here: the face pressed to FLAT
+// of its height, and the side of the blade (EDGE of its length thick, darker) showing under it.
+const BOX_W = 480, BOX_H = 360, FOOT = 0.87, CHAR_H = 0.68, SWORD_L = 1.1, FEET_AT = 0.44, SINK = 0.5, MARGIN = 3, FLAT = 0.55, EDGE = 0.011;
 
 const STYLE = 'High-end Chinese Xianxia Fantasy RPG character art, fantasy realistic 3D rendering, beautiful detailed face, luminous cinematic lighting with a bright clean rim light so the silhouette reads even at a small size, rich saturated colours, premium AAA fantasy game quality, ultra detailed';
 const STANCE = 'standing upright in mid-air: legs straight and close together, both feet side by side at the same height as if standing on a narrow beam, the boots fully visible and the lowest point of the figure (the robe hem ends above the ankles)';
@@ -55,9 +58,8 @@ const drawPrompt = (k: TusiKind, g: 'f' | 'm', n: number) => `${STYLE}. ${FRAME}
 const editPrompt = (k: TusiKind, g: 'f' | 'm', n: number) =>
   `Edit this image. Keep exactly the same art style, rendering, lighting, camera angle and distance, character size and framing, the same stance (${STANCE}, nothing under the feet) and the same plain flat light grey background. The character faces and moves toward the RIGHT, robes and hair streaming back to the left. Change the character to ${who(g, n)}. Change what is in the hands to: ${k.weapon}; it is held in the hands, never under the feet. The whole figure and what the hands hold stay inside the frame. ${NEG} No second character.`;
 const SWORD_PROMPT = 'High-end Chinese Xianxia Fantasy RPG item art, fantasy realistic 3D rendering, luminous cinematic lighting with a bright clean rim light, premium AAA fantasy game quality, ultra detailed. '
-  + 'A single magical flying sword made to be stood on (yujian sword flight), with no one on it: a long straight Chinese jian with a broad blade, lying FLAT like a surfboard, its wide flat face turned UP to the sky, level and straight across the picture from left to right, the hilt on the LEFT and the point on the RIGHT. '
-  + 'Seen from the side and slightly from above (the camera about 20 degrees above it), so the flat top face of the blade shows as a long narrow surface to stand on, not the thin cutting edge. '
-  + 'A polished silver-white blade with a fine pale blue luminous edge and a soft pale blue glow close around it, an ornate guard of gold and jade, a grip wrapped in dark blue silk, a small gold pommel. '
+  + 'A single magical flying sword (a long straight Chinese jian with a broad blade), shown as a flat lay: it lies flat and is seen from directly above, so the whole broad flat face of the blade faces the camera; horizontal and straight across the picture, the hilt on the LEFT and the point on the RIGHT. '
+  + 'A polished silver-white blade with a raised ridge along its middle and a fine pale blue luminous edge, a soft pale blue glow close around it, an ornate guard of gold and jade, a grip wrapped in dark blue silk, a small gold pommel. '
   + 'No tassel, no ribbon, no hand, no person, no stand, no scabbard, no motion trail, no sparks. The whole sword is inside the frame with a clear margin at both ends, centred. Plain flat light grey studio background, no shadow, no scenery. ' + NEG;
 
 type Job = { key: string; k: TusiKind; g: 'f' | 'm'; n: number; from: string | null /* the picture it is an edit of; null: drawn from the prompt */ };
@@ -162,11 +164,17 @@ async function levelSword() {
   const top = tops.length ? median(tops) : Math.round(b.h * 0.35), bot = bots.length ? Math.max(top + 1, median(bots)) : Math.round(b.h * 0.65);
   let img = sharp(rd, { raw: { width: RW, height: RH, channels: 4 } }).extract({ left: b.x0, top: b.y0, width: b.w, height: b.h });
   if (flip) img = img.flop();
-  await img.png().toFile(LEVEL);
-  manifest[SWORD] = { ...manifest[SWORD], level: { deg: +deg.toFixed(2), turned: flip, w: b.w, h: b.h, top, bot } };
+  // a board seen from a little above: the face pressed down, the side of the blade showing under it
+  const fh = Math.max(2, Math.round(b.h * FLAT)), edge = Math.max(2, Math.round(b.w * EDGE));
+  const face = await img.resize(b.w, fh, { fit: 'fill', kernel: 'lanczos3' }).png().toBuffer();
+  const side = await sharp(face).modulate({ brightness: 0.4 }).png().toBuffer();
+  await sharp({ create: { width: b.w, height: fh + edge, channels: 4, background: CLEAR } })
+    .composite([{ input: side, left: 0, top: edge }, { input: side, left: 0, top: Math.round(edge / 2) }, { input: face, left: 0, top: 0 }])
+    .png().toFile(LEVEL);
+  manifest[SWORD] = { ...manifest[SWORD], level: { deg: +deg.toFixed(2), turned: flip, w: b.w, h: fh + edge, top: Math.round(top * FLAT), bot: Math.max(Math.round(top * FLAT) + 1, Math.round(bot * FLAT)) } };
   save();
   const how = typeof prev?.turned === 'boolean' ? 'as before' : `by ${by}`;
-  console.log(`sword laid level: turned ${deg.toFixed(1)} degrees${flip ? ', end for end' : ''} (${how}), ${b.w} x ${b.h}, blade ${top}-${bot}`);
+  console.log(`sword laid level: turned ${deg.toFixed(1)} degrees${flip ? ', end for end' : ''} (${how}), ${b.w} x ${fh + edge} as a board`);
 }
 
 // A character as cut out + the sword -> the picture of the game.
