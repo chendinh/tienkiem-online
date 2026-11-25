@@ -324,6 +324,11 @@ function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: numbe
 // ---------- inventory (Requirement 21)
 const aptTotal = (b: Beast) => b.apt.reduce((a, x) => a + x, 0) / b.apt.length;
 export const dissolveValue = (it: Item) => B.dissolveValueByTier[it.tier] * it.level;
+/** What a Linh Thú is worth to a buyer of Triển Lãm (not what the pen pays): its Level times a value for its size class (the class is its rarity, as for a piece of
+ *  equipment, lib/expo.ts beastTier), times how strong it is against a plain creature of its Level (0.5 to 3 times). Never below what the pen pays. */
+const BEAST_WORTH = [3, 6, 12, 40, 150, 600];
+const plainPower = (level: number) => { const s = [0, 1, 2, 3, 4].map((j) => baseStat(level, j) * (1 + TUNE.z * level)); return Math.max(1, s[2] + s[3] + s[4] + s[0] / 8); };
+export const beastWorth = (b: Beast): number => Math.max(releaseValue(b), Math.round(b.level * BEAST_WORTH[XP.beastTier(b.cls, b.mut)] * clamp(b.power / plainPower(b.level), 0.5, 3)));
 export const releaseValue = (b: Beast) => Math.floor(B.releaseBase * b.level * aptTotal(b) * B.releaseSizeFactors[b.cls] * (b.mut ? B.releaseMutationFactor : 1));
 // A dissolved Thiên or Tiên item goes to the shared relic pool (the server stores it): only its look, not its numbers.
 function shareRelic(st: GameState, it: Item) {
@@ -1176,7 +1181,7 @@ function exhibitOf(v: StandView): { ex: XP.Exhibit; name: string } | null {
   if (!v) return null;
   if (v.kind === 'item') return { ex: { kind: 'item', tier: v.item.tier, el: v.item.el, slot: v.item.slot, level: v.item.level, value: dissolveValue(v.item) }, name: v.item.name };
   const b = v.beast;
-  return { ex: { kind: 'beast', tier: XP.beastTier(b.cls, b.mut), el: J.speciesEl(b.sp) || 'Kim', mut: b.mut, level: b.level, value: releaseValue(b) }, name: b.name };
+  return { ex: { kind: 'beast', tier: XP.beastTier(b.cls, b.mut), el: J.speciesEl(b.sp) || 'Kim', mut: b.mut, level: b.level, value: beastWorth(b) }, name: b.name };
 }
 function expoFree(st: GameState, slot: number) {
   const e = st.expo, s = XP.isExpo(e) ? e.stands[slot] : null;
@@ -1201,7 +1206,11 @@ export function expoSet(st: GameState, slot: unknown, kind: unknown, id: unknown
   expoFree(st, at);   // what stood there leaves first (its lock goes back to what it was)
   const was = it ? !!it.locked : false;
   if (it) it.locked = true;
-  e.stands[at] = { kind, id: id as number, ...(was ? { was: true } : {}), tally: XP.emptyTally() };
+  // it goes up a little dearer than its base (DEFAULT_MARKUP): the player may change it on the stand. A Dị Biến has no price
+  const bst = kind === 'beast' ? st.beasts.find((b) => b.id === id) : undefined;
+  const worth = it ? dissolveValue(it) : bst && !bst.mut ? beastWorth(bst) : 0;
+  const extra = worth > 0 ? Math.round(XP.basePrice(worth) * XP.DEFAULT_MARKUP) : 0;
+  e.stands[at] = { kind, id: id as number, ...(was ? { was: true } : {}), tally: XP.emptyTally(), ...(extra > 0 ? { extra } : {}) };
   return ok('');
 }
 /** Set what the player adds to the base price of the piece on a stand (Linh Thạch, 0 up to the base again). Buyers who come after pay the new price, or are put off by it (lib/expo.ts buyChance). */
@@ -1410,9 +1419,13 @@ function expoVisit(st: GameState, e: XP.Expo): boolean {
   if (steps.length) { e.log.push({ n, at: st.clock, who: v.who, side: r.side, route: steps, ...(gift ? { gift } : {}) }); if (e.log.length > XP.LOG_KEEP) e.log.shift(); }
   // an offer for that piece, now and then: the last few are kept for a minute and a half, an older one is forgotten
   const fresh = (e.offers || []).filter((o) => st.clock - o.at <= XP.OFFER_KEEP_MS);
-  const stand = like ? e.stands[like.slot] : null;
-  const offer = like && stand ? XP.offerOf(v, n, key, st.clock, { slot: like.slot, id: stand.id, ex: like.ex, extra: stand.extra }, levelOf(st.player)) : null;
-  if (offer && !fresh.some((o) => o.slot === offer.slot)) fresh.push(offer);   // one deal at a time for a piece
+  // a rich merchant asks for the first piece it passed that can be sold (any piece: what it thought does not matter), else the one this visitor liked best
+  const target = v.rich ? r.slots.map((slot) => ({ slot, x: exhibitOf(views[slot]) })).find((t) => t.x && !(t.x.ex.kind === 'beast' && t.x.ex.mut) && e.stands[t.slot]) : null;
+  const pickSlot = target ? target.slot : like ? like.slot : -1, pickEx = target ? target.x!.ex : like ? like.ex : null;
+  const stand = pickSlot >= 0 ? e.stands[pickSlot] : null;
+  const offer = stand && pickEx ? XP.offerOf(v, n, key, st.clock, { slot: pickSlot, id: stand.id, ex: pickEx, extra: stand.extra }, levelOf(st.player)) : null;
+  if (offer && offer.rich) { const i = fresh.findIndex((o) => o.slot === offer.slot); if (i >= 0) fresh.splice(i, 1); fresh.push(offer); }   // the merchant's deal is better: it takes the place of another for that piece
+  else if (offer && !fresh.some((o) => o.slot === offer.slot)) fresh.push(offer);   // one deal at a time for a piece
   if (fresh.length) e.offers = fresh.slice(-XP.OFFER_MAX); else delete e.offers;
   return true;
 }

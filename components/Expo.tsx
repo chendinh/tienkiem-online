@@ -12,7 +12,7 @@ import { ModalClose, XSeal } from './ds/ModalClose';
 import { ReactIcon } from './ReactIcon';
 import { shortNum } from '@/lib/shortnum';
 import { ExpoScene, useCalm, useHeld } from './ExpoScene';
-import { dissolveValue, expoView, releaseValue, type Beast, type Item, type StandView } from '@/lib/game';
+import { beastWorth, dissolveValue, expoView, type Beast, type Item, type StandView } from '@/lib/game';
 import { useFx } from './fx/FxProvider';
 import { sfx } from '@/lib/audio';
 import type { Act } from './Panels';
@@ -53,7 +53,7 @@ function BoxView({ b }: { b: XP.Box }) {
 // The line under it says how many buyers still ask at that price, so the player sees what adding costs.
 const fmtX = (k: number) => `x${(Math.round(k * 100) / 100).toLocaleString('vi-VN')}`;
 /** What a stand's piece is worth to a buyer before anything is added: what it dissolves for, or what the pen pays for the creature. */
-const worthOf = (v: StandView): number => (!v ? 0 : v.kind === 'item' ? dissolveValue(v.item) : releaseValue(v.beast));
+const worthOf = (v: StandView): number => (!v ? 0 : v.kind === 'item' ? dissolveValue(v.item) : beastWorth(v.beast));
 function Price({ v, extra, set }: { v: StandView; extra: number; set: (extra: number) => void }) {
   const base = XP.basePrice(worthOf(v)), max = XP.maxExtra(base), add = Math.min(extra, max), pc = XP.buyChance(base, add) / 100, chance = pc >= 10 ? Math.round(pc) : Math.round(pc * 10) / 10;
   return (
@@ -69,7 +69,7 @@ function Price({ v, extra, set }: { v: StandView; extra: number; set: (extra: nu
         {XP.priceSteps(base).map((s) => <button key={s} type="button" className="btn sm" disabled={add >= max} onClick={() => set(Math.min(max, add + s))}>+{fmt(s)}</button>)}
         <button type="button" className="btn sm ghost" disabled={!add} onClick={() => set(0)}>Về giá gốc</button>
       </div>
-      <small className={`xPriceNote${chance < 60 ? ' warn' : ''}`}>{add ? `Giá gấp ${fmtX((base + add) / base)} giá gốc: còn khoảng ${chance}% số khách chịu giá này.${add >= base ? ' Từ x2 trở lên hầu như không ai mua.' : ''}` : `Giá gốc bằng ${v && v.kind === 'beast' ? 'giá bán ở chuồng' : 'giá phân giải'}. Cộng thêm một ít thì bán được giá hơn, tối đa gấp 3, nhưng càng đắt càng ít khách mua.`}</small>
+      <small className={`xPriceNote${chance < 60 ? ' warn' : ''}`}>{add ? `Giá gấp ${fmtX((base + add) / base)} giá gốc: còn khoảng ${chance}% số khách chịu giá này.${add >= base ? ' Từ x2 trở lên hầu như không ai mua.' : ''}` : `Giá gốc bằng ${v && v.kind === 'beast' ? 'giá trị Linh Thú (theo cấp, cỡ và lực chiến)' : 'giá phân giải'}. Cộng thêm một ít thì bán được giá hơn, tối đa gấp 3, nhưng càng đắt càng ít khách mua.`} Khách trả quanh giá bán, thấp hơn hay cao hơn tới 30%. Thỉnh thoảng có Phú Thương trả gấp 2 đến 3 giá gốc.</small>
     </div>
   );
 }
@@ -180,13 +180,13 @@ function BookLine({ name, s }: { name: string; s: Arts }) {
   );
 }
 function Get({ o, v, s }: { o: XP.Offer; v: StandView; s: Arts }) {
-  const baseName = o.beast ? 'giá bán ở chuồng' : 'giá phân giải';
+  const baseName = o.beast ? 'giá trị gốc' : 'giá phân giải';
   if (o.kind === 'buy') {
     const d = o.base ? pct(o.price || 0, o.base) : 0;
     return (
       <div className="xSide get">
         <span className="xSidePic stone"><Icon name="stone" size={28} /></span>
-        <div className="xSideTx"><b className="gold">{fmt(o.price || 0)} Linh Thạch</b><small className={`xVs ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`}>{d > 0 ? `▲ Cao hơn ${baseName} ${d}%` : d < 0 ? `▼ Thấp hơn ${baseName} ${-d}%` : `Bằng ${baseName}`}</small><small>Vào hòm quà, bấm Thu quà để nhận</small></div>
+        <div className="xSideTx"><b className="gold">{fmt(o.price || 0)} Linh Thạch</b><small className={`xVs ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`}>{d > 0 ? `▲ Cao hơn ${baseName} ${d}%` : d < 0 ? `▼ Thấp hơn ${baseName} ${-d}%` : `Bằng ${baseName}`}</small>{o.ask !== undefined && <small>{o.rich ? `Phú Thương không mặc cả, ngươi đặt ${fmt(o.ask)}` : o.price! > o.ask ? `Trả hơn giá ngươi đặt (${fmt(o.ask)})` : o.price! < o.ask ? `Mặc cả dưới giá ngươi đặt (${fmt(o.ask)})` : 'Đúng giá ngươi đặt'}</small>}<small>Vào hòm quà, bấm Thu quà để nhận</small></div>
       </div>
     );
   }
@@ -214,10 +214,10 @@ function OfferCard({ o, v, eq, s, onGone, onYes }: { o: XP.Offer; v: StandView; 
   useEffect(() => { const t = setTimeout(() => onGone(o.n), XP.OFFER_SHOW_MS); return () => clearTimeout(t); }, [o.n, onGone]);
   const ask = o.kind === 'buy' ? 'muốn mua' : 'muốn đổi', thing = o.beast ? 'Linh Thú' : 'món';
   return (
-    <div className="xOffer" role="alertdialog" aria-label={`${o.who.name} ${ask} ${thing} của ngươi`} style={{ '--ms': `${XP.OFFER_SHOW_MS}ms` } as CSSProperties}>
+    <div className={`xOffer${o.rich ? ' rich' : ''}`} role="alertdialog" aria-label={`${o.who.name} ${ask} ${thing} của ngươi`} style={{ '--ms': `${XP.OFFER_SHOW_MS}ms` } as CSSProperties}>
       <div className="xOfferHead">
         <Img src={C.buyerArt(o.who.arch, o.who.g)} className="xOfferFace" fb={<Icon name="scroll" size={18} />} />
-        <p className="xOfferWho"><b>{o.who.name}</b> · {o.who.arch} · {ask} {thing} ngươi đang bày</p>
+        <p className="xOfferWho">{o.rich && <em className="xRich">✦ Phú Thương</em>}<b>{o.who.name}</b> · {o.who.arch} · {ask} {thing} ngươi đang bày</p>
         <button type="button" className="xClose static" aria-label="Từ chối" title="Từ chối" onClick={() => onGone(o.n)}><XSeal size={28} /></button>
       </div>
       <div className="xTrade">

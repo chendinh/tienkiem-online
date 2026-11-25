@@ -2,7 +2,8 @@
 import { useId, type CSSProperties } from 'react';
 
 // A cultivator standing on a flying sword, seen from the side and facing right (the screen flips it with scaleX). Drawn in code: no picture to pay for, and every visitor can have its own
-// colours. The cloth that trails behind (hair, sleeve, sash, talismans) sways by CSS (.cuHair, .cuSleeve, .cuSash, .cuTalis in app/ds/expo.css); a still figure is simply this drawing.
+// colours. A woman (g 'f') is drawn as her own figure: long hair streaming back, two buns with ribbons and a flower pin, a long skirt to the ankles instead of trousers and boots,
+// a silk shawl that floats behind, a blush on the cheek. The cloth that trails behind (hair, sleeve, sash, talismans) sways by CSS (.cuHair, .cuSleeve, .cuSash, .cuTalis in app/ds/expo.css); a still figure is simply this drawing.
 export interface Look { arch: string; g: 'f' | 'm'; robe: string; trim: string; glow: string; hair: string; ph: number }
 const SKIN = '#f2d0ae', INK = '#2b1b17', GOLD = '#d9b45e';
 // the colours of the six kinds of cultivator (lib/content.ts BUYER_EN says what each one wears)
@@ -39,34 +40,67 @@ export function Cultivator({ look, className = '' }: { look: Look; className?: s
       {/* what hangs behind the shoulders */}
       {arch === 'Tán Tu' && <path d="M47 31L55 21L58.5 33Z" fill="#d8c08a" stroke="#8a6b3a" strokeWidth="0.6" />}
       {arch === 'Kiếm Tu' && <g transform="rotate(-24 52 27)"><rect x="50.7" y="20" width="2.6" height="12" rx="1.1" fill="#5a3d2b" /><rect x="47.8" y="25" width="8.4" height="2" rx="1" fill={GOLD} /></g>}
+      {/* her silk shawl, floating far behind */}
+      {g === 'f' && <path className="cuSash" d="M55 33C45 29 35 38 25 36C17 34.4 12 40 7 47" fill="none" stroke={trim} strokeWidth="2" strokeLinecap="round" opacity="0.9" />}
       <path className="cuSleeve" d="M60 31C50 30 38 34 26 42C24 46 28 47.4 33 45.4C44 42 53 40 61 38Z" fill={robe} stroke={trim} strokeWidth="0.9" strokeLinejoin="round" />
-      {/* hair streaming back */}
-      <path className="cuHair" d="M56 17.5C48 17.5 42 21 35 19.5" fill="none" stroke={hair} strokeWidth={g === 'f' ? 4.4 : 3.4} strokeLinecap="round" />
-      {g === 'f' && <path className="cuHair cuHair2" d="M57 21C48 24 40 33 29 35" fill="none" stroke={hair} strokeWidth="3.6" strokeLinecap="round" />}
-      {/* legs and boots */}
-      <path d="M57 50L51.5 65L53.5 76.6" fill="none" stroke="#3a3040" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M50 76.4Q53 74.4 57 77.1V78.8H49.6Z" fill="#2b2224" />
-      <path d="M63 50L67 64.5L71 76.4" fill="none" stroke="#3a3040" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M69 76.2Q73 74.8 77.6 77V78.8H69Z" fill="#2b2224" />
-      {/* the robe */}
-      <path d="M53.5 46.5H69.5L79 67.5Q62 72.4 44 67.5Z" fill={robe} stroke={trim} strokeWidth="0.5" strokeOpacity="0.5" />
-      <path d="M62 47L70 68Q66 70.4 62 70.2Z" fill={dark} />
-      <path d="M44 67.5Q62 72.4 79 67.5" fill="none" stroke={trim} strokeWidth="1.7" strokeLinecap="round" />
+      {/* hair streaming back: short for a man, long to the waist for a woman */}
+      {g === 'f'
+        ? <>
+          <path className="cuHair" d="M55.5 19C48 22 44 30 40.5 39C39 43 36.4 46.4 32.6 47.6" fill="none" stroke={hair} strokeWidth="5" strokeLinecap="round" />
+          <path className="cuHair cuHair2" d="M57 23C51 28 48.4 36 45.6 44.6" fill="none" stroke={hair} strokeWidth="3.4" strokeLinecap="round" />
+        </>
+        : <path className="cuHair" d="M56 17.5C48 17.5 42 21 35 19.5" fill="none" stroke={hair} strokeWidth="3.4" strokeLinecap="round" />}
+      {g === 'f'
+        ? <>
+          {/* a long skirt to the ankles, a lighter panel down the front, the tips of her shoes */}
+          <path d="M53.5 46.5H69.5L82 76.4Q62 80.6 42 76.4Z" fill={robe} stroke={trim} strokeWidth="0.5" strokeOpacity="0.5" />
+          <path d="M60 47L67 47L73 78Q66 79.4 59 78.6Z" fill={trim} opacity="0.32" />
+          <path d="M53.5 47L47 76.6Q50 77.6 53 78Z" fill={dark} />
+          <path d="M42 76.4Q62 80.6 82 76.4" fill="none" stroke={trim} strokeWidth="1.6" strokeLinecap="round" />
+          <ellipse cx="61" cy="78.9" rx="3" ry="1.2" fill="#2b2224" />
+          <ellipse cx="71" cy="78.6" rx="2.8" ry="1.1" fill="#2b2224" />
+        </>
+        : <>
+          {/* legs and boots */}
+          <path d="M57 50L51.5 65L53.5 76.6" fill="none" stroke="#3a3040" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M50 76.4Q53 74.4 57 77.1V78.8H49.6Z" fill="#2b2224" />
+          <path d="M63 50L67 64.5L71 76.4" fill="none" stroke="#3a3040" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M69 76.2Q73 74.8 77.6 77V78.8H69Z" fill="#2b2224" />
+          {/* the robe */}
+          <path d="M53.5 46.5H69.5L79 67.5Q62 72.4 44 67.5Z" fill={robe} stroke={trim} strokeWidth="0.5" strokeOpacity="0.5" />
+          <path d="M62 47L70 68Q66 70.4 62 70.2Z" fill={dark} />
+          <path d="M44 67.5Q62 72.4 79 67.5" fill="none" stroke={trim} strokeWidth="1.7" strokeLinecap="round" />
+        </>}
       <path d="M53.5 47H69.5L68 31Q61.5 26.5 55.5 31Z" fill={robe} stroke={trim} strokeWidth="0.5" strokeOpacity="0.5" />
       <path d="M57 29.8L62 38.6L67 29.8" fill="none" stroke={trim} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path className="cuSash" d="M53 46.4C44 43 34 51 19 44" fill="none" stroke={trim} strokeWidth="2.8" strokeLinecap="round" />
+      <path className="cuSash" d={g === 'f' ? 'M53 46.4C46 45 40 52 30 50' : 'M53 46.4C44 43 34 51 19 44'} fill="none" stroke={trim} strokeWidth={g === 'f' ? 2.2 : 2.8} strokeLinecap="round" />
       <rect x="53" y="44.6" width="17" height="3.4" rx="1" fill={trim} />
       <circle cx="62" cy="46.3" r="1.8" fill={GOLD} />
       {arch === 'Đan Sư' && <><path d="M52 48.4Q49 49.4 49.6 53Q51 55.6 53.6 54.2Q55.2 51.4 52 48.4Z" fill="#d9a03a" /><circle cx="51.6" cy="47.6" r="1" fill="#5a3d2b" /></>}
       {/* head */}
       <circle cx="61.5" cy="20" r="7.4" fill={hair} />
-      <circle cx="58.4" cy="12.6" r="3.6" fill={hair} />
-      <path d="M55 12.6L62 10.8" stroke={GOLD} strokeWidth="1.1" strokeLinecap="round" />
-      {g === 'f' && <circle cx="64.2" cy="12.8" r="1.7" fill={arch === 'Ma Tu' ? '#c9283f' : glow} />}
+      {g === 'f'
+        ? <>
+          {/* two buns, ribbons trailing from the back one, a flower pin with a little tassel */}
+          <path className="cuHair" d="M54.6 13.4C50 11.6 46 15 41.6 12.8" fill="none" stroke={glow} strokeWidth="1.5" strokeLinecap="round" />
+          <path className="cuHair cuHair2" d="M54.6 14.6C50.6 16.6 47.4 19.6 43.6 19.2" fill="none" stroke={glow} strokeWidth="1.1" strokeLinecap="round" />
+          <circle cx="56.6" cy="13.6" r="3.5" fill={hair} />
+          <circle cx="63.4" cy="12.4" r="3.1" fill={hair} />
+          <circle cx="60.4" cy="10.4" r="1.9" fill={arch === 'Ma Tu' ? '#c9283f' : glow} />
+          <circle cx="60.4" cy="10.4" r="0.7" fill="#fff6dc" />
+          <path d="M61.2 11.6L60.8 15.4" stroke={GOLD} strokeWidth="0.6" strokeLinecap="round" />
+          <circle cx="60.8" cy="15.8" r="0.7" fill={GOLD} />
+        </>
+        : <>
+          <circle cx="58.4" cy="12.6" r="3.6" fill={hair} />
+          <path d="M55 12.6L62 10.8" stroke={GOLD} strokeWidth="1.1" strokeLinecap="round" />
+        </>}
       <ellipse cx="65.2" cy="21.2" rx="3.8" ry="5.2" fill={SKIN} />
-      <circle cx="67.6" cy="20.4" r="0.9" fill={INK} />
-      <path d="M65.4 18.2L69 18" stroke={INK} strokeWidth="0.7" strokeLinecap="round" />
-      <path d="M66 24.4Q67.2 25.1 68.3 24.4" fill="none" stroke="#b5654f" strokeWidth="0.6" strokeLinecap="round" />
+      {g === 'f' && <path d="M68.6 15.4Q70.6 20 68.9 25.6" fill="none" stroke={hair} strokeWidth="1.5" strokeLinecap="round" />}
+      <circle cx="67.6" cy="20.4" r={g === 'f' ? 1 : 0.9} fill={INK} />
+      {g === 'f'
+        ? <><path d="M66.6 19.2L69.2 18.7" stroke={INK} strokeWidth="0.6" strokeLinecap="round" /><path d="M66 17.2Q67.6 16.5 69 17" fill="none" stroke={INK} strokeWidth="0.45" strokeLinecap="round" /><ellipse cx="66.6" cy="23.2" rx="1.5" ry="0.9" fill="#ff9aa8" opacity="0.7" /><path d="M66.6 24.6Q67.4 25.2 68.2 24.6" fill="none" stroke="#d65f6e" strokeWidth="0.7" strokeLinecap="round" /></>
+        : <><path d="M65.4 18.2L69 18" stroke={INK} strokeWidth="0.7" strokeLinecap="round" /><path d="M66 24.4Q67.2 25.1 68.3 24.4" fill="none" stroke="#b5654f" strokeWidth="0.6" strokeLinecap="round" /></>}
       {/* the arm that points ahead (a sword-finger sign) */}
       {bare
         ? <><path d="M61.5 31C66 30.6 71 31.6 75 34L74 39.6C69 38.4 65 38.4 61.5 38.4Z" fill={robe} stroke={trim} strokeWidth="0.9" /><path d="M72.5 35.4L90 41.6" fill="none" stroke={SKIN} strokeWidth="5.4" strokeLinecap="round" /><path d="M81.5 38.6L86 40.4" fill="none" stroke="#5a3a22" strokeWidth="6.4" strokeLinecap="round" /></>

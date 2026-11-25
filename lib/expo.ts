@@ -47,14 +47,17 @@ export const payScale = (open: number): number => { const k = Math.max(MIN_OPEN,
 export interface Exhibit { kind: 'item' | 'beast'; tier: number; el: string; slot?: string; mut?: boolean; level: number; value: number }
 
 // ---- who comes
-export interface Visitor { who: { name: string; g: 'f' | 'm'; arch: string }; el: string; bar: number; gen: number; harsh?: boolean }
+export interface Visitor { who: { name: string; g: 'f' | 'm'; arch: string }; el: string; bar: number; gen: number; harsh?: boolean; rich?: boolean }
+/** Out of 1,000 visitors, how many are a rich merchant (Phú Thương): they always ask to buy a piece they pass, whatever they thought of it, for 2 to 3 times its base (RICH_X).
+ *  About one an hour or two while the screen is open. Never a Dị Biến (it is never sold). */
+export const RICH_PER_MILLE = 2, RICH_X = [2, 3] as const;
 /** Out of 100 visitors, how many are hard to please (a critic, a jealous rival): whatever the piece, they mostly shrug, sigh or sneer. Without them a row of rare pieces only ever got love. */
 export const HARSH_PCT = 25, HARSH_COST = 6;
 const BARS = [1, 1, 2, 2, 2, 3];
 export function visitorOf(seed: number, n: number): Visitor {
   const key = `${seed}|expo|${n}`, arch = pick(C.NPC_TITLES, `xa|${key}`);
   const bar = Math.max(0, BARS[hash32(`xb|${key}`) % BARS.length] - (arch === 'Tán Tu' ? 1 : 0));   // a wandering rogue is easy to please
-  return { who: buyerNamed(key, arch), el: pick(C.EO, `xe|${key}`), bar, gen: 0.8 + (hash32(`xg|${key}`) % 5) * 0.1, harsh: hash32(`xh|${key}`) % 100 < HARSH_PCT };
+  return { who: buyerNamed(key, arch), el: pick(C.EO, `xe|${key}`), bar, gen: 0.8 + (hash32(`xg|${key}`) % 5) * 0.1, harsh: hash32(`xh|${key}`) % 100 < HARSH_PCT, ...(hash32(`xR|${key}`) % 1000 < RICH_PER_MILLE ? { rich: true } : {}) };
 }
 
 // ---- what they think
@@ -120,8 +123,10 @@ export function bookFor(el: string, tier: number, level: number, key: string): s
 
 // ---- offers: now and then a visitor who loved a piece asks for it
 // About one visit in twenty, the visitor offers the player a deal for the piece they liked best (a piece of equipment or a Linh Thú):
-//   buy   the asking price: the base (what the piece dissolves for, the number the bag shows) plus what the player added on the stand (`extra`, up to twice the base: x3).
+//   buy   around the asking price: the base (what the piece dissolves for, the number the bag shows; for a Linh Thú lib/game.ts beastWorth) plus what the player added on the stand
+//         (`extra`, DEFAULT_MARKUP when it goes up, up to twice the base: x3). The buyer pays the asking price give or take HAGGLE (30%), so a price is never quite known.
 //         The more is added, the fewer buyers take it (buyChance): up to x2 most still do at a small markup, from x2 to x3 hardly anyone (2% and less).
+//         Now and then a rich merchant comes (Visitor.rich): always a buy, for any piece it passes, at 2 to 3 times the base.
 //   swap  one for one with a random piece of the same rarity and the same kind (made when the player says yes; it goes to the bag, the stand is free again),
 //   book  a Bí Công of the rarity Địa or Thiên (only for a Địa piece and better), of the visitor's favourite element.
 // A Linh Thú: buy (the base is what the pen pays for it) or swap for another creature of the same size class and always stronger (made when the player says yes).
@@ -134,7 +139,11 @@ export const OFFER_KEEP_MS = 90_000;       // how long a yes is still taken
 export const OFFER_SHOW_MS = 25_000;       // how long the screen shows an offer
 export const OFFER_MAX = 3;
 export type OfferKind = 'buy' | 'swap' | 'book' | 'gear';
-export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; base?: number; book?: string; beast?: true }
+export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; base?: number; ask?: number; book?: string; beast?: true; rich?: true }
+/** What a piece is put up for when it goes on a stand: the base and this much more (the player changes it on the stand). */
+export const DEFAULT_MARKUP = 0.3;
+/** A buyer pays around the asking price, up to this share lower or higher (drawn per offer). */
+export const HAGGLE = 0.3;
 const OFFER_W: Record<'buy' | 'swap' | 'book', number> = { buy: 50, swap: 40, book: 10 };
 const BEAST_W: Record<'buy' | 'swap', number> = { buy: 50, swap: 50 };
 /** How much stronger the creature of a swap is, at the least and at the most (its power over the one given). */
@@ -164,8 +173,13 @@ export function bookOfTier(el: string, techTier: number, level: number, key: str
 /** The offer of this visit for the piece it liked best, or null (most visits). Worked out from the key alone, so the same save has the same offers. */
 export function offerOf(v: Visitor, n: number, key: string, at: number, target: { slot: number; id: number; ex: Exhibit; extra?: number }, level: number): Offer | null {
   const x = target.ex;
-  if (hash32(`xo|${key}`) % 10_000 >= OFFER_BP) return null;
   const base: Offer = { n, at, slot: target.slot, id: target.id, kind: 'buy', who: v.who, tier: x.tier, ...(x.kind === 'beast' ? { beast: true as const } : {}) };
+  if (v.rich) {   // a rich merchant always buys, at 2 to 3 times the base, whatever the asking price
+    if (x.kind === 'beast' && x.mut) return null;
+    const b = basePrice(x.value), k = RICH_X[0] + ((hash32(`xM|${key}`) % 1001) / 1000) * (RICH_X[1] - RICH_X[0]);
+    return { ...base, price: Math.max(1, Math.round(b * k)), base: b, ask: askPrice(x.value, target.extra), rich: true };
+  }
+  if (hash32(`xo|${key}`) % 10_000 >= OFFER_BP) return null;
   if (x.kind === 'beast' && x.mut) return { ...base, kind: 'gear', tier: 4 };
   const bookTier = x.kind === 'item' ? (x.tier >= 4 ? 3 : x.tier === 3 ? 2 : -1) : -1;
   const book = bookTier >= 0 ? bookOfTier(v.el, bookTier, level, key) : null;
@@ -175,9 +189,10 @@ export function offerOf(v: Visitor, n: number, key: string, at: number, target: 
   for (const k of kinds) { if (r < W[k]!) { kind = k; break; } r -= W[k]!; }
   base.kind = kind;
   if (kind === 'buy') {
-    const b = basePrice(x.value), price = askPrice(x.value, target.extra), extra = price - b;
+    const b = basePrice(x.value), ask = askPrice(x.value, target.extra), extra = ask - b;
     if (extra > 0 && hash32(`xm|${key}`) % 10_000 >= buyChance(b, extra)) return null;   // too dear for this buyer: no deal this time
-    return { ...base, price, base: b };
+    const k = 1 - HAGGLE + ((hash32(`xy|${key}`) % 1001) / 1000) * 2 * HAGGLE;   // around the asking price: up to 30% lower or higher
+    return { ...base, price: Math.max(1, Math.round(ask * k)), base: b, ask };
   }
   if (kind === 'book') return { ...base, book: book! };
   return base;

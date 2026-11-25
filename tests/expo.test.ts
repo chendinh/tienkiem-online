@@ -392,7 +392,7 @@ test('expo: about one visit in twenty brings an offer, always the same ones for 
   const kinds: Record<string, number> = {}, mk: Record<string, number> = {};
   for (let n = 1; n <= 20000; n++) {
     const o = XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 0, id: 1, ex: exhibit(2, { kind: 'beast' }) }, 12);
-    if (o) { kinds[o.kind] = (kinds[o.kind] || 0) + 1; assert.equal(o.beast, true); if (o.kind === 'buy') assert.equal(o.price, o.base); }
+    if (o) { kinds[o.kind] = (kinds[o.kind] || 0) + 1; assert.equal(o.beast, true); if (o.kind === 'buy') { const lo = o.rich ? 2 : 0.7, hi = o.rich ? 3 : 1.3; assert.ok(o.price! >= Math.floor(o.base! * lo) && o.price! <= Math.ceil(o.base! * hi), `${o.price} for ${o.base}`); } }
     const m = XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 0, id: 1, ex: exhibit(3, { kind: 'beast', mut: true }) }, 12);
     if (m) { mk[m.kind] = (mk[m.kind] || 0) + 1; assert.equal(m.tier, 4); }
   }
@@ -403,7 +403,7 @@ test('expo: about one visit in twenty brings an offer, always the same ones for 
 test('expo: the three deals: a high price, a swap of the same rarity and kind, a Bí Công of the rarity Địa or Thiên only for Địa pieces and better', () => {
   const seen = (tier: number) => { const k: Record<string, XP.Offer[]> = { buy: [], swap: [], book: [] }; for (let n = 1; n <= 30000; n++) { const o = offerAt(n, tier); if (o) k[o.kind].push(o); } return k; };
   const low = seen(2); assert.equal(low.book.length, 0, 'no Bí Công for a piece below Địa'); assert.ok(low.buy.length > 0 && low.swap.length > 0);
-  for (const o of low.buy) { assert.equal(o.price, 1000, 'a buy offer with nothing added is the base: what the piece dissolves for'); assert.equal(o.slot, 1); assert.equal(o.id, 7); }
+  for (const o of low.buy) { if (o.rich) assert.ok(o.price! >= 2000 && o.price! <= 3000, 'a rich merchant pays 2 to 3 times'); else assert.ok(o.price! >= 700 && o.price! <= 1300, `around the base (nothing added), give or take 30%: ${o.price}`); assert.equal(o.slot, 1); assert.equal(o.id, 7); }
   const d = seen(3), t = seen(4);
   assert.ok(d.book.length > 0 && t.book.length > 0);
   const techs = Object.fromEntries(Object.values(A.CLASSES_BY_EL).flat().flatMap((c) => A.techsOf(c)).map((t) => [t.name, t])), tierOf = (name: string) => techs[name].tier;
@@ -461,7 +461,7 @@ test('expo: the price of a piece: the dissolve value plus what the player adds, 
   // at x3 hardly anybody buys; with a third added most still do
   const at = (n: number, extra: number) => XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 1, id: 7, ex: exhibit(2), extra }, 12);
   let full = 0, third = 0, none = 0;
-  for (let n = 1; n <= 20000; n++) { const a = at(n, 2000), b = at(n, 320), c = at(n, 0); if (a && a.kind === 'buy') { full++; assert.equal(a.price, 3000); } if (b && b.kind === 'buy') { third++; assert.equal(b.price, 1320); } if (c && c.kind === 'buy') none++; }
+  for (let n = 1; n <= 20000; n++) { const a = at(n, 2000), b = at(n, 320), c = at(n, 0); if (a && a.kind === 'buy' && !a.rich) { full++; assert.equal(a.ask, 3000); } if (b && b.kind === 'buy' && !b.rich) { third++; assert.equal(b.ask, 1320); assert.ok(b.price! >= 924 && b.price! <= 1716); } if (c && c.kind === 'buy' && !c.rich) none++; }
   assert.ok(full <= none * 0.01, `${full} buyers at x3, ${none} at the base`); assert.ok(third > none * 0.8 && third < none, `${third} buyers at +32%, ${none} at the base`);
 });
 
@@ -524,4 +524,43 @@ test('expo: a Dị Biến is never sold or swapped for a creature, only for a Th
   const plain = G.genItem({ ...st, streams: require('../lib/rng').newStreams(require('../lib/orders').hash32(`xg|${st.seed}|expo|77|deal`)) } as G.GameState, lvl(st), 4, undefined, 0, true);
   assert.ok(it.power > plain.power, `${it.power} > ${plain.power}`);
   assert.equal(G.expoPrice(withBeastOffer('buy', { mut: true }).st, 3, 10).code, 'E_MUTANT', 'a Dị Biến has no price');
+});
+
+test('expo: a piece goes up 30% over its base; a buyer pays around the asking price, give or take 30%, and both ends happen', () => {
+  const st = fresh(61); fill(st, 3, 1);
+  const it = st.bag.find((x) => x.id === st.expo!.stands[0]!.id)!, base = XP.basePrice(G.dissolveValue(it));
+  assert.equal(st.expo!.stands[0]!.extra, Math.round(base * XP.DEFAULT_MARKUP));
+  let lo = 0, hi = 0;
+  for (let n = 1; n <= 30000; n++) {
+    const v = XP.visitorOf(9, n); if (v.rich) continue;
+    const o = XP.offerOf(v, n, `9|expo|${n}`, T0, { slot: 1, id: 7, ex: exhibit(2), extra: 300 }, 12);
+    if (!o || o.kind !== 'buy') continue;
+    assert.equal(o.ask, 1300); assert.ok(o.price! >= 910 && o.price! <= 1690, String(o.price));
+    if (o.price! < 1000) lo++; if (o.price! > 1300) hi++;
+  }
+  assert.ok(lo > 0 && hi > 0, `below the base ${lo}, above the asking price ${hi}`);
+});
+
+test('expo: a rich merchant is rare, always asks to buy the first piece it passes (whatever it thought), at 2 to 3 times the base, never a Dị Biến', () => {
+  let rich = 0; const N = 50000;
+  for (let n = 1; n <= N; n++) {
+    const v = XP.visitorOf(9, n); if (!v.rich) continue; rich++;
+    const o = XP.offerOf(v, n, `9|expo|${n}`, T0, { slot: 1, id: 7, ex: exhibit(0), extra: 0 }, 12)!;
+    assert.ok(o && o.rich && o.kind === 'buy'); assert.ok(o.price! >= 2000 && o.price! <= 3000);
+    assert.equal(XP.offerOf(v, n, `9|expo|${n}`, T0, { slot: 1, id: 7, ex: exhibit(3, { kind: 'beast', mut: true }) }, 12), null);
+  }
+  assert.ok(rich > N * 0.001 && rich < N * 0.004, `${rich} merchants in ${N} visitors`);
+  // in a save: one comes, and its deal is kept even for a piece that was not loved
+  const st = fresh(62); fill(st, 0); let seen = false;
+  for (let i = 0; i < 6000 && !seen; i++) { G.settle(st, 1); seen = (st.expo!.offers || []).some((o) => o.rich); }
+  assert.ok(seen, 'a rich merchant asked within a few hours');
+});
+
+test('expo: a Linh Thú is worth its Level, its size and its strength to a buyer, far more than the pen pays', () => {
+  const st = fresh(63);
+  const plain = beast(st, 9001, { level: 30, cls: 2, power: 7800 }), big = beast(st, 9002, { level: 30, cls: 4, power: 7800 }), strong = beast(st, 9003, { level: 30, cls: 2, power: 20000 });
+  assert.ok(G.beastWorth(plain) >= G.releaseValue(plain) * 4, `${G.beastWorth(plain)} vs ${G.releaseValue(plain)}`);
+  assert.ok(G.beastWorth(big) > G.beastWorth(plain) && G.beastWorth(strong) > G.beastWorth(plain));
+  assert.ok(G.beastWorth(beast(st, 9004, { level: 50, cls: 2, power: 220000 })) > G.beastWorth(plain), 'a higher Level is worth more');
+  assert.ok(G.expoSet(st, 0, 'beast', plain.id).ok); assert.equal(st.expo!.stands[0]!.extra, Math.round(G.beastWorth(plain) * XP.DEFAULT_MARKUP));
 });
