@@ -66,14 +66,18 @@ test('the fight is the same every time it is computed, and its record adds up', 
   for (const r of a.rounds) if (r.b && !r.b.stun) assert.equal(r.b.s === 2, r.r % R.NOVA_EVERY === 3 && true);
 });
 
-test('the fight is a contest: neither always won nor always lost, longer than a few rounds', () => {
-  for (const n of [1, 4, 10, 25]) {
-    let wins = 0, rounds = 0;
-    for (const d of DAYS) { const r = R.fight(R.bossOfDay(d), crowd(n), d); wins += r.win ? 1 : 0; rounds += r.rounds.length; }
+test('the fight is a hard contest at any size: neither always won nor always lost, long, and cultivators fall', () => {
+  for (const n of [1, 4, 10, 25, 60]) {
+    let wins = 0, rounds = 0, fell = 0;
+    for (const d of DAYS) { const r = R.fight(R.bossOfDay(d), crowd(n), d); wins += r.win ? 1 : 0; rounds += r.rounds.length; fell += r.ko.filter((k) => k).length / n; }
     const rate = wins / DAYS.length, avg = rounds / DAYS.length;
-    assert.ok(rate >= 0.2 && rate <= 1, `n=${n} win rate ${rate}`);
-    assert.ok(avg >= 7, `n=${n} rounds ${avg}`);
+    assert.ok(rate >= 0.05 && rate <= 0.8, `n=${n} win rate ${rate}`);
+    assert.ok(avg >= 10, `n=${n} rounds ${avg}`);
+    if (n > 1) assert.ok(fell / DAYS.length >= 0.05, `n=${n} fallen ${fell / DAYS.length}`);
   }
+  // a big group cannot keep the Dị Thú stunned: it loses a turn at most once in STUN_GUARD + 1 rounds
+  const r = R.fight(R.bossOfDay(DAYS[0]), crowd(40), DAYS[0]), st = r.rounds.filter((x) => x.b && x.b.stun).map((x) => x.r);
+  for (let k = 1; k < st.length; k++) assert.ok(st[k] - st[k - 1] > R.STUN_GUARD, `stunned in rounds ${st.join(',')}`);
 });
 
 test('rewards: by level, more for a win and for a bigger share, a Bí Kíp only for the best of a win', () => {

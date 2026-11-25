@@ -137,7 +137,16 @@ export interface Result { win: boolean; rounds: Round[]; max: number; dmg: numbe
 export const MAX_ROUNDS = 14;
 export const RAGE_AT = 0.3;      // under this share of its Sinh Lực the Dị Thú goes berserk
 export const RAGE_MULT = 1.3;
-export const BOSS_POWER = 0.62;   // all the Dị Thú's blows: an average fighter with no heal stands about 12 rounds
+// How hard it is (tuned on simulated fights, 2026-11-25: a group of any size wins about 30–50% of the days, alone 10–20%; from a few (well geared, with support) to
+// half (new players with their starting techniques) of the cultivators fall; the fights go to the last rounds, and a Dị Thú that flees has about a tenth of its Sinh Lực left).
+export const BOSS_POWER = 0.7;   // all the Dị Thú's blows, as a share of each target's own Sinh Lực (see battle)
+// The Dị Thú's Sinh Lực: a share (HP_SHARE, up to HP_SPREAD more, drawn from the day) of what the group deals in a whole fight against a Dị Thú that cannot fall (bossStats)
+export const HP_SHARE = 0.84, HP_SPREAD = 0.3;
+// A group that keeps its shields up, weakens the Dị Thú and heals would take next to nothing: the Dị Thú's blows grow by what that support took away in the measuring
+// fight, to the power SUPPORT_PAYS, at most TEAM_POW times (support still pays: heals and shields work hardest when the blows are hardest). A group with no support
+// (new players: starting techniques only) gets no more.
+export const SUPPORT_PAYS = 1.0, TEAM_POW = 6;
+export const STUN_GUARD = 3;   // after losing a turn to a stun the Dị Thú shakes stuns off for this many rounds
 export const NOVA_EVERY = 4;
 export const STRIKE_FRAC = 0.2, SWEEP_FRAC = 0.45;     // its great attack comes in rounds 3, 7, 11 (then every 4)
 
@@ -172,22 +181,32 @@ export function expectedPerRound(f: Fighter, boss: Pick<Boss, 'el'>, def: number
   }
   return (sum / 12) * B.combatPace;
 }
-/** The Dị Thú's Sinh Lực and Phòng Ngự for these fighters: about 9 to 13 rounds of what they would deal, so a full house wins and a thin one is pushed hard. */
-export function bossStats(fs: Fighter[], day: string, boss: Pick<Boss, 'el'> = { el: '' }) {
+/** The Dị Thú's Sinh Lực and Phòng Ngự for these fighters. The Sinh Lực is measured, not guessed: the same group first fights a Dị Thú that cannot fall (its techniques,
+ *  its buffs and heals, its losses to the Dị Thú's blows all count, whatever its size), and the Dị Thú gets a share of what they dealt in the whole fight. So a group of any size
+ *  wins about as often: when the day's share is low and the group fights well. */
+export function bossStats(fs: Fighter[], day: string, boss: Boss) {
   const r = rng(`raid|hp|${day}`);
   const avgAtk = fs.reduce((a, f) => a + f.atk, 0) / Math.max(1, fs.length);
   const def = Math.round(avgAtk * 0.55);
-  const per = fs.reduce((a, f) => a + expectedPerRound(f, boss, def), 0);
-  const rounds = 9 + r() * 4;   // the KOs, the heals and the buffs decide the rest
-  return { hp: Math.max(300, Math.round(per * rounds)), def };
+  const dry = battle(boss, fs, `${day}|dry`, Infinity, def, 1), dealt = dry.dmg.reduce((a, d) => a + d, 0);
+  // how much of its blows the group's shields, weakening and heals took away in that fight: the Dị Thú hits that much harder (part of it: support still pays)
+  const kept = dry.press.want > 0 ? clamp((dry.press.took - dry.press.healed) / dry.press.want, 0.15, 1) : 1;
+  return { hp: Math.max(300, Math.round(dealt * (HP_SHARE + r() * HP_SPREAD))), def, pow: Math.min(TEAM_POW, (1 / kept) ** SUPPORT_PAYS) };
 }
 
 /** The whole fight. Fighters act fastest first, then the Dị Thú answers. Deterministic from the day and the fighters. hpMul (the demo stage only, lib/raiddemo.ts)
  *  makes the Dị Thú sturdier or frailer, to show a given ending. */
 export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result {
-  const rnd = rng(`raid|fight|${day}|${fs.length}`);
-  const bs = bossStats(fs, day, boss), bossDef = bs.def, max = hpMul === 1 ? bs.hp : Math.max(300, Math.round(bs.hp * hpMul));
-  let hp = max, rage = false, stun = 0;
+  const bs = bossStats(fs, day, boss);
+  const { win, rounds, max, dmg, ko, mvp } = battle(boss, fs, day, hpMul === 1 ? bs.hp : Math.max(300, Math.round(bs.hp * hpMul)), bs.def, bs.pow);
+  return { win, rounds, max, dmg, ko, mvp };
+}
+/** The fight against a Dị Thú of this Sinh Lực and Phòng Ngự, its blows times pow. Also how hard it pressed: the Sinh Lực its blows would have taken (want), what they took
+ *  (took) and what the heals gave back (healed). */
+function battle(boss: Boss, fs: Fighter[], seed: string, max: number, bossDef: number, teamPow: number): Result & { press: { want: number; took: number; healed: number } } {
+  const press = { want: 0, took: 0, healed: 0 };
+  const rnd = rng(`raid|fight|${seed}|${fs.length}`);
+  let hp = max, rage = false, stun = 0, stunFree = 1;   // after it loses a turn the Dị Thú shakes off stuns for STUN_GUARD rounds (else a big group, someone always ready, would keep it stunned)
   const cur = fs.map((f) => f.hp), dmg = fs.map(() => 0), ko = fs.map(() => 0), cd = fs.map(() => ({} as Record<number, number>));
   const order = fs.map((_, i) => i).sort((a, b) => fs[b].spd - fs[a].spd || a - b);
   let atkUp = { amt: 0, until: 0 }, guard = { amt: 0, until: 0 }, critUp = { amt: 0, until: 0 }, defDown = { amt: 0, until: 0 }, atkDown = { amt: 0, until: 0 };
@@ -205,7 +224,7 @@ export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result
       const low = alive().filter((j) => cur[j] < fs[j].hp * 0.5).sort((a, b) => cur[a] / fs[a].hp - cur[b] / fs[b].hp);
       const sup = ready.filter((k) => skillOfFighter(f, k).fx);
       const heal = sup.find((k) => skillOfFighter(f, k).fx!.kind === 'heal');
-      const other = sup.find((k) => { const x = skillOfFighter(f, k).fx!.kind; return x !== 'heal' && ((x === 'atkUp' && atkUp.until < r) || (x === 'guard' && guard.until < r) || (x === 'critUp' && critUp.until < r) || (x === 'defDown' && defDown.until < r) || (x === 'atkDown' && atkDown.until < r) || (x === 'stun' && !stun)); });
+      const other = sup.find((k) => { const x = skillOfFighter(f, k).fx!.kind; return x !== 'heal' && ((x === 'atkUp' && atkUp.until < r) || (x === 'guard' && guard.until < r) || (x === 'critUp' && critUp.until < r) || (x === 'defDown' && defDown.until < r) || (x === 'atkDown' && atkDown.until < r) || (x === 'stun' && !stun && r >= stunFree)); });
       if (heal !== undefined && low.length) pick = heal;
       else if (other !== undefined && rnd() < 0.6) pick = other;
       else { let best = -1; for (const k of ready) { const s = skillOfFighter(f, k); if (s.fx) continue; const v = s.coef * (s.hits || 1) * elMult(s.el, boss.el); if (v > best) { best = v; pick = k; } } }
@@ -216,6 +235,7 @@ export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result
         const act: FAct = { i, k: pick, d: 0, f: x };
         if (x === 'heal') {
           const t = low[0] ?? i, amt = Math.round(fs[t].hp * clamp(0.18 + s.coef * 0.06, 0.2, 0.4));
+          press.healed += Math.min(fs[t].hp, cur[t] + amt) - cur[t];
           cur[t] = Math.min(fs[t].hp, cur[t] + amt); act.t = t; act.h = cur[t];
         } else if (x === 'atkUp') atkUp = { amt: Math.max(atkUp.amt * (atkUp.until >= r ? 1 : 0), s.fx.amount), until: r + turns };
         else if (x === 'guard') guard = { amt: Math.max(guard.amt * (guard.until >= r ? 1 : 0), Math.min(0.5, s.fx.amount)), until: r + turns };
@@ -243,7 +263,7 @@ export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result
       if (!rage && hp < max * RAGE_AT) { rage = true; round.rage = 1; }
       const live = alive();
       const kind: 0 | 1 | 2 = r % NOVA_EVERY === 3 ? 2 : r % 2 === 0 && live.length > 1 ? 1 : 0;
-      if (stun) { stun = 0; round.b = { s: kind, t: [], d: [], h: [], ko: [], stun: 1 }; }
+      if (stun) { stun = 0; stunFree = r + 1 + STUN_GUARD; round.b = { s: kind, t: [], d: [], h: [], ko: [], stun: 1 }; }
       else if (live.length) {
         const sk = boss.skills[kind];
         // who: the nova hits everyone; a sweep about 45% of those standing, a strike about 20% (at least one), more often the ones that hurt it most.
@@ -262,8 +282,9 @@ export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result
         if (sh) b.g = 1;
         for (const j of targets) {
           const f = fs[j], ratio = clamp(f.def / baseDef(f.level), 0.5, 3);
-          const pct = BOSS_POWER * sk.coef * share * (rage ? RAGE_MULT : 1) * clamp(1.3 - 0.3 * ratio, 0.45, 1.15) * elMult(boss.el, f.el) * (0.85 + rnd() * 0.3) * soft * (1 - sh);
+          const pct = BOSS_POWER * teamPow * sk.coef * share * (rage ? RAGE_MULT : 1) * clamp(1.15 - 0.15 * ratio, 0.7, 1.1) * elMult(boss.el, f.el) * (0.85 + rnd() * 0.3) * soft * (1 - sh);
           const d = Math.max(1, Math.round(f.hp * pct));
+          press.want += f.hp * (pct / Math.max(0.05, soft * (1 - sh))); press.took += Math.min(cur[j], d);
           cur[j] = Math.max(0, cur[j] - d);
           b.d.push(d); b.h.push(cur[j]);
           if (cur[j] <= 0) { b.ko.push(j); ko[j] = r; }
@@ -275,7 +296,7 @@ export function fight(boss: Boss, fs: Fighter[], day: string, hpMul = 1): Result
     rounds.push(round);
   }
   const mvp = dmg.reduce((bi, d, i) => (d > dmg[bi] ? i : bi), 0);
-  return { win: hp <= 0, rounds, max, dmg, ko, mvp };
+  return { win: hp <= 0, rounds, max, dmg, ko, mvp, press };
 }
 
 // ---------- rewards
