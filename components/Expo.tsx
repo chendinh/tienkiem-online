@@ -94,6 +94,7 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
       </div>
       {cur && cur.tally.some((n) => n > 0) && <Strip tally={cur.tally} label={`Khách nghĩ gì về món ở bệ ${slot + 1}`} />}
       {priced && cur && <Price v={priced} extra={cur.extra || 0} set={(extra) => void act('expoPrice', { slot, extra }).then((r) => { if (!r.ok) onErr(r.msg); })} />}
+      {curView && curView.kind === 'beast' && curView.beast.mut && <p className="xMutNote">✦ Dị Biến không bán. Khách mê nó chỉ có thể đổi lấy một món <b>Thiên</b> ngang cấp ngươi, chỉ số cao hơn món Thiên thường.</p>}
       <div className="xPickTabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'item'} className={tab === 'item' ? 'on' : ''} onClick={() => setTab('item')}>Pháp khí ({items.length})</button>
         <button type="button" role="tab" aria-selected={tab === 'beast'} className={tab === 'beast' ? 'on' : ''} onClick={() => setTab('beast')}>Linh Thú ({beasts.length})</button>
