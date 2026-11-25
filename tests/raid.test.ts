@@ -91,7 +91,7 @@ test('rewards: by level, more for a win and for a bigger share, a Bí Kíp only 
   assert.ok(R.rewardOf(boss, won, fs_, 0, day).stones > R.rewardOf(boss, lost, fs_, 0, day).stones);
 });
 
-test('the film: who is drawn, where, and a timeline that ends where the fight ended', () => {
+test('the film: who is drawn, where, and a timeline of non-stop fighting that ends where the fight ended', () => {
   const fs_ = crowd(30), day = DAYS[5], boss = R.bossOfDay(day), res = R.fight(boss, fs_, day);
   const shown = P.shownOf(fs_, 17);
   assert.equal(shown.length, P.SHOWN_MAX);
@@ -99,21 +99,41 @@ test('the film: who is drawn, where, and a timeline that ends where the fight en
   const spots = P.formation(boss, shown.map((i) => fs_[i].pid));
   assert.equal(new Set(spots.map((p) => `${Math.round(p.x)}|${Math.round(p.y)}`)).size, spots.length, 'no two on the same spot');
   for (const p of spots) assert.ok(p.x > 5 && p.x < 95 && p.y > 25 && p.y < 96);
-  const tl = P.timelineOf(res.rounds, shown);
-  assert.equal(tl.rounds.length, res.rounds.length);
-  for (let k = 1; k < tl.rounds.length; k++) assert.ok(tl.rounds[k].t0 > tl.rounds[k - 1].end);
-  assert.ok(tl.total > tl.outro && tl.total < 4 * 60000, `film of ${Math.round(tl.total / 1000)} s`);
-  // every fighter not drawn still deals its damage, in one streak per round
-  const hidden = tl.rounds.filter((r) => r.off).reduce((s, r) => s + r.off!.d, 0);
-  const notDrawn = res.rounds.flatMap((r) => r.f).filter((a) => !shown.includes(a.i)).reduce((s, a) => s + a.d, 0);
-  assert.equal(hidden, notDrawn);
-  // the state at the end of the film is the end of the fight; at the start, everyone is whole
-  const end = P.stateAt(res.max, fs_, tl, tl.total), start = P.stateAt(res.max, fs_, tl, 0);
-  assert.equal(end.hp, res.rounds[res.rounds.length - 1].hp);
-  assert.deepEqual(end.down.map((d, i) => d === !!res.ko[i]), fs_.map(() => true));
-  assert.equal(start.hp, res.max); assert.ok(start.down.every((d) => !d));
-  // a flight goes out and comes back to where it started
-  const fr = P.flightFrames(80, -120, 1);
-  assert.deepEqual([fr[0].x, fr[0].y], [0, 0]); assert.ok(Math.abs(fr[fr.length - 1].x) < 0.5 && Math.abs(fr[fr.length - 1].y) < 0.5);
-  assert.ok(fr.every((f, k) => k === 0 || f.offset > fr[k - 1].offset));
+  // every cultivator keeps flying, never off the stage
+  for (const [s, p] of spots.entries()) {
+    const key = fs_[shown[s]].pid, at = [0, 700, 1900, 4200, 9000].map((t) => P.flyAt(p, key, t));
+    for (const q of at) assert.ok(q.x >= 6 && q.x <= 94 && q.y >= 28 && q.y <= 93);
+    assert.ok(new Set(at.map((q) => `${q.x.toFixed(1)}|${q.y.toFixed(1)}`)).size >= 4, 'it moves');
+  }
+  for (const [n, fs2] of [[30, fs_], [1, crowd(1)], [6, crowd(6)]] as [number, R.Fighter[]][]) {
+    const d2 = DAYS[(n * 3) % DAYS.length], b2 = R.bossOfDay(d2), r2 = n === 30 ? res : R.fight(b2, fs2, d2), sh = n === 30 ? shown : P.shownOf(fs2, 0);
+    const tl = P.timelineOf(r2.rounds, sh);
+    assert.equal(tl.rounds.length, r2.rounds.length);
+    for (let k = 1; k < tl.rounds.length; k++) assert.equal(tl.rounds[k].t0, tl.rounds[k - 1].end, 'the stretches follow each other without a break');
+    assert.ok(tl.total > tl.outro && tl.total < 4 * 60000, `film of ${Math.round(tl.total / 1000)} s`);
+    // all the damage of the record is in the shots, each cultivator's own, the ones off the stage in their bolts
+    const acts = r2.rounds.flatMap((r) => r.f);
+    const own = (i: number) => acts.filter((a) => a.i === i).reduce((s, a) => s + a.d, 0);
+    for (const i of sh) assert.equal(tl.events.filter((e) => e.k === 'hit' && e.i === i).reduce((s, e) => s + (e as { d: number }).d, 0), own(i), `fighter ${i}`);
+    const hidden = acts.filter((a) => !sh.includes(a.i)).reduce((s, a) => s + a.d, 0);
+    assert.equal(tl.events.filter((e) => e.k === 'off').reduce((s, e) => s + (e as { d: number }).d, 0), hidden);
+    assert.equal(tl.rounds.filter((r) => r.off).reduce((s, r) => s + r.off!.d, 0), hidden);
+    // nobody shoots after falling; a shot lands after it leaves
+    const koAt = new Map<number, number>();
+    for (const e of tl.events) if (e.k === 'hurt' && e.ko) koAt.set(e.j, e.t);
+    for (const s of tl.shots) { assert.ok(s.land > s.t); if (s.i >= 0 && koAt.has(s.i)) assert.ok(s.t < koAt.get(s.i)!, `fighter ${s.i} shoots after falling`); }
+    for (const s of tl.bshots) assert.ok(s.land > s.t && sh.includes(s.j));
+    // every cultivator's Sinh Lực changes in the order of the record (heals and blows)
+    const rec = new Map<number, number[]>(), film = new Map<number, number[]>();
+    const add = (m: Map<number, number[]>, j: number, h: number) => { if (!m.has(j)) m.set(j, []); m.get(j)!.push(h); };
+    for (const r of r2.rounds) { for (const a of r.f) if (a.t !== undefined && a.h !== undefined) add(rec, a.t, a.h); if (r.b && !r.b.stun) r.b.t.forEach((j, n) => add(rec, j, r.b!.h[n])); }
+    for (const e of tl.events) if (e.k === 'heal' || e.k === 'hurt') add(film, e.j, e.h);
+    for (const [j, hs] of rec) assert.deepEqual(film.get(j), hs, `fighter ${j}`);
+    // the state at the end of the film is the end of the fight; at the start, everyone is whole
+    const end = P.stateAt(r2.max, fs2, tl, tl.total), start = P.stateAt(r2.max, fs2, tl, 0);
+    assert.equal(end.hp, r2.rounds[r2.rounds.length - 1].hp);
+    assert.deepEqual(end.down.map((d, i) => d === !!r2.ko[i]), fs2.map(() => true));
+    assert.equal(start.hp, r2.max); assert.ok(start.down.every((d) => !d));
+    if (r2.win) assert.equal(P.stateAt(r2.max, fs2, tl, tl.outro).hp, 0, 'the Dị Thú dies when its Sinh Lực is gone');
+  }
 });

@@ -47,23 +47,34 @@
   .rdF.ko .rdFhp b { background: #6b6f75; }
   .rdF.ko .rdFbob { animation-play-state: paused; }
 
-  /* ---- effects, numbers, streaks */
+  /* in the film every cultivator flies (components/RaidScene.tsx moves the card and tilts the body each frame): no idle bob on top of it, and the fallen lie on the ground */
+  .rdStage.film .rdFbob { animation: none; }
+  /* once the Dị Thú has died or fled it stays gone (also when the clip only starts after the end, as on the result) */
+  .rdStage.over .rdLoop { opacity: 0; }
+  .rdStage.film .rdFbody { transform-origin: 50% 62%; }
+  .rdStage.film .rdF.ko { z-index: 5 !important; }
+  .rdStage.film .rdF.ko .rdFhp { opacity: 0; }
+  .rdStage.film .rdF.ko .rdFfig .cu { filter: grayscale(0.55) brightness(0.9) drop-shadow(0 0 0.5cqw rgb(255 90 70 / 0.55)) drop-shadow(0 0.5cqw 0.6cqw rgb(0 0 0 / 0.8)); }
+
+  /* ---- effects, numbers, the bullets */
+  /* the canvas of every bullet and bolt (over the cultivators, under the techniques and the numbers) */
+  .rdShots { position: absolute; inset: 0; z-index: 15; width: 100%; height: 100%; pointer-events: none; }
   .rdFx { position: absolute; inset: 0; z-index: 20; pointer-events: none; overflow: hidden; }
   .rdNum { position: absolute; z-index: 2; font-family: var(--font-display); font-weight: 800; font-size: clamp(12px, 4.4cqw, 22px); line-height: 1; white-space: nowrap; color: var(--c, #fff); -webkit-text-stroke: 0.35px rgb(0 0 0 / 0.6); text-shadow: 0 0 6px color-mix(in srgb, var(--c, #fff) 60%, transparent), 0 2px 2px rgb(0 0 0 / 0.85); will-change: transform, opacity; }
-  .rdNum.crit { font-size: clamp(15px, 5.6cqw, 28px); color: #ffd36e; }
+  .rdNum.blow { font-size: clamp(15px, 6cqw, 30px); }
+  .rdNum.crit { font-size: clamp(18px, 7.4cqw, 36px); color: #ffd36e; }
   .rdNum.mine { color: #ffe08a; -webkit-text-stroke: 0.6px #5a3a07; }
-  .rdNum.hurt { color: #ff6a5c; font-size: clamp(12px, 4cqw, 20px); }
+  .rdNum.hurt { color: #ff6a5c; font-size: clamp(13px, 5cqw, 24px); }
   .rdNum.heal { color: #8ee6a8; }
   .rdNum.buff { font-family: inherit; font-weight: 700; font-size: clamp(9px, 3cqw, 14px); font-style: italic; }
+  .rdNum.tiny { font-size: clamp(9px, 3cqw, 14px); font-weight: 700; opacity: 0.9; }
   .rdNum.off { font-family: inherit; font-weight: 700; font-size: clamp(10px, 3.4cqw, 16px); color: #f1e3b0; opacity: 0.9; }
-  .rdStreak { position: absolute; height: 2px; transform-origin: 0 50%; border-radius: 2px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c) 70%, white)); box-shadow: 0 0 6px var(--c); }
 
   /* ---- the HUD: the Dị Thú's name, its Sinh Lực, the round */
   .rdHud { position: absolute; inset: 0 0 auto 0; z-index: 40; padding: 3cqw 3.5cqw 0; pointer-events: none; }
   .rdBoss { padding: 2cqw 2.6cqw 1.6cqw; border-radius: 3cqw 1cqw 3cqw 1cqw; background: linear-gradient(180deg, rgb(8 12 16 / 0.72), rgb(8 12 16 / 0.45)); border: 1px solid var(--line-gold-strong, rgb(238 208 138 / 0.5)); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
   .rdBossNm { display: flex; align-items: center; gap: 1.4cqw; color: var(--gold-200); font-family: var(--font-display); font-size: clamp(13px, 4.4cqw, 20px); line-height: 1.1; }
   .rdBossNm b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em; }
-  .rdRound { flex: none; font-family: inherit; font-size: clamp(10px, 3cqw, 13px); color: var(--text-2, #cdd3da); }
   .rdLive { flex: none; padding: 0.3cqw 1.4cqw; border-radius: 99px; font-family: inherit; font-size: clamp(9px, 2.6cqw, 12px); font-weight: 700; color: #fff; background: #d8343b; animation: rd-live 1.2s ease-in-out infinite; }
   @keyframes rd-live { 50% { opacity: 0.55; } }
   .rdBossBar { position: relative; height: clamp(7px, 2.3cqw, 11px); margin-top: 1.4cqw; border-radius: 99px; background: rgb(0 0 0 / 0.6); box-shadow: inset 0 0 0 1px rgb(238 208 138 / 0.35); overflow: hidden; }

@@ -45,7 +45,7 @@ export const texOf = (id: string, color: string): Tex | null => cache.get(`${id}
 // Start loading everything a recipe can show.
 export const warmFx = (fx: SkillFx, color: string): Promise<unknown> => Promise.all([...new Set([...textureIds(fx), ...(defaultHit(fx) ? [defaultHit(fx)!] : [])])].map((id) => loadTex(id, color)));
 
-export interface PlayOpts { layer: HTMLElement; fx: SkillFx; color: string; from: Pt; to: Pt; k: number; level: 'low' | 'mid' | 'high'; crit: boolean }
+export interface PlayOpts { layer: HTMLElement; fx: SkillFx; color: string; from: Pt; to: Pt; k: number; level: 'low' | 'mid' | 'high'; crit: boolean; scale?: number /* draws everything this much larger (Phó Bản) */ }
 // cast: ms until the technique is released; impacts: ms at which each blow lands on the recipient; total: ms until the last sprite is gone.
 export interface Played { cast: number; impacts: number[]; total: number }
 
@@ -63,7 +63,7 @@ export function playSkill(o: PlayOpts): Played | null {
   const u = Math.max(0.6, Math.min(1, layer.clientWidth / 560));   // a narrow stage (phone) draws everything smaller
   const t = (ms: number) => Math.round(ms * k);
   const dx = to.x - from.x, dy = to.y - from.y, dist = Math.hypot(dx, dy), dir = dx < 0 ? -1 : 1;
-  const big = crit ? 2 : 1;   // a critical hit draws its technique twice as large
+  const big = (crit ? 2 : 1) * (o.scale ?? 1);   // a critical hit draws its technique twice as large
   const baseW = (fx.size ?? TEXTURES[fx.tex].size) * u * big;
   const impacts: number[] = [];
   let total = 0;
@@ -80,7 +80,7 @@ export function playSkill(o: PlayOpts): Played | null {
   const flash = (at: number, px: number, py: number) => {
     impacts.push(at);
     if (!hitTex || !hitId) return;
-    const w = TEXTURES[hitId].size * u * (crit ? 2 : 1) * (low ? 0.8 : 1), r = rnd(-0.35, 0.35);
+    const w = TEXTURES[hitId].size * u * big * (low ? 0.8 : 1), r = rnd(-0.35, 0.35);
     spawn(hitTex, w, px, py, [{ opacity: 0, transform: `rotate(${r}rad) scale(0.4)` }, { opacity: 1, transform: `rotate(${r}rad) scale(1)`, offset: 0.25 }, { opacity: 0, transform: `rotate(${r + 0.2}rad) scale(1.25)` }], at, t(crit ? 420 : 320), 'ease-out');
   };
 
