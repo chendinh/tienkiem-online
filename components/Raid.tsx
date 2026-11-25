@@ -113,6 +113,31 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
     return r;
   };
 
+  // ---- full screen, like a video player: the stage alone, as big as the screen allows. The browser's own full screen where it exists; where it does not
+  // (an iPhone only lets a <video> go full screen) the stage covers the page itself. Esc, the button or the phone's Back leaves it.
+  const wrap = useRef<HTMLDivElement>(null);
+  const [big, setBig] = useState(false);
+  useEffect(() => {
+    const on = () => setBig(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    document.addEventListener('fullscreenchange', on); document.addEventListener('webkitfullscreenchange', on);
+    return () => { document.removeEventListener('fullscreenchange', on); document.removeEventListener('webkitfullscreenchange', on); };
+  }, []);
+  const toggleBig = useCallback(async () => {
+    const el = wrap.current as any, d = document as any;
+    if (d.fullscreenElement || d.webkitFullscreenElement) { await (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); setBig(false); return; }
+    if (big) { setBig(false); return; }
+    const req = el && (el.requestFullscreen || el.webkitRequestFullscreen);
+    if (req) { try { await req.call(el, { navigationUI: 'hide' }); setBig(true); return; } catch { /* refused: cover the page instead */ } }
+    setBig(true);
+  }, [big]);
+  useEffect(() => {
+    if (!big) return;
+    // Esc leaves full screen only (it must not also close the Phó Bản screen behind it)
+    const key = (e: KeyboardEvent) => { if (e.key !== 'Escape') return; e.stopImmediatePropagation(); const d = document as any; if (d.fullscreenElement || d.webkitFullscreenElement) void (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); setBig(false); };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [big]);
+
   if (!v) return (
     <div className="jobsScreen raidScreen" role="dialog" aria-modal="true" aria-label="Phó Bản">
       <Bar close={close} sub="Đang mở…" />
@@ -126,20 +151,19 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
 
   return (
     <div className="jobsScreen raidScreen" role="dialog" aria-modal="true" aria-label="Phó Bản">
-      <Bar close={close} sub={`${boss.name} · ${boss.title}`} />
+      <Bar close={close} sub={boss.name} />
       <div className="jobsScroll">
         <div className="raidInner">
-          <div className="raidStageWrap">
+          <div className={`raidStageWrap${big ? ' big' : ''}`} ref={wrap}>
             {showFilm && play && mode === 'film'
               ? <RaidScene key={`${film!.day}|${play.from}|${play.started}`} mode="film" boss={fboss} film={film!} from={play.from} live={play.live} onEnd={() => { setMode('result'); setPlay(null); }} />
               : showFilm && mode === 'result'
                 ? <RaidScene key={`res|${film!.day}`} mode="film" boss={fboss} film={film!} from={tl ? tl.total : 0} live={false} onEnd={() => {}} />
                 : <RaidScene mode="lobby" boss={boss} crowd={t.crowd} meId={t.joined ? (t.crowd[0]?.pid ?? null) : null} caption={open ? `Khai chiến sau ${left(t.at - now)}` : t.status === 'empty' ? 'Hôm nay không ai xuất chiến' : 'Đang khai chiến…'} />}
-            {mode === 'film' && play && (
-              <div className="raidCtl">
-                <button type="button" onClick={() => tl && startFilm(tl.outro - 300, false)} title="Bỏ qua tới kết quả"><Icon name="next" size={16} /> Bỏ qua</button>
-              </div>
-            )}
+            <div className="raidCtl">
+              {mode === 'film' && play && <button type="button" onClick={() => tl && startFilm(tl.outro - 300, false)} title="Bỏ qua tới kết quả"><Icon name="next" size={16} /> Bỏ qua</button>}
+              <button type="button" className="raidFull" onClick={() => void toggleBig()} aria-pressed={big} aria-label={big ? 'Thu nhỏ' : 'Toàn màn hình'} title={big ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}><FullIcon out={big} /></button>
+            </div>
             {mode === 'result' && film && <ResultCard film={film} boss={fboss} onReplay={() => startFilm(0, false)} />}
           </div>
 
@@ -156,15 +180,24 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
               {open ? (
                 <>
                   <div className="raidCount"><Icon name="clock" size={16} /> Khai chiến lúc <b>{hhmm(t.at)}</b> · còn <b className="num">{left(t.at - now)}</b></div>
-                  <label className={`raidJoin${t.joined ? ' on' : ''}`}>
-                    <input type="checkbox" checked={t.joined} disabled={!!busy} onChange={() => void run(t.joined ? 'raid_leave' : 'raid_join')} />
-                    <span className="box" aria-hidden="true">{t.joined && <Icon name="check" size={18} />}</span>
-                    <span className="txt"><b>{t.joined ? 'Đã ghi danh' : 'Tham gia'}</b><small>{t.joined ? 'Tu sĩ của ngươi đã có mặt. Tới giờ cứ ngồi xem.' : 'Tick một lần, tới giờ tu sĩ của ngươi tự bay ra chiến đấu.'}</small></span>
-                  </label>
-                  <label className="raidAuto">
-                    <input type="checkbox" checked={t.auto} disabled={!!busy} onChange={() => void run('raid_auto', { on: !t.auto })} />
-                    <span>Tự tham gia mỗi ngày</span>
-                  </label>
+                  {t.joined
+                    ? (
+                      <div className="raidJoined">
+                        <span className="seal" aria-hidden="true"><b>Đã</b><b>Ghi</b><b>Danh</b></span>
+                        <span className="txt"><b>Đã ghi danh xuất chiến</b><small>Tu sĩ của ngươi đã có mặt trên sân. Tới giờ cứ ngồi xem.</small></span>
+                        <button type="button" className="raidLeave" disabled={!!busy} onClick={() => void run('raid_leave')}>{busy === 'raid_leave' ? '…' : 'Rút tên'}</button>
+                      </div>
+                    )
+                    : (
+                      <button type="button" className="raidJoinBtn" disabled={!!busy} onClick={() => void run('raid_join')}>
+                        <span className="ico" aria-hidden="true"><Icon name="atk" size={22} /></span>
+                        <span className="txt"><b>{busy === 'raid_join' ? 'Đang ghi danh…' : 'Ghi danh xuất chiến'}</b><small>Một chạm. Tới giờ tu sĩ của ngươi tự bay ra đánh.</small></span>
+                      </button>
+                    )}
+                  <button type="button" role="switch" aria-checked={t.auto} className={`raidSwitch${t.auto ? ' on' : ''}`} disabled={!!busy} onClick={() => void run('raid_auto', { on: !t.auto })}>
+                    <span className="track" aria-hidden="true"><i /></span>
+                    <span className="lbl">Tự tham gia mỗi ngày</span>
+                  </button>
                   <div className="raidCrowd"><Icon name="sparkle" size={14} /> <b>{t.count}</b> tu sĩ đã ghi danh{t.count > P.SHOWN_MAX ? ` (trên sân hiện ${P.SHOWN_MAX})` : ''}</div>
                 </>
               ) : (
@@ -251,5 +284,16 @@ function Board({ film, myPid }: { film: FilmOut; myPid: string | null }) {
       <header><Icon name="crown" size={18} /><div><h3>Bảng sát thương</h3><small>{film.fighters.length} tu sĩ · {dayName(film.day)}</small></div></header>
       <ol className="raidBoard">{top.map(row)}{meAt >= 20 && row(order[meAt], meAt)}</ol>
     </section>
+  );
+}
+
+// The full-screen sign of a video player: four corners pointing out (or in, to leave).
+function FullIcon({ out }: { out: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {out
+        ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+        : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+    </svg>
   );
 }

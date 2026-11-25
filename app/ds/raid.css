@@ -95,8 +95,16 @@
   @keyframes rd-verdict { 0% { opacity: 0; transform: scale(1.6); } 100% { opacity: 1; transform: scale(1); } }
 
   .raidCtl { position: absolute; right: 3cqw; bottom: 3cqw; z-index: 50; display: flex; gap: 6px; }
+  .raidCtl .raidFull { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 8px; }
+  .raidCtl button:hover { background: rgb(0 0 0 / 0.7); }
   .raidCtl button { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid rgb(255 255 255 / 0.25); background: rgb(0 0 0 / 0.5); color: #eef1f4; font-size: var(--fs-xs); cursor: pointer; backdrop-filter: blur(3px); }
   .raidStageWrap { container-type: inline-size; }
+  /* full screen: the stage alone on black, as tall as the screen (9:16 never wider than the screen) */
+  .raidStageWrap.big { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: #000; container-type: normal; }
+  .raidStageWrap.big .rdStage { width: min(100vw, calc(100dvh * 9 / 16)); border-radius: 0; border: 0; }
+  .raidStageWrap.big .raidCtl { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
+  .raidStageWrap.big .raidResult { position: fixed; left: 12px; right: 12px; bottom: 64px; max-width: 440px; margin: 0 auto; }
+  .raidStageWrap:fullscreen { background: #000; }
 
   /* the result over the lower part of the stage, once the film has ended */
   .raidResult { position: absolute; left: 3cqw; right: 3cqw; bottom: 3cqw; z-index: 55; display: grid; gap: 8px; padding: 14px; border-radius: 16px 5px 16px 5px; background: linear-gradient(180deg, rgb(10 14 18 / 0.86), rgb(6 9 12 / 0.94)); border: 1px solid var(--line-gold-strong, var(--line)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: jobs-in 0.4s ease-out both; }
@@ -121,21 +129,35 @@
   .raidLore { margin: 0; color: var(--text-2); font-size: var(--fs-sm); font-style: italic; }
   .raidCount { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-2); font-size: var(--fs-sm); }
   .raidCount .num { font-variant-numeric: tabular-nums; color: var(--gold-200); }
-  .raidJoin { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px 4px 14px 4px; border: 1.5px solid var(--line-gold-strong, var(--line)); background: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02)); cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
-  .raidJoin input, .raidAuto input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-  .raidJoin .box { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; border: 2px solid var(--gold-300); color: #2a1a05; background: rgb(0 0 0 / 0.3); transition: background 0.2s, transform 0.2s var(--ease-spring, ease); }
-  .raidJoin .txt b { display: block; font-size: var(--fs-lg); color: var(--gold-200); }
-  .raidJoin .txt small { color: var(--text-3); font-size: var(--fs-xs); }
-  .raidJoin.on { border-color: var(--gold-300); box-shadow: 0 0 22px -8px var(--gold-300); background: linear-gradient(180deg, color-mix(in srgb, var(--gold-400) 16%, transparent), rgb(255 255 255 / 0.02)); }
-  .raidJoin.on .box { background: linear-gradient(180deg, #ffe9a8, #e8bf5e); transform: scale(1.05); }
-  .raidJoin:has(input:focus-visible) { outline: 2px solid var(--gold-300); outline-offset: 2px; }
-  .raidJoin:has(input:disabled) { opacity: 0.7; cursor: progress; }
-  .raidAuto { position: relative; display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
-  .raidAuto span::before { content: ''; display: inline-block; vertical-align: -3px; width: 30px; height: 17px; margin-right: 8px; border-radius: 99px; background: rgb(255 255 255 / 0.14); box-shadow: inset 0 0 0 1px var(--line); transition: background 0.2s; }
-  .raidAuto span::after { content: ''; position: absolute; left: 3px; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: #dfe4ea; transition: transform 0.2s; }
-  .raidAuto:has(input:checked) span::before { background: var(--jade-400, #2fae78); }
-  .raidAuto:has(input:checked) span::after { transform: translateX(13px); }
-  .raidAuto:has(input:focus-visible) span::before { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+  /* signing up: a gold call to action, and once signed up a cinnabar seal (like the Hoàn thành seal of Công việc) with a quiet way back out */
+  .raidJoinBtn { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-radius: 16px 5px 16px 5px; text-align: left; cursor: pointer; color: #2a1a05; background: linear-gradient(180deg, #ffeaa8 0%, #edc767 48%, #c9952f 100%); box-shadow: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 -2px 0 rgb(120 70 10 / 0.35) inset, 0 10px 26px -12px rgb(237 199 103 / 0.85); transition: transform 0.15s var(--ease-spring, ease), filter 0.15s; }
+  .raidJoinBtn::after { content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.55), transparent); transform: skewX(-18deg); animation: rd-shine 3.2s ease-in-out infinite; pointer-events: none; }
+  @keyframes rd-shine { 0%, 55% { left: -40%; } 100% { left: 130%; } }
+  .raidJoinBtn:hover:not(:disabled) { filter: brightness(1.06); }
+  .raidJoinBtn:active:not(:disabled) { transform: scale(0.98); }
+  .raidJoinBtn:disabled { cursor: progress; filter: saturate(0.6); }
+  .raidJoinBtn:focus-visible { outline: 2px solid #fff3c4; outline-offset: 3px; }
+  .raidJoinBtn .ico { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: #fff3c4; background: radial-gradient(circle at 35% 30%, #6b3d12, #2d1606); box-shadow: 0 0 0 2px rgb(255 240 200 / 0.6), 0 3px 8px rgb(0 0 0 / 0.35); }
+  .raidJoinBtn .txt b { display: block; font-family: var(--font-display); font-size: 1.25rem; line-height: 1.15; letter-spacing: 0.01em; }
+  .raidJoinBtn .txt small { display: block; margin-top: 2px; font-size: var(--fs-xs); color: rgb(42 26 5 / 0.75); }
+  .raidJoined { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px 5px 16px 5px; border: 1px solid color-mix(in srgb, #d9403a 45%, transparent); background: linear-gradient(180deg, rgb(217 64 58 / 0.12), rgb(217 64 58 / 0.03)); animation: jobs-in 0.3s ease-out both; }
+  .raidJoined .seal { flex: none; display: grid; place-content: center; width: 52px; height: 52px; border-radius: 9px; border: 2.5px solid #d9403a; color: #e4473f; font-family: var(--font-display); font-size: 11px; font-weight: 800; line-height: 1.05; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; transform: rotate(-8deg); box-shadow: inset 0 0 0 2px rgb(217 64 58 / 0.25); animation: rd-stamp 0.45s cubic-bezier(.2,1.6,.4,1) both; }
+  .raidJoined .seal b { display: block; }
+  @keyframes rd-stamp { 0% { opacity: 0; transform: rotate(-8deg) scale(1.9); } 100% { opacity: 1; transform: rotate(-8deg) scale(1); } }
+  .raidJoined .txt { flex: 1; min-width: 0; }
+  .raidJoined .txt b { display: block; color: var(--gold-200); font-size: var(--fs-md, 1rem); }
+  .raidJoined .txt small { color: var(--text-3); font-size: var(--fs-xs); }
+  .raidLeave { flex: none; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--line); background: transparent; color: var(--text-3); font-size: var(--fs-xs); cursor: pointer; }
+  .raidLeave:hover:not(:disabled) { color: var(--text-1); border-color: var(--text-3); }
+  /* the daily switch: a track with its knob inside */
+  .raidSwitch { justify-self: start; display: inline-flex; align-items: center; gap: 10px; min-height: 36px; padding: 2px 4px 2px 0; border: 0; background: none; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+  .raidSwitch .track { position: relative; flex: none; width: 42px; height: 24px; border-radius: 12px; background: rgb(255 255 255 / 0.14); box-shadow: inset 0 0 0 1px var(--line); transition: background 0.2s; }
+  .raidSwitch .track i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #dfe4ea; box-shadow: 0 1px 3px rgb(0 0 0 / 0.5); transition: transform 0.2s var(--ease-spring, ease), background 0.2s; }
+  .raidSwitch.on .track { background: var(--jade-400, #2fae78); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.15), 0 0 12px -3px var(--jade-400, #2fae78); }
+  .raidSwitch.on .track i { transform: translateX(18px); background: #fff; }
+  .raidSwitch.on .lbl { color: var(--text-1); }
+  .raidSwitch:focus-visible .track { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+  .raidSwitch:disabled { cursor: progress; opacity: 0.7; }
   .raidCrowd { display: flex; align-items: center; gap: 6px; color: var(--text-3); font-size: var(--fs-xs); }
   .raidCrowd b { color: var(--gold-200); font-size: var(--fs-sm); }
   .raidReplay { justify-self: start; }
