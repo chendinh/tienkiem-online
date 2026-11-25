@@ -7,22 +7,40 @@
   .xSky { position: absolute; inset: 0; background: url('/art/scene/dawn.webp') 50% 38% / cover no-repeat; }
   .xSky::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(12 16 46 / 0.42), rgb(12 16 46 / 0.06) 38%, rgb(12 16 46 / 0.1) 62%, rgb(12 16 46 / 0.44)); }
 
-  /* three tiers of cloud, the lowest one for the chest */
-  .xTier { position: absolute; left: -9%; width: 118%; height: 16%; pointer-events: none; }
+  /* three tiers of cloud, the lowest one for the chest. A cloud is three layers, all painted once: a faint golden halo where the dawn light catches it (the tier itself), a billow of
+     seven puffs that rises in the middle and thins out at the ends (::before), and a warm rose-lilac tint on its underside (::after), the colour of the sky below at dawn. The billow
+     drifts a few pixels to and fro, so the sky breathes; transform only. */
+  .xTier { position: absolute; left: -9%; width: 118%; height: 16%; pointer-events: none; background: radial-gradient(ellipse 46% 42% at 50% 34%, rgb(255 222 160 / 0.32), rgb(255 222 160 / 0) 72%); }
   .xTier::before { content: ''; position: absolute; inset: 0; background:
-      radial-gradient(ellipse 15% 58% at 11% 60%, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0) 72%),
-      radial-gradient(ellipse 21% 76% at 30% 50%, rgb(255 255 255 / 0.98), rgb(255 255 255 / 0) 72%),
-      radial-gradient(ellipse 25% 82% at 54% 56%, rgb(255 255 255 / 1), rgb(255 255 255 / 0) 72%),
-      radial-gradient(ellipse 20% 70% at 77% 50%, rgb(255 255 255 / 0.96), rgb(255 255 255 / 0) 72%),
-      radial-gradient(ellipse 15% 56% at 92% 62%, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0) 72%); opacity: 0.92; }
-  .xTier::after { content: ''; position: absolute; left: 4%; right: 4%; bottom: -6%; height: 56%; background: radial-gradient(ellipse at 50% 30%, rgb(86 98 170 / 0.5), rgb(86 98 170 / 0) 70%); }
+      radial-gradient(ellipse 10% 42% at 7% 66%, rgb(255 250 244 / 0.9), rgb(255 250 244 / 0) 72%),
+      radial-gradient(ellipse 13% 58% at 19% 52%, rgb(255 253 248 / 0.97), rgb(255 253 248 / 0) 72%),
+      radial-gradient(ellipse 16% 72% at 34% 42%, #fff, rgb(255 255 255 / 0) 72%),
+      radial-gradient(ellipse 19% 82% at 51% 46%, #fff, rgb(255 255 255 / 0) 72%),
+      radial-gradient(ellipse 15% 70% at 68% 40%, #fffdf8, rgb(255 253 248 / 0) 72%),
+      radial-gradient(ellipse 12% 56% at 82% 54%, rgb(255 252 246 / 0.96), rgb(255 252 246 / 0) 72%),
+      radial-gradient(ellipse 9% 40% at 94% 66%, rgb(255 250 244 / 0.88), rgb(255 250 244 / 0) 72%);
+    opacity: 0.94; animation: xCloud 22s ease-in-out infinite alternate; }
+  .xTier::after { content: ''; position: absolute; left: 6%; right: 6%; top: 46%; height: 50%; background: radial-gradient(ellipse 50% 46% at 50% 40%, rgb(236 186 206 / 0.42), rgb(236 186 206 / 0) 74%); animation: xCloud 22s ease-in-out infinite alternate; }
   .xTier.t0 { top: 19.5%; } .xTier.t1 { top: 45.5%; } .xTier.t2 { top: 71.5%; } .xTier.t3 { top: 86.5%; height: 18%; }
+  .xTier.t1::before, .xTier.t1::after { animation-delay: -7s; animation-direction: alternate-reverse; }
+  .xTier.t2::before, .xTier.t2::after { animation-delay: -13s; }
+  .xTier.t3::before, .xTier.t3::after { animation-delay: -4s; animation-direction: alternate-reverse; }
+  @keyframes xCloud { from { transform: translate3d(-1.6%, 0, 0); } to { transform: translate3d(1.6%, 0, 0); } }
 
-  /* mist that drifts and qi that rises: a few elements each, transform and opacity only */
-  .xWisp { position: absolute; left: 0; width: 40%; height: 7%; border-radius: 50%; background: radial-gradient(ellipse at 50% 50%, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 70%); opacity: 0; pointer-events: none; animation: xDrift var(--d, 36s) linear infinite; animation-delay: var(--dl, 0s); }
-  .xQi { position: absolute; top: 100%; width: 5px; height: 5px; border-radius: 50%; background: radial-gradient(circle, #fff, #ffe9a8 45%, rgb(255 233 168 / 0) 72%); opacity: 0; pointer-events: none; animation: xRise var(--d, 9s) ease-in infinite; animation-delay: var(--dl, 0s); }
-  @keyframes xDrift { 0% { transform: translate3d(-110%, 0, 0); opacity: 0; } 12% { opacity: 0.6; } 88% { opacity: 0.6; } 100% { transform: translate3d(290%, 0, 0); opacity: 0; } }
-  @keyframes xRise { 0% { transform: translate3d(0, 0, 0) scale(0.6); opacity: 0; } 14% { opacity: 0.9; } 100% { transform: translate3d(var(--sw, 12px), -78vh, 0) scale(1.1); opacity: 0; } }
+  /* mist and qi. Mist: long thin ribbons of pale rose light that drift across. Qi: small motes of spirit light (jade, gold, sky blue, each its own size) that rise, sway from side to
+     side and twinkle on the way; a bright core in a soft halo. A few elements each, transform and opacity only. */
+  .xWisp { position: absolute; left: 0; width: 70%; height: 3.6%; border-radius: 50%; background: radial-gradient(ellipse 50% 50% at 50% 50%, rgb(255 246 240 / 0.55), rgb(255 230 225 / 0.18) 55%, rgb(255 230 225 / 0) 72%); opacity: 0; pointer-events: none; animation: xDrift var(--d, 36s) linear infinite; animation-delay: var(--dl, 0s); }
+  .xQi { position: absolute; top: 100%; width: var(--s, 6px); height: var(--s, 6px); border-radius: 50%; background: radial-gradient(circle, #fff 0 18%, var(--c, #fff1c2) 34%, color-mix(in srgb, var(--c, #fff1c2) 35%, transparent) 55%, rgb(255 255 255 / 0) 72%); opacity: 0; pointer-events: none; animation: xRise var(--d, 9s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
+  @keyframes xDrift { 0% { transform: translate3d(-110%, 0, 0); opacity: 0; } 14% { opacity: 0.55; } 86% { opacity: 0.55; } 100% { transform: translate3d(200%, 0, 0); opacity: 0; } }
+  @keyframes xRise {
+    0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0; }
+    12% { opacity: 0.95; }
+    30% { transform: translate3d(var(--sw, 12px), -22vh, 0) scale(0.9); opacity: 0.55; }
+    48% { opacity: 1; }
+    60% { transform: translate3d(calc(var(--sw, 12px) * -0.7), -46vh, 0) scale(1.05); opacity: 0.6; }
+    78% { opacity: 0.9; }
+    100% { transform: translate3d(calc(var(--sw, 12px) * 0.5), -76vh, 0) scale(0.7); opacity: 0; }
+  }
 
   /* far visitors that only pass by (they look at nothing and cost nothing) */
   .xAmb { position: absolute; left: 0; pointer-events: none; animation: xAmb var(--d, 12s) linear infinite; animation-delay: var(--dl, 0s); will-change: transform; }
@@ -95,7 +113,10 @@
   @keyframes cuBob { from { transform: translateY(-1.5px) rotate(-3deg); } to { transform: translateY(1.5px) rotate(3deg); } }
 
   .xBub, .xRing, .xSpark, .xCoin, .xGift { position: absolute; left: 0; top: 0; z-index: 7; opacity: 0; pointer-events: none; will-change: transform, opacity; }
-  .xBub { width: 34px; height: 34px; filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.55)); }
+  /* the shadow under the face is a soft dark disc painted once with the bubble (a filter would be worked out again on every frame it moves) */
+  .xBub { width: 34px; height: 34px; background: radial-gradient(ellipse 50% 42% at 50% 62%, rgb(0 0 0 / 0.5), rgb(0 0 0 / 0) 100%); border-radius: 50%; }
+  /* a slow device (useLite in ExpoScene.tsx): the parts of every cultivator stop swaying, the figure still flies and rocks */
+  .xStage.lite .cu .cuHair, .xStage.lite .cu .cuSleeve, .xStage.lite .cu .cuSash, .xStage.lite .cu .cuTalis, .xStage.lite .xRock::before { animation: none; }
   .xRing { z-index: 6; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--c, #ffd36b); box-shadow: 0 0 14px var(--c, #ffd36b), inset 0 0 12px var(--c, #ffd36b); }
   .xSpark { z-index: 6; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(circle, #fff, var(--c, #ffe28a) 50%, rgb(255 226 138 / 0) 74%); }
   .xCoin { z-index: 7; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6cf, #f2c24e 55%, #a97a1c); box-shadow: 0 0 8px rgb(255 214 110 / 0.9); }

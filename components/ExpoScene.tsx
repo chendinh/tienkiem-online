@@ -23,6 +23,38 @@ const RCOL: Record<XP.Reaction, string> = { love: '#ff6fb0', wow: '#ffb02e', lik
 const GIFT_COL = { weapon: '#ff9a4a', pill: '#5fe0a4', book: '#b58cff' } as const;
 const MAX_LIVE = 4;   // visitors on the stage at once (one comes about every 5 seconds and a visit lasts 3 to 10, so two or three at a time is usual)
 
+// ---- a slow device: the stage measures how smooth it runs for a few seconds (twice: once when it opens, once later when visitors fly) and, under LITE_FPS, steps down for the
+// rest of the session: 3 far visitors instead of 5 to 7, and the robes, hair and talismans of every cultivator stop swaying (the whole figure still flies, rocks and reacts).
+// Nothing is measured while the tab is hidden (no frames come). The answer is kept for the page, so reopening Triển Lãm does not measure again.
+const LITE_FPS = 40, LITE_AT = [1200, 15000] as const, LITE_WINDOW = 2000;
+let liteKnown: boolean | null = null;
+export function useLite(off: boolean): boolean {
+  const [lite, setLite] = useState(liteKnown === true);
+  useEffect(() => {
+    if (off || liteKnown !== null || typeof requestAnimationFrame !== 'function') return;
+    let raf = 0, alive = true, round = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const measure = () => {
+      if (!alive) return;
+      if (document.hidden) { timers.push(setTimeout(measure, 1000)); return; }   // hidden: wait for the page to come back
+      let frames = 0; const t0 = performance.now();
+      const step = (t: number) => {
+        if (!alive) return;
+        if (t - t0 < LITE_WINDOW) { frames++; raf = requestAnimationFrame(step); return; }
+        if (document.hidden) { timers.push(setTimeout(measure, 1000)); return; }
+        const fps = (frames * 1000) / (t - t0);
+        if (fps < LITE_FPS) { liteKnown = true; setLite(true); return; }
+        if (++round < LITE_AT.length) timers.push(setTimeout(measure, LITE_AT[round] - LITE_AT[round - 1] - LITE_WINDOW));
+        else liteKnown = false;
+      };
+      raf = requestAnimationFrame(step);
+    };
+    timers.push(setTimeout(measure, LITE_AT[0]));
+    return () => { alive = false; cancelAnimationFrame(raf); timers.forEach(clearTimeout); };
+  }, [off]);
+  return lite;
+}
+
 /** True when the page asks for calm: no flights are made. */
 export function useCalm(): boolean {
   const fx = useFx();
@@ -195,7 +227,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, release }: { f: 
         <Fragment key={`b${i}`}>
           <div ref={(el) => { bub.current[i] = el; }} className="xBub"><ReactIcon r={s.r} size={34} /></div>
           <div ref={(el) => { ring.current[i] = el; }} className="xRing" style={{ '--c': RCOL[s.r] } as CSSProperties} />
-          {(s.r === 'love' || s.r === 'wow' || s.r === 'like') && <Sparks at={FL.STAND_AT[s.slot]} delay={f.delay + s.at + FL.REACT_AT_MS} color={RCOL[s.r]} count={s.r === 'love' ? 9 : s.r === 'wow' ? 7 : 5} seed={v.n * 11 + i} />}
+          {(s.r === 'love' || s.r === 'wow' || s.r === 'like') && <Sparks at={FL.STAND_AT[s.slot]} delay={f.delay + s.at + FL.REACT_AT_MS} color={RCOL[s.r]} count={s.r === 'love' ? 6 : s.r === 'wow' ? 5 : 4} seed={v.n * 11 + i} />}
           {Array.from({ length: coinN[i] }, () => { const k = ck++; return <div key={`c${k}`} ref={(el) => { coin.current[k] = el; }} className="xCoin" />; })}
         </Fragment>
       ))}
@@ -204,7 +236,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, release }: { f: 
           <div ref={gift} className="xGift" style={{ '--c': gc } as CSSProperties}>
             {v.gift.kind === 'pill' ? <img src={C.shopArt(`hp${v.gift.grade}`)} alt="" draggable={false} /> : <Icon name={v.gift.kind === 'book' ? 'book' : 'atk'} size={16} />}
           </div>
-          <Sparks at={FL.CHEST_AT} delay={f.delay + plan.gift.at + 1050} color={gc} count={10} seed={v.n * 13} />
+          <Sparks at={FL.CHEST_AT} delay={f.delay + plan.gift.at + 1050} color={gc} count={6} seed={v.n * 13} />
         </>
       )}
     </>
@@ -235,7 +267,8 @@ const Stand = memo(function Stand({ i, v, onStand, pieces }: StandProps) {
 
 // ---- the sky
 const WISPS = [{ top: 8, d: 44, dl: -10 }, { top: 33, d: 52, dl: -31 }, { top: 58, d: 40, dl: -4 }, { top: 82, d: 58, dl: -22 }];
-const QI = Array.from({ length: 10 }, (_, i) => ({ l: 6 + ((i * 37) % 88), d: 8 + (i % 4) * 2.2, dl: -((i * 1.7) % 9), sw: ((i % 5) - 2) * 9 }));
+const QI_COL = ['#bff5d9', '#fff1c2', '#cfe8ff'];   // jade, gold, sky blue
+const QI = Array.from({ length: 6 }, (_, i) => ({ l: 6 + ((i * 37) % 88), d: 8 + (i % 4) * 2.2, dl: -((i * 1.7) % 9), sw: (i % 2 ? 1 : -1) * (10 + (i % 3) * 6), s: 4 + ((i * 5) % 4), c: QI_COL[i % 3] }));
 // Far visitors that only pass by (no reaction, no gift). They are made at random when the stage shows (never on the server, so the page and the screen agree), each one with its own
 // height, size, speed and direction, and they are quick: a trip across the stage is 6 to 16 seconds.
 interface Amb { y: number; w: number; d: number; dl: number; rev: boolean; op: number; look: ReturnType<typeof lookOf>; ph: number }
@@ -252,7 +285,8 @@ export function ExpoScene({ st, onStand, onChest, h, calm }: SceneProps) {
   const [flights, setFlights] = useState<FlightT[]>([]);
   const [burst, setBurst] = useState(0);
   const [amb, setAmb] = useState<Amb[]>([]);
-  useEffect(() => { if (!calm) setAmb(makeAmb(5 + Math.floor(Math.random() * 3))); else setAmb([]); }, [calm]);
+  const lite = useLite(calm);
+  useEffect(() => { if (!calm) setAmb(makeAmb(lite ? 3 : 5 + Math.floor(Math.random() * 3))); else setAmb([]); }, [calm, lite]);
   const pieces = useRef<(HTMLElement | null)[]>([]), chest = useRef<HTMLButtonElement>(null), launched = useRef(h.from), had = useRef(false);
   const top = real && real.log.length ? real.log[real.log.length - 1].n : 0, has = !!real && XP.boxCount(real.box) > 0, shows = !!e && XP.boxCount(e.box) > 0;
   // what the chest says without opening it: how many Linh Thạch, and how many gifts besides (weapons, pills, books)
@@ -283,10 +317,10 @@ export function ExpoScene({ st, onStand, onChest, h, calm }: SceneProps) {
   }, [has, calm]);
   const done = useCallback((key: string) => setFlights((cur) => cur.filter((x) => x.key !== key)), []);
   return (
-    <div className="xStage" role="group" aria-label="Triển lãm trên mây">
+    <div className={`xStage${lite ? ' lite' : ''}`} role="group" aria-label="Triển lãm trên mây">
       <div className="xSky" />
       {WISPS.map((w, i) => <i key={i} className="xWisp" style={{ top: `${w.top}%`, '--d': `${w.d}s`, '--dl': `${w.dl}s` } as CSSProperties} />)}
-      {QI.map((q, i) => <i key={i} className="xQi" style={{ left: `${q.l}%`, '--d': `${q.d}s`, '--dl': `${q.dl}s`, '--sw': `${q.sw}px` } as CSSProperties} />)}
+      {QI.map((q, i) => <i key={i} className="xQi" style={{ left: `${q.l}%`, '--d': `${q.d}s`, '--dl': `${q.dl}s`, '--sw': `${q.sw}px`, '--s': `${q.s}px`, '--c': q.c } as CSSProperties} />)}
       {[0, 1, 2, 3].map((i) => <div key={i} className={`xTier t${i}`} />)}
       {amb.map((a, i) => <div key={i} className={`xAmb${a.rev ? ' rev' : ''}`} style={{ top: `${a.y}%`, width: `${a.w}%`, opacity: a.op, '--a': a.rev ? `${Math.round(10000 / a.w) + 10}%` : '-115%', '--b': a.rev ? '-115%' : `${Math.round(10000 / a.w) + 10}%`, '--d': `${a.d}s`, '--dl': `${a.dl}s`, '--ph': a.ph, '--glow': a.look.glow } as CSSProperties}><div className="xRock"><Cultivator look={a.look} /></div></div>)}
       {FL.STAND_AT.map((_, i) => <Stand key={i} i={i} v={views[i]} sig={standSig(views[i])} onStand={onStand} pieces={pieces} />)}
@@ -301,7 +335,7 @@ export function ExpoScene({ st, onStand, onChest, h, calm }: SceneProps) {
         {stones > 0 && <span className="xChestTx"><Icon name="stone" size={11} />{fmt(stones)}</span>}
       </button>
       {flights.map((f) => <Flight key={f.key} f={f} pieces={pieces} chest={chest} onDone={done} release={h.release} />)}
-      {burst > 0 && <Sparks key={burst} at={FL.CHEST_AT} delay={0} color="#ffd36b" count={12} seed={burst} />}
+      {burst > 0 && <Sparks key={burst} at={FL.CHEST_AT} delay={0} color="#ffd36b" count={8} seed={burst} />}
     </div>
   );
 }
