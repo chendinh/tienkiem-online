@@ -633,7 +633,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const target = p.realm + 1, waves = L < BALANCE.playableLevelCap ? C.WAVES[target] || 0 : 0;
   const speciesAll = D.allSpecies();
   const seenSpecies = speciesAll.filter((s) => (st.best[s.id]?.seen || 0) > 0).length;
-  const jobs = jobsReady(st);   // how many jobs (components/Jobs.tsx) could be done right now, shown on the Công việc buttons
+  const jobs = jobsReady(st);   // how many jobs (components/Jobs.tsx) could be done right now; the Công việc buttons only show a green dot when it is above 0
   const rep = st.pending.find((r) => !acked.includes(r.id));   // a report the player just closed is hidden at once, not after the server answers
   const zone = st.zones.find((z) => z.id === st.zone);
   // the tribulation plays out first (charge, one lightning strike per wave); the server decides the verdict meanwhile
@@ -680,7 +680,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <button type="button" aria-label="Tinh Đồ" title="Vạn Giới Tinh Đồ" className="nav pic galaxy quick" data-tone="azure" onClick={goGalaxy}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/galaxy.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="galaxy" size={18} /></span><span className="lbl">Tinh Đồ</span></button>
           <button type="button" aria-label="Phong Thần" className="nav pic rank quick" data-tone="gold" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
           <button type="button" aria-label="Phường Thị" className="nav pic alt market" data-tone="gold" onClick={() => openWin('market')}><span className="navIco"><Icon name="stone" size={18} /></span><span className="lbl">Phường Thị</span></button>
-          <button type="button" aria-label="Công việc" className="nav pic alt jobs" data-tone="jade" onClick={() => openWin('jobs')}><span className="navIco"><Icon name="job" size={18} /></span><span className="lbl">Công việc</span>{jobs > 0 && <i className="navDot" aria-label={`${jobs} việc làm được ngay`}>{jobs}</i>}</button>
+          <button type="button" aria-label="Công việc" className="nav pic alt jobs" data-tone="jade" onClick={() => openWin('jobs')}><span className="navIco"><Icon name="job" size={18} /></span><span className="lbl">Công việc</span>{jobs > 0 && <i className="navDot" aria-label="Có việc làm được ngay" />}</button>
           <button type="button" aria-label="Luyện Đan" className="nav pic alt alchemy" data-tone="gold" onClick={() => openWin('alchemy')}><span className="navIco"><Icon name="lotus" size={18} /></span><span className="lbl">Luyện Đan</span></button>
           <button type="button" aria-label="Chợ Đêm" className="nav pic alt night" data-tone="violet" onClick={() => { cue.open(); setModal('night'); }}><span className="navIco"><Icon name="moon" size={18} /></span><span className="lbl">Chợ Đêm</span></button>
           <button type="button" aria-label="Nhiệm vụ" className="nav pic alt daily quick" data-tone="gold" onClick={() => { cue.open(); setModal('daily'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_quest')})` }} aria-hidden="true" /><span className="navIco"><Icon name="scroll" size={18} /></span><span className="lbl">Nhiệm vụ</span></button>
@@ -696,8 +696,8 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           <Popover icon={<Icon name="menu" size={19} />} label="Tùy chọn" width={340}>{(close) => {
             // every entry closes the menu first, then opens its window
             const go = (fn: () => void) => () => { close(); cue.open(); setSideOpen(false); fn(); };
-            const tile = (icon: 'stone' | 'job' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo' | 'galaxy' | 'bulb', label: string, fn: () => void, hot?: boolean) => (
-              <button type="button" className={`menuTile ${hot ? 'hot' : ''}`} onClick={go(fn)}><Icon name={icon} size={22} /><span>{label}</span></button>
+            const tile = (icon: 'stone' | 'job' | 'lotus' | 'bolt' | 'paw' | 'scroll' | 'moon' | 'book' | 'luck' | 'gear' | 'zoo' | 'galaxy' | 'bulb', label: string, fn: () => void, hot?: boolean, dot?: boolean) => (
+              <button type="button" className={`menuTile ${hot ? 'hot' : ''}`} onClick={go(fn)}><Icon name={icon} size={22} /><span>{label}</span>{dot && <i className="navDot" aria-label="Có việc làm được ngay" />}</button>
             );
             return (<>
             <div className="pop-head"><b>Menu</b></div>
@@ -711,7 +711,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
               <div className="menuGroup"><div className="menuTitle">Tu luyện</div>
                 <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Mua bán và nhiệm vụ</div>
-                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}{tile('job', jobs > 0 ? `Công việc · ${jobs}` : 'Công việc', () => setModal('jobs'))}</div></div>
+                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}{tile('job', 'Công việc', () => setModal('jobs'), false, jobs > 0)}</div></div>
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
                 <div className="menuGrid">{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
@@ -799,7 +799,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             <button type="button" className="sc" onClick={() => openWin('pen')}><Icon name="paw" size={17} /><span>Linh Thú</span><em>{st.beasts.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('dex')}><Icon name="book" size={17} /><span>Sưu Tập</span><em>{seenSpecies}/{speciesAll.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('market')}><Icon name="stone" size={17} /><span>Phường Thị</span></button>
-            <button type="button" className="sc" onClick={() => openWin('jobs')}><Icon name="job" size={17} /><span>Công việc</span>{jobs > 0 && <em>{jobs} việc làm được ngay</em>}</button>
+            <button type="button" className="sc" onClick={() => openWin('jobs')}><Icon name="job" size={17} /><span>Công việc</span>{jobs > 0 && <i className="navDot inl" aria-label="Có việc làm được ngay" />}</button>
             <button type="button" className="sc" onClick={() => openWin('alchemy')}><Icon name="lotus" size={17} /><span>Luyện Đan</span></button>
           </div>
           <EquipPanel st={st} eqx={eqx} />

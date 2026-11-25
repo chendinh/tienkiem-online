@@ -2,7 +2,7 @@
 
 Mục riêng của game cho những việc người chơi muốn làm thì làm, không bắt buộc, bỏ đó cũng không mất gì. Không phải nhiệm vụ ngày (nhiệm vụ ngày và Nhập Môn giữ nguyên chỗ cũ).
 
-Mở từ nút "Công việc" (thanh trên, menu, Kho báu). Chấm vàng cho biết có bao nhiêu việc làm được ngay. Mỗi loại việc là một mục trong `JOB_KINDS` ở `components/Jobs.tsx` (tên, một dòng giới thiệu, hàm đếm việc làm được ngay, bảng hiển thị). Thêm loại việc mới là viết bảng của nó rồi thêm một mục vào đó, cửa sổ, tab và chấm vàng tự theo. Khi có từ hai loại trở lên, đầu cửa sổ hiện tab chọn loại.
+Mở từ nút "Công việc" (thanh trên, menu, Kho báu). Chấm xanh lá (không ghi số) cho biết có việc làm được ngay, cả ở nút ngoài lẫn trên thẻ từng loại việc trong cửa sổ. Mỗi loại việc là một mục trong `JOB_KINDS` ở `components/Jobs.tsx` (tên, một dòng giới thiệu, hàm đếm việc làm được ngay, bảng hiển thị). Thêm loại việc mới là viết bảng của nó rồi thêm một mục vào đó, cửa sổ, tab và chấm vàng tự theo. Khi có từ hai loại trở lên, đầu cửa sổ hiện tab chọn loại.
 
 ## Loại 1: Tìm đồ
 
