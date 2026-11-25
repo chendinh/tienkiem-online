@@ -710,7 +710,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
           {modeSeg}
         </div>}
         <nav className="topNav" aria-label="Chức năng">
-          <button type="button" aria-label="Phó Bản" title="Phó Bản: mỗi ngày một Dị Thú" className="nav pic raid quick" data-tone="gold" onClick={() => openWin('raid')}><span className="navArt raidArt" style={{ backgroundImage: `url(${raidArt(bossOfDay(raidDay(Date.now())).id, 'boss')})` }} aria-hidden="true" /><span className="navIco"><Icon name="atk" size={18} /></span><span className="lbl">Phó Bản</span>{raidLive(Date.now()) && <i className="raidLiveDot" aria-label="Đang khai chiến" />}</button>
+          <button type="button" aria-label="Phó Bản: Trảm Dị Thú" title="Phó Bản · Trảm Dị Thú: mỗi ngày một Dị Thú" className="nav pic raid quick" data-tone="gold" onClick={() => openWin('raid')}><span className="navArt raidArt" style={{ backgroundImage: `url(${raidArt(bossOfDay(raidDay(Date.now())).id, 'boss')})` }} aria-hidden="true" /><span className="navIco"><Icon name="atk" size={18} /></span><span className="lbl">Phó Bản</span>{raidLive(Date.now()) && <i className="raidLiveDot" aria-label="Đang khai chiến" />}</button>
           <button type="button" aria-label="Linh Thú Viên" title="Linh Thú Viên" className="nav pic zoo quick" data-tone="jade" onClick={goZoo}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/zoo.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="zoo" size={18} /></span><span className="lbl">Linh Thú Viên</span></button>
           <button type="button" aria-label="Tinh Đồ" title="Vạn Giới Tinh Đồ" className="nav pic galaxy quick" data-tone="azure" onClick={goGalaxy}><span className="navArt" style={{ backgroundImage: 'url(/art/ui/nav/galaxy.png)' }} aria-hidden="true" /><span className="navIco"><Icon name="galaxy" size={18} /></span><span className="lbl">Tinh Đồ</span></button>
           <button type="button" aria-label="Phong Thần" className="nav pic rank quick" data-tone="gold" onClick={() => { cue.open(); setModal('rank'); }}><span className="navArt" style={{ backgroundImage: `url(${C.uiArt('ico_rank')})` }} aria-hidden="true" /><span className="navIco"><Icon name="crown" size={18} /></span><span className="lbl">Phong Thần</span></button>
@@ -746,7 +746,9 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
               <div className="menuGroup"><div className="menuTitle">Tu luyện</div>
                 <div className="menuGrid">{tile('bolt', 'Thần Thông', () => setModal('arts'))}{tile('paw', 'Linh Thú', () => setModal('pen'))}{tile('book', 'Sưu Tập', () => setModal('dex'))}{tile('lotus', 'Luyện Đan', () => setModal('alchemy'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Mua bán và nhiệm vụ</div>
-                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}{tile('job', 'Công việc', () => setModal('jobs'), false, jobs > 0)}{tile('atk', 'Phó Bản', () => setModal('raid'))}</div></div>
+                <div className="menuGrid">{tile('stone', 'Phường Thị', () => setModal('market'))}{tile('moon', 'Chợ Đêm', () => setModal('night'))}{tile('scroll', 'Nhiệm vụ', () => setModal('daily'))}{tile('job', 'Công việc', () => setModal('jobs'), false, jobs > 0)}</div></div>
+              <div className="menuGroup"><div className="menuTitle">Phó Bản</div>
+                <div className="menuGrid">{tile('atk', 'Trảm Dị Thú', () => setModal('raid'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
                 <div className="menuGrid">{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
@@ -834,7 +836,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             <button type="button" className="sc" onClick={() => openWin('pen')}><Icon name="paw" size={17} /><span>Linh Thú</span><em>{st.beasts.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('dex')}><Icon name="book" size={17} /><span>Sưu Tập</span><em>{seenSpecies}/{speciesAll.length}</em></button>
             <button type="button" className="sc" onClick={() => openWin('market')}><Icon name="stone" size={17} /><span>Phường Thị</span></button>
-            <button type="button" className="sc" onClick={() => openWin('raid')}><Icon name="atk" size={17} /><span>Phó Bản</span><em>{bossOfDay(raidDay(Date.now())).name}</em></button>
+            <button type="button" className="sc" onClick={() => openWin('raid')}><Icon name="atk" size={17} /><span>Trảm Dị Thú</span><em>{bossOfDay(raidDay(Date.now())).name}</em></button>
             <button type="button" className="sc" onClick={() => openWin('jobs')}><Icon name="job" size={17} /><span>Công việc</span>{jobs > 0 && <i className="navDot inl" aria-label="Có việc làm được ngay" />}</button>
             <button type="button" className="sc" onClick={() => openWin('alchemy')}><Icon name="lotus" size={17} /><span>Luyện Đan</span></button>
           </div>

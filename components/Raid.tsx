@@ -14,7 +14,7 @@ import { RaidScene, type FilmView } from './RaidScene';
 import type { Act } from './Panels';
 import { useCalm } from './ExpoScene';
 
-// Phó Bản: a screen of its own over the game (like Công việc, components/Jobs.tsx), with an address (?pho-ban=1) so Back closes it and a reload comes back to it.
+// Phó Bản, its first kind: Trảm Dị Thú (one Dị Thú a day). A screen of its own over the game (like Công việc, components/Jobs.tsx), with an address (?pho-ban=1) so Back closes it and a reload comes back to it.
 // The player only ticks "Tham gia". At the fight time the server fights once for everyone; this screen then plays the film of it (live, from the right moment, while it is
 // still running; from the start afterwards), then shows who did what and the reward. The rules are in lib/raid.ts, the film in lib/raidplay.ts and components/RaidScene.tsx.
 export const RAID_PARAM = 'pho-ban';
@@ -179,7 +179,7 @@ export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: ()
             {/* rewards still to take */}
             {v.claims.map((c) => (
               <section key={c.day} className={`raidCard claim${c.win ? ' win' : ''}`}>
-                <header><Icon name="chest" size={18} /><div><h3>Thưởng Phó Bản {dayName(c.day)}</h3><small>{R.BOSS(c.boss).name} · {c.win ? 'Đại thắng' : 'Dị Thú trốn thoát'} · hạng {c.reward.rank}</small></div></header>
+                <header><Icon name="chest" size={18} /><div><h3>Thưởng Trảm Dị Thú {dayName(c.day)}</h3><small>{R.BOSS(c.boss).name} · {c.win ? 'Đại thắng' : 'Dị Thú trốn thoát'} · hạng {c.reward.rank}</small></div></header>
                 <RewardList r={c.reward} />
                 <button type="button" className="btn primary" disabled={!!busy} onClick={() => void run('raid_claim', { day: c.day })}>{busy === 'raid_claim' ? 'Đang nhận…' : 'Nhận thưởng'}</button>
               </section>
@@ -200,7 +200,7 @@ function Bar({ close, sub }: { close: () => void; sub: string }) {
     <header className="jobsBar">
       <button type="button" className="jobsBack" onClick={close} aria-label="Quay lại hành trình" title="Quay lại hành trình (Esc)"><Icon name="back" size={20} /></button>
       <span className="winSeal"><Icon name="atk" size={20} /></span>
-      <div className="jobsTitle"><h2>Phó Bản</h2><small>{sub}</small></div>
+      <div className="jobsTitle"><h2>Phó Bản</h2><small>Trảm Dị Thú · {sub}</small></div>
     </header>
   );
 }

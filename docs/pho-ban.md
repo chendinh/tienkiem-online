@@ -1,8 +1,12 @@
 # Phó Bản
 
+Nhóm Phó Bản trong menu chứa các loại phó bản. Loại đầu tiên là **Trảm Dị Thú**.
+
+## Trảm Dị Thú
+
 Mỗi ngày một Dị Thú. Người chơi chỉ cần tick **Tham gia** (hoặc bật **Tự tham gia mỗi ngày**). Đúng **20:00 giờ Việt Nam**, máy chủ đánh trận một lần cho tất cả, lưu từng đòn vào database. Mọi màn hình chiếu lại cùng một "bộ phim" từ bản ghi đó: các tu sĩ (đúng số người đã ghi danh, tên dưới kiếm) bay lên vây đánh, Dị Thú đáp trả, tung tuyệt kỹ bằng clip riêng, ai gục thì rơi xuống, cuối cùng Dị Thú bị trảm hoặc trốn thoát. Người chơi không cần chạm gì trên màn hình; xem xong thì nhận thưởng.
 
-Mở từ nút tròn có mặt Dị Thú hôm nay ở thanh trên (chấm đỏ nhấp nháy 3 phút đầu khi khai chiến), mục **Phó Bản** trong menu, hoặc lối tắt dưới phần nhân vật. Màn toàn màn hình như Công việc, có địa chỉ `?pho-ban=1` (nút Back đóng màn, tải lại vẫn ở đó).
+Mở từ nút tròn có mặt Dị Thú hôm nay ở thanh trên (chấm đỏ nhấp nháy 3 phút đầu khi khai chiến), menu ☰ → nhóm **Phó Bản** → **Trảm Dị Thú**, hoặc lối tắt dưới phần nhân vật. Màn toàn màn hình như Công việc, có địa chỉ `?pho-ban=1` (nút Back đóng màn, tải lại vẫn ở đó).
 
 ## Tám Dị Thú (`lib/raid.ts` `BOSSES`)
 
