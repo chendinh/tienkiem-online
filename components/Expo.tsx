@@ -4,9 +4,10 @@ import { createPortal } from 'react-dom';
 import * as C from '@/lib/content';
 import * as XP from '@/lib/expo';
 import * as WK from '@/lib/work';
+import * as A from '@/lib/arts';
 import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
-import { BeastArt, Img, ItemCard, ItemIcon, fmt } from './ui';
+import { BeastArt, Img, ItemCard, ItemIcon, fmt, useZoom } from './ui';
 import { ModalClose, XSeal } from './ds/ModalClose';
 import { ReactIcon } from './ReactIcon';
 import { shortNum } from '@/lib/shortnum';
@@ -151,7 +152,34 @@ function Give({ v, eq }: { v: StandView; eq: Eq }) {
     </div>
   );
 }
-function Get({ o, v }: { o: XP.Offer; v: StandView }) {
+// A Bí Công: its own picture (the one Thần Thông shows), a tap opens it large with what it does, and whether the player has it already: learned, a copy in the bag, or not yet.
+type Arts = Pick<GS, 'arts' | 'inv'>;
+const bookState = (s: Arts, name: string): { k: 'learned' | 'have' | 'none'; t: string } => {
+  if (s.arts.learned.includes(name)) return { k: 'learned', t: 'Đã học rồi' };
+  const n = s.inv.books[name] || 0;
+  return n > 0 ? { k: 'have', t: `Đã có ${n} quyển trong túi, chưa học` } : { k: 'none', t: 'Chưa có' };
+};
+function BookPic({ name, size = 46 }: { name: string; size?: number }) {
+  const zoom = useZoom(), t = A.TECHS[name];
+  const open = () => { if (t) zoom({ kind: 'prop', src: C.techArt(name), name, text: `${C.RARITY[t.basic ? 0 : t.tier + 1]} · ${A.ART(t.cls).name} · học từ cấp ${t.minLevel} · ${t.desc}` }); };
+  const rc = t ? C.RCOLOR[t.basic ? 0 : t.tier + 1] : undefined;
+  return (
+    <button type="button" className="xSidePic bookPic" style={{ width: size, height: size, '--rc': rc } as CSSProperties} title="Bấm để xem chi tiết" aria-label={`Xem chi tiết Bí Công ${name}`} onClick={open}>
+      <Img src={C.techArt(name)} className="fill" fb={<Icon name="book" size={Math.round(size * 0.55)} />} />
+    </button>
+  );
+}
+function BookLine({ name, s }: { name: string; s: Arts }) {
+  const t = A.TECHS[name], b = bookState(s, name);
+  return (
+    <div className="xSideTx">
+      <b>{name}</b>
+      {t && <small>{C.RARITY[t.basic ? 0 : t.tier + 1]} · {A.ART(t.cls).name} · từ cấp {t.minLevel}</small>}
+      <small className={`xOwn ${b.k}`}>{b.k === 'none' ? '✦ ' : '✓ '}{b.t}</small>
+    </div>
+  );
+}
+function Get({ o, v, s }: { o: XP.Offer; v: StandView; s: Arts }) {
   const baseName = o.beast ? 'giá bán ở chuồng' : 'giá phân giải';
   if (o.kind === 'buy') {
     const d = o.base ? pct(o.price || 0, o.base) : 0;
@@ -162,10 +190,10 @@ function Get({ o, v }: { o: XP.Offer; v: StandView }) {
       </div>
     );
   }
-  if (o.kind === 'book') return (
+  if (o.kind === 'book' && o.book) return (
     <div className="xSide get">
-      <span className="xSidePic book"><Icon name="book" size={26} /></span>
-      <div className="xSideTx"><b>{o.book}</b><small>Bí Công hạng {o.tier >= 4 ? 'Thiên' : 'Địa'}, vào kho Bí Công</small></div>
+      <BookPic name={o.book} />
+      <BookLine name={o.book} s={s} />
     </div>
   );
   // a random piece or creature: only known once the deal is done
@@ -182,7 +210,7 @@ function Get({ o, v }: { o: XP.Offer; v: StandView }) {
     </div>
   );
 }
-function OfferCard({ o, v, eq, onGone, onYes }: { o: XP.Offer; v: StandView; eq: Eq; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
+function OfferCard({ o, v, eq, s, onGone, onYes }: { o: XP.Offer; v: StandView; eq: Eq; s: Arts; onGone: (n: number) => void; onYes: (o: XP.Offer) => void }) {
   useEffect(() => { const t = setTimeout(() => onGone(o.n), XP.OFFER_SHOW_MS); return () => clearTimeout(t); }, [o.n, onGone]);
   const ask = o.kind === 'buy' ? 'muốn mua' : 'muốn đổi', thing = o.beast ? 'Linh Thú' : 'món';
   return (
@@ -195,7 +223,7 @@ function OfferCard({ o, v, eq, onGone, onYes }: { o: XP.Offer; v: StandView; eq:
       <div className="xTrade">
         <div className="xTradeCol"><small className="xTradeLbl">Ngươi đưa</small><Give v={v} eq={eq} /></div>
         <span className="xTradeArrow" aria-hidden="true">⇄</span>
-        <div className="xTradeCol"><small className="xTradeLbl">Ngươi nhận</small><Get o={o} v={v} /></div>
+        <div className="xTradeCol"><small className="xTradeLbl">Ngươi nhận</small><Get o={o} v={v} s={s} /></div>
       </div>
       <div className="xOfferBtns">
         <button type="button" className="btn hot" onClick={() => onYes(o)}>{o.kind === 'buy' ? `Bán lấy ${fmt(o.price || 0)} Linh Thạch` : 'Đồng ý đổi'}</button>
@@ -209,7 +237,7 @@ function OfferCard({ o, v, eq, onGone, onYes }: { o: XP.Offer; v: StandView; eq:
 // What the player got from a swap: the new piece or creature with its picture and every number (it is in the bag, the stash or the pen now), or the Bí Công.
 // A sale shows nothing: the Linh Thạch are in the chest, collected with the gifts.
 type Got = { kind: 'item'; item: Item; old: string; where: string } | { kind: 'beast'; beast: Beast; old: string } | { kind: 'book'; name: string };
-function GotModal({ g, eq, onClose }: { g: Got; eq: Eq; onClose: () => void }) {
+function GotModal({ g, eq, s, onClose }: { g: Got; eq: Eq; s: Arts; onClose: () => void }) {
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="Giao dịch xong">
@@ -234,7 +262,10 @@ function GotModal({ g, eq, onClose }: { g: Got; eq: Eq; onClose: () => void }) {
             </div>
           </div>
         </>}
-        {g.kind === 'book' && <p>Nhận Bí Công <b>{g.name}</b>. Xem ở mục Bí Công.</p>}
+        {g.kind === 'book' && <>
+          <p>Nhận Bí Công <b>{g.name}</b>. Vào mục Thần Thông để học.</p>
+          <div className="xSide get xGotBook"><BookPic name={g.name} size={72} /><BookLine name={g.name} s={s} /></div>
+        </>}
         <button type="button" className="btn hot" onClick={onClose}>Nhận</button>
       </div>
     </div>, document.body);
@@ -292,7 +323,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
         {dealing
           ? <p className="xState">Đang giao dịch với <b>{dealing}</b>…</p>
           : offer && offerView
-          ? <OfferCard key={offer.n} o={offer} v={offerView} eq={st.eq} onGone={onGone} onYes={onYes} />
+          ? <OfferCard key={offer.n} o={offer} v={offerView} eq={st.eq} s={st} onGone={onGone} onYes={onYes} />
           : n < XP.MIN_OPEN
             ? <p className="xState warn">Bày thêm <b>{XP.MIN_OPEN - n}</b> món nữa thì mở cửa đón khách (cần {XP.MIN_OPEN} đến {XP.STANDS} món).</p>
             : <p className="xState">Treo máy ở màn Triển Lãm này thì khách mới hỏi mua, hỏi đổi món ngươi bày. Đóng màn này thì khách chỉ xem và tặng quà.</p>}
@@ -301,7 +332,7 @@ export function ExpoPanel({ st, act }: { st: GS; act: Act }) {
       </div>
       {note && <div className="hint ordWarn" role="status">{note}</div>}
       {shown && <Totals e={shown} />}
-      {got && <GotModal g={got} eq={st.eq} onClose={() => setGot(null)} />}
+      {got && <GotModal g={got} eq={st.eq} s={st} onClose={() => setGot(null)} />}
       {pick !== null && <Pick key={pick} st={st} e={shown} slot={pick} act={act} onClose={closePick} onErr={setNote} />}
     </div>
   );

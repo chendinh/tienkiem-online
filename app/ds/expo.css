@@ -172,7 +172,14 @@
   .xSideTx small { font-size: 11px; color: var(--text-2); }
   .xSidePic { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 10px 3px 10px 3px; background: rgb(255 255 255 / 0.05); color: var(--gold-200); }
   .xSidePic.ask { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--rc, var(--gold-200)); border: 1px dashed var(--rc, var(--gold-300)); background: color-mix(in srgb, var(--rc, #ffd36b) 12%, rgb(0 0 0 / 0.3)); }
-  .xSidePic.book { color: #c9a8ff; }
+  .xSidePic.bookPic { position: relative; padding: 0; overflow: hidden; cursor: zoom-in; color: #c9a8ff; border: 1.5px solid var(--rc, var(--line-gold, var(--line))); box-shadow: 0 0 10px -2px var(--rc, transparent); }
+  .xSidePic.bookPic .fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .xSidePic.bookPic:hover { filter: brightness(1.12); }
+  .xOwn { font-weight: 600; }
+  .xOwn.learned { color: var(--text-3, #9aa3b5) !important; }
+  .xOwn.have { color: var(--gold-200) !important; }
+  .xOwn.none { color: var(--jade-300, #6fe0b0) !important; }
+  .xGotBook { text-align: left; }
   .xVs { font-size: 11px; color: var(--text-2); }
   .xVs.up { color: var(--jade-300, #6fe0b0); }
   .xVs.down { color: #ff8a7a; }
