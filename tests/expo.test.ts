@@ -356,3 +356,13 @@ test('cutout: the black that touches the edge goes, the dark inside the object s
   for (let p = 0; p < w * h; p++) blank[p * 4 + 3] = 255;
   assert.equal(cutBlack(blank, w, h), null, 'all black: nothing is left');
 });
+
+// ---- counts on a phone: short numbers that never overflow
+import { shortNum } from '../lib/shortnum';
+test('shortNum: a count is short whatever its size (1,2k 12k 1,2tr), and never longer than 5 characters', () => {
+  const cases: [number, string][] = [[0, '0'], [7, '7'], [999, '999'], [1000, '1k'], [1234, '1,2k'], [9949, '9,9k'], [9950, '10k'], [9999, '10k'], [12345, '12k'], [99999, '100k'], [123456, '123k'],
+    [999499, '999k'], [999500, '1tr'], [1234567, '1,2tr'], [9950000, '10tr'], [12345678, '12tr'], [1234567890, '1,2tỷ']];
+  for (const [n, t] of cases) assert.equal(shortNum(n), t, String(n));
+  for (let n = 0; n < 3e9; n = Math.floor(n * 1.37) + 1) assert.ok(shortNum(n).length <= 5, `${n} -> ${shortNum(n)}`);
+  assert.equal(shortNum(-4), '0'); assert.equal(shortNum(NaN), '0');
+});

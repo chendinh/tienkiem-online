@@ -10,6 +10,7 @@ import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
 import { BeastArt, ItemIcon, fmt } from './ui';
 import { ReactIcon } from './ReactIcon';
+import { shortNum } from '@/lib/shortnum';
 import { Cultivator, lookOf } from './Cultivator';
 import { CutImg } from './CutImg';
 import { useFx } from './fx/FxProvider';
@@ -151,7 +152,8 @@ interface StandProps { i: number; v: StandView; tally?: XP.Tally; sig: string; o
 const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) {
   const p = FL.STAND_AT[i];
   const tier = v ? (v.kind === 'item' ? v.item.tier : XP.beastTier(v.beast.cls, v.beast.mut)) : 0;
-  const top = tally ? XP.REACTIONS.map((r, k) => ({ r, n: tally[k] })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3) : [];
+  // under the stand: only what most visitors felt (the best one when two are level), as one small pill; the whole row of five is on the sheet that opens when the stand is tapped
+  const top = tally ? XP.REACTIONS.map((r, k) => ({ r, n: tally[k] })).reduce<{ r: XP.Reaction; n: number } | null>((m, x) => (x.n > 0 && (!m || x.n > m.n) ? x : m), null) : null;
   const key = v ? `${v.kind}${v.kind === 'item' ? v.item.id : v.beast.id}` : 'e';
   return (
     <div className={`xStand${v ? ' on' : ' empty'}`} role="button" tabIndex={0} aria-label={v ? `Bệ ${i + 1}: ${nameOf(v)}` : `Bệ ${i + 1}, còn trống`} style={{ left: `${p.x}%`, top: `${p.y}%`, '--rc': C.RCOLOR[tier] } as CSSProperties}
@@ -161,7 +163,7 @@ const Stand = memo(function Stand({ i, v, tally, onStand, pieces }: StandProps) 
       <div key={key} ref={(el) => { pieces.current[i] = el; }} className={`xPiece${v ? '' : ' empty'}`} style={{ '--pd': `${i * 0.07}s` } as CSSProperties}>
         {v ? (v.kind === 'item' ? <ItemIcon it={v.item} size={56} /> : <BeastArt b={v.beast} box={64} mine onOpen={() => onStand(i)} />) : <Icon name="plus" size={20} />}
       </div>
-      {top.length > 0 && <div className="xTally">{top.map((x) => <span key={x.r}><ReactIcon r={x.r} size={18} />{x.n}</span>)}</div>}
+      {top && <div className="xTally" title={`${XP.REACTION_NAME[top.r]}: ${top.n}`}><span><ReactIcon r={top.r} size={18} />{shortNum(top.n)}</span></div>}
     </div>
   );
 }, (a, b) => a.sig === b.sig && a.onStand === b.onStand && a.i === b.i);

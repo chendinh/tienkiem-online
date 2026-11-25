@@ -62,7 +62,7 @@
   .xPiece.empty { width: 46px; height: 46px; margin-left: -23px; top: 8px; border-radius: 50%; border: 1.5px dashed rgb(255 255 255 / 0.7); background: rgb(20 28 70 / 0.28); color: #fff; animation: xBreath 3s ease-in-out infinite; }
   @keyframes xBreath { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
   .xStand.on .itIcon { box-shadow: 0 0 14px -2px var(--rc, #ffd36b); }
-  .xTally { position: absolute; left: 50%; top: 100%; display: flex; gap: 3px; margin-top: 7px; transform: translateX(-50%); pointer-events: none; }
+  .xTally { position: absolute; left: 50%; top: 100%; margin-top: 4px; transform: translateX(-50%); pointer-events: none; }
   .xTally span { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px 1px 2px; border-radius: 999px; background: rgb(14 18 48 / 0.78); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums; }
   .xFace { display: block; width: 100%; height: 100%; overflow: visible; }
   .xTally .xFace { width: 18px; height: 18px; flex: none; }
@@ -110,10 +110,13 @@
   .xBox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 auto; min-height: 34px; }
   .xChip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 5px; border-radius: 999px; border: 1px solid var(--line); background: rgb(0 0 0 / 0.28); color: var(--text-1); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
   .xChip img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
-  .xChip .xFace { width: 20px; height: 20px; }
   .xChip small { color: var(--text-3, var(--text-2)); font-size: var(--fs-xs); }
-  .xTot { display: flex; flex-wrap: wrap; gap: 6px; }
-  .xChip.zero { opacity: 0.45; }
+  /* the five looks as one strip: five equal cells, the face over a short count, so it cannot wrap or overflow on a phone */
+  .xTot { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 6px 4px 5px; border-radius: 14px; border: 1px solid var(--line); background: rgb(0 0 0 / 0.28); }
+  .xRx { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; color: var(--text-1); }
+  .xRx .xFace { width: 26px; height: 26px; flex: none; }
+  .xRx b { max-width: 100%; overflow: hidden; font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .xRx.zero { opacity: 0.4; }
 
   /* the sheet that slides up to choose what stands on a stand: it sticks to the bottom of the window */
   .xPick { position: sticky; bottom: 0; z-index: 9; display: grid; gap: var(--sp-2); padding: 10px 10px 12px; margin-inline: -2px; border-radius: 18px 18px 6px 6px; border: 1px solid var(--line-gold, var(--line)); background: linear-gradient(180deg, #1c2038, #11142a); box-shadow: 0 -12px 30px -8px rgb(0 0 0 / 0.75); animation: xSheet 0.22s cubic-bezier(0.2, 0.9, 0.3, 1) both; }

@@ -6,6 +6,7 @@ import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
 import { BeastArt, ItemIcon, fmt } from './ui';
 import { ReactIcon } from './ReactIcon';
+import { shortNum } from '@/lib/shortnum';
 import { ExpoScene } from './ExpoScene';
 import { useFx } from './fx/FxProvider';
 import { sfx } from '@/lib/audio';
@@ -18,11 +19,17 @@ import type { Act } from './Panels';
 const noop = () => {};
 const GRADE = ['Hồi Khí Đan', 'Hồi Khí Đan hạng khá', 'Hồi Khí Đan hạng cao'];
 
-// The five faces from the best look to the worst, with how many times each happened: this row is also how the player learns what each face means (it is always there, the ones that never happened dimmed).
-function Totals({ e }: { e: XP.Expo }) {
-  const t = XP.talliesOf(e);
-  return <div className="xTot" role="group" aria-label="Khách đã nghĩ gì về các món bày: mê, ngạc nhiên, thích, thất vọng, chê">{XP.REACTIONS.map((r, i) => <span key={r} className={`xChip${t[i] ? '' : ' zero'}`} title={XP.REACTION_NAME[r]}><ReactIcon r={r} size={22} />{fmt(t[i])}</span>)}</div>;
+// The five faces from the best look to the worst, with how many times each happened, as one strip of five equal cells: the faces on top, a short count under each (1,2k, 12k), so it is one
+// short row on any phone however many visitors came, and it never jumps when a count grows. It is always there, the faces that never happened dimmed: that is also how the player learns what each
+// face means. The full number is in the title.
+function Strip({ tally, label }: { tally: readonly number[]; label: string }) {
+  return (
+    <div className="xTot" role="group" aria-label={label}>
+      {XP.REACTIONS.map((r, i) => <span key={r} className={`xRx${tally[i] ? '' : ' zero'}`} title={`${XP.REACTION_NAME[r]}: ${fmt(tally[i])}`}><ReactIcon r={r} size={26} /><b>{shortNum(tally[i])}</b></span>)}
+    </div>
+  );
 }
+const Totals = ({ e }: { e: XP.Expo }) => <Strip tally={XP.talliesOf(e)} label="Khách đã nghĩ gì về các món bày: mê, ngạc nhiên, thích, thất vọng, chê" />;
 
 function BoxView({ b }: { b: XP.Box }) {
   const books = Object.values(b.books).reduce((a, n) => a + n, 0);
@@ -46,7 +53,6 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
   const beasts = useMemo(() => st.beasts.filter((b) => !used.has(`beast${b.id}`)).sort((a, b) => XP.beastTier(b.cls, b.mut) - XP.beastTier(a.cls, a.mut) || b.power - a.power).slice(0, 80), [st.beasts, used]);
   const go = (type: string, payload: object) => { onClose(); void act(type, payload).then((r) => { if (!r.ok) onErr(r.msg); }); };
   const place = (kind: 'item' | 'beast', id: number) => go('expoSet', { slot, kind, id });
-  const views = useMemo(() => (cur ? XP.REACTIONS.map((r, i) => ({ r, n: cur.tally[i] })).filter((x) => x.n > 0) : []), [cur]);
   return (
     <div className="xPick" role="dialog" aria-label={`Chọn món cho bệ ${slot + 1}`}>
       <div className="xPickHead">
@@ -54,7 +60,7 @@ function Pick({ st, e, slot, act, onClose, onErr }: { st: GS; e: XP.Expo | null;
         <small>{cur ? 'Đổi món khác hoặc gỡ xuống' : 'Chọn món bày lên'}</small>
         <button type="button" className="xClose" aria-label="Đóng" onClick={onClose}><Icon name="close" size={16} /></button>
       </div>
-      {views.length > 0 && <div className="xTot">{views.map((x) => <span key={x.r} className="xChip" title={XP.REACTION_NAME[x.r]}><ReactIcon r={x.r} size={20} />{fmt(x.n)}</span>)}</div>}
+      {cur && cur.tally.some((n) => n > 0) && <Strip tally={cur.tally} label={`Khách nghĩ gì về món ở bệ ${slot + 1}`} />}
       <div className="xPickTabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'item'} className={tab === 'item' ? 'on' : ''} onClick={() => setTab('item')}>Pháp khí ({items.length})</button>
         <button type="button" role="tab" aria-selected={tab === 'beast'} className={tab === 'beast' ? 'on' : ''} onClick={() => setTab('beast')}>Linh Thú ({beasts.length})</button>

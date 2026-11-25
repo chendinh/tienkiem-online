@@ -136,7 +136,13 @@ Năm biểu cảm là emoji đơn giản vẽ bằng SVG trong `components/React
 | Nhăn mặt (`sad`) | mặt vàng nhắm tịt mắt, mếu, một giọt mồ hôi | 1 điểm, không trả gì |
 | Ghét (`angry`) | mặt đỏ cau mày | 0 điểm trở xuống, không trả gì |
 
-Khách được đúng 2 điểm thì lặng thinh, không hiện gì. Hàng năm biểu cảm trong tab Triển lãm luôn hiện đủ, theo thứ tự từ tốt đến xấu kèm số đếm (cái nào chưa có lần nào thì mờ đi), nên cũng là bảng chú giải. Vòng sáng và tia lửa lúc khách phản ứng lấy đúng màu của biểu cảm (`RCOL` trong `ExpoScene.tsx`).
+Khách được đúng 2 điểm thì lặng thinh, không hiện gì.
+
+Các con số được giữ gọn để vừa màn hình điện thoại 320 px (`lib/shortnum.ts`: 950, 1,2k, 12k, 1,2tr, tối đa 5 ký tự, số đầy đủ nằm trong `title`):
+
+- **Tổng cả phiên**: một thanh gồm 5 ô đều nhau, mặt cảm xúc ở trên, số rút gọn ở dưới, luôn đủ năm mặt từ tốt đến xấu (mặt chưa có lần nào thì mờ), nên không bao giờ xuống dòng hay tràn, số lớn lên cũng không làm lệch bố cục, và cũng là bảng chú giải. Cùng thanh này hiện trong cửa sổ chọn món, cho riêng món ở bệ đó.
+- **Dưới mỗi bệ trên sân khấu**: chỉ một viên thuốc nhỏ với biểu cảm nhiều nhất của món đó (bằng nhau thì lấy biểu cảm tốt hơn) và số rút gọn. Chạm vào bệ để xem đủ năm biểu cảm.
+- Vòng sáng và tia lửa lúc khách phản ứng lấy đúng màu của biểu cảm (`RCOL` trong `ExpoScene.tsx`).
 
 Hai hình còn lại do AI vẽ, đều là `ui_*` trong `PROP_EN` (`lib/content.ts`), cùng nhóm ảnh cố định `shop`, vẽ trên nền đen:
 
