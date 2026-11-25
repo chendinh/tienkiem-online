@@ -25,7 +25,7 @@ import { useGenImage } from '@/lib/useGenImage';
 import { Welcome, StarterBar, HintCard, GuideModal, pickHint, ALL_HINTS } from './Onboarding';
 import { STARTER_IDS } from '@/lib/starter';
 import lore from '@/content/lore.json';
-import { Img, GenImg, ItemCard, BeastArt, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
+import { Img, GenImg, ItemCard, BeastArt, LookTag, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
 import { ArtsPanel } from './Arts';
 import { EquipPanel, ItemPopup, useEquip, type Eqx } from './Equip';
 import { Logo, Lockup } from './Logo';
@@ -67,7 +67,7 @@ function FeedRowInner({ e }: { e: FeedEntry }) {
         <BeastArt b={b} box={96} />
         <div className="fbody">
           <div className="fname">
-            {b.mut && <em className="mutBadge">✦ Dị Biến</em>} {b.name} <small>Lv{b.level}</small>
+            {b.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={b} /> {b.name} <small>Lv{b.level}</small>
             <span className={`out ${e.outcome}`}>{e.kind === 'tame' ? (e.outcome === 'win' ? 'Thu phục' : 'Thất bại') : e.outcome === 'win' ? 'Thắng' : e.outcome === 'lose' ? 'Bại' : 'Hòa'}</span>
           </div>
           {e.kind === 'tame' && e.text && <div>{e.text}</div>}
@@ -775,7 +775,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
                 <div className="menuGrid one">{tile('gear', 'Cài đặt: âm nhạc, nghỉ ngơi, tự động, thu phục', () => setModal('settings'), true)}</div></div>
             </div>
             <div className="pop-sect">Hiệu ứng hình ảnh</div>
-            <Seg label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'low' as const, label: 'Nhẹ' }, { v: 'mid' as const, label: 'Vừa' }, { v: 'high' as const, label: 'Nhiều' }]} />
+            <Seg label="Mức hiệu ứng" value={fx.chosen} onChange={fx.setLevel} options={[{ v: 'low' as const, label: 'Nhẹ' }, { v: 'mid' as const, label: 'Vừa' }, { v: 'high' as const, label: 'Nhiều' }]} />
             <p className="pop-note muted">Hạ xuống Nhẹ khi máy yếu. Nếu hệ thống đang yêu cầu giảm chuyển động, game tự dùng mức Nhẹ.</p>
             </>);
           }}</Popover>

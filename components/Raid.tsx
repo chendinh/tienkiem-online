@@ -15,6 +15,7 @@ import { Cultivator, lookOf } from './Cultivator';
 import { RaidScene, type FilmView } from './RaidScene';
 import type { Act } from './Panels';
 import { useCalm } from './ExpoScene';
+import { useFx } from './fx/FxProvider';
 
 // Phó Bản, its first kind: Trảm Dị Thú (one Dị Thú a day). A screen of its own over the game (like Công việc, components/Jobs.tsx), with an address (?pho-ban=1) so Back closes it and a reload comes back to it.
 // The player only ticks "Tham gia". At the fight time the server fights once for everyone; this screen then plays the film of it (live, from the right moment, while it is
@@ -39,6 +40,10 @@ const pct = (p: number) => (p >= 0.1 ? `${Math.round(p * 100)}%` : p >= 0.001 ? 
 
 export function RaidScreen({ st, act, onClose }: { st: GS; act: Act; onClose: () => void }) {
   const shut = useRef(onClose); shut.current = onClose;
+  // the fight is made to be seen: while this screen is open the effects are at least Vừa (Nhẹ is raised, Nhiều stays); the player's choice is kept and comes back on closing.
+  // A layout effect, so the level is raised before the scene's own effects start.
+  const { raise } = useFx();
+  useLayoutEffect(() => raise(), [raise]);
   // the address: pushed when the screen opens (not when it was opened from the address); Back closes it
   useEffect(() => {
     if (!raidInUrl()) { const to = urlWith(true); window.history.pushState(null, '', to); pushedUrl = to; }

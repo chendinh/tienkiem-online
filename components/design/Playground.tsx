@@ -64,7 +64,7 @@ export function Effects() {
   return (
     <div className="ds-stack">
       <div className="glass ds-card"><h4>Mức hiệu ứng</h4>
-        <Seg<FxLevel> label="Mức hiệu ứng" value={fx.level} onChange={fx.setLevel} options={[{ v: 'low', label: 'Nhẹ' }, { v: 'mid', label: 'Vừa' }, { v: 'high', label: 'Nhiều' }]} />
+        <Seg<FxLevel> label="Mức hiệu ứng" value={fx.chosen} onChange={fx.setLevel} options={[{ v: 'low', label: 'Nhẹ' }, { v: 'mid', label: 'Vừa' }, { v: 'high', label: 'Nhiều' }]} />
         <p className="ds-note">Nhẹ: chỉ phản hồi khi bấm. Vừa: thêm nghiêng chân dung. Hạt và sóng chỉ xuất hiện trong trận đánh; ở đây là để thử. Lưu theo trình duyệt.</p></div>
       <div className="glass ds-card"><h4>Hạt và sóng</h4>
         <div className="ds-row wrap">{BURSTS.map(([k, t]) => <button key={k} className="btn" onClick={(e) => fx.burst({ ...at(e), kind: k, count: 40 })}>{t}</button>)}

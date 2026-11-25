@@ -144,6 +144,7 @@
 }
 @layer game {
   .dbTags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .dbTags .lookTag { margin: 0; padding: 0 8px; font-size: var(--fs-2xs); line-height: 1.7; }   /* the Dị Biến look in the taming prompt, the size of the tags beside it */
   .dbTag { padding: 0 8px; border-radius: var(--r-pill); font-size: var(--fs-2xs); line-height: 1.7; color: var(--text-2); border: 1px solid var(--line); background: rgb(0 0 0 / 0.3); cursor: help; }
   .dbTag.new { color: var(--jade-200); border-color: color-mix(in srgb, var(--jade-400) 60%, transparent); }
   .dbTag.up { color: var(--jade-300); border-color: color-mix(in srgb, var(--jade-400) 45%, transparent); }

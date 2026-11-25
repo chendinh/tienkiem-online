@@ -1,6 +1,6 @@
 'use client';
 import { BattleLog } from './Battle';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
@@ -14,13 +14,12 @@ import { releaseValue, upkeepDue, SP, heartDemonTicks, tribulationPurityMult } f
 import { Icon } from './ds/Icon';
 import * as TK from '@/lib/tasks';
 import { useLookPic } from '@/lib/useLookPic';
-import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
 import { MultiSelect } from './ds/MultiSelect';
 import { MusicPanel } from './audio/MusicOrb';
 import { ModalClose } from './ds/ModalClose';
 import { askConfirm, Toast } from './ds/Dialog';
 import { ERR } from '@/lib/strings';
-import { BeastArt, ElChip, Img, ItemCard, PanZoom, SizeMeter, fmt, useZoom } from './ui';
+import { BeastArt, ElChip, Img, ItemCard, LookTag, PanZoom, SizeMeter, fmt, useZoom } from './ui';
 import { ElIcon } from './Icons';
 
 export type ActRes = { ok: boolean; msg: string; data?: any; code?: string };
@@ -575,7 +574,7 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
     body = (<>
       <BeastArt b={b} box={56} onOpen={() => {}} />
       <div className="dbText"><b>{b.mut ? '✦ Dị Biến ' : b.elite ? 'Tinh Anh ' : ''}{b.name} đã gục</b><small>Lv{b.level} · {C.SIZE_CLASS[b.cls]} {b.cm} cm · {C.PERS[b.pers].n} · sức {fmt(b.power)}. Thu phục không?</small>
-        <div className="dbTags">{info.map((t) => <span key={t.t} className={`dbTag ${t.cls}`} title={t.tip}>{t.t}</span>)}</div></div>
+        <div className="dbTags"><LookTag b={b} />{info.map((t) => <span key={t.t} className={`dbTag ${t.cls}`} title={t.tip}>{t.t}</span>)}</div></div>
       <div className="dbBtns">
         {d.grades.map((g) => <button key={g.grade} className="btn hot sm" disabled={g.have <= 0 || d.penFull} title={`Còn ${g.have} Khế Ước ${C.GRADES[g.grade]}`} onClick={() => go('tame', { grade: g.grade })}>{C.GRADES[g.grade]} {pct(g.p)} ({g.have})</button>)}
         {!d.tutor && <button className="btn sm" onClick={() => go('skip')}>Bỏ qua</button>}
@@ -604,7 +603,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   // out at work (Thú đi làm): locked until the pay is collected, so it cannot be sold or taken to Linh Thú Viên; the post it works for names whom it works for
   const jobOf = useMemo(() => new Map(WK.postsOf(st.work).filter((p) => WK.isOpen(p) && p.beast !== undefined).map((p) => [p.beast!, p])), [st.work]);
   const curJob = cur ? jobOf.get(cur.id) : undefined;
-  const curPic = useLookPic(cur, true), curLook = lookOf(cur);   // the look of a Dị Biến: its own picture and its name tag
+  const curPic = useLookPic(cur, true);   // the look of a Dị Biến: its own picture (its name tag is LookTag)
   const sellOne = async (b: Beast) => {
     if (b.mut) { say(ERR.E_MUTANT, false); return; }
     if (jobOf.has(b.id)) { say(ERR.E_BEAST_BUSY, false); return; }
@@ -640,7 +639,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
           <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()}>
             <div className="zoomPic"><PanZoom><Img src={curPic || C.monsterArt(cur.sp, cur.mut)} className="fill" fb={<ElIcon el={SP(cur.sp).el[0]} size={80} />} /></PanZoom></div>
             <div className="zoomInfo">
-              <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>}{curLook && <em className="lookTag" style={{ '--hue': LOOK_COLOR[curLook] } as CSSProperties}>{variantName(curLook)}</em>} {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
+              <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={cur} /> {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
               <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={SP(cur.sp).el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}{curJob && <span className="chip"><Icon name="lock" size={12} /> Đang đi làm</span>}</div>
               <SizeMeter b={cur} />
               <ul className="itLines big"><li>Sinh Lực {cur.stats[0]}</li><li>Công Kích {cur.stats[2]}</li><li>Phòng Ngự {cur.stats[3]}</li><li>Thân Pháp {cur.stats[4]}</li></ul>

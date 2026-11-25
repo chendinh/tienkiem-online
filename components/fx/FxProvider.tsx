@@ -7,8 +7,10 @@ export type FxLevel = 'off' | 'low' | 'mid' | 'high';
 export type BurstKind = 'qi' | 'gold' | 'petals' | 'ember' | 'spark';
 type At = { x?: number; y?: number };
 export interface Fx {
-  level: FxLevel;
+  level: FxLevel;            // the level in force: the player's choice, raised while a screen asks for more (raise)
+  chosen: FxLevel;           // the player's own choice (Cài đặt shows this one)
   setLevel: (l: FxLevel) => void;
+  raise: () => () => void;   // while it holds, Nhẹ counts as Vừa (the Phó Bản fight); call the answer to let go
   burst: (o?: At & { kind?: BurstKind; color?: string; count?: number }) => void;
   ring: (o?: At & { color?: string; size?: number }) => void;
   lightning: (o?: { strikes?: number; color?: string }) => void;
@@ -17,7 +19,7 @@ export interface Fx {
   shake: () => void;
   vignette: (color?: string) => void;
 }
-const NOOP: Fx = { level: 'mid', setLevel() {}, burst() {}, ring() {}, lightning() {}, flash() {}, float() {}, shake() {}, vignette() {} };
+const NOOP: Fx = { level: 'mid', chosen: 'mid', setLevel() {}, raise: () => () => {}, burst() {}, ring() {}, lightning() {}, flash() {}, float() {}, shake() {}, vignette() {} };
 const FxCtx = createContext<Fx>(NOOP);
 export const useFx = () => useContext(FxCtx);
 
@@ -28,20 +30,30 @@ type Ring = { x: number; y: number; r0: number; r1: number; life: number; max: n
 type Bolt = { pts: [number, number][]; branches: [number, number][][]; life: number; max: number; color: string };
 
 export function FxProvider({ children }: { children: ReactNode }) {
-  const [level, setLevelState] = useState<FxLevel>('mid');
-  const lv = useRef<FxLevel>('mid');
+  const [level, setLevelState] = useState<FxLevel>('mid'), [chosen, setChosen] = useState<FxLevel>('mid');
+  const lv = useRef<FxLevel>('mid'), pick = useRef<FxLevel>('mid'), floor = useRef(0);
   const cv = useRef<HTMLCanvasElement>(null);
   const world = useRef({ parts: [] as Part[], rings: [] as Ring[], bolts: [] as Bolt[], raf: 0, last: 0, w: 0, h: 0, dpr: 1, dirty: null as [number, number, number, number] | null, sprites: new Map<string, HTMLCanvasElement>() });
 
   useEffect(() => {
     let v: FxLevel = 'mid';
     try { const s = localStorage.getItem(STORE) as FxLevel | null; if (s && s in K) v = s === 'off' ? 'low' : s; else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) v = 'low'; else { const n = navigator as Navigator & { deviceMemory?: number }; if ((n.hardwareConcurrency || 8) <= 4 || (n.deviceMemory || 8) <= 4) v = 'low'; } } catch {}
-    lv.current = v; setLevelState(v); document.documentElement.dataset.fx = v;
+    pick.current = v; apply();
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  // the level in force: the choice, or Vừa while a screen raised it (Phó Bản: the fight is made to be seen, so Nhẹ plays it at Vừa; Nhiều stays Nhiều)
+  const apply = useCallback(() => {
+    const c = pick.current, l: FxLevel = floor.current > 0 && (c === 'low' || c === 'off') ? 'mid' : c;
+    lv.current = l; setLevelState(l); setChosen(c); document.documentElement.dataset.fx = l;
   }, []);
   const setLevel = useCallback((l: FxLevel) => {
-    lv.current = l; setLevelState(l); document.documentElement.dataset.fx = l;
+    pick.current = l; apply();
     try { localStorage.setItem(STORE, l); } catch {}
-  }, []);
+  }, [apply]);
+  const raise = useCallback(() => {
+    floor.current++; apply();
+    let held = true;
+    return () => { if (!held) return; held = false; floor.current = Math.max(0, floor.current - 1); apply(); };
+  }, [apply]);
 
   // ---- canvas plumbing
   useEffect(() => {
@@ -125,7 +137,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
       const el = document.createElement('div'); el.className = cls; set?.(el); document.body.appendChild(el); setTimeout(() => el.remove(), ms); return el;
     };
     return {
-      level, setLevel,
+      level, chosen, setLevel, raise,
       burst(o = {}) {
         const k = K[lv.current]; if (!k || W.parts.length > 320 || covered() || !gate('burst', 700)) return;
         const { x, y } = center(o); const kind = o.kind || 'qi'; const n = Math.round((o.count ?? { qi: 22, gold: 46, petals: 18, ember: 26, spark: 30 }[kind]) * k);
@@ -174,7 +186,7 @@ export function FxProvider({ children }: { children: ReactNode }) {
         dom('fx-vignette', 1500, (el) => { if (color) el.style.setProperty('--vc', color); });
       },
     };
-  }, [level, setLevel, wake]);
+  }, [level, chosen, setLevel, raise, wake]);
 
   return (
     <FxCtx.Provider value={fx}>

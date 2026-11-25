@@ -7,7 +7,7 @@ import * as WK from '@/lib/work';
 import * as A from '@/lib/arts';
 import type { GS } from '@/lib/client/types';
 import { Icon } from './ds/Icon';
-import { BeastArt, Img, ItemCard, ItemIcon, fmt, useZoom } from './ui';
+import { BeastArt, Img, ItemCard, ItemIcon, LookTag, fmt, useZoom } from './ui';
 import { ModalClose, XSeal } from './ds/ModalClose';
 import { ReactIcon } from './ReactIcon';
 import { shortNum } from '@/lib/shortnum';
@@ -254,7 +254,7 @@ function GotModal({ g, eq, s, onClose }: { g: Got; eq: Eq; s: Arts; onClose: () 
           <div className="xGotBeast">
             <BeastArt b={g.beast} box={120} />
             <div>
-              <b>{g.beast.name}</b>
+              <b>{g.beast.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={g.beast} />{g.beast.name}</b>
               <small>Lv{g.beast.level} · {C.SIZE_CLASS[g.beast.cls]} · {g.beast.cm} cm</small>
               <span className="xGotPw"><Icon name="atk" size={14} /> Lực chiến {fmt(g.beast.power)}</span>
               <ul><li>Sinh Lực {g.beast.stats[0]}</li><li>Công Kích {g.beast.stats[2]}</li><li>Phòng Ngự {g.beast.stats[3]}</li><li>Thân Pháp {g.beast.stats[4]}</li></ul>

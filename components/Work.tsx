@@ -12,7 +12,7 @@ import { useLookPic } from '@/lib/useLookPic';
 import { Icon } from './ds/Icon';
 import { ModalClose } from './ds/ModalClose';
 import { ElIcon } from './Icons';
-import { BeastArt, ElChip, Img, PanZoom, SizeMeter, fmt } from './ui';
+import { BeastArt, ElChip, Img, LookTag, PanZoom, SizeMeter, fmt } from './ui';
 import type { Act } from './Panels';
 import { DoneSeal, afterPaint, useFin, type Fin } from './JobDone';
 import { useCue } from './fx/Cue';
@@ -74,7 +74,7 @@ function BeastPeek({ b, inParty, picked, onPick, onClose }: { b: Beast; inParty:
       <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()}>
         <div className="zoomPic"><PanZoom><Img src={look || C.monsterArt(b.sp, b.mut)} className="fill" fb={<ElIcon el={sp.el[0]} size={80} />} /></PanZoom></div>
         <div className="zoomInfo">
-          <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>} {b.elite ? 'Tinh Anh ' : ''}{b.name}</h2>
+          <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={b} /> {b.elite ? 'Tinh Anh ' : ''}{b.name}</h2>
           <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {fmt(b.power)}</span>{inParty && <span className="chip">★ xuất chiến</span>}</div>
           <SizeMeter b={b} />
           <ul className="itLines big"><li>Sinh Lực {b.stats[0]}</li><li>Công Kích {b.stats[2]}</li><li>Phòng Ngự {b.stats[3]}</li><li>Thân Pháp {b.stats[4]}</li></ul>

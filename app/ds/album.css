@@ -115,6 +115,9 @@
   /* popup of a creature: the Dị Biến badge sits on its own line above the name, so the name never breaks around it */
   .mutBadge.blk { display: block; width: fit-content; margin: 0 0 6px; }
   .zoomName { display: block; overflow-wrap: break-word; text-wrap: balance; }
+  /* ✦ Dị Biến and the look it has (Ngọc Bích ...) on one row above the name */
+  .zoomTags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+  .zoomTags > em { margin: 0; }
 
   /* Chủ đề tuần: each element has its own backdrop (plain CSS, nothing to load) */
   .wkCur { position: relative; overflow: hidden; isolation: isolate; }

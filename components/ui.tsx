@@ -7,6 +7,7 @@ import { itemSpec } from '@/lib/avatarSpec';
 import { itemMarks } from '@/lib/daily';
 import { useGenImage } from '@/lib/useGenImage';
 import { useLookPic } from '@/lib/useLookPic';
+import { LOOK_COLOR, lookOf, variantName } from '@/lib/zoo';
 import { ElIcon } from './Icons';
 import { Icon } from './ds/Icon';
 
@@ -102,7 +103,7 @@ function ZoomView({ z, close }: { z: ZoomItem; close: () => void }) {
     pic = <ZoomBeastPic b={b} />;
     body = (
       <>
-        <h2>{b.mut && <em className="mutBadge blk">✦ Dị Biến</em>}<span className="zoomName">{b.name}</span></h2>
+        <h2>{b.mut && <span className="zoomTags"><em className="mutBadge">✦ Dị Biến</em><LookTag b={b} /></span>}<span className="zoomName">{b.name}</span></h2>
         <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {b.power}</span>{b.elite && <span className="chip">Tinh Anh</span>}</div>
         <SizeMeter b={b} />
         <ul className="itLines big beastStats">
@@ -227,6 +228,12 @@ export function BeastArt({ b, box = 112, onOpen, mine = false }: { b: Beast; box
       </div>
     </div>
   );
+}
+
+// Which of the Dị Biến looks a beast has (Ngọc Bích, Hỏa Linh ...), a small tag in that look's colour. Shown next to ✦ Dị Biến wherever a beast is shown up close; nothing for an ordinary beast.
+export function LookTag({ b }: { b: { sp: string; id: number; mut?: boolean } }) {
+  const look = lookOf(b);
+  return look ? <em className="lookTag" style={{ '--hue': LOOK_COLOR[look] } as CSSProperties}>{variantName(look)}</em> : null;
 }
 
 // The big picture of a creature: the look it has (a Dị Biến has its own picture once one is drawn), else the species picture.
