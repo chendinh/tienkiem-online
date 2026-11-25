@@ -9,6 +9,8 @@ import * as D from '../daily';
 import * as A from '../anim';
 import { boxOk } from '../garden';
 import { ETA_MIN, ZOO_MOTION, parseZoo, variantOf, type Stage, type ZooLayout, type ZooMode } from '../zoo';
+import { lookFailed, takeWanted, type LookKey } from './zoolooks';
+export { wantLooks } from './zoolooks';
 
 export interface ZooBeast { id: number; sp: string; name: string; level: number; look: string }
 export interface ZooCut { id: string; alpha: string; url?: string; alphaUrl?: string }
@@ -150,4 +152,40 @@ export async function portrait(sp: string, look: string): Promise<Portrait> {
   if (v.status === 'pending') return { status: 'making', started: !!v.started };
   if (v.status !== 'ready' || !v.id) return { status: why(v).status as Portrait['status'] };
   return { status: 'ready', url: `/api/img/${v.id}` };
+}
+
+// ---- the server draws the pictures of a player's Dị Biến looks by itself (lib/server/zoolooks.ts says which, 2026-11-26): right after a beast is tamed,
+// and for beasts tamed before this the first time their owner's game is loaded. Paid from IMAGE_BUDGET_USD, like the pen's order.
+const PAINT_WORKERS = 2, PAINT_MS = 270000;
+let painting = false;
+const nap = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// One look until it is drawn: its species' own picture first when that is missing, then the variant. 'stop': no money (or no drawing at all) for now.
+async function paintOne(k: LookKey, end: number): Promise<'done' | 'stop' | 'skip'> {
+  while (Date.now() < end) {
+    const p = await portrait(k.sp, k.look);
+    if (p.status === 'ready') return 'done';
+    if (p.status === 'limited' || p.status === 'disabled') return 'stop';
+    if (p.status !== 'making') { if (p.status === 'failed') lookFailed(k); return 'skip'; }
+    if (!p.started) return 'skip';   // another function is drawing it and saves it itself
+    await imageIdle(); await idle(); await nap(4000);
+  }
+  return 'skip';
+}
+// Run after the game route's answer (Next.js after()) when wantLooks() said so.
+export async function paintWanted(): Promise<void> {
+  if (painting) return;   // the running one takes what was added meanwhile
+  painting = true;
+  const end = Date.now() + PAINT_MS;
+  try {
+    for (let batch = takeWanted(); batch.length && Date.now() < end; batch = takeWanted()) {
+      const have = await picsFor(batch);
+      const todo = batch.filter((k) => !have.has(`${k.sp}:${k.look}`));
+      let stop = false;
+      const work = async () => { for (let k = todo.shift(); k && !stop && Date.now() < end; k = todo.shift()) if ((await paintOne(k, end)) === 'stop') stop = true; };
+      await Promise.all(Array.from({ length: Math.min(PAINT_WORKERS, todo.length) }, work));
+      if (stop) { console.warn('[zoo] Dị Biến pictures stopped: no image budget (IMAGE_BUDGET_USD) or no image provider,', todo.length, 'left'); takeWanted(); break; }
+    }
+  } catch (e: any) {
+    console.warn('[zoo] Dị Biến pictures:', String(e?.message || e).slice(0, 160));
+  } finally { painting = false; }
 }

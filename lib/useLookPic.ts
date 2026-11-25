@@ -4,7 +4,9 @@ import { lookOf } from './zoo';
 
 // The picture of a Dị Biến beast's look (Ngọc Bích, Hỏa Linh ...), drawn once for everybody. undefined: use the game's own picture (an ordinary beast, Ngũ Sắc, or not drawn yet).
 // Pictures that exist are fetched in one batch (a pen may show many beasts). `mine`: the beast is the player's own, so a missing picture is ordered and waited for.
-interface Entry { url?: string; looked: boolean; ordering: boolean; tries: number; subs: Set<() => void> }
+interface Entry { url?: string; looked: boolean; at: number; ordering: boolean; tries: number; subs: Set<() => void> }
+// The server draws the look of a newly tamed beast by itself (lib/server/zoo.ts wantLooks): a look found missing is asked again when it is shown again after this (no timer).
+const RELOOK_MS = 60000;
 const cache = new Map<string, Entry>();
 const queue = new Set<string>();
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -17,8 +19,8 @@ function flush() {
   const keys = [...queue].slice(0, 60); keys.forEach((k) => queue.delete(k));
   if (queue.size) timer = setTimeout(flush, 30);
   fetch(`/api/zoo?pics=${encodeURIComponent(keys.join(','))}`, { cache: 'no-store' }).then((r) => r.json()).then((j) => {
-    return Promise.all(keys.map(async (k) => { const e = cache.get(k); if (!e) return; const u = j?.ok && j.pics?.[k]; if (u && (await verify(u))) e.url = u; e.looked = true; note(e); }));
-  }).catch(() => keys.forEach((k) => { const e = cache.get(k); if (e) { e.looked = true; note(e); } }));
+    return Promise.all(keys.map(async (k) => { const e = cache.get(k); if (!e) return; const u = j?.ok && j.pics?.[k]; if (u && (await verify(u))) e.url = u; e.looked = true; e.at = Date.now(); note(e); }));
+  }).catch(() => keys.forEach((k) => { const e = cache.get(k); if (e) { e.looked = true; e.at = Date.now(); note(e); } }));
 }
 
 async function order(k: string, beast: number) {
@@ -47,7 +49,8 @@ export function useLookKeyPic(key: string, beastId: number, mine = false): strin
   useEffect(() => {
     if (!key) return;
     let e = cache.get(key);
-    if (!e) { e = { looked: false, ordering: false, tries: 0, subs: new Set() }; cache.set(key, e); }
+    if (!e) { e = { looked: false, at: 0, ordering: false, tries: 0, subs: new Set() }; cache.set(key, e); }
+    if (e.looked && !e.url && !e.ordering && Date.now() - e.at > RELOOK_MS) e.looked = false;
     const cb = () => force((x) => x + 1);
     e.subs.add(cb);
     if (!e.looked && !e.url) { queue.add(key); if (!timer) timer = setTimeout(flush, 30); }

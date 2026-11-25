@@ -91,6 +91,8 @@
     .nav.alt { display: none; }
     .orbs { gap: 6px; }
     .popNav { display: flex; }
+    /* not enough room on one row (measured, components/Game.tsx fitTop): Linh Thú Viên and Tinh Đồ are reached from the menu, under Tìm hiểu */
+    .app .top[data-tight] .topNav .nav.pic.zoo, .app .top[data-tight] .topNav .nav.pic.galaxy { display: none; }
     .pop-body { position: fixed; left: 12px; right: 12px; top: calc(var(--topH) + 6px); width: auto !important; max-width: none; }
     .pop-body::before { display: none; }
 

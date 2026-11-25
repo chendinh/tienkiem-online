@@ -2,6 +2,8 @@
 // Everything is kept in the images table next to the game's own pictures (kind 'animvar' for a variant, 'anim' for a clip, 'animcut' and 'animalpha' for the two
 // videos of a cut-out, folder 'lab'), under an id that is a hash of everything that went into it, so asking twice never pays twice.
 // Money: the lab has its own ledger and cap (LAB_BUDGET_USD), apart from IMAGE_BUDGET_USD, so a batch of clips cannot use up the pictures players wait for.
+// The picture of a Dị Biến look that a player owns (the portrait in the pen, not the Linh Thú Viên's flat-ground one) is a player's picture: it is paid from
+// IMAGE_BUDGET_USD with the game's other pictures (2026-11-26), so clips spending the lab's money never stop it.
 import crypto from 'node:crypto';
 import { query } from './db';
 import { getImage, hasImage, putImage, claimJob, releaseJobs } from './images';
@@ -9,7 +11,7 @@ import { falModels, falCost, provider, review } from '../imagegen';
 import * as A from '../anim';
 import * as G from '../garden';
 import { variantRev } from './variants';
-import { ask, llmEnabled, parseJson } from '../llm';
+import { ask, llmEnabled, parseJson, imageBudget, addImageCost } from '../llm';
 import { blobOn, putBlob, readBlob } from './blob';
 
 export type Status = 'ready' | 'pending' | 'failed' | 'limited' | 'disabled' | 'invalid';
@@ -104,14 +106,25 @@ async function readImage(id: string): Promise<{ data: Buffer; ext: string } | nu
 }
 
 // ---- one job: claim it, answer "pending" at once, finish in the background (the route keeps the function alive with idle())
-async function launch(id: string, cost: number, work: (pay: (usd: number) => Promise<void>) => Promise<Done>): Promise<Out> {
+// Which ledger pays a job: the lab's own, or the game's pictures (IMAGE_BUDGET_USD).
+type Fund = 'lab' | 'image';
+async function fundLeft(fund: Fund): Promise<{ spent: number; cap: number }> {
+  if (fund === 'image') { const b = await imageBudget(); return { spent: b.spentUsd, cap: b.capUsd }; }
+  return { spent: await labSpent(), cap: labCap() };
+}
+const payInto = (fund: Fund) => (fund === 'image' ? async (usd: number) => { if (usd > 0) { try { await addImageCost(usd); } catch (e: any) { console.warn('[anim] could not write the image ledger:', String(e?.message || e).slice(0, 120)); } } } : labAdd);
+async function launch(id: string, cost: number, work: (pay: (usd: number) => Promise<void>) => Promise<Done>, fund: Fund = 'lab'): Promise<Out> {
   if (!falReady()) return { status: 'disabled' };
   const hit = await hasImage(id);
   if (hit) return { status: 'ready', id };
   if (S.inflight.has(id)) return { status: 'pending', id };
   const f = S.failed.get(id);
   if (f && Date.now() - f.t < 60000) return { status: 'failed', why: f.why };
-  if ((await labSpent()) + cost > labCap()) return { status: 'limited' };
+  const money = await fundLeft(fund);
+  if (money.spent + cost > money.cap) {   // said in the log (the page only keeps the game's own picture), so a stop for money is never silent
+    console.warn(`[anim] ${fund === 'image' ? 'IMAGE_BUDGET_USD' : 'LAB_BUDGET_USD'} reached (${money.spent.toFixed(2)} + ${cost.toFixed(3)} > ${money.cap}), not drawing`, id);
+    return { status: 'limited' };
+  }
   // Another server instance may already be working on it (the claim is in the database).
   if (!(await claimJob(id))) return { status: 'pending', id };
   const late = await hasImage(id);
@@ -119,7 +132,7 @@ async function launch(id: string, cost: number, work: (pay: (usd: number) => Pro
   S.inflight.add(id);
   void (async () => {
     try {
-      const d = await work(labAdd), date = new Date().toISOString();
+      const d = await work(payInto(fund)), date = new Date().toISOString();
       for (const m of d.more || []) await store({ id: m.id, kind: m.kind, ext: m.ext, buf: m.buf, meta: { ...m.meta, provider: 'fal', date } });
       await store({ id, kind: d.kind, ext: d.ext, buf: d.buf, meta: { ...d.meta, provider: 'fal', date } });
       S.failed.delete(id);
@@ -163,7 +176,7 @@ export async function variant(sp: string, mutId: string, baseId: string, plain =
     }
     if (!out) throw new Error('rejected by review: ' + why);
     return { buf: out, ext: 'jpg', kind: 'animvar', meta: { spec: { kind: 'variant', sp, mut: m.id, base: baseId, ...(plain ? { plain: true } : {}), ...(plain && pose !== 'stand' ? { pose } : {}) }, model, prompt, seed, cost: r4(spent) } };
-  });
+  }, plain ? 'lab' : 'image');   // the portrait of a look is a player's picture; the flat-ground one feeds the Linh Thú Viên clips
 }
 
 // ---- a looping clip made from one picture (the base picture or a variant)

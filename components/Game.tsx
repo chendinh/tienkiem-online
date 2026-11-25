@@ -300,6 +300,25 @@ function Hero({ st, tier, aura, on, offWhy, save, re, onBio, guest, onLink }: { 
 }
 
 // Gate: sign in first. Everything after it is driven by the Game_Server.
+// Small phones: when the header buttons do not fit on one row, Linh Thú Viên and Tinh Đồ leave the header (data-tight, app/ds/header.css); both stay in the menu
+// under Tìm hiểu. Measured rather than guessed from the width, since the hint lamp beside the logo takes room too. Runs only when the header or the logo block
+// changes size (a ResizeObserver, no timer), before the frame is painted.
+function fitTop(t: HTMLElement | null) {
+  if (!t || typeof ResizeObserver === 'undefined') return;
+  const fit = () => {
+    t.removeAttribute('data-tight');   // measured with every button shown
+    const o = t.querySelector('.orbs');
+    if (!o) return;
+    const right = t.getBoundingClientRect().right - (parseFloat(getComputedStyle(t).paddingRight) || 0);
+    if (o.getBoundingClientRect().right > right + 0.5) t.setAttribute('data-tight', '');
+  };
+  const ro = new ResizeObserver(fit);
+  ro.observe(t);
+  const brand = t.querySelector('.brand');
+  if (brand) ro.observe(brand);
+  return () => ro.disconnect();
+}
+
 export default function Game() {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
   const [google, setGoogle] = useState(false);
@@ -701,7 +720,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {!net && <div className="netBanner" role="alert">Mất kết nối tới máy chủ. Đang thử lại, các thao tác chưa gửi sẽ được gửi lại.</div>}
       <Atmosphere scene={st.set.mode === 'retreat' ? 'night' : 'dawn'} aura={C.EL[aura].color} zone={st.zone} />
 
-      <header className="top">
+      <header className="top" ref={fitTop}>
         <div className="brand"><h1 className="wm"><Lockup width={112} className="lkWide" /><Logo size={38} className="lkMark" /></h1>
           {p.prologueSeen && !p.fresh && st.starter && st.starter.done.length < STARTER_IDS.length && <button type="button" className="hintBulb" aria-label="Gợi ý: mở Cẩm nang hướng dẫn" title="Gợi ý: Cẩm nang hướng dẫn" onClick={() => { cue.open(); setBook(true); }}><Icon name="bulb" size={20} /></button>}
         </div>
@@ -750,7 +769,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
               <div className="menuGroup"><div className="menuTitle">Phó Bản</div>
                 <div className="menuGrid">{tile('atk', 'Trảm Dị Thú', () => setModal('raid'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Tìm hiểu</div>
-                <div className="menuGrid">{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
+                <div className="menuGrid">{tile('zoo', 'Linh Thú Viên', goZoo)}{tile('galaxy', 'Tinh Đồ', goGalaxy)}{tile('scroll', 'Thiên Thư', () => setCodex('story'))}{tile('luck', 'Xác suất', () => setModal('odds'))}</div></div>
               <div className="menuGroup"><div className="menuTitle">Thiết lập</div>
                 <div className="menuGrid one" style={{ marginBottom: 10 }}>{tile('bulb', 'Cẩm nang hướng dẫn', () => setBook(true))}</div>
                 <div className="menuGrid one">{tile('gear', 'Cài đặt: âm nhạc, nghỉ ngơi, tự động, thu phục', () => setModal('settings'), true)}</div></div>

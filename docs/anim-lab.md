@@ -45,7 +45,7 @@ Video lưu ở **Vercel Blob** khi có `BLOB_READ_WRITE_TOKEN` (Vercel → Stora
 
 ## Chi phí một loài mới
 Ví dụ 3 dị biến và 2 chuyển động: 3 ảnh sửa + (3 + 1 ảnh gốc) × 2 = 8 đoạn × 0,35 USD ≈ **2,9 USD**; có tách nền cộng thêm 8 × 0,06 ≈ 0,5 USD (**3,4 USD**). Mỗi chuyển động thêm cho cả bộ cộng thêm khoảng 1,4 USD. 10 dị biến × 3 chuyển động khoảng 12 USD cho một loài, nên trang luôn hiện mức tối đa trước khi bấm Tạo.
-Sổ chi riêng của lab (`kv`, khóa `lab.usd`, trần `LAB_BUDGET_USD`, mặc định 5 USD), tách khỏi `IMAGE_BUDGET_USD` để không làm hết tiền vẽ ảnh cho người chơi.
+Sổ chi riêng của lab (`kv`, khóa `lab.usd`, trần `LAB_BUDGET_USD`, mặc định 5 USD), tách khỏi `IMAGE_BUDGET_USD` để không làm hết tiền vẽ ảnh cho người chơi. Riêng ảnh chân dung một dáng Dị Biến (ảnh trong chuồng, không phải ảnh nền phẳng của Linh Thú Viên) là ảnh của người chơi nên tính vào `IMAGE_BUDGET_USD` (từ 26/11/2026): video có tiêu hết quỹ lab thì ảnh Dị Biến vẫn được vẽ. Hết quỹ nào thì log máy chủ ghi `[anim] ... reached`. Máy chủ tự vẽ ảnh này, không đợi chủ mở chuồng: ngay khi thú được thu phục (bấm tay hay tự thu phục lúc treo máy), và với thú đã có từ trước thì lần đầu chủ vào game (`lib/server/zoolooks.ts` chọn dáng cần vẽ, `paintWanted` trong `lib/server/zoo.ts` chạy sau câu trả lời của `/api/game`). Mỗi dáng vẽ một lần cho mọi người; dáng bị máy duyệt từ chối thì 6 giờ sau máy chủ mới thử lại.
 
 ## Cách chạy
 1. Đặt `FAL_KEY`, `IMAGE_PROVIDER=fal`, `ADMIN_KEY` (xem `.env.example`).
