@@ -15,7 +15,7 @@ import { BALANCE } from '@/lib/balance';
 import { AuthScreen, LinkEmailModal } from './Auth';
 import { RankingModal } from './Ranking';
 import { NightMarketModal } from './NightMarket';
-import { JobsModal, jobsReady } from './Jobs';
+import { JobsScreen, jobsInUrl, jobsReady } from './Jobs';
 import { DailyModal } from './Daily';
 import { MarketModal, AlchemyModal, Window, DaoModal, TitleModal, PurityModal, SettingsModal, OddsModal, ReportModal, ZoneModal, BreakModal, DecisionBar, PenPanel, type Act, type ActRes } from './Panels';
 import { avatarBaseSpec, poseSpec, outfitSpec, equipSig, PLAIN_SIG, ART_V, OWN_BASE_V } from '@/lib/avatarSpec';
@@ -364,14 +364,8 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
   const goGalaxy = () => { cue.open(); window.location.assign('/tinh-ha'); };
   const openWin = (w: 'market' | 'jobs' | 'pen' | 'dex' | 'arts' | 'alchemy') => { cue.open(); setSideOpen(false); setModal(w); };
   const [view, setView] = useState<'journey' | 'hero'>('journey');   // phone only: one panel at a time instead of one very long page
-  // Phone only: while the Công việc window is open the page behind it is the character, not the journey (its feed, scenes and timers are hidden, so the window scrolls and animates smoothly);
-  // when the window closes the journey comes back, unless the player went somewhere else meanwhile
-  const viewBefore = useRef<'journey' | 'hero' | null>(null);
-  useEffect(() => {
-    if (modal === 'jobs' && narrow) { if (view === 'journey') { viewBefore.current = 'journey'; setView('hero'); } return; }
-    const back = viewBefore.current;
-    if (back) { viewBefore.current = null; setView((v) => (v === 'hero' ? back : v)); }
-  }, [modal, narrow]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Công việc is a screen of its own over the game (components/Jobs.tsx JobsScreen): the game under it is hidden (.app.jobsOn), and an address with ?cong-viec= opens it
+  useEffect(() => { if (jobsInUrl()) setModal('jobs'); }, []);
   const [story, setStory] = useState<{ enabled: boolean } | null>(null);
   const [breakOpen, setBreakOpen] = useState(false), [zoneOpen, setZoneOpen] = useState(false);
   const [note, setNote] = useState<{ t: string; ok: boolean } | null>(null);
@@ -404,11 +398,18 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     }
     held.current = null; if (h) commit(h);
   }, [commit]);
+  // While the Công việc screen is open the journey is hidden: no fight is replayed (its result is in the journey at once), and the state is never held back for a replay,
+  // so the boards of Công việc always show the latest numbers. A fight on stage when it opens ends at once.
+  const jobsOn = useRef(false);
+  useEffect(() => {
+    jobsOn.current = modal === 'jobs';
+    if (modal === 'jobs') { fightQ.current.length = 0; if (stageNow.current || held.current) nextFight(); }
+  }, [modal, nextFight]);
   const apply = useCallback((v: GS) => {
     const top = v.feed[0]?.id ?? 0, seen = seenFeed.current;
     if (seen === null) { seenFeed.current = top; commit(v); return; }
     // fights that are new (older saves have plain-text logs and are skipped), replayed one after the other and only to someone who is looking
-    const fights = top > seen && !document.hidden ? v.feed.filter((e) => e.id > seen && (e.kind === 'monster' || e.kind === 'npc') && e.log?.[0]?.startsWith('~')).reverse() : [];
+    const fights = top > seen && !document.hidden && !jobsOn.current ? v.feed.filter((e) => e.id > seen && (e.kind === 'monster' || e.kind === 'npc') && e.log?.[0]?.startsWith('~')).reverse() : [];
     if (top > seen) seenFeed.current = top;
     if (fights.length) {
       fightQ.current.push(...fights); if (fightQ.current.length > 3) fightQ.current.splice(0, fightQ.current.length - 3);   // never a long backlog
@@ -678,7 +679,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
     <GenCtx.Provider value={!!(ai && ai.enabled)}>
     <ZoomProvider>
     <ZoomBridge r={zoomRef} />
-    <div className={`app ${st.decision ? 'hasDecision' : ''}`}>
+    <div className={`app ${st.decision ? 'hasDecision' : ''}${modal === 'jobs' ? ' jobsOn' : ''}`}>
       {busy > 0 && <div className="busyBar" role="progressbar" aria-label="Đang gửi lên máy chủ" />}
       <LoadingNote active={busy > 0} />
       {!net && <div className="netBanner" role="alert">Mất kết nối tới máy chủ. Đang thử lại, các thao tác chưa gửi sẽ được gửi lại.</div>}
@@ -799,7 +800,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
             </div>
           </div>
           <div className="phead"><h3>Hành trình</h3><small>Mỗi lần gặp đều được máy chủ sinh ngẫu nhiên: loài, kích thước, tính cách, Dị Biến</small></div>
-          {stage && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={nextFight} />}
+          {stage && modal !== 'jobs' && <BattleStage key={stage.id} e={stage} hero={p.avatar?.url} heroEl={aura} onDone={nextFight} />}
           <div className="feed" ref={feedRef} aria-live="polite">{st.feed.map((e) => <FeedRow key={e.id} e={e} />)}</div>
         </section>
 
@@ -940,7 +941,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       {modal === 'purity' && <PurityModal st={st} onClose={() => setModal(null)} />}
       {modal === 'title' && <TitleModal title={p.title} hist={p.titleHist} onClose={() => setModal(null)} />}
       {modal === 'market' && <MarketModal st={st} act={act} onClose={() => setModal(null)} />}
-      {modal === 'jobs' && <JobsModal st={st} act={act} onClose={() => setModal(null)} />}
+      {modal === 'jobs' && <JobsScreen st={st} act={act} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal st={st} act={act} onClose={() => setModal(null)} onCredits={() => setCredits(true)} onGuide={() => setReplay(true)} onBook={() => setBook(true)} />}
       {modal === 'daily' && <DailyModal st={st} onClose={() => setModal(null)} onLore={() => setCodex('daily')} />}
       {modal === 'alchemy' && <AlchemyModal st={st} act={act} onClose={() => setModal(null)} />}

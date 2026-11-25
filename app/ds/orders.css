@@ -6,6 +6,23 @@
   .navDot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #46d36b; box-shadow: 0 0 0 2px var(--ink-900, #0b1117), 0 0 9px 1px rgb(70 211 107 / 0.75); }
   .navDot.inl { margin-left: auto; }
   .menuTile .navDot { position: absolute; top: 7px; right: 7px; }
+  /* the Công việc screen (components/Jobs.tsx JobsScreen): the whole screen, over a game that is hidden meanwhile (so nothing of it draws). A bar with the way back, the title and
+     the tab it is on; under it the tabs stay at the top while the cards scroll. Windows (a zoomed picture, a deal done) still open over it; so does the question of the journey. */
+  .app.jobsOn > .top, .app.jobsOn > .main, .app.jobsOn > .foot, .app.jobsOn > .atmo { display: none; }
+  .app.jobsOn .decisionBar { z-index: 55; }
+  .jobsScreen { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; background: radial-gradient(120% 70% at 50% 0%, #1b3640 0%, #0c1a22 55%, #060c11 100%); animation: jobs-in 0.22s var(--ease-out) both; }
+  @keyframes jobs-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .jobsBar { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; border-bottom: 1px solid var(--line-gold, var(--line)); background: linear-gradient(180deg, rgb(10 24 30 / 0.97), rgb(8 18 24 / 0.92)); box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.7); }
+  .jobsBack { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: rgb(255 255 255 / 0.05); color: var(--gold-200); cursor: pointer; }
+  .jobsBack:hover, .jobsBack:focus-visible { border-color: var(--gold-300); }
+  .jobsBar .winSeal { width: 38px; height: 38px; }
+  .jobsTitle { flex: 1; min-width: 0; }
+  .jobsTitle h2 { margin: 0; font-size: var(--fs-lg); line-height: 1.2; }
+  .jobsTitle small { display: block; color: var(--text-3); font-size: var(--fs-xs); }
+  .jobsBar .xClose.static { width: 38px; height: 38px; }
+  .jobsScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .jobsInner { width: min(780px, 100%); margin: 0 auto; padding: 0 12px calc(env(safe-area-inset-bottom) + 24px); }
+  .jobsScreen .jobTabs { position: sticky; top: 0; z-index: 8; padding: 10px 0 8px; margin-bottom: 4px; background: linear-gradient(180deg, #0f2029 82%, rgb(15 32 41 / 0)); }
   .jobTabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }   /* three to a row; a new kind of job simply starts the next row */
   .jobTab { position: relative; display: grid; justify-items: center; align-content: center; gap: 5px; min-width: 0; padding: 9px 4px 8px; border-radius: 14px 4px 14px 4px; border: 1px solid var(--line); background: linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(0 0 0 / 0.28)); color: var(--text-2); cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-base), color var(--dur-fast), transform var(--dur-fast); }
   .jobTab:hover { color: var(--text-1); border-color: var(--line-gold); }
