@@ -32,7 +32,7 @@ const fxOfSkill = (f: R.Fighter, k: number): { fx: SkillFx; color: string; s: Re
   const s = R.skillOfFighter(f, k);
   return { fx: fxOf(s.name, s.fx?.kind, s.el || f.el), color: fxColor(s.el || f.el, s.fx?.kind), s };
 };
-const lookFor = (f: R.Fighter) => lookOf(f.arch, f.g, f.hair);
+const lookFor = (f: R.Fighter) => lookOf(f.arch, f.g, f.hair, f.cls);
 const TAU = Math.PI * 2;
 const unit = (h: number, shift: number) => ((h >>> shift) % 1000) / 1000;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));

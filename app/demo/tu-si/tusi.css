@@ -1,0 +1,26 @@
+/* The cultivator pictures page (components/lab/TusiGallery.tsx): every picture on a dark sky like the stages', with its file name. */
+.tsGal { min-height: 100dvh; width: min(1060px, 100%); margin: 0 auto; padding: env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 28px); }
+.tsBar { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.tsBar > div { flex: 1; min-width: 0; }
+.tsBar h1 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); color: var(--gold-200); line-height: 1.2; }
+.tsBar small { display: block; color: var(--text-3); font-size: var(--fs-xs); }
+.tsCtl { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; background: linear-gradient(180deg, var(--ink-900, #0b1117) 70%, transparent); }
+.tsCtl .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+.tsCtl .seg button { height: 32px; padding: 0 12px; border: 0; background: transparent; color: var(--text-2); font-size: var(--fs-xs); cursor: pointer; }
+.tsCtl .seg button.on, .tsCtl .btn.on { background: color-mix(in srgb, var(--gold-400, #e0b85a) 22%, transparent); color: var(--gold-200); }
+.tsKind { margin-top: 14px; }
+.tsKind h2 { margin: 0 0 6px; font-family: var(--font-display); font-size: var(--fs-md, 1rem); color: var(--gold-200); }
+.tsKind h2 small { margin-left: 6px; color: var(--text-3); font-family: ui-monospace, monospace; font-size: var(--fs-xs); }
+.tsRow { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
+.tsSex { flex: none; width: 26px; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; color: var(--text-3); font-size: var(--fs-xs); }
+.tsFig { flex: 0 1 var(--w, 33%); min-width: 0; margin: 0; display: grid; gap: 4px; }
+.tsBox { display: grid; place-items: end center; aspect-ratio: 4 / 3; border-radius: 12px 4px 12px 4px; border: 1px solid var(--line); overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, rgb(70 90 140 / 0.45), transparent 60%), linear-gradient(180deg, #121a2a, #070a12); }
+.tsBox .cu { width: 100%; height: auto; filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.6)); }
+.tsGal.sm .tsFig { flex: 0 0 104px; }
+.tsGal.sm .tsBox { place-items: center; }
+.tsGal.sm .tsBox .cu { width: 64px; }
+.tsGal.flip .tsBox .cu { transform: scaleX(-1); }
+.tsFig figcaption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; color: var(--text-3); font-family: ui-monospace, monospace; font-size: 11px; }
+.tsFig.none .tsBox { opacity: 0.55; }
+.tsFig.none figcaption { font-family: inherit; font-style: italic; }

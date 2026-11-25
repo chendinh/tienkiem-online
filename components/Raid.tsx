@@ -267,7 +267,7 @@ export function ResultCard({ film, boss, onReplay, demo }: { film: FilmOut; boss
     <div className={`raidResult ${film.win ? 'win' : 'flee'}`}>
       <h3>{film.win ? 'Đại thắng' : 'Dị Thú trốn thoát'}</h3>
       <p>{film.win ? `${boss.name} đã bị ${film.fighters.length} tu sĩ trảm sau ${film.rounds.length} hiệp.` : `${boss.name} bỏ chạy sau ${film.rounds.length} hiệp, còn ${Math.round(((film.rounds[film.rounds.length - 1]?.hp || 0) / film.max) * 100)}% Sinh Lực.`}</p>
-      {mvp && film.fighters.length > 1 && <div className="raidMvp"><span className="fig"><Cultivator look={lookOf(mvp.arch, mvp.g, mvp.hair)} /></span><span><small>Công đầu</small><b>{mvp.name}</b><em>{fmt(film.dmg[film.mvp])} sát thương</em></span></div>}
+      {mvp && film.fighters.length > 1 && <div className="raidMvp"><span className="fig"><Cultivator look={lookOf(mvp.arch, mvp.g, mvp.hair, mvp.cls)} /></span><span><small>Công đầu</small><b>{mvp.name}</b><em>{fmt(film.dmg[film.mvp])} sát thương</em></span></div>}
       {demo ? null : mine
         ? <div className="raidMine"><span>Ngươi: hạng <b>{rank}</b>/{film.fighters.length} · {fmt(film.dmg[film.me])} sát thương ({Math.round((film.dmg[film.me] / total) * 100)}%){film.ko[film.me] ? ` · trọng thương ở hiệp ${film.ko[film.me]}` : ''}</span>{film.reward && <RewardList r={film.reward} />}{film.reward && film.claimed && <small className="ok">Đã nhận thưởng</small>}</div>
         : <div className="raidMine"><span>Ngươi không tham gia trận này.</span></div>}
@@ -285,7 +285,7 @@ export function Board({ film, myPid, sub }: { film: FilmOut; myPid: string | nul
     return (
       <li key={f.pid} className={f.pid === myPid ? 'me' : ''}>
         <span className="rk">{k + 1}</span>
-        <span className="fig"><Cultivator look={lookOf(f.arch, f.g, f.hair)} /></span>
+        <span className="fig"><Cultivator look={lookOf(f.arch, f.g, f.hair, f.cls)} /></span>
         <span className="nm"><b>{f.name}</b><small>Cấp {f.level} · {f.el}{film.ko[i] ? ` · gục hiệp ${film.ko[i]}` : ''}</small></span>
         <span className="dm"><b>{fmt(film.dmg[i])}</b><i style={{ width: `${(film.dmg[i] / max) * 100}%` }} /></span>
       </li>

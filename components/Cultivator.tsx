@@ -1,10 +1,13 @@
 'use client';
 import { useId, type CSSProperties } from 'react';
+import { tusiArt, tusiKind } from '@/lib/tusi';
 
 // A cultivator standing on a flying sword, seen from the side and facing right (the screen flips it with scaleX). Drawn in code: no picture to pay for, and every visitor can have its own
 // colours. A woman (g 'f') is drawn as her own figure: long hair streaming back, two buns with ribbons and a flower pin, a long skirt to the ankles instead of trousers and boots,
 // a silk shawl that floats behind, a blush on the cheek. The cloth that trails behind (hair, sleeve, sash, talismans) sways by CSS (.cuHair, .cuSleeve, .cuSash, .cuTalis in app/ds/expo.css); a still figure is simply this drawing.
-export interface Look { arch: string; g: 'f' | 'm'; robe: string; trim: string; glow: string; hair: string; ph: number }
+// Once the kind of the cultivator (the môn of its weapon, lib/tusi.ts) has pictures drawn by AI (scripts/gen-tusi.ts), one of them is shown instead: the same box (4:3),
+// the flying sword at the same height, facing right.
+export interface Look { arch: string; g: 'f' | 'm'; robe: string; trim: string; glow: string; hair: string; ph: number; kind: string; h: number }
 const SKIN = '#f2d0ae', INK = '#2b1b17', GOLD = '#d9b45e';
 // the colours of the six kinds of cultivator (lib/content.ts BUYER_EN says what each one wears)
 const PALETTE: Record<string, { robe: string; trim: string; glow: string }> = {
@@ -16,9 +19,16 @@ const PALETTE: Record<string, { robe: string; trim: string; glow: string }> = {
   'Ma Tu': { robe: '#1d1624', trim: '#c9283f', glow: '#ff6381' },
 };
 const HAIR = ['#2a2023', '#3b2a22', '#1f2733', '#4a392f'];
-export const lookOf = (arch: string, g: 'f' | 'm', h: number): Look => ({ arch, g, ...(PALETTE[arch] || PALETTE['Tán Tu']), hair: HAIR[h % HAIR.length], ph: ((h >>> 3) % 100) / 50 });
+/** cls: the môn of the cultivator's weapon ('' = none), when it is known; without it the kind of cultivator decides what it holds. */
+export const lookOf = (arch: string, g: 'f' | 'm', h: number, cls?: string): Look =>
+  ({ arch, g, ...(PALETTE[arch] || PALETTE['Tán Tu']), hair: HAIR[h % HAIR.length], ph: ((h >>> 3) % 100) / 50, kind: tusiKind(cls, arch, h), h });
 
 export function Cultivator({ look, className = '' }: { look: Look; className?: string }) {
+  const art = tusiArt(look.kind, look.g, look.h);
+  return art ? <img className={`cu cuArt ${className}`} src={art} width={480} height={360} alt="" draggable={false} decoding="async" /> : <Drawn look={look} className={className} />;
+}
+
+function Drawn({ look, className = '' }: { look: Look; className?: string }) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, ''), { robe, trim, glow, hair, arch, g } = look;
   const bare = arch === 'Thể Tu', dark = 'rgb(0 0 0 / 0.16)';
   return (
