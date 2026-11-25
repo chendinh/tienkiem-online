@@ -1208,7 +1208,8 @@ export function expoSet(st: GameState, slot: unknown, kind: unknown, id: unknown
 export function expoPrice(st: GameState, slot: unknown, extra: unknown): Res {
   if (!Number.isInteger(slot) || (slot as number) < 0 || (slot as number) >= XP.STANDS || !Number.isInteger(extra) || (extra as number) < 0) return fail('E_BAD_REQUEST');
   const e = XP.isExpo(st.expo) ? st.expo : null, s = e ? e.stands[slot as number] : null, x = s ? exhibitOf(expoView(st)[slot as number]) : null;
-  if (!e || !s || s.kind !== 'item' || !x) return fail('E_NOT_FOUND');
+  if (!e || !s || !x) return fail('E_NOT_FOUND');
+  if (x.ex.kind === 'beast' && x.ex.mut) return fail('E_MUTANT');   // a Dị Biến is never sold: it has no price
   const v = Math.min(extra as number, XP.maxExtra(XP.basePrice(x.ex.value)));
   if (v > 0) s.extra = v; else delete s.extra;
   return ok('');
@@ -1245,6 +1246,7 @@ export function expoDeal(st: GameState, n: unknown): Res {
   if (!e || !Number.isInteger(n)) return fail('E_BAD_REQUEST');
   const o = (e.offers || []).find((x) => x.n === n);
   if (!o) return fail('E_OFFER_GONE');
+  if (o.beast) return beastDeal(st, e, o);
   const stand = e.stands[o.slot], f = stand && stand.kind === 'item' && stand.id === o.id ? findIn(st, o.id) : null;
   if (st.clock - o.at > XP.OFFER_KEEP_MS || !f || f.where === 'eq') { e.offers = e.offers!.filter((x) => x !== o); if (!e.offers.length) delete e.offers; return fail('E_OFFER_GONE'); }
   const arr = f.where === 'bag' ? st.bag : st.stash, old = f.it, key = `${st.seed}|expo|${o.n}|deal`;
@@ -1262,8 +1264,69 @@ export function expoDeal(st: GameState, n: unknown): Res {
     st.inv.books[o.book] = (st.inv.books[o.book] || 0) + 1;
     return ok(`${o.who.name} đổi Bí Công ${o.book} lấy ${old.name}.`, { kind: 'book', name: o.book, tier: o.tier });
   }
-  const paid = earn(st, o.price || 0, 'expo');
-  return ok(`${o.who.name} mua ${old.name}, trả ${paid} Linh Thạch.`, { kind: 'buy', stones: paid });
+  const paid = Math.max(0, o.price || 0);
+  e.box.stones += paid;   // into the box of gifts: collected with the rest
+  return ok(`${o.who.name} mua ${old.name}, để ${paid} Linh Thạch vào hòm quà.`, { kind: 'buy', stones: paid });
+}
+const dropOffers = (e: XP.Expo, slot: number) => { e.offers = (e.offers || []).filter((x) => x.slot !== slot); if (!e.offers.length) delete e.offers; };
+/** A deal for a Linh Thú on a stand: sold (the price to the box), swapped for a stronger creature of the same size class, or (a Dị Biến) swapped for a Thiên piece. */
+function beastDeal(st: GameState, e: XP.Expo, o: XP.Offer): Res {
+  const stand = e.stands[o.slot], i = stand && stand.kind === 'beast' && stand.id === o.id ? st.beasts.findIndex((b) => b.id === o.id) : -1;
+  if (st.clock - o.at > XP.OFFER_KEEP_MS || i < 0 || WK.bookedIds(st.work).has(o.id)) { dropOffers(e, o.slot); return fail('E_OFFER_GONE'); }
+  const old = st.beasts[i], key = `${st.seed}|expo|${o.n}|deal`;
+  if (o.kind === 'gear') {
+    if (!old.mut) { dropOffers(e, o.slot); return fail('E_OFFER_GONE'); }
+    if (st.bag.length >= B.bagCapacity && st.stash.length >= B.overflowCapacity) return fail('E_BAG_FULL');
+    const it = gearFor(st, levelOf(st.player), key);
+    st.beasts.splice(i, 1); e.stands[o.slot] = null; dropOffers(e, o.slot); unframe(st, old.id);
+    const where = st.bag.length < B.bagCapacity ? 'bag' : 'stash';
+    (where === 'bag' ? st.bag : st.stash).push(it); noteAlbum(st, it);
+    return ok(`${o.who.name} đổi ${old.name} lấy ${it.name}.`, { kind: 'gear', item: it, old: old.name, where });
+  }
+  if (old.mut) { dropOffers(e, o.slot); return fail('E_MUTANT'); }   // a Dị Biến is never sold or swapped for a creature
+  if (o.kind === 'swap') {
+    const nb = swapBeast(st, old, key);
+    st.beasts[i] = nb; e.stands[o.slot] = null; dropOffers(e, o.slot); unframe(st, old.id);
+    return ok(`${o.who.name} đổi ${old.name} lấy ${nb.name}.`, { kind: 'beast', beast: nb, old: old.name });
+  }
+  st.beasts.splice(i, 1); e.stands[o.slot] = null; dropOffers(e, o.slot); unframe(st, old.id);
+  const paid = Math.max(0, o.price || 0);
+  e.box.stones += paid;
+  return ok(`${o.who.name} mua ${old.name}, để ${paid} Linh Thạch vào hòm quà.`, { kind: 'buy', stones: paid });
+}
+const unframe = (st: GameState, id: number) => { if (st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === id) delete st.player.showcase; };
+/** The creature a visitor gives for one on a stand: a random kind, the same size class, the same Level, and stronger by SWAP_POWER. From the key alone. */
+export function swapBeast(st: GameState, old: Beast, key: string): Beast {
+  const g = newStreams(O.hash32(`xb|${key}`));
+  const sp = pick(g, 'gen', C.SPECIES);
+  let size = old.size;
+  for (let k = 0; k < 40; k++) { const s = truncNormal(g, 'gen', B.sizeMean, B.sizeSigma, B.sizeMin, B.sizeMax); if (sizeClass(s) === old.cls) { size = s; break; } }
+  const apt = [0, 0, 0, 0, 0].map(() => B.aptMin + next(g, 'gen') * (B.aptMax - B.aptMin));
+  const pers = int(g, 'gen', 0, C.PERS.length - 1), sf = sizeFactors(size), level = old.level;
+  let stats = [0, 1, 2, 3, 4].map((j) => Math.max(1, baseStat(level, j) * (1 + TUNE.z * level) * sp.f[j] * apt[j] * (1 + C.PERS[pers].dev[j]) * sf[j]));
+  const pw = (s: number[]) => s[2] + s[3] + s[4] + s[0] / 8;
+  const want = old.power * (XP.SWAP_POWER[0] + next(g, 'gen') * (XP.SWAP_POWER[1] - XP.SWAP_POWER[0]));
+  const k = want / Math.max(1, pw(stats));
+  stats = stats.map((x) => Math.max(1, Math.round(x * k)));
+  let power = stats[2] + stats[3] + stats[4] + Math.round(stats[0] / 8);
+  if (power <= old.power) { stats[2] += old.power - power + 1; power = stats[2] + stats[3] + stats[4] + Math.round(stats[0] / 8); }   // rounding never leaves it weaker
+  const pool = [...C.SKILLS[sp.el[0]], C.NEUTRAL_SKILL];
+  const skills = shuffle(g, 'gen', pool).slice(0, int(g, 'gen', B.monsterSkillMin, B.monsterSkillMax));
+  const cm = Math.round(sp.cm * size);
+  const be = st.best[sp.id] || (st.best[sp.id] = { seen: 0, tamed: 0, maxCm: 0, minCm: 9999, mutSeen: 0, mutTamed: 0 });
+  be.seen++; be.tamed++; be.maxCm = Math.max(be.maxCm, cm); be.minCm = Math.min(be.minCm, cm);
+  return { id: ++st.uid, sp: sp.id, name: sp.name, level, size, cm, cls: sizeClass(size), mut: false, pers, apt, skills, stats, power };
+}
+/** The Thiên piece a Dị Biến is swapped for: of the player's Level, a random kind, every number GEAR_BOOST above the roll. */
+export function gearFor(st: GameState, level: number, key: string): Item {
+  const tmp = { ...st, streams: newStreams(O.hash32(`xg|${key}`)) } as GameState;
+  const it = genItem(tmp, level, 4, undefined, 0, true);
+  st.uid = tmp.uid;
+  const up = (v: number) => Math.max(v + 1, Math.round(v * XP.GEAR_BOOST));
+  it.impl = { ...it.impl, value: up(it.impl.value) };
+  it.affixes = it.affixes.map((a) => ({ ...a, value: up(a.value) }));
+  it.power = Math.round(it.impl.value * C.PW[it.impl.stat] + it.affixes.reduce((s, a) => s + a.value * C.PW[a.stat], 0));
+  return it;
 }
 
 // ---------- Thú đi làm (lib/work.ts): the board is made and refilled on the server's tick; the three moves of the player are pure, so the browser runs them at once and the server replays them.
@@ -1317,13 +1380,13 @@ function expoVisit(st: GameState, e: XP.Expo): boolean {
   views.forEach((v, i) => { if (!v && e.stands[i]) e.stands[i] = null; });   // a piece that is gone: its stand is empty now
   if (!XP.isOpen(e)) { e.next = 0; return false; }
   const n = ++e.n, seed = st.seed, key = `${seed}|expo|${n}`, v = XP.visitorOf(seed, n), r = XP.routeOf(e, seed, n), steps: XP.Step[] = [], scale = XP.payScale(XP.filled(e));
-  let like: { rank: number; slot: number; ex: XP.Exhibit } | null = null;   // the piece of equipment this visitor liked best (an offer may be for it)
+  let like: { rank: number; slot: number; ex: XP.Exhibit } | null = null;   // the piece or creature this visitor liked best (an offer may be for it)
   let best: { rank: number; ex: XP.Exhibit } | null = null;
   for (const slot of r.slots) {
     const x = exhibitOf(views[slot]), stand = e.stands[slot];
     if (!x || !stand) continue;
     const rx = XP.reactionOf(XP.scoreOf(v, x.ex, `${key}|${slot}`)), stones = XP.stonesFor(rx, x.ex, v.gen, scale, (O.hash32(`xu|${key}|${slot}`) % 1000) / 1000);
-    if (rx) { const ri = XP.REACTIONS.indexOf(rx); stand.tally[ri]++; if (ri < 3 && (!best || ri < best.rank)) best = { rank: ri, ex: x.ex }; if (ri < 3 && x.ex.kind === 'item' && stand.kind === 'item' && (!like || ri < like.rank)) like = { rank: ri, slot, ex: x.ex }; }
+    if (rx) { const ri = XP.REACTIONS.indexOf(rx); stand.tally[ri]++; if (ri < 3 && (!best || ri < best.rank)) best = { rank: ri, ex: x.ex }; if (ri < 3 && (!like || ri < like.rank)) like = { rank: ri, slot, ex: x.ex }; }
     e.box.stones = Math.min(B.stoneMax, e.box.stones + stones);
     steps.push({ slot, r: rx, stones });
   }

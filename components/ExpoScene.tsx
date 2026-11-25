@@ -1,5 +1,5 @@
 'use client';
-import { Fragment, memo, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from 'react';
 import * as C from '@/lib/content';
 import * as XP from '@/lib/expo';
 import * as FL from '@/lib/expofly';
@@ -62,11 +62,12 @@ function Sparks({ at, delay, color, count, seed }: { at: FL.Pt; delay: number; c
 
 // ---- what is still on its way: the server adds a visit's Linh Thạch, gift and reactions the moment it makes the visit, but on the screen the visitor has yet to fly in and look.
 // Each part of a new visit is held back (left out of the numbers shown) until its moment in the flight: a reaction when its face pops up, the Linh Thạch when the last coin lands
-// in the chest, the gift when it lands. Ids are `${visit n}|...`, so a whole visit can be let go at once.
+// in the chest, the gift when it lands. Ids are `${visit n}|...`.
+// What is held is worked out while drawing (useHeld), from the log itself: every visit that came after the screen opened, less the parts already let go. So a new visit is held
+// in the very frame it arrives (worked out in an effect, the new numbers showed for a frame first). A visit that waits its turn to fly stays held; one that fell off the log is counted.
 export type Held = { slot: number; ri: number } | { stones: number } | { gift: XP.Gift };
 export type HeldMap = Record<string, Held>;
-export type Hold = Dispatch<SetStateAction<HeldMap>>;
-const heldOf = (v: XP.Visit): HeldMap => {
+export const heldOf = (v: XP.Visit): HeldMap => {
   const m: HeldMap = {};
   v.route.forEach((s, i) => {
     if (s.r) m[`${v.n}|r${i}`] = { slot: s.slot, ri: XP.REACTIONS.indexOf(s.r) };
@@ -75,12 +76,29 @@ const heldOf = (v: XP.Visit): HeldMap => {
   if (v.gift) m[`${v.n}|g`] = { gift: v.gift };
   return m;
 };
-const letGo = (hold: Hold, pred: (id: string) => boolean) => hold((m) => {
-  const ids = Object.keys(m).filter(pred);
-  if (!ids.length) return m;
-  const n = { ...m }; for (const id of ids) delete n[id];
-  return n;
-});
+export interface HeldApi { shown: XP.Expo | null; held: HeldMap; from: number; release: (ids: string[]) => void }
+/** The numbers the Triển Lãm screen shows, without what the visitors still to fly have not given yet. `from`: the visits after this number are held (the last visit when the
+ *  screen opened; with calm, or no animations, it follows the newest visit so nothing is held). */
+export function useHeld(real: XP.Expo | null, calm: boolean): HeldApi {
+  const from = useRef<number | null>(null);
+  if (real && (from.current === null || calm || !canFly())) from.current = real.n;
+  const f = from.current ?? Number.MAX_SAFE_INTEGER;
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const held = useMemo(() => {
+    const m: HeldMap = {};
+    if (real) for (const v of real.log) if (v.n > f) for (const [k, p] of Object.entries(heldOf(v))) if (!gone.has(k)) m[k] = p;
+    return m;
+  }, [real, f, gone]);
+  const shown = useMemo(() => heldBack(real, held), [real, held]);
+  const oldest = real && real.log.length ? real.log[0].n : 0;
+  const release = useCallback((ids: string[]) => setGone((s) => {
+    if (ids.every((id) => s.has(id))) return s;
+    const n = new Set(s); for (const id of ids) n.add(id); return n;
+  }), []);
+  // forget what was let go for visits that left the log (they are not held any more anyway)
+  useEffect(() => { setGone((s) => { const keep = [...s].filter((id) => Number(id.split('|')[0]) >= oldest); return keep.length === s.size ? s : new Set(keep); }); }, [oldest]);
+  return { shown, held, from: f, release };
+}
 /** The expo as the screen should show it: what the server says, less what is still held back. */
 export function heldBack(e: XP.Expo | null, m: HeldMap): XP.Expo | null {
   const parts = Object.values(m);
@@ -99,8 +117,8 @@ export function heldBack(e: XP.Expo | null, m: HeldMap): XP.Expo | null {
   return { ...e, stands, box };
 }
 
-type FlightT = { key: string; v: XP.Visit; delay: number; held?: boolean };
-const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: FlightT; pieces: Els; chest: RefObject<HTMLElement | null>; onDone: (key: string) => void; hold: Hold }) {
+type FlightT = { key: string; v: XP.Visit; delay: number };
+const Flight = memo(function Flight({ f, pieces, chest, onDone, release }: { f: FlightT; pieces: Els; chest: RefObject<HTMLElement | null>; onDone: (key: string) => void; release: (ids: string[]) => void }) {
   const v = f.v;
   const plan = useMemo(() => FL.planOf(v), [v]);
   const look = useMemo(() => lookOf(v.who.arch, v.who.g, hash32(`${v.who.name}|${v.n}`)), [v]);
@@ -109,11 +127,12 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: Fli
   const coinN = plan.stops.map((s) => coinsOf(s.stones));
   useEffect(() => {
     const el = fly.current, stage = el?.parentElement;
-    if (!el || !stage || !canFly()) { onDone(f.key); return; }
+    const all = Object.keys(heldOf(v));
+    if (!el || !stage || !canFly()) { release(all); onDone(f.key); return; }
     let alive = true;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    // let a held part of this visit show, at `when` ms into the flight (only a visit that was held: the replays of old visits were already counted)
-    const release = (id: string, when: number) => { if (f.held) timers.push(setTimeout(() => letGo(hold, (k) => k === id), Math.max(0, f.delay + when))); };
+    // let a held part of this visit show, at `when` ms into the flight
+    const letGo = (id: string, when: number) => { timers.push(setTimeout(() => release([id]), Math.max(0, f.delay + when))); };
     const W = stage.clientWidth, H = stage.clientHeight, w = el.offsetWidth, h = el.offsetHeight;
     const at = (p: FL.Pt, ox: number, oy: number) => `translate(${(p.x / 100) * W - ox}px, ${(p.y / 100) * H - oy}px)`;
     const run: Animation[] = [];
@@ -138,7 +157,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: Fli
         { opacity: 0, transform: `${base} translateY(-32px) scale(0.9)` },
       ], { duration: 1500, delay: t0 });
       const ringAt = at(sp, 32, 32);
-      release(`${v.n}|r${i}`, t0 + 200);
+      letGo(`${v.n}|r${i}`, t0 + 200);
       go(ring.current[i], [{ opacity: 0.9, transform: `${ringAt} scale(0.35)` }, { opacity: 0, transform: `${ringAt} scale(${s.r === 'sad' ? 1.3 : 1.8})` }], { duration: s.r === 'sad' ? 950 : 700, delay: t0, easing: 'ease-out' });
       const pic = pieces.current[s.slot]?.firstElementChild;
       if (s.r === 'love' || s.r === 'wow') go(pic, [{ transform: 'scale(1)' }, { transform: 'scale(1.16)', offset: 0.35 }, { transform: 'scale(1)' }], { duration: 520, delay: t0, easing: 'ease-out' });
@@ -151,7 +170,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: Fli
         for (let u = 0; u <= 8; u++) { const q = FL.arcAt(sp, FL.CHEST_AT, u / 8); kf.push({ offset: u / 8, opacity: u === 0 ? 0 : u >= 8 ? 0 : 1, transform: `${at(q, 6, 6)} scale(${(1 - 0.35 * (u / 8)).toFixed(2)})` }); }
         go(coin.current[ci++], kf, { duration: dur, delay: d0, easing: 'linear' });
         bump(d0 + dur - 120, 1.1);
-        if (k === coinN[i] - 1) release(`${v.n}|c${i}`, d0 + dur - 120);
+        if (k === coinN[i] - 1) letGo(`${v.n}|c${i}`, d0 + dur - 120);
       }
     });
     // the gift: a round token that spins to the chest
@@ -161,9 +180,10 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: Fli
       const a = go(gift.current, kf, { duration: 1150, delay: g0, easing: 'linear' });
       if (a) a.onfinish = () => { if (alive) sfx('chime'); };
       bump(g0 + 1000, 1.28);
-      release(`${v.n}|g`, g0 + 1000);
+      letGo(`${v.n}|g`, g0 + 1000);
     }
-    Promise.allSettled(run.map((a) => a.finished)).then(() => { if (alive) onDone(f.key); });
+    // gone: whatever of it is still held shows now (a timer may have been cut short)
+    Promise.allSettled(run.map((a) => a.finished)).then(() => { if (alive) { release(all); onDone(f.key); } });
     return () => { alive = false; timers.forEach(clearTimeout); run.forEach((a) => a.cancel()); };
   }, []);
   const gk = v.gift ? v.gift.kind : null, gc = gk ? GIFT_COL[gk] : '#ffd36b';
@@ -189,7 +209,7 @@ const Flight = memo(function Flight({ f, pieces, chest, onDone, hold }: { f: Fli
       )}
     </>
   );
-}, (a, b) => a.f.key === b.f.key && a.hold === b.hold);   // a visitor is made once and then runs by itself: the screen updating around it does not touch it
+}, (a, b) => a.f.key === b.f.key && a.release === b.release);   // a visitor is made once and then runs by itself: the screen updating around it does not touch it
 
 // ---- the stands
 // A tap on the creature also reaches the stand, which opens its sheet: the creature itself must do nothing, or the sheet opens and closes at once (onStand toggles).
@@ -224,44 +244,35 @@ const makeAmb = (n: number): Amb[] => Array.from({ length: n }, (_, i) => {
   return { y: 6 + r() * 86, w, d: 6 + r() * 10, dl: -r() * 16, rev: r() < 0.5, op: 0.3 + r() * 0.3, look: lookOf(arch, r() < 0.5 ? 'f' : 'm', Math.floor(r() * 1000) + i), ph: r() * 2 };
 });
 
-export interface SceneProps { st: GS; onStand: (slot: number) => void; onChest: () => void; held: HeldMap; hold: Hold }
-export function ExpoScene({ st, onStand, onChest, held, hold }: SceneProps) {
+export interface SceneProps { st: GS; onStand: (slot: number) => void; onChest: () => void; h: HeldApi; calm: boolean }
+export function ExpoScene({ st, onStand, onChest, h, calm }: SceneProps) {
   const real = XP.isExpo(st.expo) ? st.expo : null;
-  const e = useMemo(() => heldBack(real, held), [real, held]);   // the numbers shown: without what the visitors on their way have not given yet
+  const e = h.shown;   // the numbers shown: without what the visitors on their way have not given yet
   const views = useMemo(() => expoView(st), [st.expo, st.bag, st.stash, st.beasts]);
-  const calm = useCalm();
   const [flights, setFlights] = useState<FlightT[]>([]);
   const [burst, setBurst] = useState(0);
   const [amb, setAmb] = useState<Amb[]>([]);
   useEffect(() => { if (!calm) setAmb(makeAmb(5 + Math.floor(Math.random() * 3))); else setAmb([]); }, [calm]);
-  const pieces = useRef<(HTMLElement | null)[]>([]), chest = useRef<HTMLButtonElement>(null), seen = useRef<number | null>(null), had = useRef(false);
-  const top = e && e.log.length ? e.log[e.log.length - 1].n : 0, has = !!real && XP.boxCount(real.box) > 0, shows = !!e && XP.boxCount(e.box) > 0;
+  const pieces = useRef<(HTMLElement | null)[]>([]), chest = useRef<HTMLButtonElement>(null), launched = useRef(h.from), had = useRef(false);
+  const top = real && real.log.length ? real.log[real.log.length - 1].n : 0, has = !!real && XP.boxCount(real.box) > 0, shows = !!e && XP.boxCount(e.box) > 0;
   // what the chest says without opening it: how many Linh Thạch, and how many gifts besides (weapons, pills, books)
   const stones = e ? e.box.stones : 0, gifts = e ? e.box.weapons.length + e.box.pills.reduce((a, n) => a + n, 0) + Object.values(e.box.books).reduce((a, n) => a + n, 0) : 0;
   const tapChest = () => {
     if (has) { onChest(); return; }
     if (canFly()) chest.current?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-3px)' }, { transform: 'translateX(3px)' }, { transform: 'translateX(0)' }], { duration: 260 });   // empty: the chest only shakes a little
   };
-  // new visitors the server made: the first look replays the latest three so the stage is busy at once; after that each new one flies in, a moment apart when several came together
+  // the visitors the server made since the screen opened fly in, in their turn: at most MAX_LIVE at once, a moment apart when several came together; the others wait (and stay
+  // held) until a place is free. Nothing older is replayed: those were counted already, and a visitor reacting to a number that does not move looked wrong.
+  if (launched.current < h.from) launched.current = h.from;   // calm: nothing waits
   useEffect(() => {
-    if (calm || !e || !canFly()) return;
-    const log = e.log;
-    if (seen.current === null) {
-      seen.current = top;
-      setFlights(log.slice(-3).map((x, k) => ({ key: `r${x.n}`, v: x, delay: 400 + k * 1700 })));
-      return;
-    }
-    if (top > seen.current) {
-      const from = seen.current, fresh = log.filter((x) => x.n > from).slice(-3);
-      seen.current = top;
-      setFlights((cur) => {
-        // only the visitors that will really fly are held back; the rest (too many at once) count at once
-        const take = fresh.slice(0, Math.max(0, MAX_LIVE - cur.length));
-        if (take.length) hold((m) => Object.assign({}, m, ...take.map(heldOf)));
-        return [...cur, ...take.map((x, k) => ({ key: `n${x.n}`, v: x, delay: 150 + k * 1500, held: true }))];
-      });
-    }
-  }, [top, calm, !!e]);
+    if (calm || !real || !canFly()) return;
+    const wait = real.log.filter((x) => x.n > launched.current);
+    const room = MAX_LIVE - flights.length;
+    if (!wait.length || room <= 0) return;
+    const take = wait.slice(0, room);
+    launched.current = take[take.length - 1].n;
+    setFlights((cur) => [...cur, ...take.map((x, k) => ({ key: `n${x.n}`, v: x, delay: 150 + k * 1500 }))]);
+  }, [top, calm, !!real, flights.length]);
   // the box was emptied (collected): the chest opens
   useEffect(() => {
     if (had.current && !has && !calm && canFly()) {
@@ -270,14 +281,7 @@ export function ExpoScene({ st, onStand, onChest, held, hold }: SceneProps) {
     }
     had.current = has;
   }, [has, calm]);
-  // a visitor that has gone lets go of whatever of it is still held (its timers may have been cut short)
-  const done = useMemo(() => (key: string) => {
-    setFlights((cur) => cur.filter((x) => x.key !== key));
-    if (key[0] === 'n') { const n = key.slice(1); letGo(hold, (id) => id.startsWith(`${n}|`)); }
-  }, [hold]);
-  // leaving the stage (or calm turned on): nothing is held any more
-  useEffect(() => () => hold({}), [hold]);
-  useEffect(() => { if (calm) hold({}); }, [calm, hold]);
+  const done = useCallback((key: string) => setFlights((cur) => cur.filter((x) => x.key !== key)), []);
   return (
     <div className="xStage" role="group" aria-label="Triển lãm trên mây">
       <div className="xSky" />
@@ -296,7 +300,7 @@ export function ExpoScene({ st, onStand, onChest, held, hold }: SceneProps) {
         {gifts > 0 && <i className="xChestN">{gifts > 99 ? '99+' : gifts}</i>}
         {stones > 0 && <span className="xChestTx"><Icon name="stone" size={11} />{fmt(stones)}</span>}
       </button>
-      {flights.map((f) => <Flight key={f.key} f={f} pieces={pieces} chest={chest} onDone={done} hold={hold} />)}
+      {flights.map((f) => <Flight key={f.key} f={f} pieces={pieces} chest={chest} onDone={done} release={h.release} />)}
       {burst > 0 && <Sparks key={burst} at={FL.CHEST_AT} delay={0} color="#ffd36b" count={12} seed={burst} />}
     </div>
   );

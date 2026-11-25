@@ -385,11 +385,19 @@ test('expo: under a stand shows the look most visitors gave, the better one when
 const exhibit = (tier: number, over: Partial<XP.Exhibit> = {}): XP.Exhibit => ({ kind: 'item', tier, el: 'Kim', slot: 'Weapon', level: 10, value: 1000, ...over });
 const offerAt = (n: number, tier: number, level = 12) => { const key = `9|expo|${n}`; return XP.offerOf(XP.visitorOf(9, n), n, key, T0, { slot: 1, id: 7, ex: exhibit(tier) }, level); };
 
-test('expo: about one visit in twenty brings an offer, always the same ones for the same save, and a beast never gets one', () => {
+test('expo: about one visit in twenty brings an offer, always the same ones for the same save; a creature is bought or swapped, a Dị Biến only swapped for a Thiên piece', () => {
   let got = 0; const N = 20000;
   for (let n = 1; n <= N; n++) { const o = offerAt(n, 3); if (o) { got++; assert.deepEqual(o, offerAt(n, 3)); } }
   assert.ok(got > N * 0.04 && got < N * 0.06, `${got} offers in ${N} visits`);
-  for (let n = 1; n <= 2000; n++) assert.equal(XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 0, id: 1, ex: exhibit(4, { kind: 'beast' }) }, 12), null);
+  const kinds: Record<string, number> = {}, mk: Record<string, number> = {};
+  for (let n = 1; n <= 20000; n++) {
+    const o = XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 0, id: 1, ex: exhibit(2, { kind: 'beast' }) }, 12);
+    if (o) { kinds[o.kind] = (kinds[o.kind] || 0) + 1; assert.equal(o.beast, true); if (o.kind === 'buy') assert.equal(o.price, o.base); }
+    const m = XP.offerOf(XP.visitorOf(9, n), n, `9|expo|${n}`, T0, { slot: 0, id: 1, ex: exhibit(3, { kind: 'beast', mut: true }) }, 12);
+    if (m) { mk[m.kind] = (mk[m.kind] || 0) + 1; assert.equal(m.tier, 4); }
+  }
+  assert.ok(kinds.buy > 0 && kinds.swap > 0 && !kinds.book && !kinds.gear, JSON.stringify(kinds));
+  assert.deepEqual(Object.keys(mk), ['gear']);
 });
 
 test('expo: the three deals: a high price, a swap of the same rarity and kind, a Bí Công of the rarity Địa or Thiên only for Địa pieces and better', () => {
@@ -422,10 +430,10 @@ const withOffer = (kind: XP.OfferKind, over: Partial<XP.Offer> = {}) => {
   st.expo!.offers = [o]; return { st, ids, o };
 };
 
-test('expo: yes to a buy: the piece goes, the price comes, the stand is empty again', () => {
-  const { st, ids } = withOffer('buy', { price: 777 }); const before = st.stones;
+test('expo: yes to a buy: the piece goes, the price goes to the box of gifts (not the purse), the stand is empty again', () => {
+  const { st, ids } = withOffer('buy', { price: 777 }); const before = st.stones, box = st.expo!.box.stones;
   const r = G.expoDeal(st, 99); assert.ok(r.ok, r.msg);
-  assert.equal(st.stones, before + 777); assert.ok(!st.bag.some((x) => x.id === ids[2])); assert.equal(st.expo!.stands[2], null); assert.equal(st.expo!.offers, undefined);
+  assert.equal(st.stones, before); assert.equal(st.expo!.box.stones, box + 777); assert.ok(!st.bag.some((x) => x.id === ids[2])); assert.equal(st.expo!.stands[2], null); assert.equal(st.expo!.offers, undefined);
   assert.equal(G.expoDeal(st, 99).code, 'E_OFFER_GONE');
 });
 
@@ -478,4 +486,42 @@ test('expo: the screen shows only the offers of visitors that came after it open
   assert.equal(XP.liveOffer(e, 98, []), o); assert.equal(XP.liveOffer(e, 99, []), null, 'a visitor that came before the window opened is not asked about');
   assert.equal(XP.liveOffer(e, 98, [99]), null); assert.equal(XP.liveOffer(null, 0, []), null);
   e.offers!.push({ ...o, n: 100, slot: 3, id: e.stands[3]!.id }); assert.equal(XP.liveOffer(e, 98, [])!.n, 100, 'the newest first'); assert.equal(XP.liveOffer(e, 98, [100])!.n, 99);
+});
+
+// ---- deals for a Linh Thú on a stand
+const withBeastOffer = (kind: XP.OfferKind, over: Partial<G.Beast> = {}, o2: Partial<XP.Offer> = {}) => {
+  const st = fresh(51); fill(st, 3); G.expoClear(st, 3);
+  const b = beast(st, 4242, { level: 10, cls: 2, size: 1, power: 300, stats: [400, 0, 100, 80, 70], ...over });
+  assert.ok(G.expoSet(st, 3, 'beast', b.id).ok);
+  const who = { name: 'Lâm Phong', g: 'm' as const, arch: C.NPC_TITLES[0] };
+  st.expo!.offers = [{ n: 77, at: st.clock, slot: 3, id: b.id, kind, who, tier: 2, beast: true, ...o2 }];
+  return { st, b };
+};
+
+test('expo: a creature sold: it leaves the pen, the price goes to the box', () => {
+  const { st, b } = withBeastOffer('buy', {}, { price: 555 }); const box = st.expo!.box.stones, n = st.beasts.length;
+  const r = G.expoDeal(st, 77); assert.ok(r.ok, r.msg);
+  assert.equal(st.beasts.length, n - 1); assert.ok(!st.beasts.some((x) => x.id === b.id)); assert.equal(st.expo!.box.stones, box + 555); assert.equal(st.expo!.stands[3], null);
+});
+
+test('expo: a creature swapped: one of the same size class and always stronger takes its place in the pen', () => {
+  for (const seed of [1, 2, 3, 4, 5, 6]) {
+    const { st, b } = withBeastOffer('swap', {}, { n: 77 }); st.seed = seed; const n = st.beasts.length;
+    const r = G.expoDeal(st, 77); assert.ok(r.ok, r.msg);
+    const nb = (r.data as { beast: G.Beast }).beast;
+    assert.equal(st.beasts.length, n); assert.ok(st.beasts.some((x) => x.id === nb.id)); assert.ok(!st.beasts.some((x) => x.id === b.id));
+    assert.equal(nb.cls, b.cls); assert.ok(nb.power > b.power, `${nb.power} > ${b.power}`); assert.ok(nb.power <= b.power * XP.SWAP_POWER[1] + 2); assert.equal(nb.mut, false); assert.equal(st.expo!.stands[3], null);
+  }
+});
+
+test('expo: a Dị Biến is never sold or swapped for a creature, only for a Thiên piece of the player\'s Level with numbers above the usual', () => {
+  const sold = withBeastOffer('buy', { mut: true }, { price: 100 }); assert.equal(G.expoDeal(sold.st, 77).code, 'E_MUTANT'); assert.ok(sold.st.beasts.some((x) => x.id === sold.b.id));
+  const { st, b } = withBeastOffer('gear', { mut: true }); const bag = st.bag.length;
+  const r = G.expoDeal(st, 77); assert.ok(r.ok, r.msg);
+  const it = (r.data as { item: G.Item }).item;
+  assert.equal(it.tier, 4); assert.equal(it.level, lvl(st)); assert.ok(!st.beasts.some((x) => x.id === b.id)); assert.equal(st.bag.length, bag + 1); assert.ok(st.bag.some((x) => x.id === it.id));
+  // the same roll without the boost is weaker
+  const plain = G.genItem({ ...st, streams: require('../lib/rng').newStreams(require('../lib/orders').hash32(`xg|${st.seed}|expo|77|deal`)) } as G.GameState, lvl(st), 4, undefined, 0, true);
+  assert.ok(it.power > plain.power, `${it.power} > ${plain.power}`);
+  assert.equal(G.expoPrice(withBeastOffer('buy', { mut: true }).st, 3, 10).code, 'E_MUTANT', 'a Dị Biến has no price');
 });

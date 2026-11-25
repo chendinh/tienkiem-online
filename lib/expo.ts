@@ -119,20 +119,28 @@ export function bookFor(el: string, tier: number, level: number, key: string): s
 }
 
 // ---- offers: now and then a visitor who loved a piece asks for it
-// About one visit in twenty, the visitor offers the player a deal for the piece they liked best (a piece of equipment, never a Linh Thú):
+// About one visit in twenty, the visitor offers the player a deal for the piece they liked best (a piece of equipment or a Linh Thú):
 //   buy   the asking price: the base (what the piece dissolves for, the number the bag shows) plus what the player added on the stand (`extra`, up to twice the base: x3).
 //         The more is added, the fewer buyers take it (buyChance): up to x2 most still do at a small markup, from x2 to x3 hardly anyone (2% and less).
 //   swap  one for one with a random piece of the same rarity and the same kind (made when the player says yes; it goes to the bag, the stand is free again),
 //   book  a Bí Công of the rarity Địa or Thiên (only for a Địa piece and better), of the visitor's favourite element.
+// A Linh Thú: buy (the base is what the pen pays for it) or swap for another creature of the same size class and always stronger (made when the player says yes).
+// A Dị Biến is never sold: the only deal is `gear`, a Thiên piece of the player's Level whose numbers are a little higher than a Thiên piece usually has.
+// The Linh Thạch of a sale go to the box of gifts (collected with the rest), not straight to the purse.
 // The server makes the offer with the visit (lib/game.ts runExpo, from the seed and the visit number alone) and keeps the last few for OFFER_KEEP_MS; the player answers with expoDeal.
 // The screen shows only the offers of visitors that came while it was open (liveOffer), so with the window closed Triển Lãm has no deals to answer, and nothing waits for the player.
 export const OFFER_BP = 500;               // out of 10,000 visits
 export const OFFER_KEEP_MS = 90_000;       // how long a yes is still taken
 export const OFFER_SHOW_MS = 25_000;       // how long the screen shows an offer
 export const OFFER_MAX = 3;
-export type OfferKind = 'buy' | 'swap' | 'book';
-export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; book?: string }
-const OFFER_W: Record<OfferKind, number> = { buy: 50, swap: 40, book: 10 };
+export type OfferKind = 'buy' | 'swap' | 'book' | 'gear';
+export interface Offer { n: number; at: number; slot: number; id: number; kind: OfferKind; who: Visit['who']; tier: number; price?: number; base?: number; book?: string; beast?: true }
+const OFFER_W: Record<'buy' | 'swap' | 'book', number> = { buy: 50, swap: 40, book: 10 };
+const BEAST_W: Record<'buy' | 'swap', number> = { buy: 50, swap: 50 };
+/** How much stronger the creature of a swap is, at the least and at the most (its power over the one given). */
+export const SWAP_POWER = [1.08, 1.3] as const;
+/** The numbers of the Thiên piece a Dị Biến is swapped for: this much above what the roll gave. */
+export const GEAR_BOOST = 1.15;
 /** The base price of a piece worth `value`: exactly what it dissolves for (the "Phân giải" number the bag shows). */
 export const basePrice = (value: number): number => Math.max(1, Math.round(value));
 /** The most a player may add on top of the base: twice the base, so the price is at most x3. */
@@ -156,17 +164,20 @@ export function bookOfTier(el: string, techTier: number, level: number, key: str
 /** The offer of this visit for the piece it liked best, or null (most visits). Worked out from the key alone, so the same save has the same offers. */
 export function offerOf(v: Visitor, n: number, key: string, at: number, target: { slot: number; id: number; ex: Exhibit; extra?: number }, level: number): Offer | null {
   const x = target.ex;
-  if (x.kind !== 'item' || hash32(`xo|${key}`) % 10_000 >= OFFER_BP) return null;
-  const bookTier = x.tier >= 4 ? 3 : x.tier === 3 ? 2 : -1;
+  if (hash32(`xo|${key}`) % 10_000 >= OFFER_BP) return null;
+  const base: Offer = { n, at, slot: target.slot, id: target.id, kind: 'buy', who: v.who, tier: x.tier, ...(x.kind === 'beast' ? { beast: true as const } : {}) };
+  if (x.kind === 'beast' && x.mut) return { ...base, kind: 'gear', tier: 4 };
+  const bookTier = x.kind === 'item' ? (x.tier >= 4 ? 3 : x.tier === 3 ? 2 : -1) : -1;
   const book = bookTier >= 0 ? bookOfTier(v.el, bookTier, level, key) : null;
-  const kinds = (Object.keys(OFFER_W) as OfferKind[]).filter((k) => k !== 'book' || book);
-  let r = hash32(`xj|${key}`) % kinds.reduce((a, k) => a + OFFER_W[k], 0), kind = kinds[0];
-  for (const k of kinds) { if (r < OFFER_W[k]) { kind = k; break; } r -= OFFER_W[k]; }
-  const base: Offer = { n, at, slot: target.slot, id: target.id, kind, who: v.who, tier: x.tier };
+  const W: Partial<Record<OfferKind, number>> = x.kind === 'beast' ? BEAST_W : OFFER_W;
+  const kinds = (Object.keys(W) as OfferKind[]).filter((k) => k !== 'book' || book);
+  let r = hash32(`xj|${key}`) % kinds.reduce((a, k) => a + W[k]!, 0), kind = kinds[0];
+  for (const k of kinds) { if (r < W[k]!) { kind = k; break; } r -= W[k]!; }
+  base.kind = kind;
   if (kind === 'buy') {
-    const price = askPrice(x.value, target.extra), extra = price - basePrice(x.value);
-    if (extra > 0 && hash32(`xm|${key}`) % 10_000 >= buyChance(basePrice(x.value), extra)) return null;   // too dear for this buyer: no deal this time
-    return { ...base, price };
+    const b = basePrice(x.value), price = askPrice(x.value, target.extra), extra = price - b;
+    if (extra > 0 && hash32(`xm|${key}`) % 10_000 >= buyChance(b, extra)) return null;   // too dear for this buyer: no deal this time
+    return { ...base, price, base: b };
   }
   if (kind === 'book') return { ...base, book: book! };
   return base;
