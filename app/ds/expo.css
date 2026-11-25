@@ -76,8 +76,13 @@
   .xPiece .beastBox { pointer-events: auto; }
   @keyframes xPlace { from { opacity: 0; transform: translateY(18px) scale(0.5); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes xFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-  .xPiece.empty { width: 46px; height: 46px; margin-left: -23px; top: 8px; border-radius: 50%; border: 1.5px dashed rgb(255 255 255 / 0.7); background: rgb(20 28 70 / 0.28); color: #fff; animation: xBreath 3s ease-in-out infinite; }
-  @keyframes xBreath { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+  /* an empty stand: a small jade-and-gold ring with a slow turning ring of dashes around it and a "+" made of two bars set dead in the middle (no icon, so nothing can sit off centre) */
+  .xPiece.empty { width: 44px; height: 44px; margin-left: -22px; top: 9px; border-radius: 50%; border: 1.5px solid rgb(255 224 160 / 0.8); background: radial-gradient(circle, rgb(255 236 196 / 0.22), rgb(26 34 78 / 0.5) 72%); box-shadow: 0 0 12px rgb(255 210 130 / 0.4), inset 0 0 10px rgb(255 228 170 / 0.25); animation: xBreath 3s ease-in-out infinite; }
+  .xPiece.empty::before { content: ''; position: absolute; inset: -7px; border-radius: 50%; border: 1px dashed rgb(255 240 210 / 0.6); animation: xSpin 16s linear infinite; }
+  .xPiece.empty::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); background: linear-gradient(#fff6dc, #fff6dc) center / 100% 2px no-repeat, linear-gradient(#fff6dc, #fff6dc) center / 2px 100% no-repeat; filter: none; }
+  .xStand.empty:hover .xPiece.empty, .xStand.empty:focus-visible .xPiece.empty { border-color: #ffe3a6; box-shadow: 0 0 18px rgb(255 214 140 / 0.7), inset 0 0 12px rgb(255 228 170 / 0.4); }
+  @keyframes xBreath { 0%, 100% { opacity: 0.72; } 50% { opacity: 1; } }
+  @keyframes xSpin { to { transform: rotate(360deg); } }
   .xStand.on .itIcon { box-shadow: 0 0 14px -2px var(--rc, #ffd36b); }
   /* what most visitors felt about a piece, one small pill under its stone: it is a child of the stage and not of the stand, so no stand, chest or visitor is drawn over it */
   .xTally { position: absolute; z-index: 6; margin-top: 29px; transform: translateX(-50%); pointer-events: none; }
