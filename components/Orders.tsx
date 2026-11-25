@@ -9,6 +9,8 @@ import { askConfirm } from './ds/Dialog';
 import { ElIcon, SlotIcon } from './Icons';
 import { Img, ItemIcon, fmt } from './ui';
 import type { Act } from './Panels';
+import { DoneSeal, useFin } from './JobDone';
+import { useCue } from './fx/Cue';
 
 // Tìm đồ: the first kind of job in Công việc (components/Jobs.tsx). A buyer stays until everything asked has been handed over, and the player gives what there is ("có bao nhiêu đưa bấy nhiêu").
 // Every piece is paid at once, so nothing is lost by stopping half way. Everything runs on the screen at once (the same rule as on the server, lib/game.ts fillOrder) and
@@ -38,6 +40,7 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Record<number, number>>({});   // part index -> item id chosen for it
   const [err, setErr] = useState('');
+  const { fin, mark } = useFin(), cue = useCue();
   const start = (o: O.Order) => {
     setErr('');
     if (open === o.id) { setOpen(null); return; }
@@ -46,9 +49,14 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
     setSel(pick); setOpen(o.id);
   };
   const choose = (part: number, id: number) => setSel((cur) => { const n = { ...cur }; if (n[part] === id) delete n[part]; else n[part] = id; return n; });
-  const give = async (o: O.Order, ids: number[]) => {
+  const give = async (o: O.Order, ids: number[], slot: number, card: Element | null) => {
     const r = await act('fillOrder', { id: o.id, items: ids });
-    if (r.ok) { setOpen(null); setErr(''); } else setErr(r.msg);
+    if (!r.ok) { setErr(r.msg); return; }
+    setOpen(null); setErr('');
+    if (r.data && r.data.done) {   // the last piece: a seal on the card, a sound and a line over it
+      const gift = o.extra ? `${o.extra.n} ${O.extraName(o.extra)}` : undefined;
+      mark(slot, { stones: r.data.stones, gift }); cue.jobDone(card, `+${fmt(r.data.stones)} Linh Thạch`);
+    }
   };
   const sendAway = async (o: O.Order) => {
     const { got } = O.progress(o);
@@ -65,14 +73,15 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
       {wasted && <div className="hint ordWarn">Ngươi đang cài tự phân giải đồ hạng {C.RARITY[st.set.dissolveMax]} trở xuống. Món khách đang cần vẫn được chừa lại một cái cho mỗi phần, nhưng các món thừa khác thì mất.</div>}
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">
-        {list.map((o) => {
+        {list.map((o, slot) => {
           const { got, total } = O.progress(o), cs = candidates(st, o), have = cs.reduce((a, c) => a + (c.items.length ? 1 : 0), 0);
           const chosen = cs.flatMap((c) => c.items.filter((x) => sel[c.part] === x.id));
           const sum = chosen.reduce((a, x) => a + dissolveValue(x), 0), full = got + chosen.length === total && chosen.length > 0;
           const pay = chosen.reduce((a, x) => a + O.payFor(o.mult, dissolveValue(x)), 0) + (full ? O.payFor(o.bonus, o.sum + sum) : 0);
           const gone = !O.isOpen(o);
           return (
-            <div key={o.id} className={`ordCard k-${o.kind}${gone ? ' done' : ''}`}>
+            <div key={slot} className={`ordCard k-${o.kind}${gone ? ' done' : ''}${fin[slot] ? ' sealed' : ''}`}>
+              {fin[slot] && <DoneSeal f={fin[slot]} />}
               <div className="ordHead">
                 <Img src={C.buyerArt(o.who.arch, o.who.g)} className="ordFace" fb={<Icon name="scroll" size={26} />} />
                 <div className="ordWho"><b>{o.who.name}</b><small>{o.who.arch}{o.kind === 'vip' ? ' · khách quý' : o.kind === 'set' ? ' · gom cả bộ' : ''}</small></div>
@@ -117,7 +126,7 @@ export function OrdersPanel({ st, act }: { st: GS; act: Act }) {
                     </div>
                   )}
                   {open === o.id && have > 0
-                    ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(null)}>Thôi</button><button type="button" className="btn hot" disabled={chosen.length === 0} onClick={() => give(o, chosen.map((x) => x.id))}>Giao {chosen.length} món · +{fmt(pay)} Linh Thạch</button></div>
+                    ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(null)}>Thôi</button><button type="button" className="btn hot" disabled={chosen.length === 0} onClick={(e) => give(o, chosen.map((x) => x.id), slot, e.currentTarget.closest('.ordCard'))}>Giao {chosen.length} món · +{fmt(pay)} Linh Thạch</button></div>
                     : <button type="button" className="btn" disabled={have === 0} onClick={() => start(o)}>{have > 0 ? `Giao nộp (${cs.reduce((a, c) => a + c.items.length, 0)} món hợp)` : 'Chưa có món nào hợp'}</button>}
                 </>
               )}

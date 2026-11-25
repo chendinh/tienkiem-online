@@ -33,6 +33,12 @@ export function useCue() {
     storm: (waves: number) => { fx.lightning({ strikes: waves }); for (let i = 0; i < waves; i++) setTimeout(() => { sfx('thunder'); fx.shake(); }, 80 + i * 420); },
     breakOk: () => { const p = at('.hero', 0.45); fx.flash('gold'); fx.float('Đột Phá Thành Công', { ...p, color: '#f6e2a8' }); sfx('gong'); sfx('levelup'); },
     breakFail: () => { const p = at('.hero', 0.45); fx.vignette('#e85d3d'); fx.float('Đột Phá Thất Bại', { ...p, color: '#ff9c8a' }); sfx('fail'); },
+    // a job (Công việc) was handed over in full: two bells and a line that floats up over its card (`el`), or the middle of the screen when the card is not on it
+    jobDone: (el?: Element | null, sub?: string) => {
+      const r = el?.getBoundingClientRect();
+      sfx('chime'); setTimeout(() => sfx('rare'), 170);
+      fx.float('Hoàn Thành', { ...(r ? { x: r.left + r.width / 2, y: r.top + r.height * 0.3 } : {}), color: '#f6e2a8', sub });
+    },
     gain: (text: string, color = '#f6e2a8') => fx.float(text, { ...at('.res', 0.5), color }),
   }), [fx]);
 }

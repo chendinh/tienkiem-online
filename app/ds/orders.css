@@ -75,4 +75,19 @@
   .jobBeasts { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
   .jobBeast { min-width: 0; }
   .jobBeast small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the seal "Hoàn thành" stamped on a card whose buyer has been handed everything (components/JobDone.tsx). It only enters; the timers remove it, so with motion off it just shows. */
+  .ordCard { position: relative; }
+  .ordCard.sealed { opacity: 1; overflow: hidden; }
+  .jobSeal { position: absolute; inset: 0; z-index: 6; display: grid; place-content: center; justify-items: center; gap: 14px; border-radius: inherit; background: radial-gradient(circle at 50% 40%, rgb(30 52 56 / 0.97), rgb(8 20 27 / 0.98) 75%); animation: seal-bg 0.22s ease-out both; transition: opacity 0.5s ease; }
+  .jobSeal.leaving { opacity: 0; }
+  .sealMark { position: relative; display: grid; justify-items: center; gap: 2px; padding: 12px 22px 10px; border: 3px double var(--cinnabar-400); border-radius: 10px; color: var(--cinnabar-300); background: color-mix(in srgb, var(--cinnabar-500) 16%, transparent); font-family: var(--font-display); letter-spacing: 0.1em; text-shadow: 0 0 14px color-mix(in srgb, var(--cinnabar-500) 70%, transparent); box-shadow: 0 0 22px -4px color-mix(in srgb, var(--cinnabar-500) 70%, transparent); transform: rotate(-6deg); animation: seal-stamp 0.55s cubic-bezier(0.2, 1.35, 0.4, 1) both; }
+  .sealMark b { font-size: var(--fs-xl); font-weight: 700; text-transform: uppercase; line-height: 1.1; }
+  .sealRing { position: absolute; inset: -3px; border: 2px solid var(--cinnabar-400); border-radius: 10px; pointer-events: none; animation: seal-ring 0.8s 0.3s ease-out both; }
+  .sealGain { display: grid; justify-items: center; gap: 3px; color: var(--gold-200); font-size: var(--fs-sm); font-weight: 600; text-align: center; animation: enter-up 0.4s 0.4s var(--ease-out) both; }
+  .sealGain span { display: inline-flex; align-items: center; gap: 5px; }
+  .sealMote { position: absolute; left: 50%; top: 42%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--gold-300); box-shadow: 0 0 8px var(--gold-300); pointer-events: none; animation: seal-mote 0.95s ease-out both; }
+  @keyframes seal-bg { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes seal-stamp { 0% { opacity: 0; transform: rotate(-6deg) scale(2.3); } 55% { opacity: 1; transform: rotate(-6deg) scale(0.92); } 100% { opacity: 1; transform: rotate(-6deg) scale(1); } }
+  @keyframes seal-ring { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(1.75, 2.2); } }
+  @keyframes seal-mote { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); } }
 }

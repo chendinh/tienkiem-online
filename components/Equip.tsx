@@ -15,6 +15,7 @@ import { SlotIcon } from './Icons';
 import * as O from '@/lib/orders';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
+import { useCue } from './fx/Cue';
 
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
@@ -27,6 +28,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   const [hot, setHot] = useState('');            // slot under the mouse: lights its place on the body and the matching items in the bag
   const [dragging, setDragging] = useState(false); // a real drag is under way
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
+  const cue = useCue();
   const [sel, setSel] = useState<number | null>(null);   // the item whose popup is open
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,8 +96,12 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id), cur = it ? st.eq[it.slot] : null;
     // a piece that would be an upgrade is not handed over by a single tap
     if (it && (!cur || it.power > cur.power) && !(await askConfirm({ title: 'Giao cho khách', body: `${it.name} ${cur ? `mạnh hơn ${cur.name} đang mặc` : `có thể mặc vào ô ${C.SLOT_VI[it.slot]} đang trống`}. Vẫn giao cho khách?`, ok: 'Giao', danger: true }))) return false;
-    return go('fillOrder', { id: orderId, items: [id] });
-  }, [stRef, go]);
+    const r = await act('fillOrder', { id: orderId, items: [id] });
+    if (!r.ok) { say(r.msg || errText(r.code || 'E_SERVER'), false); re(); return false; }
+    setSel(null); re();
+    if (r.data && r.data.done) cue.jobDone(null, `+${fmt(r.data.stones)} Linh Thạch`);   // the last piece the buyer waited for (the window of Công việc is not open here, so the seal is not either)
+    return true;
+  }, [stRef, act, say, re, cue]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
   return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, give, cleanBusy, sel, open, close };

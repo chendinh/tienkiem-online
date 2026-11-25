@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as C from '@/lib/content';
 import * as J from '@/lib/jobs';
 import * as O from '@/lib/orders';
@@ -10,6 +10,8 @@ import { askConfirm } from './ds/Dialog';
 import { ElIcon } from './Icons';
 import { BeastArt, Img, fmt } from './ui';
 import type { Act } from './Panels';
+import { DoneSeal, useFin, type Fin } from './JobDone';
+import { useCue } from './fx/Cue';
 
 // Tìm thú, Đặt đan and Nguyên liệu: the three kinds of Công việc that ask for a NUMBER of something (the rules are in lib/jobs.ts and lib/game.ts fillJob).
 // A buyer stays until all that was asked has been handed over; the player gives what there is, every unit is paid at once, and nothing is lost by stopping half way.
@@ -40,9 +42,10 @@ function AskPic({ a, size }: { a: J.Ask; size: number }) {
     : <span className="jobAskImg" style={{ width: size, height: size }}>{a.t === 'beast' && a.el ? <ElIcon el={a.el} size={Math.round(size * 0.65)} /> : <Icon name="stone" size={Math.round(size * 0.5)} />}</span>;
 }
 
-function JobCard({ st, act, j, onErr }: { st: GS; act: Act; j: J.Job; onErr: (m: string) => void }) {
+function JobCard({ st, act, j, fin, onDone, onErr }: { st: GS; act: Act; j: J.Job; fin?: Fin; onDone: (stones: number, card: Element | null) => void; onErr: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [sel, setSel] = useState<number[]>([]);
+  useEffect(() => { setOpen(false); setSel([]); }, [j.id]);   // the card belongs to a slot: when a new buyer takes the place, the picker starts closed
   const gone = !J.isOpen(j), left = J.left(j), a = j.ask;
   const cands = j.type === 'beast' ? beastCands(st, j) : [];
   const have = j.type === 'beast' ? cands.length : stockOf(st, a), take = j.type === 'beast' ? sel.length : Math.min(have, left);
@@ -60,9 +63,11 @@ function JobCard({ st, act, j, onErr }: { st: GS; act: Act; j: J.Job; onErr: (m:
     setOpen(true);
   };
   const toggle = (id: number) => setSel((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < left ? [...cur, id] : cur));
-  const give = async () => {
+  const give = async (card: Element | null) => {
     const r = await act('fillJob', j.type === 'beast' ? { id: j.id, ids: sel } : { id: j.id, n: take });
-    if (r.ok) { setOpen(false); onErr(''); } else onErr(r.msg);
+    if (!r.ok) { onErr(r.msg); return; }
+    setOpen(false); onErr('');
+    if (r.data && r.data.done) onDone(r.data.stones, card);
   };
   const sendAway = async () => {
     if (j.got > 0 && !(await askConfirm({ title: 'Tiễn khách', body: `${j.who.name} đã nhận ${j.got} từ ngươi. Tiễn đi thì mất phần thưởng đủ hàng và quà. Tiền phần đã giao vẫn là của ngươi.`, ok: 'Tiễn đi' }))) return;
@@ -71,14 +76,15 @@ function JobCard({ st, act, j, onErr }: { st: GS; act: Act; j: J.Job; onErr: (m:
     if (!r.ok) onErr(r.msg);
   };
   // a beast the player wants to hand over but that is in the Party or framed asks a second time
-  const giveBeasts = async () => {
+  const giveBeasts = async (card: Element | null) => {
     const risky = chosen.filter((b) => !spare(st, b));
     if (risky.length && !(await askConfirm({ title: 'Giao Linh Thú đang xuất chiến', body: `${risky.map((b) => b.name).join(', ')} đang ở trong đội xuất chiến hoặc trong khung trưng bày. Giao đi thì không lấy lại được.`, ok: 'Vẫn giao', danger: true }))) return;
-    await give();
+    await give(card);
   };
 
   return (
-    <div className={`ordCard jobCard t-${j.type}${gone ? ' done' : ''}`}>
+    <div className={`ordCard jobCard t-${j.type}${gone ? ' done' : ''}${fin ? ' sealed' : ''}`}>
+      {fin && <DoneSeal f={fin} />}
       <div className="ordHead">
         <Img src={C.buyerArt(j.who.arch, j.who.g)} className="ordFace" fb={<Icon name="scroll" size={26} />} />
         <div className="ordWho"><b>{j.who.name}</b><small>{j.who.arch}</small></div>
@@ -111,10 +117,10 @@ function JobCard({ st, act, j, onErr }: { st: GS; act: Act; j: J.Job; onErr: (m:
             </div>
           )}
           {open && j.type === 'beast'
-            ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(false)}>Thôi</button><button type="button" className="btn hot" disabled={sel.length === 0} onClick={giveBeasts}>Giao {sel.length} con · +{fmt(pay)} <Icon name="stone" size={14} /></button></div>
+            ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(false)}>Thôi</button><button type="button" className="btn hot" disabled={sel.length === 0} onClick={(e) => giveBeasts(e.currentTarget.closest('.ordCard'))}>Giao {sel.length} con · +{fmt(pay)} <Icon name="stone" size={14} /></button></div>
             : j.type === 'beast'
               ? <button type="button" className="btn" disabled={have === 0} onClick={start}>{have > 0 ? `Giao nộp (${have} con hợp)` : 'Chưa có con nào hợp'}</button>
-              : <button type="button" className="btn" disabled={have === 0} onClick={give}>{have > 0 ? `Giao ${take}${have < left ? ` (ngươi có ${have})` : ''} · +${fmt(pay)}` : `Chưa có ${a.t === 'pill' ? 'viên đan' : 'nguyên liệu'} nào`}</button>}
+              : <button type="button" className="btn" disabled={have === 0} onClick={(e) => give(e.currentTarget.closest('.ordCard'))}>{have > 0 ? `Giao ${take}${have < left ? ` (ngươi có ${have})` : ''} · +${fmt(pay)}` : `Chưa có ${a.t === 'pill' ? 'viên đan' : 'nguyên liệu'} nào`}</button>}
           {j.type !== 'beast' && have === 0 && <div className="hint">{a.t === 'pill' ? 'Luyện Hồi Khí Đan bằng nguyên liệu thu được khi đi thám hiểm.' : 'Nguyên liệu rơi ra khi thám hiểm, mỗi vùng một loại.'}</div>}
         </>
       )}
@@ -124,12 +130,19 @@ function JobCard({ st, act, j, onErr }: { st: GS; act: Act; j: J.Job; onErr: (m:
 
 function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; hint: string }) {
   const list = board(st, type), [err, setErr] = useState('');
+  const { fin, mark } = useFin(), cue = useCue();
   if (!list.length) return <div className="empty">Khách đang tới Phường Thị, đợi vài giây rồi xem lại.</div>;
   return (
     <div className="ordPanel">
       <div className="hint">{hint}</div>
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
-      <div className="ordList">{list.map((j) => <JobCard key={j.id} st={st} act={act} j={j} onErr={setErr} />)}</div>
+      <div className="ordList">
+        {list.map((j, slot) => (
+          <JobCard key={slot} st={st} act={act} j={j} fin={fin[slot]} onErr={setErr} onDone={(stones, card) => {   // the last unit: a seal on the card, a sound and a line over it
+            mark(slot, { stones, gift: j.extra ? `${j.extra.n} ${O.extraName(j.extra)}` : undefined }); cue.jobDone(card, `+${fmt(stones)} Linh Thạch`);
+          }} />
+        ))}
+      </div>
     </div>
   );
 }

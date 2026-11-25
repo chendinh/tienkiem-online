@@ -43,6 +43,10 @@ Bảng khách luôn có 6 chỗ: 3 khách lẻ, 2 khách gom bộ, 1 khách quý
 - `components/Equip.tsx`: nhãn trên ô túi, nút "Giao cho khách" trong cửa sổ món, và `Dọn túi` chừa món khách cần.
 - Test: `tests/orders.test.ts`.
 
+### Hiệu ứng khi hoàn thành
+
+Giao món cuối cùng (cả bốn loại việc) thì: một con dấu đỏ "Hoàn thành" đóng lên thẻ khoảng 3 giây, kèm số Linh Thạch vừa nhận và quà; chuông ngân hai tiếng; một dòng "Hoàn Thành" bay lên trên thẻ (qua `useCue().jobDone`, ở mức hiệu ứng Tắt thì chỉ còn con dấu). Danh sách khóa theo ô chứ không theo khách, nên khách mới của máy chủ vào đúng ô đó và hiện ra khi con dấu mờ đi (`components/JobDone.tsx`). Giao món cuối từ cửa sổ món trong túi thì chỉ có chuông và dòng bay lên, vì cửa sổ Công việc không mở.
+
 ### Chân dung khách
 
 Mỗi loại tu sĩ (`C.NPC_TITLES`, 6 loại) có một ảnh nữ và một ảnh nam, vẽ một lần bằng AI và dùng chung cho mọi người chơi: `public/art/buyers/{loại}_{f|m}.jpg` (12 ảnh, 768×768, bán thân).
