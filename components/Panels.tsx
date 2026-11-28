@@ -4,7 +4,6 @@ import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
-import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
 import * as D from '@/lib/daily';
 import { allSpecies } from '@/lib/daily';
@@ -595,16 +594,15 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
 
 // ---------- Chuồng Linh Thú (the pen): compact tiles, one popup per creature
 // One tile of the pen. The panel is drawn again on every change of the game, most of which leave the pen as it is: a tile is drawn again only when what it shows changes
-// (the creature, whether it fights, whether it is at work). It does not look at the Tìm thú buyers (2026-11-28): most players never take those jobs, and the pen should
-// stay light for them; the buyers are seen in Công việc. The lock of a creature at work stays: it says why the creature cannot be sold.
-type PenTileProps = { b: Beast; inParty: boolean; busy: boolean; onOpen: (id: number) => void };
+// (the creature, whether it fights). The pen, its tiles and its popup, has nothing to do with Công việc (2026-11-28): most players never take those jobs, and the pen should
+// stay light for them. Tìm thú and Thú đi làm are seen in Công việc; a creature at work that is sold is refused by the rule itself (releaseBeast: E_BEAST_BUSY), in words.
+type PenTileProps = { b: Beast; inParty: boolean; onOpen: (id: number) => void };
 const beastKey = (b: Beast) => `${b.id}|${b.sp}|${b.name}|${b.level}|${b.cls}|${b.mut ? 1 : 0}|${b.size}`;
-const samePenTile = (a: PenTileProps, c: PenTileProps) => a.inParty === c.inParty && a.busy === c.busy && a.onOpen === c.onOpen && beastKey(a.b) === beastKey(c.b);
-const PenTile = memo(function PenTile({ b, inParty, busy, onOpen }: PenTileProps) {
+const samePenTile = (a: PenTileProps, c: PenTileProps) => a.inParty === c.inParty && a.onOpen === c.onOpen && beastKey(a.b) === beastKey(c.b);
+const PenTile = memo(function PenTile({ b, inParty, onOpen }: PenTileProps) {
   return (
     <button className={`penTile ${b.mut ? 'mutc' : ''}`} onClick={() => onOpen(b.id)} aria-label={`${b.name} cấp ${b.level}`}>
       <BeastArt b={b} box={72} mine onOpen={() => onOpen(b.id)} />
-      {busy && <i className="reqMark lockMark" title="Đang đi làm, khoá đến khi nhận thưởng"><Icon name="lock" size={10} /></i>}
       <span className="pn">{inParty ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</span>
       <small>Lv{b.level} · {C.SIZE_CLASS[b.cls]}</small>
     </button>
@@ -615,13 +613,9 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   const beasts = st.beasts.slice().sort((a, b) => b.power - a.power);
   const party = new Set(beasts.slice(0, st.caps.party).map((b) => b.id));
   const cur = sel === null ? null : beasts.find((b) => b.id === sel) || null;
-  // out at work (Thú đi làm): locked until the pay is collected, so it cannot be sold or taken to Linh Thú Viên; the post it works for names whom it works for
-  const jobOf = useMemo(() => new Map(WK.postsOf(st.work).filter((p) => WK.isOpen(p) && p.beast !== undefined).map((p) => [p.beast!, p])), [st.work]);
-  const curJob = cur ? jobOf.get(cur.id) : undefined;
   const curPic = useLookPic(cur, true);   // the look of a Dị Biến: its own picture (its name tag is LookTag)
   const sellOne = async (b: Beast) => {
     if (b.mut) { say(ERR.E_MUTANT, false); return; }
-    if (jobOf.has(b.id)) { say(ERR.E_BEAST_BUSY, false); return; }
     const r = await act('release', { id: b.id }); say(r.msg, r.ok); if (r.ok) setSel(null);
   };
   const framed = (id: number) => !!st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === id;
@@ -637,7 +631,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
       <div className="cleanRow"><button className="btn sm" disabled={beasts.length <= st.caps.party} onClick={sellMany}>Bán nhanh các con dư</button></div>
       {beasts.length === 0 && <div className="empty">Chưa có Linh Thú. Thắng yêu thú rồi dùng Khế Ước Phù, hoặc bật “Tự thu phục” trong Cài đặt.</div>}
       <div className="penGrid">
-        {beasts.map((b) => <PenTile key={b.id} b={b} inParty={party.has(b.id)} busy={jobOf.has(b.id)} onOpen={setSel} />)}
+        {beasts.map((b) => <PenTile key={b.id} b={b} inParty={party.has(b.id)} onOpen={setSel} />)}
       </div>
       {cur && typeof document !== 'undefined' && createPortal(
         <div className="modal zoom" onClick={() => setSel(null)} role="dialog" aria-modal="true" aria-label={cur.name}>
@@ -646,16 +640,13 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
             <div className="zoomPic"><PanZoom><Img src={curPic || C.monsterArt(cur.sp, cur.mut)} className="fill" fb={<ElIcon el={SP(cur.sp).el[0]} size={80} />} /></PanZoom></div>
             <div className="zoomInfo">
               <h2>{cur.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={cur} /> {cur.elite ? 'Tinh Anh ' : ''}{cur.name}</h2>
-              <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={SP(cur.sp).el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}{curJob && <span className="chip"><Icon name="lock" size={12} /> Đang đi làm</span>}</div>
+              <div className="chips"><span className="chip">Lv{cur.level}</span><ElChip el={SP(cur.sp).el[0]} /><span className="chip">{C.PERS[cur.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {cur.power}</span>{party.has(cur.id) && <span className="chip">★ xuất chiến</span>}</div>
               <SizeMeter b={cur} />
               <ul className="itLines big"><li>Sinh Lực {cur.stats[0]}</li><li>Công Kích {cur.stats[2]}</li><li>Phòng Ngự {cur.stats[3]}</li><li>Thân Pháp {cur.stats[4]}</li></ul>
               <div className="hint">Thần thông: {cur.skills.join(', ')}. Phí nuôi {Math.ceil(cur.level / 4)} Linh Thạch mỗi 10 phút.</div>
             </div>
-            {curJob && <div className="hint">Đang làm “{curJob.job}” cho {curJob.who.name}. Linh Thú bị khoá đến khi xong việc và nhận thưởng ở Công việc · Thú đi làm: không bán, không đưa vào Linh Thú Viên được (vẫn ra trận bình thường).</div>}
             <div className="eqAct">
-              {curJob
-                ? <button className="btn" disabled title="Đang đi làm, khoá đến khi nhận thưởng"><Icon name="lock" size={15} /> Đang đi làm</button>
-                : cur.mut
+              {cur.mut
                 ? <button className="btn hot" title="Mở Linh Thú Viên với con này đã đứng sẵn trên nền" onClick={() => window.location.assign(`/linh-thu-vien?add=${cur.id}`)}><Icon name="zoo" size={16} /> Đưa vào Linh Thú Viên</button>
                 : <button className="btn hot" onClick={() => sellOne(cur)}>Bán +{fmt(releaseValue(cur))} <Icon name="stone" size={15} /></button>}
               <button className="btn" title="Treo con này trong khung trên trang nhân vật, ai bấm vào tên ngươi trên bảng xếp hạng cũng thấy" onClick={() => frameOne(cur)}><Icon name="sparkle" size={15} /> {framed(cur.id) ? 'Gỡ khỏi khung' : 'Trưng bày'}</button>

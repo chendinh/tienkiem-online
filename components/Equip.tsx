@@ -12,11 +12,8 @@ import { ElChip, GenImg, ItemIcon, PanZoom, STAT_VI, fmt } from './ui';
 import { ElIcon } from './Icons';
 import { itemSpec } from '@/lib/avatarSpec';
 import { SlotIcon } from './Icons';
-import * as O from '@/lib/orders';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
-import { useCue } from './fx/Cue';
-import { afterPaint } from './JobDone';
 
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
@@ -29,7 +26,6 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   const [hot, setHot] = useState('');            // slot under the mouse: lights its place on the body and the matching items in the bag
   const [dragging, setDragging] = useState(false); // a real drag is under way
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
-  const cue = useCue();
   const [sel, setSel] = useState<number | null>(null);   // the item whose popup is open
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,21 +87,9 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     say(r.msg || errText(r.code || 'E_SERVER'), r.ok);
     re();
   }, [act, say, re]);
-  // Hand a piece to the buyer who waits for it (Công việc, Tìm đồ): the same instant path.
-  const give = useCallback(async (orderId: string, id: number) => {
-    const st = stRef.current; if (!st) return false;
-    const it = st.bag.find((x) => x.id === id) || st.stash.find((x) => x.id === id), cur = it ? st.eq[it.slot] : null;
-    // a piece that would be an upgrade is not handed over by a single tap
-    if (it && (!cur || it.power > cur.power) && !(await askConfirm({ title: 'Giao cho khách', body: `${it.name} ${cur ? `mạnh hơn ${cur.name} đang mặc` : `có thể mặc vào ô ${C.SLOT_VI[it.slot]} đang trống`}. Vẫn giao cho khách?`, ok: 'Giao', danger: true }))) return false;
-    const r = await act('fillOrder', { id: orderId, items: [id] });
-    if (!r.ok) { say(r.msg || errText(r.code || 'E_SERVER'), false); re(); return false; }
-    setSel(null); re();
-    if (r.data && r.data.done) afterPaint(() => cue.jobDone(null, `+${fmt(r.data.stones)} Linh Thạch`));   // the last piece the buyer waited for (the window of Công việc is not open here, so the seal is not either)
-    return true;
-  }, [stRef, act, say, re, cue]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
-  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, give, cleanBusy, sel, open, close };
+  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close };
 }
 
 const keyAct = (fn: () => void) => (e: RKey) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -174,7 +158,6 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
   const { it, where } = found, L = levelOf(st.player), rc = C.RCOLOR[it.tier], cur = where === 'eq' ? null : st.eq[it.slot];
   const delta = cur ? it.power - cur.power : null;
   const tooHigh = it.level > L;
-  const buyer = where === 'eq' ? [] : O.wantedBy(st.orders, it);   // the buyers that wait for this piece (Phường Thị)
   const framed = !!st.player.showcase && st.player.showcase.kind === 'item' && st.player.showcase.id === it.id;
   return (
     <div className="modal zoom" onClick={eqx.close} role="dialog" aria-modal="true" aria-label={it.name}>
@@ -208,7 +191,6 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
           {where === 'stash' && <button className="btn" onClick={() => eqx.moveToBag(it.id)}>Chuyển vào túi</button>}
           <button className="btn" title="Món đã khóa: game không tự thay và không tự phân giải" onClick={() => eqx.lock(it.id)}><Icon name={it.locked ? 'unlock' : 'lock'} size={15} /> {it.locked ? 'Mở khóa' : 'Khóa'}</button>
           <button className="btn" title={framed ? 'Gỡ món này khỏi khung trưng bày' : 'Treo món này trong khung trên trang nhân vật (món được khóa để không bị tự phân giải)'} onClick={() => eqx.frame(it.id, !framed)}><Icon name="sparkle" size={15} /> {framed ? 'Gỡ khỏi khung' : 'Trưng bày'}</button>
-          {buyer.length > 0 && !it.locked && <button className="btn" title={`Giao cho ${buyer[0].order.who.name} (công việc Tìm đồ)`} onClick={() => eqx.give(buyer[0].order.id, it.id)}><Icon name="scroll" size={15} /> Giao cho khách +{fmt(O.payFor(buyer[0].order.mult, dissolveValue(it)))} <Icon name="stone" size={14} /></button>}
           {where !== 'eq' && <button className="btn" disabled={!!it.locked} title={it.locked ? 'Mở khóa trước khi phân giải' : 'Đổi món này thành Linh Thạch'} onClick={() => eqx.dissolve(it.id)}>Phân giải +{fmt(dissolveValue(it))} <Icon name="stone" size={15} /></button>}
           <button className="btn ghost" onClick={eqx.close}>Đóng</button>
         </div>
@@ -219,7 +201,8 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
 
 // One cell of the bag or the Kho Tạm. The panel is drawn again on every change of the game (a poll, a fight, a creature tamed), most of which leave the bag as it is:
 // a cell is drawn again only when what it shows changes (the item, the piece worn in its slot, the level that makes it too high, the slot under the mouse).
-// It does not look at the Tìm đồ buyers (2026-11-28): most players never take those jobs, and the bag should stay light for them; the buyers are seen in Công việc.
+// The bag, its cells and the popup of an item, has nothing to do with Công việc (2026-11-28): most players never take those jobs, and the bag should stay light for them;
+// a piece is handed to a Tìm đồ buyer from Công việc.
 type TileProps = { it: Item; from: 'bag' | 'stash'; cur: number | null; tooHigh: boolean; match: boolean; eqx: Eqx };
 const itemKey = (it: Item) => `${it.id}|${it.base}|${it.slot}|${it.name}|${it.tier}|${it.level}|${it.el}|${it.power}|${it.locked ? 1 : 0}|${it.art ?? ''}|${it.tien ?? ''}|${it.rel ?? ''}`;
 // the callbacks of `eqx` keep their identity (useCallback, state setters), so a cell does not need to be drawn again when the object around them is new
