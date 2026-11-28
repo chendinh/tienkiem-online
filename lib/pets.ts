@@ -8,6 +8,8 @@
 //   - three forms (Ấu Thể, Thành Thể, Linh Thể), reached at fixed Levels; each form makes the talent stronger;
 //   - no hunger, nothing lost while away, no random numbers on the pet itself.
 // Hatching and the egg drop use hash01 of the save's seed (never the journey's random streams), so a save without a Linh Sủng plays exactly as before.
+// A Linh Sủng lives in its master's mind (tâm niệm), not in the world: its picture is an ink wash painting (thủy mặc), the opposite of the realistic Linh Thú,
+// and the painting grows fuller with each form. It is drawn on its own (never from the character or an item) and the character's portrait never shows it.
 // The pictures are a fixed set (species x form, drawn once by `npm run pregen -- --only pets`), so a player never costs a new picture.
 
 export interface Pet { id: number; sp: string; lv: number; xp: number }
@@ -26,11 +28,11 @@ export interface PetSpecies {
 }
 export const PET_SPECIES: PetSpecies[] = [
   { id: 'tho', name: 'Thỏ Ngọc', talent: 'Hộ Thể', stat: 'hp', unit: '%', base: 4, per: 0.3, hue: '#9fe0d0',
-    en: 'a jade rabbit spirit with snow-white fur tinted pale jade green, long soft ears with glowing jade tips, a tiny crescent moon mark on the forehead' },
+    en: 'a jade rabbit spirit with soft white fur touched with pale jade green, long ears, a tiny crescent moon on its forehead' },
   { id: 'meo', name: 'Mèo Mây', talent: 'Ngộ Đạo', stat: 'cult', unit: '%', base: 3, per: 0.25, hue: '#b9c8ff',
-    en: 'a cloud cat spirit with fluffy silver-blue fur that fades into wisps of white cloud at the tail and paws, calm golden eyes' },
+    en: 'a cloud cat spirit with soft silver-blue fur whose tail and paws dissolve into wisps of cloud, calm golden eyes' },
   { id: 'ca', name: 'Cá Chép Vàng', talent: 'Phúc Vận', stat: 'luck', unit: '', base: 2, per: 0.2, hue: '#ffcf6e',
-    en: 'a golden koi carp spirit floating in the air, shimmering gold and vermilion scales, long flowing translucent fins like silk ribbons, little bubbles of light around it' },
+    en: 'a golden koi carp spirit floating in the air, gold and vermilion scales, long flowing fins like silk ribbons' },
 ];
 export const PET = {
   hatchTicks: 1440,        // 2 hours of game time (5 s ticks)

@@ -905,13 +905,15 @@
    LINH SỦNG (components/Pets.tsx): the slot of the equipment grid that was "Cơ duyên", and its popup. Light: one small loop on an egg being hatched, nothing else moves.
    ========================================================================== */
 @layer game {
-  .petPic { --pc: var(--gold-400); position: relative; display: inline-grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: var(--r-sm); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--pc) 22%, transparent), rgb(0 0 0 / 0.55) 75%); }
+  /* a Linh Sủng is a painting on rice paper (thủy mặc): paper behind the picture, and as the stand-in while the picture is not drawn yet */
+  .petPic { --pc: var(--gold-400); --paper: #efe5cf; position: relative; display: inline-grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: var(--r-sm); background: radial-gradient(circle at 50% 45%, #f7f0df, var(--paper) 60%, #d9c9a6); }
   .petPic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .petPic.none { color: color-mix(in srgb, var(--pc) 80%, #fff); box-shadow: inset 0 0 18px color-mix(in srgb, var(--pc) 30%, transparent); }
+  .petPic.none { color: rgb(38 34 29 / 0.78); box-shadow: inset 0 0 14px rgb(110 85 45 / 0.35); }
+  .petPic.none .eggShape { background: radial-gradient(circle at 45% 40%, rgb(230 200 120 / 0.45), transparent 70%); border: 2px solid rgb(38 34 29 / 0.72); box-shadow: none; }
   .eggShape { display: block; width: 26px; height: 33px; border-radius: 50% 50% 50% 50% / 60% 60% 42% 42%; background: radial-gradient(circle at 38% 30%, #fffbe9, #f1dca4 45%, #b8935a 100%); box-shadow: 0 0 14px rgb(255 226 150 / 0.45); }
   .eggShape.ghost { background: none; border: 1.5px dashed color-mix(in srgb, var(--gold-400) 55%, transparent); box-shadow: none; }
   .petPic.egg .eggShape { width: 42%; height: 54%; }
-  .eqDoll .petSlot .petPic { width: 56px; height: 56px; border: 1px solid color-mix(in srgb, var(--rc, var(--gold-400)) 45%, transparent); }
+  .eqDoll .petSlot .petPic { width: 56px; height: 56px; border: 2px solid #3a2f22; outline: 1px solid color-mix(in srgb, var(--rc, var(--gold-400)) 55%, transparent); }   /* mounted like a small scroll painting */
   .eqDoll .petSlot.filled .petPic { box-shadow: 0 0 16px -4px var(--rc); }
   .petEggSlot { position: relative; display: grid; place-items: center; }
   .petEggSlot em { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); padding: 0 4px; border-radius: 6px; font-size: 9.5px; font-style: normal; line-height: 1.5; white-space: nowrap; color: var(--gold-200, #f5e2b0); background: rgb(0 0 0 / 0.7); }

@@ -17,12 +17,15 @@ const CORE = 'High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D ren
 const PERSON = 'High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D character rendering, breathtaking ethereal beauty, idealized realistic human anatomy, exceptionally beautiful facial features, flawless yet natural skin, delicate detailed eyes, flowing silky hair, luxurious ancient Chinese fantasy costumes, intricate gold embroidery and ornaments, magical glowing particles, ethereal celestial aura, luminous cinematic lighting, dreamy atmospheric environment, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render';
 const BEAST = `${CORE}, fantasy realistic creature, hyper-realistic animal anatomy and musculature, ultra detailed realistic fur with individual strands, scales and feathers, natural proportions and textures, majestic AAA game creature design, ethereal aura, not a cartoon, not a plush toy, not cute chibi`;
 const ENV = 'a cinematic xianxia environment';
-// Linh Sủng (lib/pets.ts): the same realistic rendering as the beasts, but small, gentle and lovable. Still not a cartoon or a plush toy.
-const PET = `${CORE}, fantasy realistic creature, small and adorable spirit pet with big gentle expressive eyes, realistic soft fur, scales or fins with fine natural detail, natural proportions, not a cartoon, not a plush toy, not chibi, not a sticker`;
+// Linh Sủng (lib/pets.ts) live in the mind, not in the world: each one is a PAINTING, in traditional ink wash (thủy mặc) on rice paper, the opposite of the
+// realistic 3D Linh Thú. It is drawn on its own (never from a character, an item or a worn piece) and the character's portrait never shows it.
+// The painting grows with the pet: a few sparse strokes for the newborn, a finished masterpiece for the spirit form.
+const INK = 'A traditional Chinese ink wash painting (shui-mo) on aged xuan rice paper, painted with a soft brush: expressive flowing brush strokes, ink gradations from deep black to pale grey, delicate light color washes, generous empty paper space. Not a photograph, not a 3D render, not a cartoon, not anime. The paper has no calligraphy, no red seal stamp, no signature and no writing of any kind';
+const PAPER = 'on plain warm cream rice paper with a subtle fiber texture and nothing else';
 const PET_STAGE = [
-  'as a tiny newborn baby, round and soft, sitting',
-  'grown into a young adult: larger and more graceful, longer limbs, fuller fur or fins, a faint glowing aura around it',
-  'in its majestic spirit form: noble and elegant, a little larger, a radiant aura, softly glowing patterns along its body and drifting motes of light around it',
+  'as a tiny newborn, painted with only a few light, sparse brush strokes and faint washes, much of it suggested rather than drawn, as if the painting has just begun',
+  'grown into a young adult, larger and more graceful, painted with fuller confident brushwork, richer ink tones and soft color washes',
+  'in its majestic spirit form, painted as a finished masterpiece: bold sweeping strokes, deep ink, luminous color washes, delicate touches of gold leaf and a swirl of ink mist around it',
 ];
 // For characters and items only: the costume, accessories and weapon read as ONE designed set.
 const SET = 'costume, accessories and weapon designed as one matching set';
@@ -235,14 +238,14 @@ export function buildPlan(spec: any): Plan {
     return { kind: 'monster', prompt: master.replace('chinese mythology creature', `${mutTxt}, chinese mythology creature`), editPrompt: `Edit this image. Transform the creature into ${mutTxt}. Keep exactly the same creature design, body shape, pose, camera framing, background and painting style. ${NEG}`, refs: [{ kind: 'monster', sp, mut: false }], editor: 'single', width: 960, height: 960, seed: monsterSeed(sp), pri: 1 };
   }
 
-  // Linh Sủng: the egg is an object (an icon like an item); the baby form is drawn from words; the two grown forms are EDITS of the baby, so they stay the same creature
+  // Linh Sủng: ink wash paintings (see INK). The egg and the newborn are painted from words; the two grown forms are EDITS of the newborn, so they stay the same creature
   if (spec.kind === 'pet') {
     const sp = oneOf(spec.sp, ['egg', ...PB.PET_SPECIES.map((s) => s.id)]);
-    if (sp === 'egg') return { kind: 'item', prompt: `${ITEM_CORE}. Premium 3D RPG item render with magical glowing details, an inventory icon of a single luminous spirit beast egg, a smooth pearly cream shell with soft swirling gold and jade patterns and a faint warm glow from inside, resting on a small tuft of white cloud, isolated and centered, three-quarter front view, soft rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: hash('pet|egg'), pri: 2 };
+    if (sp === 'egg') return { kind: 'pet', prompt: `${INK}. A single spirit egg, a smooth round egg drawn with one soft brush outline, a pale gold wash inside and a faint swirl of ink mist around it, centered ${PAPER}. No people. ${NEG}`, width: 768, height: 768, seed: hash('pet|egg'), pri: 2 };
     const st = intIn(spec.st, 0, 2), en = PB.PSP(sp).en;
-    const base = `${PET}. ${en}, ${PET_STAGE[0]}, full body, three-quarter front view, centered, looking at the viewer, on a plain dark slate gradient background with a soft magical glow behind it. No people. ${NEG}`;
+    const base = `${INK}. A gentle, lovable spirit creature as a painter imagines it: ${en}, ${PET_STAGE[0]}, full body, centered, facing the viewer, ${PAPER}. No people. ${NEG}`;
     if (st === 0) return { kind: 'pet', prompt: base, width: 768, height: 768, seed: hash(`pet|${sp}`), pri: 2 };
-    return { kind: 'pet', prompt: base.replace(PET_STAGE[0], PET_STAGE[st]), editPrompt: `Edit this image. Show the same creature ${PET_STAGE[st]}. Keep exactly the same species, colors, markings and eye color, the same realistic painting style, the same camera framing and the same plain dark background. ${NEG}`, refs: [{ kind: 'pet', sp, st: 0 }], editor: 'single', width: 768, height: 768, seed: hash(`pet|${sp}`), pri: 2 };
+    return { kind: 'pet', prompt: base.replace(PET_STAGE[0], PET_STAGE[st]), editPrompt: `Edit this image. Paint the same creature ${PET_STAGE[st]}. Keep exactly the same species, colors and markings, the same ink wash painting style, the same composition and the same plain rice paper. Do not add calligraphy, seals or any writing. ${NEG}`, refs: [{ kind: 'pet', sp, st: 0 }], editor: 'single', width: 768, height: 768, seed: hash(`pet|${sp}`), pri: 2 };
   }
 
   if (spec.kind === 'item') {
