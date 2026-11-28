@@ -158,15 +158,11 @@ export function phenEffects(ph: C.Phenomenon): string[] {
 
 // ---------- stats
 // The read-only helpers below also run in the browser on the view the server sends, which has no seeds.
-export type Sheet = Pick<GameState, 'player' | 'eq'> & { arts?: Pick<Arts, 'method'>; pets?: PB.PetBox };
+export type Sheet = Pick<GameState, 'player' | 'eq'> & { arts?: Pick<Arts, 'method'> };
 export function pstats(st: Sheet) {
   const L = levelOf(st.player);
   const add: Record<string, number> = { hp: 0, spirit: 0, atk: 0, def: 0, spd: 0, crit: 0, critdmg: 0, luck: 0, cult: 0 };
   for (const it of Object.values(st.eq)) if (it) { add[it.impl.stat] += it.impl.value; for (const a of it.affixes) add[a.stat] += a.value; }
-  // the Linh Sủng that follows (lib/pets.ts): Sinh Lực as a share of the base, Tu Vi in %, May Mắn in points
-  const pet = PB.petBonus(st.pets);
-  if (pet.hp) add.hp += Math.round(baseStat(L, 0) * pet.hp / 100);
-  add.cult += pet.cult; add.luck += pet.luck;
   // the Công Pháp in use adds a share of the base stat to the stats it favours (Method_Stat_Bias)
   const bias = (key: 'hp' | 'spirit' | 'atk' | 'def' | 'spd', i: number) => (st.arts && A.methodOf(st.arts.method).bias.includes(key) ? Math.round(baseStat(L, i) * B.methodStatBias) : 0);
   const f = (st.player.injury || 0) > 0 ? B.injuryFactor : 1;   // Thương Thế
@@ -1576,7 +1572,7 @@ function victory(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, level: nu
   if (cp > 0) { st.player.cp += cp; if (rep) rep.cp += cp; chips.push(`+${cp.toLocaleString('vi-VN')} Tu Vi`); advance(st, rep); }
   rollDrops(st, zone, level, B.dropRollCount + (mult > 1 ? 1 : 0), (ph && ph.luck) || 0, rep, '', chips);
   if (book) { rollBook(st, book, level, rep, chips); rollMethod(st, level, rep, chips); }
-  petAfterWin(st, rep, chips);
+  petAfterWin(st, rep, chips, v, cp);
 }
 function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: Report) {
   const S = pstats(st), L = levelOf(st.player);
@@ -1738,12 +1734,26 @@ export function giftEgg(st: GameState) {
   st.pets = PB.newBox();
   st.pets.eggs.push({ id: ++st.uid, hatch: st.tick + PB.PET.hatchTicks });
 }
-// After a won fight: experience for the one that follows, and now and then a new egg (from the seed and the number of wins, not from the journey's streams).
-function petAfterWin(st: GameState, rep: Report | undefined, chips: string[]) {
+// After a won fight: the support skill of the one that follows (it never adds to the master's stats), its experience, and now and then a new egg
+// while the nest is empty. Whether the skill acts and whether an egg is found come from the seed and the number of wins, not from the journey's streams.
+function petAfterWin(st: GameState, rep: Report | undefined, chips: string[], stones: number, cp: number) {
   const box = st.pets;
   if (!box) return;
   const p = PB.following(box);
   if (p) {
+    const s = PB.PSP(p.sp), { luc, man } = PB.petStats(p);
+    if (hash01(`${st.seed}|petskill|${st.kills}`) * 100 < man) {
+      if (s.kind === 'heal') {
+        const max = pstats(st).maxHp, n = Math.min(max - st.player.hp, Math.round(max * luc / 100));
+        if (n > 0) { st.player.hp += n; chips.push(`${s.name} hồi ${n.toLocaleString('vi-VN')} Sinh Lực`); }
+      } else if (s.kind === 'cult') {
+        const n = Math.round(cp * luc / 100);
+        if (n > 0) { st.player.cp += n; if (rep) rep.cp += n; chips.push(`${s.name} ngộ đạo +${n.toLocaleString('vi-VN')} Tu Vi`); advance(st, rep); }
+      } else {
+        const n = earn(st, Math.round(stones * luc / 100), 'pet', rep);
+        if (n > 0) chips.push(`${s.name} chiêu tài +${n.toLocaleString('vi-VN')} Linh Thạch`);
+      }
+    }
     const g = PB.gainXp(box, PB.PET.xpPerWin, levelOf(st.player));
     if (g.stage) {
       const t = `${PB.PSP(p.sp).name} hóa thành ${PB.STAGES[PB.stageOf(p.lv)].name}!`;
@@ -1751,17 +1761,18 @@ function petAfterWin(st: GameState, rep: Report | undefined, chips: string[]) {
       if (rep) rep.highlights.push({ prio: 70, kind: 'pet', text: t });
     }
   }
-  if (box.eggs.length < PB.PET.eggMax && hash01(`${st.seed}|petegg|${st.kills}`) < PB.PET.eggDropP) {
+  if (box.eggs.length < PB.PET.eggMax && hash01(`${st.seed}|petegg|${st.kills}`) < PB.PET.eggDropP) {   // one egg at a time
     box.eggs.push({ id: ++st.uid, hatch: st.tick + PB.PET.hatchTicks });
     chips.push('Nhặt được Linh Noãn');
     if (rep) rep.highlights.push({ prio: 60, kind: 'pet', text: 'Nhặt được một Linh Noãn. Ấp xong sẽ nở ra Linh Sủng.' });
   }
 }
+// Only the first egg of the list is in the nest. When it opens, the next one (a save from before the one-egg rule may hold a few) goes in and starts its time.
 function hatchEggs(st: GameState, rep?: Report) {
   const box = st.pets;
-  if (!box || !box.eggs.some((e) => e.hatch <= st.tick)) return;
-  for (const e of box.eggs.filter((x) => x.hatch <= st.tick)) {
-    box.eggs = box.eggs.filter((x) => x.id !== e.id);
+  while (box && box.eggs.length && box.eggs[0].hatch <= st.tick) {
+    const e = box.eggs.shift()!;
+    if (box.eggs.length) box.eggs[0].hatch = Math.max(box.eggs[0].hatch, st.tick + PB.PET.hatchTicks);
     const sp = PB.hatchSpecies(hash01(`${st.seed}|pethatch|${e.id}`)), name = PB.PSP(sp).name;
     const same = box.list.find((p) => p.sp === sp);
     let t: string;
@@ -1780,16 +1791,16 @@ function hatchEggs(st: GameState, rep?: Report) {
     if (rep) rep.highlights.push({ prio: 80, kind: 'pet', text: t });
   }
 }
-// Which Linh Sủng follows. Changing it shows at once and says nothing (the slot is the confirmation); Sinh Lực is kept within the new maximum.
+// Which Linh Sủng follows. Changing it shows at once and says nothing (the slot is the confirmation). It never touches the master's stats.
 export function petOn(st: GameState, id: number): Res {
   const box = st.pets;
   if (!box || !box.list.some((p) => p.id === id)) return fail('E_NOT_FOUND', 'Không có Linh Sủng này.');
-  box.on = id; clampHp(st);
+  box.on = id;
   return ok('');
 }
 export function petOff(st: GameState): Res {
   if (!st.pets || st.pets.on === null) return fail('E_BAD_REQUEST', 'Không có Linh Sủng nào đang đi theo.');
-  st.pets.on = null; clampHp(st);
+  st.pets.on = null;
   return ok('');
 }
 

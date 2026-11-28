@@ -30,21 +30,69 @@ test('pets: the same seed hatches the same species (no random numbers from the j
   assert.equal(a.pets!.list[0].sp, b.pets!.list[0].sp);
 });
 
-test('pets: the talent of the one that follows adds to the master, and only while it follows', () => {
+test('pets: a Linh Sủng never changes its master\'s stats, following or not', () => {
   for (const sp of PB.PET_SPECIES) {
     const st = fresh(3);
     const S0 = G.pstats(st);
-    st.pets!.list.push({ id: 900, sp: sp.id, lv: 10, xp: 0 }); st.pets!.on = 900;
-    const S1 = G.pstats(st), v = PB.talentOf(st.pets!.list[0]);
-    assert.ok(v > 0);
-    if (sp.stat === 'cult') assert.equal(S1.cult, S0.cult + v);
-    if (sp.stat === 'luck') assert.equal(S1.luck, S0.luck + v);
-    if (sp.stat === 'hp') assert.ok(S1.maxHp > S0.maxHp);
+    st.pets!.list.push({ id: 900, sp: sp.id, lv: 20, xp: 0 }); st.pets!.on = 900;
+    assert.deepEqual(G.pstats(st), S0);
     assert.equal(PURE_INTENTS.petOff(st, {}).ok, true);
     assert.deepEqual(G.pstats(st), S0);
-    assert.equal(PURE_INTENTS.petOn(st, { id: 900 }).ok, true);
-    assert.deepEqual(G.pstats(st), S1);
   }
+});
+
+test('pets: its own stats grow with Level and form, Linh Mẫn has a ceiling', () => {
+  for (const sp of PB.PET_SPECIES) {
+    const at = (lv: number) => PB.petStats({ id: 1, sp: sp.id, lv, xp: 0 });
+    assert.ok(at(1).luc > 0 && at(1).man > 0);
+    assert.ok(at(8).luc >= at(1).luc);
+    assert.ok(at(9).luc > at(8).luc && at(9).man > at(8).man, 'a new form is a clear step');
+    assert.ok(at(17).luc > at(16).luc);
+    assert.ok(at(200).man <= PB.PET.manCap);
+    assert.match(PB.skillText({ id: 1, sp: sp.id, lv: 5, xp: 0 }), new RegExp(`${at(5).man}% cơ hội`));
+  }
+});
+
+test('pets: each skill acts after won fights, about as often as its Linh Mẫn says', () => {
+  const said: Record<string, RegExp> = { tho: /Thỏ Ngọc hồi/, meo: /Mèo Mây ngộ đạo/, ca: /Cá Chép Vàng chiêu tài/ };
+  for (const sp of PB.PET_SPECIES) {
+    const st = fresh(11);
+    st.starter = { done: ['tame'] }; Object.assign(st.set, { autoFight: true, autoBreak: true }); st.inv.trib = 10;   // let the journey run on its own
+    st.pets!.eggs = [];
+    st.pets!.list.push({ id: 900, sp: sp.id, lv: 1, xp: 0 }); st.pets!.on = 900;
+    const seen = new Map<number, G.FeedEntry>();   // the feed keeps only its last rows: read it as it goes
+    let stones = 0;
+    for (let i = 0; i < 150; i++) {
+      stones += G.settle(st, 20).stonesBy.pet || 0;
+      for (const f of st.feed) if (f.kind === 'monster' && f.outcome === 'win') seen.set(f.id, f);
+    }
+    const rep = { stonesBy: { pet: stones } };
+    const wins = [...seen.values()];
+    const acted = wins.filter((f) => (f.chips || []).some((c) => said[sp.id].test(c)));
+    if (sp.kind === 'stones') assert.ok((rep.stonesBy.pet || 0) > 0, 'Chiêu Tài shows in the Linh Thạch report');
+    assert.ok(wins.length > 50, `enough fights to judge (${wins.length})`);
+    const rate = acted.length / wins.length, man = PB.petStats(st.pets!.list[0]).man / 100;
+    if (sp.kind === 'heal') { assert.ok(acted.length > 0 && rate <= man + 0.1, `${sp.id}: acted ${rate.toFixed(2)}`); continue; }   // it heals only when the master is hurt
+    assert.ok(Math.abs(rate - man) < 0.15, `${sp.id}: acted ${rate.toFixed(2)}, Linh Mẫn ${man}`);
+  }
+});
+
+test('pets: one egg at a time; none is found while one is in the nest', () => {
+  const keep = PB.PET.eggDropP;
+  try {
+    PB.PET.eggDropP = 1;   // every won fight would find one
+    const st = fresh(6);
+    for (let i = 0; i < 40; i++) { G.settle(st, 20); assert.ok(st.pets!.eggs.length <= 1); }
+    G.settle(st, PB.PET.hatchTicks);
+    assert.ok(st.pets!.list.length >= 1);
+    assert.ok(st.pets!.eggs.length <= 1);
+    // an old save with several eggs: they hatch one after another, each with its full time
+    st.pets!.eggs = [{ id: 7001, hatch: st.tick + 1 }, { id: 7002, hatch: st.tick + 1 }];
+    G.settle(st, 1);
+    assert.equal(st.pets!.eggs.length, 1);
+    assert.equal(st.pets!.eggs[0].id, 7002);
+    assert.ok(st.pets!.eggs[0].hatch >= st.tick + PB.PET.hatchTicks - 1);
+  } finally { PB.PET.eggDropP = keep; }
 });
 
 test('pets: experience never takes it above its master, and the forms come at fixed Levels', () => {
@@ -56,7 +104,6 @@ test('pets: experience never takes it above its master, and the forms come at fi
   assert.equal(p.lv, 12);
   assert.equal(r.stage, true);
   assert.equal(PB.stageOf(1), 0); assert.equal(PB.stageOf(8), 0); assert.equal(PB.stageOf(9), 1); assert.equal(PB.stageOf(17), 2);
-  assert.ok(PB.talentOf({ ...p, lv: 9 }) > PB.talentOf({ ...p, lv: 8 }));
 });
 
 test('pets: choosing and resting are pure intents; an unknown one is refused and changes nothing', () => {
@@ -71,10 +118,6 @@ test('pets: choosing and resting are pure intents; an unknown one is refused and
   assert.equal(PURE_INTENTS.petOff(st, {}).ok, true);
   assert.equal(st.pets!.on, null);
   assert.equal(PURE_INTENTS.petOff(st, {}).ok, false);
-  // taking off a Thỏ Ngọc keeps Sinh Lực within the new maximum
-  PURE_INTENTS.petOn(st, { id: 500 }); st.player.hp = G.pstats(st).maxHp;
-  PURE_INTENTS.petOff(st, {});
-  assert.ok(st.player.hp <= G.pstats(st).maxHp);
 });
 
 test('pets: a second egg of a species already owned feeds that one instead of a copy', () => {

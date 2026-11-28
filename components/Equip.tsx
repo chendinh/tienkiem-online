@@ -14,7 +14,7 @@ import { itemSpec } from '@/lib/avatarSpec';
 import { SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
-import { PetSlot } from './Pets';
+import { PetSlot, PetTab } from './Pets';
 
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
@@ -28,7 +28,8 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   const [dragging, setDragging] = useState(false); // a real drag is under way
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const [sel, setSel] = useState<number | null>(null);   // the item whose popup is open
-  const [petOpen, setPetOpen] = useState(false);          // the Linh Sủng popup (components/Pets.tsx)
+  const [petSel, setPetSel] = useState<number | null>(null);   // the Linh Sủng whose popup is open (components/Pets.tsx)
+  const [bagTab, setBagTab] = useState<'items' | 'pets'>('items');   // the tab under the bag: Vật phẩm or Linh Sủng
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const say = useCallback((t: string, ok = true) => {
@@ -37,7 +38,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     timer.current = setTimeout(() => setMsg(null), 6000);
   }, []);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setHeld(null); setDragging(false); setSel(null); setPetOpen(false); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setHeld(null); setDragging(false); setSel(null); setPetSel(null); } };
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('keydown', onKey); if (timer.current) clearTimeout(timer.current); if (dragTimer.current) clearTimeout(dragTimer.current); };
   }, []);
@@ -94,7 +95,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   // Linh Sủng: which one follows. Instant, like wearing an item; the popup stays open so the player sees the change.
   const petOn = useCallback((id: number) => { go('petOn', { id }, true); }, [go]);
   const petOff = useCallback(() => { go('petOff', {}, true); }, [go]);
-  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close, petOpen, setPetOpen, petOn, petOff };
+  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close, petSel, setPetSel, bagTab, setBagTab, petOn, petOff };
 }
 
 const keyAct = (fn: () => void) => (e: RKey) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -251,16 +252,27 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
     <BagTile key={it.id} it={it} from={from} cur={st.eq[it.slot]?.power ?? null} tooHigh={it.level > L} match={!!hot && hot === it.slot} eqx={eqx} />
   );
   const cells = Math.max(12, Math.ceil(st.bag.length / 6) * 6);
+  const tab = fromEq ? 'items' : eqx.bagTab;   // a worn item being dragged always finds the bag to drop into
+  const pets = st.pets ? st.pets.list.length : 0, egg = !!st.pets?.eggs.length;
   return (
     <div className="eqPanel">
       <h4 className="eqTitle">Trang bị pháp bảo</h4>
       <div className="hint">Kéo món từ túi thả vào ô trang bị để mặc. Bấm vào ô để tháo hoặc xem thông tin.</div>
       <EquipDoll st={st} eqx={eqx} />
-      {!eqx.sel && !eqx.petOpen && <Toast msg={eqx.msg} />}
+      {!eqx.sel && eqx.petSel === null && <Toast msg={eqx.msg} />}
       <div className="bagHead">
-        <h4>Túi Càn Khôn <small>{st.bag.length}/{st.caps.bag}</small></h4>
-        <button type="button" className={`btn sm ${cleaning ? 'on' : ''}`} aria-expanded={cleaning} onClick={() => setCleaning((o) => !o)}><Icon name="trash" size={14} /> Dọn túi</button>
+        <h4>Túi Càn Khôn</h4>
+        {tab === 'items' && <button type="button" className={`btn sm ${cleaning ? 'on' : ''}`} aria-expanded={cleaning} onClick={() => setCleaning((o) => !o)}><Icon name="trash" size={14} /> Dọn túi</button>}
       </div>
+      <div className="bagTabs" role="tablist" aria-label="Túi Càn Khôn">
+        <button type="button" role="tab" aria-selected={tab === 'items'} className={tab === 'items' ? 'on' : ''} onClick={() => eqx.setBagTab('items')}>
+          Vật phẩm <small>{st.bag.length}/{st.caps.bag}</small>
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'pets'} className={tab === 'pets' ? 'on' : ''} onClick={() => { setCleaning(false); eqx.setBagTab('pets'); }}>
+          Linh Sủng <small>{pets}</small>{egg && <i className="bagTabEgg" title="Có Linh Noãn đang ấp" />}
+        </button>
+      </div>
+      {tab === 'pets' ? <PetTab st={st} eqx={eqx} /> : <>
       {cleaning && (
         <div className="cleanBox" role="group" aria-label="Dọn túi">
           <div className="cleanHead"><b>Dọn túi</b><small>Phân giải ra Linh Thạch mọi món không khóa, tới hạng ngươi chọn.</small></div>
@@ -299,6 +311,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
           <div className="bagGrid">{st.stash.map((it) => tile(it, 'stash'))}</div>
         </>
       )}
+      </>}
     </div>
   );
 }
