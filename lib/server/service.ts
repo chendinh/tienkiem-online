@@ -83,6 +83,7 @@ function upgrade(st: G.GameState | null, email = ''): G.GameState | null {
   if (st.set.resumePct <= st.set.retreatPct) st.set.resumePct = Math.min(100, st.set.retreatPct + 1);
   if (!st.arts) { st.arts = { learned: [], loadout: {}, methods: [], method: '' }; G.initArts(st); }   // an old save starts with the Hoàng technique of the môn of its weapon
   if (st.arts && !st.arts.methods) G.initArts(st);   // a save from before Công Pháp starts with the first one
+  if (!st.pets) G.giftEgg(st);   // Linh Sủng (2026-11-28): every character, old ones too, gets the first Linh Noãn
   return st;
 }
 async function readAcct(id: string): Promise<AccountFile | null> {

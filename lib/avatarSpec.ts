@@ -56,4 +56,5 @@ export const buyerSpec = (arch: string, g: 'f' | 'm') => ({ kind: 'buyer', arch,
 
 // Fixed pictures drawn once by scripts/pregen.ts and shipped in public/art.
 export const monsterSpec = (sp: string, mut = false) => ({ kind: 'monster', sp, mut });
+export const petSpec = (sp: string, st = 0) => (sp === 'egg' ? { kind: 'pet', sp } : { kind: 'pet', sp, st });   // Linh Sủng (lib/pets.ts): the egg, or one species in one form
 export const introSpec = (g: 'f' | 'm') => ({ kind: 'avatar', look: { g, hc: 0, hs: 0, ey: 0, sk: 1, mk: 0, seed: g === 'f' ? 11 : 12 }, el: g === 'f' ? 'Thủy' : 'Kim', pers: 2 });

@@ -42,6 +42,8 @@ export const PURE_INTENTS: Record<string, PureHandler> = {
   loadout: (st, b) => G.setLoadout(st, b.cls, b.names),
   method: (st, b) => G.setMethod(st, b.name),
   showcase: (st, b) => G.setShowcase(st, b && b.kind, b && b.id),
+  petOn: (st, b) => (b && int(b.id) ? G.petOn(st, b.id) : bad()),   // Linh Sủng: which one follows (lib/pets.ts)
+  petOff: (st) => G.petOff(st),
 };
 // Answering the question the journey waits for: only the answers without chance can be shown at once.
 export const decideIsPure = (b: any) => !!b && (b.choice === 'skip' || b.choice === 'avoid' || b.choice === 'later');

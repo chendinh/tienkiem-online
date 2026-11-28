@@ -1,6 +1,7 @@
 import * as C from './content';
 import { buildOf, faceOf, poseOf } from './look';
 import * as A from './arts';
+import * as PB from './pets';
 
 // One art direction for every picture. Specs are small and validated, so clients cannot inject prompts.
 // Consistency rules: (1) same style block everywhere, (2) fixed seeds, (3) anything that must show the SAME subject
@@ -16,6 +17,13 @@ const CORE = 'High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D ren
 const PERSON = 'High-end Chinese Xianxia Fantasy RPG art, fantasy realistic 3D character rendering, breathtaking ethereal beauty, idealized realistic human anatomy, exceptionally beautiful facial features, flawless yet natural skin, delicate detailed eyes, flowing silky hair, luxurious ancient Chinese fantasy costumes, intricate gold embroidery and ornaments, magical glowing particles, ethereal celestial aura, luminous cinematic lighting, dreamy atmospheric environment, volumetric light rays, rich fantasy color palette, premium AAA fantasy game quality, ultra detailed 3D render';
 const BEAST = `${CORE}, fantasy realistic creature, hyper-realistic animal anatomy and musculature, ultra detailed realistic fur with individual strands, scales and feathers, natural proportions and textures, majestic AAA game creature design, ethereal aura, not a cartoon, not a plush toy, not cute chibi`;
 const ENV = 'a cinematic xianxia environment';
+// Linh Sủng (lib/pets.ts): the same realistic rendering as the beasts, but small, gentle and lovable. Still not a cartoon or a plush toy.
+const PET = `${CORE}, fantasy realistic creature, small and adorable spirit pet with big gentle expressive eyes, realistic soft fur, scales or fins with fine natural detail, natural proportions, not a cartoon, not a plush toy, not chibi, not a sticker`;
+const PET_STAGE = [
+  'as a tiny newborn baby, round and soft, sitting',
+  'grown into a young adult: larger and more graceful, longer limbs, fuller fur or fins, a faint glowing aura around it',
+  'in its majestic spirit form: noble and elegant, a little larger, a radiant aura, softly glowing patterns along its body and drifting motes of light around it',
+];
 // For characters and items only: the costume, accessories and weapon read as ONE designed set.
 const SET = 'costume, accessories and weapon designed as one matching set';
 const NEG = 'No text, no watermark, no logo, no border.';
@@ -27,7 +35,7 @@ const TIER_ADJ = ['plain', 'neat jade-green trimmed', 'refined silver-trimmed', 
 
 export const HQ_TIER = 4;   // from Thiên up an item icon is drawn by the finer model
 export interface Plan {
-  kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'item' | 'place' | 'label' | 'portrait';
+  kind: 'avatar' | 'outfit' | 'pose' | 'monster' | 'pet' | 'item' | 'place' | 'label' | 'portrait';
   prompt: string;       // full text-to-image description (no reference, or a provider that cannot edit)
   editPrompt?: string;  // instruction for the editing model when references exist
   refs?: any[];         // pictures the editing model must see, in order; the first one is the picture being edited
@@ -225,6 +233,16 @@ export function buildPlan(spec: any): Plan {
     if (!mut) return { kind: 'monster', prompt: master, width: 960, height: 960, seed: monsterSeed(sp), pri: 2 };
     const mutTxt = 'a rare mutated variant with iridescent rainbow-colored fur or scales, a glowing prismatic aura and shimmering particles';
     return { kind: 'monster', prompt: master.replace('chinese mythology creature', `${mutTxt}, chinese mythology creature`), editPrompt: `Edit this image. Transform the creature into ${mutTxt}. Keep exactly the same creature design, body shape, pose, camera framing, background and painting style. ${NEG}`, refs: [{ kind: 'monster', sp, mut: false }], editor: 'single', width: 960, height: 960, seed: monsterSeed(sp), pri: 1 };
+  }
+
+  // Linh Sủng: the egg is an object (an icon like an item); the baby form is drawn from words; the two grown forms are EDITS of the baby, so they stay the same creature
+  if (spec.kind === 'pet') {
+    const sp = oneOf(spec.sp, ['egg', ...PB.PET_SPECIES.map((s) => s.id)]);
+    if (sp === 'egg') return { kind: 'item', prompt: `${ITEM_CORE}. Premium 3D RPG item render with magical glowing details, an inventory icon of a single luminous spirit beast egg, a smooth pearly cream shell with soft swirling gold and jade patterns and a faint warm glow from inside, resting on a small tuft of white cloud, isolated and centered, three-quarter front view, soft rim light, on a plain dark slate gradient background, rendered as AAA game art and not a real-life product photo. ${NOWRITE} No person, no hands. ${NEG}`, width: 512, height: 512, seed: hash('pet|egg'), pri: 2 };
+    const st = intIn(spec.st, 0, 2), en = PB.PSP(sp).en;
+    const base = `${PET}. ${en}, ${PET_STAGE[0]}, full body, three-quarter front view, centered, looking at the viewer, on a plain dark slate gradient background with a soft magical glow behind it. No people. ${NEG}`;
+    if (st === 0) return { kind: 'pet', prompt: base, width: 768, height: 768, seed: hash(`pet|${sp}`), pri: 2 };
+    return { kind: 'pet', prompt: base.replace(PET_STAGE[0], PET_STAGE[st]), editPrompt: `Edit this image. Show the same creature ${PET_STAGE[st]}. Keep exactly the same species, colors, markings and eye color, the same realistic painting style, the same camera framing and the same plain dark background. ${NEG}`, refs: [{ kind: 'pet', sp, st: 0 }], editor: 'single', width: 768, height: 768, seed: hash(`pet|${sp}`), pri: 2 };
   }
 
   if (spec.kind === 'item') {

@@ -190,7 +190,7 @@ interface ArtStat {
   batch: number; batchCost: number; totalCost: number; provider: { name: string; enabled: boolean; paid: boolean; locked?: string }; budget: { spent: number; cap: number } | null; queued: number; running: number;
   hour?: { items: number; itemMax: number }; blocked: { why: string; detail?: string } | null;
 }
-const ART_GROUP_VN: Record<string, string> = { looks: 'Biểu tượng vũ khí và trang bị', intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp', buyers: 'Chân dung khách Tìm đồ' };
+const ART_GROUP_VN: Record<string, string> = { looks: 'Biểu tượng vũ khí và trang bị', intro: 'Chân dung mở đầu', monsters: 'Linh thú', shop: 'Phường Thị', zones: 'Cảnh các vùng', arenas: 'Chiến trường', books: 'Bí kíp và Công pháp', buyers: 'Chân dung khách Tìm đồ', pets: 'Linh Sủng' };
 const ART_ERR: Record<string, string> = { E_IMAGE_OFF: 'Dịch vụ vẽ ảnh đang tắt (đặt IMAGE_PROVIDER và khóa của nhà cung cấp).', E_NO_ART_LIST: 'Không đọc được danh sách ảnh có sẵn nên không vẽ, để khỏi trả tiền vẽ lại ảnh đã có.', E_AUTH: 'Sai khóa.', E_RATE_LIMIT: 'Nhập sai quá nhiều lần, chờ một lát.' };
 // Why the server will not draw right now, in words (IMAGE_BUDGET_USD is a running total of everything ever spent on pictures, it never resets by itself).
 function whyNot(b: { why: string; detail?: string }, st: Pick<ArtStat, 'budget' | 'hour'>): string {

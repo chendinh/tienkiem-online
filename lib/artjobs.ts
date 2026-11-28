@@ -1,11 +1,12 @@
 // The fixed pictures of the game (the ones shipped in public/art): which ones exist as a job, what each is drawn from, and where its file goes.
 // One list for the two ways of drawing them: `npm run pregen` (writes the files) and the owner's page (draws them on the server, see app/api/admin/art).
-import { introSpec, monsterSpec, propSpec, placeSpec, bookSpec, buyerSpec } from './avatarSpec';
+import { introSpec, monsterSpec, propSpec, placeSpec, bookSpec, buyerSpec, petSpec } from './avatarSpec';
+import * as PB from './pets';
 import * as A from './arts';
 import * as C from './content';
 import { keyOfSpec } from './assetKey';
 
-export const ART_GROUPS = ['intro', 'monsters', 'shop', 'zones', 'arenas', 'books', 'buyers'] as const;
+export const ART_GROUPS = ['intro', 'monsters', 'shop', 'zones', 'arenas', 'books', 'buyers', 'pets'] as const;
 export type ArtGroup = (typeof ART_GROUPS)[number];
 export interface ArtJob { name: string; spec: any; dest: string; group: ArtGroup }
 
@@ -22,6 +23,11 @@ export function artJobs(only = ''): ArtJob[] {
   if (want('books')) for (const n of [...Object.values(A.TECHS).filter((t) => !t.basic).map((t) => t.name), ...A.METHODS.map((m) => m.name)]) jobs.push({ name: `book_${C.slug(n)}`, spec: bookSpec(n), dest: C.techArt(n), group: 'books' });
   // the portraits of the Khách Cầu Mua: a woman and a man for each kind of cultivator that can ask to buy something (lib/orders.ts)
   if (want('buyers')) for (const arch of C.NPC_TITLES) for (const g of ['f', 'm'] as const) jobs.push({ name: `buyer_${C.slug(arch)}_${g}`, spec: buyerSpec(arch, g), dest: C.buyerArt(arch, g), group: 'buyers' });
+  // Linh Sủng: the egg, then each species in its three forms (the grown forms are edits of the baby, so the baby is listed first)
+  if (want('pets')) {
+    jobs.push({ name: 'pet_egg', spec: petSpec('egg'), dest: PB.EGG_ART, group: 'pets' });
+    for (const s of PB.PET_SPECIES) for (const st of [0, 1, 2]) jobs.push({ name: `pet_${s.id}_${st}`, spec: petSpec(s.id, st), dest: PB.petArt(s.id, st), group: 'pets' });
+  }
   return jobs;
 }
 

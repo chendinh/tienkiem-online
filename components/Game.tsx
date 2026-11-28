@@ -28,6 +28,7 @@ import lore from '@/content/lore.json';
 import { Img, GenImg, ItemCard, BeastArt, LookTag, SizeMeter, Bar, ElChip, GenCtx, ZoomProvider, useZoom, fmt } from './ui';
 import { ArtsPanel } from './Arts';
 import { EquipPanel, ItemPopup, useEquip, type Eqx } from './Equip';
+import { PetPopup } from './Pets';
 import { Logo, Lockup } from './Logo';
 import { ElIcon } from './Icons';
 import { BattleLog, battleSummary } from './Battle';
@@ -945,6 +946,7 @@ function GameInner({ user: user0, linkNote, onSignOut }: { user: AuthUser; linkN
       )}
 
       <ItemPopup st={st} eqx={eqx} />
+      <PetPopup st={st} eqx={eqx} />
       {zoneOpen && <ZoneModal st={st} act={act} onClose={() => setZoneOpen(false)} />}
       {breakOpen && bott && <BreakModal st={st} onBreak={doBreak} onClose={() => setBreakOpen(false)} onLater={st.decision?.kind === 'break' ? () => { setBreakOpen(false); act('decide', { id: st.decision!.id, choice: 'later' }); } : undefined} />}
       {st.decision && !rep && !stage && p.prologueSeen && <DecisionBar st={st} act={act} onOpenBreak={() => setBreakOpen(true)} />}

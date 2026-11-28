@@ -11,6 +11,7 @@ import * as O from './orders';
 import * as J from './jobs';
 import * as XP from './expo';
 import * as WK from './work';
+import * as PB from './pets';
 import { BALANCE as B, BALANCE_VERSION, CATALOG_VERSION, GENERATOR_VERSION, rates, cultRate, cultThreshold, baseStat as baseStatOf } from './balance';
 import { type Look, makeLook } from './look';
 import { ERR, type ErrCode } from './strings';
@@ -73,6 +74,7 @@ export interface GameState {
   orders?: O.Board;   // Khách Cầu Mua (lib/orders.ts): the buyers waiting at Phường Thị. They stay until everything they ask is handed over; a save older than the feature, or from its first version, simply gets a new board on its next tick
   work?: WK.WorkBoard;   // Thú đi làm (lib/work.ts): the six postings and the creatures sent to them. Made and replaced on the server's tick; the player sends, collects and sends away.
   expo?: XP.Expo;   // Triển Lãm (lib/expo.ts): up to 6 stands with pieces or Linh Thú on them, the latest visits and the box of gifts. Made when the first piece is put on a stand; visitors come on the server's tick.
+  pets?: PB.PetBox;   // Linh Sủng (lib/pets.ts): the spirit pets, the one that follows (the Linh Sủng slot of the equipment screen) and the eggs being hatched. Given in newGame and, for an older save, in the server's upgrade()
   jobs?: J.JobBoard;   // Công việc Tìm thú, Đặt đan, Nguyên liệu (lib/jobs.ts): the buyers who ask for a number of beasts, pills or materials. Made and replaced on the server's tick, like `orders`.
 }
 // A question the journey waits for (only asked when the matching auto setting is off). While it is open there are no new encounters.
@@ -156,11 +158,15 @@ export function phenEffects(ph: C.Phenomenon): string[] {
 
 // ---------- stats
 // The read-only helpers below also run in the browser on the view the server sends, which has no seeds.
-export type Sheet = Pick<GameState, 'player' | 'eq'> & { arts?: Pick<Arts, 'method'> };
+export type Sheet = Pick<GameState, 'player' | 'eq'> & { arts?: Pick<Arts, 'method'>; pets?: PB.PetBox };
 export function pstats(st: Sheet) {
   const L = levelOf(st.player);
   const add: Record<string, number> = { hp: 0, spirit: 0, atk: 0, def: 0, spd: 0, crit: 0, critdmg: 0, luck: 0, cult: 0 };
   for (const it of Object.values(st.eq)) if (it) { add[it.impl.stat] += it.impl.value; for (const a of it.affixes) add[a.stat] += a.value; }
+  // the Linh Sủng that follows (lib/pets.ts): Sinh Lực as a share of the base, Tu Vi in %, May Mắn in points
+  const pet = PB.petBonus(st.pets);
+  if (pet.hp) add.hp += Math.round(baseStat(L, 0) * pet.hp / 100);
+  add.cult += pet.cult; add.luck += pet.luck;
   // the Công Pháp in use adds a share of the base stat to the stats it favours (Method_Stat_Bias)
   const bias = (key: 'hp' | 'spirit' | 'atk' | 'def' | 'spd', i: number) => (st.arts && A.methodOf(st.arts.method).bias.includes(key) ? Math.round(baseStat(L, i) * B.methodStatBias) : 0);
   const f = (st.player.injury || 0) > 0 ? B.injuryFactor : 1;   // Thương Thế
@@ -1565,6 +1571,7 @@ function victory(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, level: nu
   if (cp > 0) { st.player.cp += cp; if (rep) rep.cp += cp; chips.push(`+${cp.toLocaleString('vi-VN')} Tu Vi`); advance(st, rep); }
   rollDrops(st, zone, level, B.dropRollCount + (mult > 1 ? 1 : 0), (ph && ph.luck) || 0, rep, '', chips);
   if (book) { rollBook(st, book, level, rep, chips); rollMethod(st, level, rep, chips); }
+  petAfterWin(st, rep, chips);
 }
 function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: Report) {
   const S = pstats(st), L = levelOf(st.player);
@@ -1675,6 +1682,7 @@ export function tick(st: GameState, rep?: Report) {
     const k = tutorTame(st) ? 0 : weighted(st.streams, 'enc', encounterWeights(zone, ph, dropEventAt(zone.id, startMs)));   // the taming job: a creature every time
     if (k === 0) runMonster(st, zone, ph, rep); else if (k === 1) runNpc(st, zone, ph, rep); else if (k === 2) runResource(st, zone, rep); else runEvent(st, zone, ph, rep);
   }
+  hatchEggs(st, rep);   // Linh Sủng: the eggs whose time has come (no random numbers are drawn from the journey's streams)
   ensureTasks(st);
   ensureJobs(st);   // the buyers of Tìm thú, Đặt đan and Nguyên liệu (lib/jobs.ts): same rule as the line below
   ensureWork(st);   // the postings of Thú đi làm (lib/work.ts): a new board, or a new posting for each place that is finished
@@ -1718,6 +1726,68 @@ export function tick(st: GameState, rep?: Report) {
   }
 }
 
+// ---------- Linh Sủng (lib/pets.ts)
+// The first egg: every character gets one (a new one in newGame, an older one in the server's upgrade()). It opens after PET.hatchTicks of game time.
+export function giftEgg(st: GameState) {
+  if (st.pets) return;
+  st.pets = PB.newBox();
+  st.pets.eggs.push({ id: ++st.uid, hatch: st.tick + PB.PET.hatchTicks });
+}
+// After a won fight: experience for the one that follows, and now and then a new egg (from the seed and the number of wins, not from the journey's streams).
+function petAfterWin(st: GameState, rep: Report | undefined, chips: string[]) {
+  const box = st.pets;
+  if (!box) return;
+  const p = PB.following(box);
+  if (p) {
+    const g = PB.gainXp(box, PB.PET.xpPerWin, levelOf(st.player));
+    if (g.stage) {
+      const t = `${PB.PSP(p.sp).name} hóa thành ${PB.STAGES[PB.stageOf(p.lv)].name}!`;
+      feed(st, { kind: 'event', text: t });
+      if (rep) rep.highlights.push({ prio: 70, kind: 'pet', text: t });
+    }
+  }
+  if (box.eggs.length < PB.PET.eggMax && hash01(`${st.seed}|petegg|${st.kills}`) < PB.PET.eggDropP) {
+    box.eggs.push({ id: ++st.uid, hatch: st.tick + PB.PET.hatchTicks });
+    chips.push('Nhặt được Linh Noãn');
+    if (rep) rep.highlights.push({ prio: 60, kind: 'pet', text: 'Nhặt được một Linh Noãn. Ấp xong sẽ nở ra Linh Sủng.' });
+  }
+}
+function hatchEggs(st: GameState, rep?: Report) {
+  const box = st.pets;
+  if (!box || !box.eggs.some((e) => e.hatch <= st.tick)) return;
+  for (const e of box.eggs.filter((x) => x.hatch <= st.tick)) {
+    box.eggs = box.eggs.filter((x) => x.id !== e.id);
+    const sp = PB.hatchSpecies(hash01(`${st.seed}|pethatch|${e.id}`)), name = PB.PSP(sp).name;
+    const same = box.list.find((p) => p.sp === sp);
+    let t: string;
+    if (same || box.list.length >= PB.PET.listMax) {
+      // a species already owned (or a full home): the egg's spirit goes into the one of that species instead of a second copy
+      const into = same || box.list[0];
+      PB.addXp(into, PB.PET.dupXp, levelOf(st.player));
+      t = `Linh Noãn nở ra một ${name} nữa. Nó hòa linh khí vào ${PB.PSP(into.sp).name} của ngươi.`;
+    } else {
+      const p: PB.Pet = { id: ++st.uid, sp, lv: 1, xp: 0 };
+      box.list.push(p);
+      if (box.on === null) box.on = p.id;   // the first one follows at once
+      t = `Linh Noãn đã nở! ${name} ${box.on === p.id ? 'đi theo ngươi' : 'về Sủng Các'}.`;
+    }
+    feed(st, { kind: 'event', text: t });
+    if (rep) rep.highlights.push({ prio: 80, kind: 'pet', text: t });
+  }
+}
+// Which Linh Sủng follows. Changing it shows at once and says nothing (the slot is the confirmation); Sinh Lực is kept within the new maximum.
+export function petOn(st: GameState, id: number): Res {
+  const box = st.pets;
+  if (!box || !box.list.some((p) => p.id === id)) return fail('E_NOT_FOUND', 'Không có Linh Sủng này.');
+  box.on = id; clampHp(st);
+  return ok('');
+}
+export function petOff(st: GameState): Res {
+  if (!st.pets || st.pets.on === null) return fail('E_BAD_REQUEST', 'Không có Linh Sủng nào đang đi theo.');
+  st.pets.on = null; clampHp(st);
+  return ok('');
+}
+
 // ---------- state
 export function defaultSettings(): Settings {
   const d = B.defaults;
@@ -1750,6 +1820,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), gender?: 'f'
   grantDaoPerks(st);
   if (hash01(`${seed}|title0`) < B.startTitleP) player.title = C.TITLES[Math.floor(hash01(`${seed}|title0|which`) * C.TITLES.length)].id;
   initArts(st);
+  giftEgg(st);
   player.hp = pstats(st).maxHp;
   feed(st, { kind: 'system', text: `${player.name} bắt đầu hành trình tu tiên.` });
   flushLedger(st, 'create', now);

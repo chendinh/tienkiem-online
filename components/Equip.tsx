@@ -14,6 +14,7 @@ import { itemSpec } from '@/lib/avatarSpec';
 import { SlotIcon } from './Icons';
 import { Icon } from './ds/Icon';
 import { SealPick } from './ds/SealPick';
+import { PetSlot } from './Pets';
 
 // The item "in hand" while it is dragged to a slot or to the bag. `slot` is the slot it belongs to.
 export type Held = { from: 'bag' | 'stash' | 'eq'; id: number; slot: string } | null;
@@ -27,6 +28,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   const [dragging, setDragging] = useState(false); // a real drag is under way
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const [sel, setSel] = useState<number | null>(null);   // the item whose popup is open
+  const [petOpen, setPetOpen] = useState(false);          // the Linh Sủng popup (components/Pets.tsx)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const say = useCallback((t: string, ok = true) => {
@@ -35,7 +37,7 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
     timer.current = setTimeout(() => setMsg(null), 6000);
   }, []);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setHeld(null); setDragging(false); setSel(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setHeld(null); setDragging(false); setSel(null); setPetOpen(false); } };
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('keydown', onKey); if (timer.current) clearTimeout(timer.current); if (dragTimer.current) clearTimeout(dragTimer.current); };
   }, []);
@@ -89,7 +91,10 @@ export function useEquip(stRef: MutableRefObject<GS | null>, act: Act, re: () =>
   }, [act, say, re]);
   const open = useCallback((id: number) => setSel(id), []);
   const close = useCallback(() => setSel(null), []);
-  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close };
+  // Linh Sủng: which one follows. Instant, like wearing an item; the popup stays open so the player sees the change.
+  const petOn = useCallback((id: number) => { go('petOn', { id }, true); }, [go]);
+  const petOff = useCallback(() => { go('petOff', {}, true); }, [go]);
+  return { held, setHeld, hot, setHot, dragging, dragStart, dragEnd, msg, say, equipItem, takeOff, moveToBag, lock, frame, dissolve, dissolveMany, cleanBusy, sel, open, close, petOpen, setPetOpen, petOn, petOff };
 }
 
 const keyAct = (fn: () => void) => (e: RKey) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -141,7 +146,7 @@ function EquipDoll({ st, eqx }: { st: GS; eqx: Eqx }) {
   return (
     <div className="eqDoll">
       {DOLL.map((d) => <div key={d.slot} className="dollCell" style={{ gridArea: d.area }}><SlotMold st={st} eqx={eqx} slot={d.slot} tall={d.tall} /></div>)}
-      <div className="dollCell" style={{ gridArea: 'fate' }} aria-hidden="true"><div className="slotTile fate"><div className="mold" /><span className="sname">Cơ duyên</span></div></div>
+      <div className="dollCell" style={{ gridArea: 'fate' }}><PetSlot st={st} eqx={eqx} /></div>
     </div>
   );
 }
@@ -251,7 +256,7 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
       <h4 className="eqTitle">Trang bị pháp bảo</h4>
       <div className="hint">Kéo món từ túi thả vào ô trang bị để mặc. Bấm vào ô để tháo hoặc xem thông tin.</div>
       <EquipDoll st={st} eqx={eqx} />
-      {!eqx.sel && <Toast msg={eqx.msg} />}
+      {!eqx.sel && !eqx.petOpen && <Toast msg={eqx.msg} />}
       <div className="bagHead">
         <h4>Túi Càn Khôn <small>{st.bag.length}/{st.caps.bag}</small></h4>
         <button type="button" className={`btn sm ${cleaning ? 'on' : ''}`} aria-expanded={cleaning} onClick={() => setCleaning((o) => !o)}><Icon name="trash" size={14} /> Dọn túi</button>
