@@ -1,10 +1,9 @@
 'use client';
 import { BattleLog } from './Battle';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BALANCE as B } from '@/lib/balance';
 import * as C from '@/lib/content';
-import * as J from '@/lib/jobs';
 import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
 import * as D from '@/lib/daily';
@@ -595,6 +594,22 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
 }
 
 // ---------- Chuồng Linh Thú (the pen): compact tiles, one popup per creature
+// One tile of the pen. The panel is drawn again on every change of the game, most of which leave the pen as it is: a tile is drawn again only when what it shows changes
+// (the creature, whether it fights, whether it is at work). It does not look at the Tìm thú buyers (2026-11-28): most players never take those jobs, and the pen should
+// stay light for them; the buyers are seen in Công việc. The lock of a creature at work stays: it says why the creature cannot be sold.
+type PenTileProps = { b: Beast; inParty: boolean; busy: boolean; onOpen: (id: number) => void };
+const beastKey = (b: Beast) => `${b.id}|${b.sp}|${b.name}|${b.level}|${b.cls}|${b.mut ? 1 : 0}|${b.size}`;
+const samePenTile = (a: PenTileProps, c: PenTileProps) => a.inParty === c.inParty && a.busy === c.busy && a.onOpen === c.onOpen && beastKey(a.b) === beastKey(c.b);
+const PenTile = memo(function PenTile({ b, inParty, busy, onOpen }: PenTileProps) {
+  return (
+    <button className={`penTile ${b.mut ? 'mutc' : ''}`} onClick={() => onOpen(b.id)} aria-label={`${b.name} cấp ${b.level}`}>
+      <BeastArt b={b} box={72} mine onOpen={() => onOpen(b.id)} />
+      {busy && <i className="reqMark lockMark" title="Đang đi làm, khoá đến khi nhận thưởng"><Icon name="lock" size={10} /></i>}
+      <span className="pn">{inParty ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</span>
+      <small>Lv{b.level} · {C.SIZE_CLASS[b.cls]}</small>
+    </button>
+  );
+}, samePenTile);
 export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, ok?: boolean) => void }) {
   const [sel, setSel] = useState<number | null>(null);
   const beasts = st.beasts.slice().sort((a, b) => b.power - a.power);
@@ -622,16 +637,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
       <div className="cleanRow"><button className="btn sm" disabled={beasts.length <= st.caps.party} onClick={sellMany}>Bán nhanh các con dư</button></div>
       {beasts.length === 0 && <div className="empty">Chưa có Linh Thú. Thắng yêu thú rồi dùng Khế Ước Phù, hoặc bật “Tự thu phục” trong Cài đặt.</div>}
       <div className="penGrid">
-        {beasts.map((b) => (
-          <button key={b.id} className={`penTile ${b.mut ? 'mutc' : ''}`} onClick={() => setSel(b.id)} aria-label={`${b.name} cấp ${b.level}`}>
-            <BeastArt b={b} box={72} mine onOpen={() => setSel(b.id)} />
-            {jobOf.has(b.id)
-              ? <i className="reqMark lockMark" title="Đang đi làm, khoá đến khi nhận thưởng"><Icon name="lock" size={10} /></i>
-              : J.beastWantedBy(st.jobs, b).length > 0 && <i className="reqMark" title="Công việc Tìm thú đang cần con này"><Icon name="job" size={10} /></i>}
-            <span className="pn">{party.has(b.id) ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</span>
-            <small>Lv{b.level} · {C.SIZE_CLASS[b.cls]}</small>
-          </button>
-        ))}
+        {beasts.map((b) => <PenTile key={b.id} b={b} inParty={party.has(b.id)} busy={jobOf.has(b.id)} onOpen={setSel} />)}
       </div>
       {cur && typeof document !== 'undefined' && createPortal(
         <div className="modal zoom" onClick={() => setSel(null)} role="dialog" aria-modal="true" aria-label={cur.name}>
