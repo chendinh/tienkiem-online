@@ -75,6 +75,14 @@
     {
       "realm": "Hóa Thần",
       "text": "Thần hồn hòa vào thiên địa, một cái nhấc tay có thể khiến mây dời, núi chuyển. Đỉnh phong của đạo, nơi lằn ranh giữa người và tiên mỏng như sợi tơ tằm."
+    },
+    {
+      "realm": "Luyện Hư",
+      "text": "Luyện hóa hư không thành đạo: thân còn ở trong trời đất mà như đã không còn. Tu sĩ đi giữa dòng sông sao vỡ, nghe hư vô thì thầm bên tai, và học cách không để nó nuốt mất mình."
+    },
+    {
+      "realm": "Hợp Thể",
+      "text": "Nguyên thần và nhục thân hợp làm một, thiên nhân hợp nhất. Pháp tướng cao ngang núi, mỗi bước chân là đạo, mỗi hơi thở là trời đất. Cửa vào Hợp Thể hẹp nhất trong mọi cửa ải: bảy đợt Thiên Kiếp chờ sẵn, và chư thần thượng cổ từng ngã ở đây."
     }
   ],
   "beasts": {
@@ -145,7 +153,11 @@
     "thuyduong": "Thụy Dương mang bộ lông trắng mịn như mây buổi sớm, sừng cuộn vàng, nơi nó dừng chân cỏ mọc xanh hơn. Dân vùng núi tin gặp nó là điềm trúng mùa. Nó hiền đến mức trẻ con có thể ngồi lên lưng nó mà không bị hất. Khi Dị Biến, lông phát sáng như bình minh, sừng tỏa ánh vàng ấm.",
     "gaduong": "Hạo Nhật Kê gáy lần đầu tiên mỗi sáng, và mặt trời như chờ tiếng gáy ấy mới dám nhô lên. Đuôi nó dài và rực như chùm nắng, mào đỏ sáng như đèn lồng. Âm khí và quỷ mị nghe tiếng gáy đều tản đi. Khi Dị Biến, lông chuyển vàng kim, mỗi tiếng gáy là một vệt sáng lan ra bốn phương.",
     "bachtrach": "Bạch Trạch là thần thú trong truyền thuyết, biết hết tên và hình dạng của mọi yêu quái trong thiên hạ. Nó xuất hiện chỉ khi có minh quân trị vì, hiền hậu, mang sừng vàng và bờm sáng. Gặp được nó đã là phúc, thu phục được nó là đại phúc. Khi Dị Biến, thân thể sáng như ngọc lưu ly, mỗi lời nó nói thành điềm lành.",
-    "thuy": "Tường Vân Thụy Thú kết thành từ mây vàng, hình dáng giống nai, gạc sáng như đèn trời. Nó đi tới đâu, mây lành tụ lại tới đó. Có lời đồn nó chỉ xuất hiện trước đại lễ phong thần hoặc trước khi một đạo nhân phi thăng. Khi Dị Biến, mây trên thân hóa bảy sắc, mỗi bước đi để lại một đóa mây hoa."
+    "thuy": "Tường Vân Thụy Thú kết thành từ mây vàng, hình dáng giống nai, gạc sáng như đèn trời. Nó đi tới đâu, mây lành tụ lại tới đó. Có lời đồn nó chỉ xuất hiện trước đại lễ phong thần hoặc trước khi một đạo nhân phi thăng. Khi Dị Biến, mây trên thân hóa bảy sắc, mỗi bước đi để lại một đóa mây hoa.",
+    "tyhuu": "Kim Giáp Tỳ Hưu là thần thú canh kho báu của chư thần thượng cổ, chỉ nuốt vào chứ chẳng bao giờ nhả ra. Trong Thần Khư, những pho tượng Tỳ Hưu bằng đá đôi khi mở mắt và bước xuống bệ. Người ta tin ai thu phục được nó thì túi linh thạch không bao giờ cạn. Khi Dị Biến, giáp vàng hóa ngọc lưu ly, mỗi bước chân để lại một vệt kim quang.",
+    "baha": "Bá Hạ là con của rồng, sức mạnh vô song, cả đời cõng tấm bia ghi công chư thần. Nó bò chậm đến mức một bước là trăm năm, rêu xanh và tùng nhỏ mọc kín trên mai. Kẻ nào khiến nó dừng lại sẽ phải gánh sức nặng của cả tấm bia. Khi Dị Biến, tấm bia trên lưng tỏa ánh vàng, mai đá nứt ra những mạch ngọc sáng.",
+    "thaothiet": "Thao Thiết là hung thú tham ăn nhất thời thượng cổ, nuốt cả mây, cả núi, cả ánh sáng. Chư thần khắc hình nó lên đỉnh đồng để răn kẻ tham lam, nhưng chính nó vẫn lang thang trong Thần Khư, đói mãi không no. Chưa ai thu phục được nó mà không mất đi thứ gì. Khi Dị Biến, da đồng hóa đen tuyền, cái miệng mở ra là một vòng xoáy hư không.",
+    "tatphuong": "Tất Phương là hạc lửa một chân, nơi nó đậu là nơi lửa bén. Lông đỏ điểm đốm xanh, mỏ trắng như ngọc, tiếng kêu nghe như gọi chính tên mình. Nó sống quanh những ngọn đèn thần đã tắt trong Thần Khư, giữ chút lửa cuối cùng của chư thần. Khi Dị Biến, lửa dưới chân hóa xanh lam, lông vũ trong như pha lê."
   },
   "regions": [
     {

@@ -237,7 +237,7 @@ test('shop: buy and sell rules (Requirement 24.9 to 24.13)', () => {
   assert.equal(st.stones, s0 + 2 * Math.floor(B.sellBackRatio * price)); assert.equal(st.inv.taming[0], have - 2);
   assert.equal(G.sell(st, 'taming0', have + 1).code, 'E_BAD_QTY');
   for (const s of C.SHOP) assert.ok(Math.floor(B.sellBackRatio * s.price) < s.price);
-  assert.equal(C.SHOP.length, 12);
+  assert.equal(C.SHOP.length, 14);
 });
 test('HP pills heal by grade and are refused at full HP (Requirement 24.12)', () => {
   const st = fresh(6), S = G.pstats(st);
@@ -273,7 +273,7 @@ test('smart auto pills: a big pill is kept for a big wound, a small wound gets a
 test('Hồi Khí Đan found on the road: 10% of a drop roll, one or two pills, of the zone grade (2026-11-26)', () => {
   const pe = C.DROP_TABLE.find((e) => e.kind === 'pill')! as Extract<C.DropEntry, { kind: 'pill' }>;
   assert.equal(pe.w / C.DROP_TABLE.reduce((a, e) => a + e.w, 0), 0.1); assert.deepEqual(pe.q, [1, 2]);
-  assert.deepEqual(C.ZONES.map((z) => z.pill), [0, 0, 1, 1, 2, 2]);
+  assert.deepEqual(C.ZONES.map((z) => z.pill), [0, 0, 1, 1, 2, 2, 2]);
 });
 test('release value follows the formula (Requirement 24.8)', () => {
   const st = fresh(6);
@@ -302,6 +302,23 @@ test('zones: locked until the Level is reached (Requirement 6.5, 6.6)', () => {
   assert.equal(G.setZone(st, 'nowhere').code, 'E_BAD_ZONE');
   st.player.realm = 2;
   assert.ok(G.setZone(st, 'xichviem').ok); assert.equal(st.zone, 'xichviem');
+});
+test('Hợp Thể: Luyện Hư Đỉnh Phong can break through into it, with 7 Thiên Kiếp waves and its own Phá Cảnh Đan; Level 28 is the new cap', () => {
+  assert.equal(B.playableLevelCap, 28);
+  const st = fresh(2811); st.player.realm = 5; st.player.sub = 3; st.player.cp = cultThreshold(24);
+  assert.ok(G.atBottleneck(st), 'Luyện Hư Đỉnh Phong with full Tu Vi is a bottleneck, not the cap');
+  const pv = G.previewBreakthrough(st);
+  assert.ok(pv.ok); assert.equal(pv.data.target, 6); assert.equal(pv.data.waves, 7); assert.ok(pv.data.tribulation);
+  assert.equal(C.WAVES[6], 7); assert.equal(C.WAVES.length, C.REALMS.length);
+  assert.ok(pv.data.pPill <= 0.35 + 1e-9 && pv.data.pNoPill < pv.data.pPill, 'the hardest door: 10% base, 35% at most');
+  assert.ok(C.SHOP.some((s) => s.id === 'bt5' && s.name.includes('Hợp Thể')));
+  assert.equal(st.inv.bt.length, 6);
+  // Vạn Cổ Thần Khư opens at Level 24, and its four beasts are met nowhere else
+  assert.ok(G.setZone(st, 'thankhu').ok); assert.equal(st.zone, 'thankhu');
+  for (const sp of ['tyhuu', 'baha', 'thaothiet', 'tatphuong']) assert.deepEqual(C.ZONES.filter((z) => (z.species[sp] || 0) > 0).map((z) => z.id), ['thankhu']);
+  // at the new cap nothing more can be entered
+  st.player.realm = 6; st.player.sub = 3; st.player.cp = cultThreshold(28);
+  assert.equal(G.levelOf(st.player), 28); assert.ok(!G.atBottleneck(st)); assert.equal(G.previewBreakthrough(st).code, 'E_AT_CAP');
 });
 test('monsters stay inside the Level range of the Zone (Requirement 7.5)', () => {
   const st = fresh(31); st.player.realm = 4; st.player.sub = 3;
@@ -530,7 +547,7 @@ test('fixed pictures: every shop item, material and zone has a prompt', () => {
 
 test('every Linh Thú species lives in some zone, has lore and a picture description', async () => {
   const lore = (await import('../content/lore.json')).default as any;
-  assert.equal(C.SPECIES.length, 68);
+  assert.equal(C.SPECIES.length, 72);
   for (const s of C.SPECIES) {
     assert.ok(C.ZONES.some((z) => (z.species[s.id] || 0) > 0), `${s.id} is in no zone`);
     assert.ok(typeof lore.beasts[s.id] === 'string' && lore.beasts[s.id].length > 40, `${s.id} has no lore`);

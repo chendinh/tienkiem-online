@@ -26,7 +26,7 @@ export const BALANCE = {
   epiphanyMult: 5,
   retreatCultFactor: 2,
   adventureCultFactor: 1,
-  playableLevelCap: 24,
+  playableLevelCap: 28,   // Hợp Thể Đỉnh Phong (Hợp Thể opened 2026-11-28, when the first character reached Luyện Hư Đỉnh Phong)
   highlightMinTier: 3,
   highlightLimit: 14,
   reportHistory: 20,
@@ -137,18 +137,18 @@ export const BALANCE = {
   confirmPurchaseThreshold: 1000,
   // cultivation (Requirement 22)
   rate0: 20, rateGrowth: 1.1,
-  legacyThreshold: { fromLevel: 21, min0: 5, growth: 1.5 },
+  legacyThreshold: { fromLevel: 21, min0: 5, growth: 1.5 },   // from Luyện Hư on: 5 minutes for Level 1, 1.5 times more each Level (Hợp Thể continues the same curve, so a whole Realm asks about 5 times the one before)
   thresholdMin0: 20, thresholdGrowth: 1.45, thresholdPeak: 1.5,   // minutes of base-rate cultivation for Level 1, how much each next Level asks for more, and the extra on the last Level of a Realm (4× longer than the first version, and steeper)
   baseStats: [100, 60, 14, 10, 10],
   baseStatLevelGrowth: 1.1, baseStatRealmGrowth: 1.25,
   baseCrit: 5, baseCritDmg: 150,
   // breakthrough (Requirement 23)
-  breakBase: [0, 0, 0.3, 0.25, 0.2, 0.15, 0.4], // by target Realm number 1..6 (index 0 and 1 unused); with the best purity and a pill it still stays under breakMax (49%)
+  breakBase: [0, 0, 0.3, 0.25, 0.2, 0.15, 0.4, 0.1], // by target Realm number 1..7 (index 0 and 1 unused); with the best purity and a pill it still stays under breakMax (49%). Hợp Thể (7) is the hardest door: 35% at most
   breakPurityBonus: 0.1,
   breakPillBonus: 0.15,
   breakMin: 0.05, breakMax: 0.49,
-  tribulationRealms: [3, 4, 5, 6],
-  tribulationWaves: { 3: 3, 4: 4, 5: 5, 6: 6 } as Record<number, number>,
+  tribulationRealms: [3, 4, 5, 6, 7],
+  tribulationWaves: { 3: 3, 4: 4, 5: 5, 6: 6, 7: 7 } as Record<number, number>,
   tribulationReduction: 0.3,
   breakFailureLoss: 0.15,
   heartDemonDuration: 720,
@@ -170,7 +170,7 @@ export const BALANCE = {
   shop: {
     taming: [30, 120, 500, 2200],
     hp: [20, 60, 200],
-    breakthrough: [200, 2000, 15000, 100000, 600000], // target Realm 2, 3, 4, 5, 6
+    breakthrough: [200, 2000, 15000, 100000, 600000, 3000000], // target Realm 2, 3, 4, 5, 6, 7
     tribulation: 2000,
   },
 };
@@ -188,7 +188,7 @@ export function rates(): Rates {
 export const cultRate = (L: number) => Math.round(BALANCE.rate0 * Math.pow(BALANCE.rateGrowth, L - 1));
 export function cultThreshold(L: number): number {
   const b = BALANCE;
-  // Luyện Hư (Levels 21 to 24) keeps the first version's numbers: characters were already in the middle of it when the earlier Levels were made harder
+  // Luyện Hư (Levels 21 to 24) keeps the first version's numbers: characters were already in the middle of it when the earlier Levels were made harder. Hợp Thể (25 to 28) goes on along the same curve
   const old = L >= b.legacyThreshold.fromLevel;
   let minutes = (old ? b.legacyThreshold.min0 : b.thresholdMin0) * Math.pow(old ? b.legacyThreshold.growth : b.thresholdGrowth, L - 1);
   if (L % 4 === 0) minutes *= b.thresholdPeak;
@@ -269,11 +269,13 @@ export function validateBalance(b: Balance = BALANCE): string[] {
       need(ok, `Base_Stat của Stat ${i} phải tăng ngặt, và bước qua ranh giới Realm phải lớn hơn mọi bước trong Realm trước`);
     }
   }
-  // Requirement 23
-  for (const r of [2, 3, 4, 5, 6]) need(typeof b.breakBase[r] === 'number' && inRange(b.breakBase[r], 0, 1), `Breakthrough_Base_Probability thiếu hoặc ngoài [0,1] ở Realm ${r}`);
+  // Requirement 23. The Realms that can be entered (1 based) are 2 up to the Realm of the last playable Level.
+  const topRealm = Math.ceil(b.playableLevelCap / 4);
+  for (let r = 2; r <= topRealm; r++) need(typeof b.breakBase[r] === 'number' && inRange(b.breakBase[r], 0, 1), `Breakthrough_Base_Probability thiếu hoặc ngoài [0,1] ở Realm ${r}`);
   need(inRange(b.breakMin, 0, 1) && inRange(b.breakMax, 0, 1) && b.breakMin <= b.breakMax, 'Breakthrough_Probability_Min/Max không hợp lệ');
   need(b.breakPurityBonus >= 0 && b.breakPillBonus >= 0, 'Breakthrough bonus không được âm');
-  need(b.tribulationRealms.every((r) => inRange(r, 2, 6)), 'Tribulation_Realms phải là tập con của Realm 2 đến 6');
+  need(b.tribulationRealms.every((r) => inRange(r, 2, topRealm)), `Tribulation_Realms phải là tập con của Realm 2 đến ${topRealm}`);
+  need(b.shop.breakthrough.length === topRealm - 1, `Phá Cảnh Đan phải có đúng một loại cho mỗi Realm 2 đến ${topRealm}`);
   for (const r of b.tribulationRealms) need(isInt(b.tribulationWaves[r]) && b.tribulationWaves[r] >= 1, `Tribulation_Wave_Count thiếu hoặc không hợp lệ ở Realm ${r}`);
   need(b.tribulationWaveStrength > 0 && b.tribulationReduction >= 0 && b.tribulationReduction < 1, 'Tribulation_Wave_Strength/Talisman_Reduction không hợp lệ');
   need(isInt(b.heartDemonDuration) && b.heartDemonDuration >= 1 && b.heartDemonFactor > 0 && b.heartDemonFactor <= 1, 'Heart_Demon không hợp lệ');

@@ -9,7 +9,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 // Only the picture that is showing is in the page (and, for the length of a cross-fade, the one it replaces). All eight used to be mounted at opacity 0: the phone
 // downloaded every zone picture (a tall and a wide one each, about 7 MB) on the first visit and kept a full-screen layer of each in memory for nothing.
 
-const ZONE_IDS = ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu', 'tinhha'] as const;
+const ZONE_IDS = ['thanhvan', 'hannguyet', 'xichviem', 'loivan', 'cuuu', 'tinhha', 'thankhu'] as const;
 const LAYERS = ['night', 'dawn', ...ZONE_IDS] as const;   // stacking order, as before
 type Layer = (typeof LAYERS)[number];
 const FADE_MS = 1500;   // a little longer than --dur-ambient (1200 ms), the cross-fade of a scene change

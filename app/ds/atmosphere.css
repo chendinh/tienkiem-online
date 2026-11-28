@@ -18,6 +18,7 @@
   .atmo-scene.zone.z-loivan { background-image: url('/art/zones/loivan.jpg'); }
   .atmo-scene.zone.z-cuuu { background-image: url('/art/zones/cuuu.jpg'); }
   .atmo-scene.zone.z-tinhha { background-image: url('/art/zones/tinhha.jpg'), linear-gradient(160deg, #0b1030 0%, #2a1a5e 55%, #0e2a4a 100%); }
+  .atmo-scene.zone.z-thankhu { background-image: url('/art/zones/thankhu.jpg'), linear-gradient(160deg, #2b2110 0%, #6b5426 50%, #1d2b22 100%); }
   @media (max-aspect-ratio: 1 / 1) {
     /* the tall picture alone: every zone has one, and the wide one used to be listed under it as a fallback, so a phone downloaded and decoded both (about 0.5 MB and a screen of memory each) for a layer that was never seen */
     .atmo-scene.zone.z-thanhvan { background-image: url('/art/zones/thanhvan_v.jpg'); background-position: center; }
@@ -26,6 +27,7 @@
     .atmo-scene.zone.z-loivan { background-image: url('/art/zones/loivan_v.jpg'); background-position: center; }
     .atmo-scene.zone.z-cuuu { background-image: url('/art/zones/cuuu_v.jpg'); background-position: center; }
     .atmo-scene.zone.z-tinhha { background-image: url('/art/zones/tinhha_v.jpg'), linear-gradient(160deg, #0b1030 0%, #2a1a5e 55%, #0e2a4a 100%); background-position: center; }
+    .atmo-scene.zone.z-thankhu { background-image: url('/art/zones/thankhu_v.jpg'), linear-gradient(160deg, #2b2110 0%, #6b5426 50%, #1d2b22 100%); background-position: center; }
   }
   .atmo-scene::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.38); }
   .atmo-scene.dawn::after { background: rgb(0 0 0 / 0.5); }

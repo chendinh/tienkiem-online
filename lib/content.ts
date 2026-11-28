@@ -13,8 +13,8 @@ export const DIS = BALANCE.dissolveValueByTier;
 // The full Realm_Ladder (Requirement 22). Only the first five can be played in the MVP (Playable_Level_Cap).
 export const REALMS = ['Luyện Khí', 'Trúc Cơ', 'Kim Đan', 'Nguyên Anh', 'Hóa Thần', 'Luyện Hư', 'Hợp Thể', 'Đại Thừa', 'Độ Kiếp'];
 export const SUBS = ['Sơ Kỳ', 'Trung Kỳ', 'Hậu Kỳ', 'Đỉnh Phong'];
-// Tribulation waves by target Realm index (0 based), from Balance_Config.
-export const WAVES = [0, 0, 0, 0, 0, 0].map((_, i) => BALANCE.tribulationWaves[i + 1] || 0);
+// Tribulation waves by target Realm index (0 based), from Balance_Config: one entry per Realm, 0 where there is no Thiên Kiếp.
+export const WAVES = REALMS.map((_, i) => BALANCE.tribulationWaves[i + 1] || 0);
 export const LINH_W = BALANCE.linhCountWeights; // 1..5 roots
 export const V1 = BALANCE.baseStats; // maxHp, maxSpirit, atk, def, spd at Level 1
 
@@ -98,6 +98,11 @@ export const SPECIES: Species[] = [
   { id: 'gaduong', name: 'Hạo Nhật Kê', el: ['Dương'], cm: 60, f: [0.9, 0.9, 1.2, 0.83, 1.18], tame: 1.2 },
   { id: 'bachtrach', name: 'Bạch Trạch', el: ['Dương'], cm: 170, f: [0.88, 1.35, 1.1, 0.8, 1.02], tame: 0.5 },
   { id: 'thuy', name: 'Tường Vân Thụy Thú', el: ['Dương'], cm: 160, f: [0.93, 1.28, 1.15, 0.85, 0.95], tame: 0.6 },
+  // fourth wave (Hợp Thể, 2026-11-28): the beasts of the ancient gods, met only in Vạn Cổ Thần Khư
+  { id: 'tyhuu', name: 'Kim Giáp Tỳ Hưu', el: ['Kim'], cm: 260, f: [1.25, 1.0, 1.2, 1.2, 0.9], tame: 0.4 },
+  { id: 'baha', name: 'Bá Hạ', el: ['Thổ'], cm: 700, f: [1.5, 1.0, 0.95, 1.5, 0.45], tame: 0.35 },
+  { id: 'thaothiet', name: 'Thao Thiết', el: ['Âm'], cm: 420, f: [1.35, 1.05, 1.3, 1.1, 0.85], tame: 0.3 },
+  { id: 'tatphuong', name: 'Tất Phương', el: ['Hỏa'], cm: 180, f: [0.9, 1.25, 1.3, 0.85, 1.25], tame: 0.45 },
 ];
 export interface Pers { n: string; dev: number[]; tame: number; line: string }
 export const PERS: Pers[] = [
@@ -224,6 +229,7 @@ export interface Material { id: string; name: string; price: number }
 export const MATERIALS: Material[] = [
   { id: 'linhthao', name: 'Linh Thảo', price: 1 }, { id: 'truc', name: 'Thanh Trúc Tinh', price: 2 }, { id: 'ngoc', name: 'Hàn Ngọc Tủy', price: 4 },
   { id: 'hoatinh', name: 'Hỏa Tinh Thạch', price: 6 }, { id: 'loitinh', name: 'Lôi Tinh Sa', price: 10 }, { id: 'uminh', name: 'U Minh Hoa', price: 15 }, { id: 'tinhsa', name: 'Tinh Hà Sa', price: 25 },
+  { id: 'thancot', name: 'Cổ Thần Cốt', price: 30 },   // 30, not 40: a Công Việc buyer asks for at least 3, and a material job is kept at 100 Linh Thạch or less
 ];
 export const MAT = (id: string) => MATERIALS.find((m) => m.id === id)!;
 
@@ -280,6 +286,10 @@ export const ZONES: Zone[] = [
   { id: 'tinhha', name: 'Tinh Hà Hư Cảnh', blurb: 'Dòng sông sao vỡ nát giữa hư không, nơi Luyện Hư Tu Sĩ luyện hóa hư vô thành đạo.', lv: [20, 24], minLevel: 20, pill: 2, density: 2.1,
     enc: { monster: 66, npc: 15, resource: 9, event: 10 }, species: { am: 2, duong: 2, loi: 2, bang: 2, kinh: 2, su: 2, phuong: 2, quyma: 2, hacbao: 2, kimo: 3, bachtrach: 2, thuy: 2, thanma: 2, bachho: 2, kimlong: 3, thienloi: 2, chuclong: 2, muc: 1, sa: 1, voi: 1, dangmang: 1, thiencay: 2, loiman: 1, kiemngu: 2 },
     materials: [{ id: 'tinhsa', w: 3, q: [1, 3] }, { id: 'uminh', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'tinhvan', w: 3 }, { id: 'linhkhi', w: 3 }, { id: 'nguyet', w: 2 }, { id: 'loivan', w: 2 }, { id: 'ngungtre', w: 1 }, { id: 'yeukhi', w: 2 }], drop: DROP_TABLE },
+  // Hợp Thể (opened 2026-11-28). The four beasts of the ancient gods (tyhuu, baha, thaothiet, tatphuong) live only here.
+  { id: 'thankhu', name: 'Vạn Cổ Thần Khư', blurb: 'Di tích chư thần thượng cổ, pháp tướng hóa thành núi non, nơi Hợp Thể Tu Sĩ dung đạo vào thân.', lv: [24, 28], minLevel: 24, pill: 2, density: 2.4,
+    enc: { monster: 67, npc: 15, resource: 8, event: 10 }, species: { tyhuu: 3, baha: 2, thaothiet: 2, tatphuong: 3, kimlong: 2, chuclong: 2, thienloi: 2, thiencay: 2, kimo: 2, bachtrach: 2, thuy: 2, su: 2, bachho: 2, hacbao: 2, phuong: 2, voi: 2, te: 2, quy: 1, kinh: 1, sa: 1, loiman: 1, thanma: 1, dangmang: 1, quyma: 1 },
+    materials: [{ id: 'thancot', w: 3, q: [1, 3] }, { id: 'tinhsa', w: 1, q: [1, 2] }], events: ALL_EVENTS, phen: [{ id: 'linhkhi', w: 3 }, { id: 'tinhvan', w: 3 }, { id: 'yeukhi', w: 2 }, { id: 'ngungtre', w: 2 }, { id: 'loivan', w: 1 }, { id: 'nguyet', w: 1 }], drop: DROP_TABLE },
 ];
 export const START_ZONE = 'thanhvan';
 export const ZONE = (id: string) => ZONES.find((z) => z.id === id) || ZONES[0];
@@ -418,6 +428,11 @@ export const SPECIES_EN: Record<string, string> = {
   gaduong: 'a proud golden rooster spirit with long radiant tail feathers like sun rays and a glowing crest',
   bachtrach: 'the legendary baize beast, a white lion-like creature with a gentle face, curved golden horns and a mane of soft light',
   thuy: 'an auspicious cloud beast, a deer-like creature of soft golden clouds with luminous antlers and swirling auspicious cloud patterns',
+  // fourth wave (Vạn Cổ Thần Khư)
+  tyhuu: 'a majestic pixiu guardian beast with a powerful lion-like body, a single curved horn, short folded wings and gleaming golden armor-like scales, a broad proud chest and fierce amber eyes',
+  baha: 'a colossal dragon-headed giant tortoise (bixi) of ancient weathered gray stone and dark bronze, carrying a tall plain smooth stone slab with no carving on its shell, moss and small pines growing on its back, calm glowing golden eyes',
+  thaothiet: 'a fearsome ancient taotie beast with a huge horned head, a wide fanged maw and a heavy powerful body whose dark bronze hide is patterned like an ancient bronze ritual vessel, wisps of dark violet shadow rising from it, glowing eyes',
+  tatphuong: 'a slender one-legged crane spirit (bifang) with crimson feathers spotted with blue, a white jade-like beak and a long elegant neck, standing on its single leg wreathed in small flames and drifting embers',
 };
 export const MON_SCENE = ['in a misty bamboo forest', 'under a pale full moon', 'in a stormy sky with distant mountains', 'among golden dawn clouds', 'in ancient mossy ruins'];
 export const PERS_EXPR = ['fierce determined gaze', 'shy gentle expression', 'serene calm expression', 'proud aloof gaze', 'cheerful warm smile', 'kind soft smile', 'playful smirk', 'distant melancholic gaze', 'sincere resolute look', 'sly clever eyes', 'quiet contemplative look', 'intense fiery look'];
@@ -519,7 +534,7 @@ export const BUYER_EN: Record<string, string> = {
   'Thể Tu': 'a body cultivator in a short martial robe with bare strong forearms wrapped in leather bracers, a healthy glow and a confident, cheerful grin',
   'Ma Tu': 'a dark-path cultivator in elegant black and crimson robes with silver filigree and a faint violet aura around the shoulders, a graceful, slightly dangerous smile',
 };
-// ---------- Chiến trường: every fight happens on one of 12 arenas (two per zone, chosen by the tick). An arena strengthens the techniques of some
+// ---------- Chiến trường: every fight happens on one of 14 arenas (two per zone, chosen by the tick). An arena strengthens the techniques of some
 // elements and weakens those of others, for everybody on it (the player, Linh Thú and the foe). Pictures: public/art/arenas (scripts/pregen.ts).
 export interface Arena { id: string; zone: string; name: string; note: string; boost: string[]; weaken: string[] }
 export const ARENA_BOOST = 1.12, ARENA_WEAKEN = 0.88;
@@ -536,6 +551,8 @@ export const ARENAS: Arena[] = [
   { id: 'cuuu_nhatnguyet', zone: 'cuuu', name: 'Nhật Nguyệt Giao Thực', note: 'Nhật nguyệt giao nhau trên đài vỡ.', boost: ['Dương', 'Âm'], weaken: ['Thổ'] },
   { id: 'tinhha_cau', zone: 'tinhha', name: 'Thiên Hà Ngọc Kiều', note: 'Cầu ngọc vỡ bắc ngang dòng sông sao.', boost: ['Kim', 'Dương'], weaken: ['Mộc'] },
   { id: 'tinhha_dai', zone: 'tinhha', name: 'Tinh Thần Tế Đài', note: 'Đài tế cổ giữa biển sao rơi.', boost: ['Lôi', 'Âm'], weaken: ['Thổ'] },
+  { id: 'thankhu_chuong', zone: 'thankhu', name: 'Thần Chưởng Đài', note: 'Lòng bàn tay pho tượng thần cổ nhô lên giữa biển mây.', boost: ['Thổ', 'Kim'], weaken: ['Thủy'] },
+  { id: 'thankhu_thac', zone: 'thankhu', name: 'Thiên Bộc Ngọc Đài', note: 'Đài ngọc bên thác trời đổ xuống biển mây.', boost: ['Thủy', 'Dương'], weaken: ['Hỏa'] },
 ];
 export const ARENA = (id: string | undefined) => ARENAS.find((a) => a.id === id) || null;
 export const arenaMult = (a: Arena | null, el?: string) => (!a || !el ? 1 : a.boost.includes(el) ? ARENA_BOOST : a.weaken.includes(el) ? ARENA_WEAKEN : 1);
@@ -738,3 +755,12 @@ export const weekArt = (el: string) => zoneArt(`week_${slug(el)}`);
 PLACE_EN.onboard_1_v = 'a vast sea of clouds at dawn above floating spirit mountains, ribbons of luminous qi falling like silver rain onto blossoming land, a tiny lone pavilion on a far peak, warm golden light, the quiet birth of a world';
 PLACE_EN.onboard_2_v = 'a creeping wall of thick gray fog swallowing a green valley, withering glowing trees, pale hollow ghost-like beast silhouettes drifting inside the mist, sickly gray and cold teal tones, the last warm light fading, ominous but beautiful';
 PLACE_EN.onboard_3_v = 'the foot of a misty mountain above a sea of clouds at first light, a winding stone path rising through old pines toward a glowing sunrise, a single small spirit stone glowing warmly on a mossy rock in the foreground, hopeful gold and jade tones';
+
+// ---------- Hợp Thể (2026-11-28): the pictures of Vạn Cổ Thần Khư and its goods. Appended last for the same reason as the story cards above:
+// the seed of a scene or an icon is its place in PLACE_EN / PROP_EN, so adding them anywhere else would change pictures already drawn.
+PLACE_EN.thankhu = 'the ruins of the ancient gods above a sea of golden clouds: colossal weathered stone statues of robed immortals with worn-away faces, half merged into floating mountains, a giant open stone hand holding a waterfall that pours into the clouds, broken golden temple stairs, jade-green moss, warm divine light at dawn, majestic and sacred';
+PLACE_EN.thankhu_v = PLACE_EN.thankhu;
+PLACE_EN.arena_thankhu_chuong = 'a wide xianxia duel arena, a flat platform on the huge open upturned palm of a colossal ancient stone statue rising out of a sea of golden clouds, weathered stone fingers around the edge, jade moss in the cracks, warm divine light';
+PLACE_EN.arena_thankhu_thac = 'a wide xianxia duel arena, a flat white jade terrace beside a colossal waterfall pouring down from the sky into a sea of golden clouds, broken stone pillars of an ancient temple, rainbow mist, bright sunlight';
+PROP_EN.bt5 = 'a majestic breakthrough elixir pill of swirling molten gold and jade-green light, circled by a tiny ring of golden clouds and a soft divine halo, in an ornate gold-and-white jade cup on a small carved pedestal';
+PROP_EN.mat_thancot = 'a fragment of an ancient god bone made of pale gold jade-like material, with faint glowing golden veins inside and a soft warm aura';

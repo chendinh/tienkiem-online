@@ -40,7 +40,7 @@ export async function storyRequest(b: any): Promise<StoryResult> {
       user = `Viết tiểu sử cho nhân vật:\n- Tên: ${name}${dao ? ` (đạo hiệu ${dao})` : ''}\n- Giới tính: ${g === 'f' ? 'nữ' : 'nam'}\n- Linh Căn: ${linh.join(', ')}, độ thuần ${purity}\n- Tính cách: ${C.PERS[pers].n} (${C.PERS[pers].line})\n- Xuất thân: ${C.ORIGINS[origin].n}, ${C.ORIGINS[origin].note}\n- Ngoại hình (mô tả tiếng Anh, hãy diễn đạt lại bằng tiếng Việt): tóc ${C.HAIR_COLORS[hc]}, ${styles[hs]}; mắt ${C.EYES[ey]}; da ${C.SKINS[sk]}${C.MARKS[mk] ? `; ${C.MARKS[mk]}` : ''}\n\nTrả về JSON: {"bio":"ba đoạn ngắn cách nhau bằng hai dấu xuống dòng, tổng 120-170 từ, kể quá khứ và lý do bước vào con đường tu tiên, gắn với bối cảnh chung","motto":"một câu châm ngôn tối đa 14 từ","secret":"một bí mật chưa ai biết, tối đa 25 từ"}`;
       key = { k: 'bio', name, dao, g, linh, purity, pers, origin, hc, hs, ey, sk, mk };
     } else if (b.kind === 'chapter') {
-      const realm = num(b.realm, 1, 5), motto = textOk(b.motto || '');
+      const realm = num(b.realm, 1, C.REALMS.length - 1), motto = textOk(b.motto || '');
       user = `Nhân vật ${name} (${g === 'f' ? 'nữ' : 'nam'}) vừa đột phá lên cảnh giới ${C.REALMS[realm]}.${motto ? ` Châm ngôn của nhân vật: "${motto}".` : ''}\nViết một đoạn nhật ký 60-90 từ (ngôi thứ ba), nhắc cảnh giới mới và cảm giác lúc đột phá, nối tiếp hành trình.\nTrả về JSON: {"text":"..."}`;
       key = { k: 'chapter', name, g, realm, motto };
     } else bad();

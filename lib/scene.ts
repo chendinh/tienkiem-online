@@ -28,6 +28,7 @@ const LOOKS: Record<string, Partial<Look>> = {
   xichviem: { band: [0.82, 0.95], xr: [0.32, 0.72], light: 0, tint: { b: 0.95, s: 1.1 }, haze: [90, 42, 28], hazeMax: 0.4, mist: 0.35, mistColor: 'rgba(180,90,50,0.4)', motes: 'ember', grass: '#110706' },
   cuuu: { ground: false, band: [0.84, 0.95], xr: [0.3, 0.7], far: 0.8, near: 1, tint: { b: 0.95, s: 1 }, haze: [30, 30, 50], hazeMax: 0.2, mist: 0.3, mistColor: 'rgba(120,110,150,0.4)', motes: 'ember', grass: '#08070c' },
   tinhha: { ground: false, band: [0.84, 0.95], xr: [0.3, 0.7], far: 0.8, near: 1, tint: { b: 0.95, s: 1 }, haze: [40, 30, 80], hazeMax: 0.2, mist: 0.3, mistColor: 'rgba(120,100,180,0.4)', motes: 'star', grass: '#08060f' },
+  thankhu: { ground: false, band: [0.84, 0.95], xr: [0.3, 0.7], far: 0.8, near: 1, tint: { b: 1.02, s: 1.02 }, haze: [214, 186, 128], hazeMax: 0.25, mist: 0.5, mistColor: 'rgba(250,232,190,0.45)', motes: 'firefly', grass: '#141008', fgDraw: 'none' },
   // The game's own atmosphere pictures (public/art/scene): a sea of clouds between rock pillars. The creatures stand on the clouds in the middle, wading in
   // the front mist, so nothing is drawn as grass. This is the default background of the creature garden.
   dawn: { band: [0.72, 0.93], xr: [0.3, 0.78], far: 0.5, near: 1.1, tint: { b: 1.03, s: 1.02 }, haze: [236, 228, 208], hazeMax: 0.4, mist: 0.85, mistColor: 'rgba(244,244,248,0.6)', motes: 'firefly', fgDraw: 'none' },
