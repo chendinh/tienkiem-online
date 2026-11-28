@@ -84,6 +84,9 @@ export function candidates<T extends BeastLike & { id: number; power: number }>(
   return beasts.filter((b) => !booked.has(b.id) && !busy.has(b.id) && fits(p.ask, b)).sort((a, b) => Number(a.mut) - Number(b.mut) || a.power - b.power || a.id - b.id);
 }
 
+/** The creature put forward for a posting: the first candidate (the weakest, Dị Biến last) that is not in the Party. Never one of the Party: when only those fit,
+ *  nothing is put forward and the player picks one on purpose (2026-11-28). */
+export const bestFor = <T extends { id: number }>(cands: T[], party: ReadonlySet<number>): T | undefined => cands.find((b) => !party.has(b.id));
 // ---- making a posting
 /** The size asks of a Vừa posting: about three creatures in four of an element are of one of them (Vừa is the most common size, then Lớn and Nhỏ). */
 export const SIZE_ASKS: { minCls?: number; maxCls?: number }[] = [{ minCls: 2 }, { maxCls: 2 }];

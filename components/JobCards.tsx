@@ -79,8 +79,10 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
   useEffect(() => { setOpen(false); setSel([]); }, [j.id]);   // the card belongs to a slot: when a new buyer takes the place, the picker starts closed
   const gone = !J.isOpen(j), left = J.left(j), a = j.ask;
   const spare = (b: Beast) => J.isSpare(b, hold);
-  const cands = useMemo(() => (j.type === 'beast' ? J.beastCands(j, st.beasts, hold) : []), [j, st.beasts, hold]);
+  // a creature at work cannot be handed over at all, so it is not listed; the Party (and a framed creature, one on a stand) comes last and is never put forward
+  const cands = useMemo(() => { if (j.type !== 'beast') return []; const working = WK.bookedIds(st.work); return J.beastCands(j, st.beasts.filter((b) => !working.has(b.id)), hold); }, [j, st.beasts, st.work, hold]);
   const have = j.type === 'beast' ? cands.length : stockOf(st, a), take = j.type === 'beast' ? sel.length : Math.min(have, left);
+  const spareN = j.type === 'beast' ? cands.filter((b) => J.isSpare(b, hold)).length : 0;
   const unit = a.t === 'beast' ? 0 : J.unitValue(a);
   const payUnit = (b?: Beast) => J.payFor(j.mult, b ? releaseValue(b) : unit);
   const chosen = cands.filter((b) => sel.includes(b.id));
@@ -163,7 +165,7 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
           {open && j.type === 'beast'
             ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(false)}>Thôi</button><button type="button" className="btn hot" disabled={sel.length === 0} onClick={(e) => giveBeasts(e.currentTarget.closest('.ordCard'))}>Giao {sel.length} con · +{fmt(pay)} <Icon name="stone" size={14} /></button></div>
             : j.type === 'beast'
-              ? <button type="button" className="btn" disabled={have === 0} onClick={start}>{have > 0 ? `Giao nộp (${have} con hợp)` : 'Chưa có con nào hợp'}</button>
+              ? <button type="button" className={`btn${spareN > 0 || have === 0 ? '' : ' ghost'}`} disabled={have === 0} onClick={start}>{spareN > 0 ? `Giao nộp (${spareN} con hợp)` : have > 0 ? `Chỉ con đang giữ (★) hợp (${have})` : 'Chưa có con nào hợp'}</button>
               : <button type="button" className="btn" disabled={have === 0} onClick={(e) => give(e.currentTarget.closest('.ordCard'))}>{have > 0 ? `Giao ${take}${have < left ? ` (ngươi có ${have})` : ''} · +${fmt(pay)}` : `Chưa có ${a.t === 'pill' ? 'viên đan' : 'nguyên liệu'} nào`}</button>}
           {j.type !== 'beast' && have === 0 && <div className="hint">{a.t === 'pill' ? 'Luyện Hồi Khí Đan bằng nguyên liệu thu được khi đi thám hiểm.' : 'Nguyên liệu rơi ra khi thám hiểm, mỗi vùng một loại.'}</div>}
         </>

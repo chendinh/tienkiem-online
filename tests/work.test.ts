@@ -199,6 +199,14 @@ test('work: the candidates are the free creatures that fit, the weakest first an
   assert.deepEqual(WK.candidates(p, st.beasts, new Set(), new Set([a.id])).map((x) => x.id), [busy.id, b.id, m.id]);
 });
 
+test('work: a creature of the Party is never put forward, even when it is the only one that fits', () => {
+  const st = fresh(21), p = post(st, 0), weak = workerFor(st, p, { power: 5 }), mid = workerFor(st, p, { power: 20 }), strong = workerFor(st, p, { power: 900 });
+  const cands = WK.candidates(p, st.beasts, new Set());
+  assert.equal(WK.bestFor(cands, new Set()), weak);
+  assert.equal(WK.bestFor(cands, new Set([weak.id, strong.id])), mid, 'the weakest that is not in the Party');
+  assert.equal(WK.bestFor(cands, new Set(cands.map((b) => b.id))), undefined, 'only the Party fits: nothing is put forward');
+});
+
 test('work: durations and the actions are pure intents', () => {
   assert.equal(WK.durText(30), '30 giây'); assert.equal(WK.durText(60), '1 phút'); assert.equal(WK.durText(61), '2 phút'); assert.equal(WK.durText(3600), '1 giờ'); assert.equal(WK.durText(3900), '1 giờ 5 phút');
   for (const k of ['workSend', 'workCollect']) assert.equal(typeof PURE_INTENTS[k], 'function', k);

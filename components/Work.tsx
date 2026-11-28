@@ -23,12 +23,13 @@ import { useCue } from './fx/Cue';
 
 /** The creatures on a stand of Triển Lãm (they cannot go to work). */
 const standIds = (st: GS): Set<number> => { const s = new Set<number>(); if (XP.isExpo(st.expo)) for (const x of st.expo.stands) if (x && x.kind === 'beast') s.add(x.id); return s; };
-/** How many postings could be done right now: the pay is there to collect, or a free posting has a creature that fits (the dot on the tab). */
+/** How many postings could be done right now: the pay is there to collect, or a free posting has a creature that fits and is not in the Party (the dot on the tab:
+ *  the creatures that fight are never put forward, the player sends one of them only on purpose). */
 export const workReady = (st: GS): number => {
   const list = WK.postsOf(st.work);
   if (!list.length) return 0;
-  const booked = WK.bookedIds(st.work), stands = standIds(st);
-  return list.filter((p) => { const s = WK.stageOf(p, st.clock); return s === 'ready' || (s === 'free' && st.beasts.some((b) => !booked.has(b.id) && !stands.has(b.id) && WK.fits(p.ask, b))); }).length;
+  const booked = WK.bookedIds(st.work), stands = standIds(st), party = J.partyOf(st.beasts, st.caps.party);
+  return list.filter((p) => { const s = WK.stageOf(p, st.clock); return s === 'ready' || (s === 'free' && st.beasts.some((b) => !booked.has(b.id) && !stands.has(b.id) && !party.has(b.id) && WK.fits(p.ask, b))); }).length;
 };
 
 // A creature sent to work waits for the server's answer (lib/intents.ts SERVER_FIRST). What is on its way and the last refusal are kept here, outside the cards, so closing the window or changing
@@ -70,8 +71,9 @@ const askNote = (a: WK.Ask): string =>
 const stars = (t: WK.Tier) => (t === 3 ? '✦' : '★'.repeat(t + 1));
 
 /** The creature picked for the player when the list opens: the weakest that fits and is not in the Party (the strong ones fight), a Dị Biến only when nothing else fits
- *  (`cands` comes weakest first, Dị Biến last). The pay does not depend on the creature, so the one that is missed least is the best one to send. */
-const bestOf = (cands: Beast[], party: ReadonlySet<number>): Beast | undefined => cands.find((b) => !party.has(b.id)) || cands[0];
+ *  (`cands` comes weakest first, Dị Biến last). The pay does not depend on the creature, so the one that is missed least is the best one to send.
+ *  A creature of the Party is never picked for the player (2026-11-28): when only those fit, nothing is picked and the player chooses one on purpose. */
+const bestOf = (cands: Beast[], party: ReadonlySet<number>): Beast | undefined => WK.bestFor(cands, party);
 
 /** A creature seen up close before it is sent: its picture, Level, Chiến Lực and numbers, and the button that picks it. */
 function BeastPeek({ b, inParty, picked, onPick, onClose }: { b: Beast; inParty: boolean; picked: boolean; onPick: () => void; onClose: () => void }) {
@@ -107,6 +109,9 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
   useEffect(() => { setOpen(false); setPeek(null); }, [p.id]);   // the card belongs to a place: when a new posting takes it, the list of creatures starts closed
   // the creature picked: the player's own choice while it still fits, else the best one (so the button below is ready the moment the list opens)
   const picked = cands.find((b) => b.id === pickId) || bestOf(cands, party);
+  // the Party comes last in the list and is not counted on the button: it is there to be chosen on purpose, never put forward
+  const list = useMemo(() => [...cands.filter((b) => !party.has(b.id)), ...cands.filter((b) => party.has(b.id))], [cands, party]);
+  const spare = list.length - cands.filter((b) => party.has(b.id)).length;
   const sent = going.get(p.id), real = WK.stageOf(p, st.clock), leaving = real === 'free' && sent !== undefined ? st.beasts.find((b) => b.id === sent) : undefined;
   const stage = leaving ? 'run' : real, worker = leaving || (p.beast !== undefined ? st.beasts.find((b) => b.id === p.beast) : undefined);
   const total = p.secs * 1000, left = Math.max(0, (p.end ?? 0) - now), pct = leaving ? 0 : p.start !== undefined && p.end !== undefined ? Math.min(100, Math.round((100 * (now - p.start)) / total)) : 0;
@@ -149,9 +154,11 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
         <>
           {open && (
             <>
-              <div className="hint wkPickHint">Đã chọn sẵn con hợp nhất (con yếu nhất hợp việc, để dành con mạnh cho đội xuất chiến). Bấm vào ảnh để xem kỹ, bấm vào ô để đổi con khác.</div>
+              <div className="hint wkPickHint">{spare > 0
+                ? 'Đã chọn sẵn con hợp nhất (con yếu nhất hợp việc, không lấy con trong đội xuất chiến). Bấm vào ảnh để xem kỹ, bấm vào ô để đổi con khác.'
+                : 'Chỉ có con trong đội xuất chiến (★) hợp việc này. Nếu vẫn muốn cử, bấm vào ô để chọn.'}</div>
               <div className="ordPick wkPick" role="radiogroup" aria-label="Chọn Linh Thú đi làm">
-                {cands.map((b) => {
+                {list.map((b) => {
                   const on = picked?.id === b.id;
                   return (
                     <div key={b.id} role="radio" aria-checked={on} tabIndex={0} className={`ordIt wkPickIt${on ? ' on' : ''}`} onClick={() => setPickId(b.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPickId(b.id); } }}>
@@ -172,7 +179,7 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
                 <button type="button" className="btn hot" disabled={!picked} onClick={() => picked && send(picked)}>{picked ? `Cử ${picked.name} đi làm` : 'Chọn một con'}</button>
               </div>
             )
-            : <button type="button" className="btn" disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{cands.length > 0 ? `Cử Linh Thú đi làm (${cands.length} con hợp)` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : p.ask.elite ? 'Chưa có Tinh Anh nào hợp' : 'Chưa có con nào hợp'}</button>}
+            : <button type="button" className={`btn${spare > 0 ? '' : ' ghost'}`} disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{spare > 0 ? `Cử Linh Thú đi làm (${spare} con hợp)` : cands.length > 0 ? `Chỉ con xuất chiến hợp (${cands.length})` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : p.ask.elite ? 'Chưa có Tinh Anh nào hợp' : 'Chưa có con nào hợp'}</button>}
           {peek && <BeastPeek b={peek} inParty={party.has(peek.id)} picked={picked?.id === peek.id} onPick={() => { setPickId(peek.id); setPeek(null); }} onClose={() => setPeek(null)} />}
         </>
       )}
