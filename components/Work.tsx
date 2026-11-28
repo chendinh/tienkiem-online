@@ -54,10 +54,19 @@ function useGameNow(clock: number, live: boolean): number {
 
 function AskPic({ a, size }: { a: WK.Ask; size: number }) {
   const art = WK.askArt(a);
-  return art
-    ? <Img src={art} className="jobAskImg" style={{ width: size, height: size }} fb={<ElIcon el={WK.elOf(a)} size={Math.round(size * 0.6)} />} />
-    : <span className="jobAskImg" style={{ width: size, height: size }}><ElIcon el={WK.elOf(a)} size={Math.round(size * 0.65)} /></span>;
+  if (art) return <Img src={art} className="jobAskImg" style={{ width: size, height: size }} fb={<ElIcon el={WK.elOf(a)} size={Math.round(size * 0.6)} />} />;
+  // a Tinh Anh of any species has no element: its own sign; otherwise the element's, with the size asked under it
+  const size_ = WK.sizeText(a);
+  return (
+    <span className="jobAskImg wkAskPic" style={{ width: size, height: size }}>
+      {a.elite && !a.el ? <Icon name="sparkle" size={Math.round(size * 0.55)} /> : <ElIcon el={WK.elOf(a)} size={Math.round(size * (size_ ? 0.5 : 0.65))} />}
+      {size_ && <em className="wkSzTag">{a.minCls !== undefined ? '≥' : '≤'} {C.SIZE_CLASS[a.minCls ?? a.maxCls!]}</em>}
+    </span>
+  );
 }
+/** The second line under what is asked. */
+const askNote = (a: WK.Ask): string =>
+  a.mut ? 'Chỉ Linh Thú Dị Biến mới làm được' : a.elite ? 'Chỉ Linh Thú Tinh Anh mới làm được' : WK.sizeText(a) ? 'Xem cỡ ở ô của từng con · làm xong thú vẫn là của ngươi' : 'Làm xong thú vẫn là của ngươi';
 const stars = (t: WK.Tier) => (t === 3 ? '✦' : '★'.repeat(t + 1));
 
 /** The creature picked for the player when the list opens: the weakest that fits and is not in the Party (the strong ones fight), a Dị Biến only when nothing else fits
@@ -129,7 +138,7 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
       <p className="ordLine"><b className="wkJob">{p.job}</b> “{WK.lineOf(p)}”</p>
       <div className="jobAsk">
         <AskPic a={p.ask} size={52} />
-        <div className="jobAskTx"><b>{WK.askText(p.ask)}</b><small>{p.ask.mut ? 'Chỉ Linh Thú Dị Biến mới làm được' : 'Làm xong thú vẫn là của ngươi'}</small></div>
+        <div className="jobAskTx"><b>{WK.askText(p.ask)}</b><small>{askNote(p.ask)}</small></div>
       </div>
       <div className="ordPay wkPay">
         <span><Icon name="clock" size={13} /> <b>{WK.durText(p.secs)}</b></span>
@@ -149,7 +158,7 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
                       {on && <i className="wkPickMark" aria-hidden="true"><Icon name="check" size={12} /></i>}
                       <span className="wkPickPic" onClick={(e) => e.stopPropagation()}><BeastArt b={b} box={84} mine onOpen={() => setPeek(b)} /></span>
                       <b className="wkPickNm">{party.has(b.id) ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</b>
-                      <small>Lv{b.level} · <Icon name="atk" size={11} /> {fmt(b.power)}</small>
+                      <small>Lv{b.level}{WK.sizeText(p.ask) ? ` · ${C.SIZE_CLASS[b.cls]}` : ''} · <Icon name="atk" size={11} /> {fmt(b.power)}</small>
                     </div>
                   );
                 })}
@@ -163,7 +172,7 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
                 <button type="button" className="btn hot" disabled={!picked} onClick={() => picked && send(picked)}>{picked ? `Cử ${picked.name} đi làm` : 'Chọn một con'}</button>
               </div>
             )
-            : <button type="button" className="btn" disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{cands.length > 0 ? `Cử Linh Thú đi làm (${cands.length} con hợp)` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : 'Chưa có con nào hợp'}</button>}
+            : <button type="button" className="btn" disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{cands.length > 0 ? `Cử Linh Thú đi làm (${cands.length} con hợp)` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : p.ask.elite ? 'Chưa có Tinh Anh nào hợp' : 'Chưa có con nào hợp'}</button>}
           {peek && <BeastPeek b={peek} inParty={party.has(peek.id)} picked={picked?.id === peek.id} onPick={() => { setPickId(peek.id); setPeek(null); }} onClose={() => setPeek(null)} />}
         </>
       )}

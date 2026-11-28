@@ -10,10 +10,10 @@ const T0 = 1_800_000_000_000;
 const fresh = (seed = 42, realm = 2, sub = 1) => { const st = G.newGame(seed, 'f', T0); st.player.realm = realm; st.player.sub = sub; G.settle(st, 1); return st; };   // one tick makes the board
 const lvl = (st: G.GameState) => G.levelOf(st.player);
 let nextId = 9000;
-/** A creature that fits a posting (the species and the element it asks, the level and the Dị Biến it needs), put in the pen. */
+/** A creature that fits a posting (the species or the element it asks, the size, the Tinh Anh and the Dị Biến it needs; cỡ Vừa fits every size asked), put in the pen. */
 const workerFor = (st: G.GameState, p: WK.Post, over: Partial<G.Beast> = {}): G.Beast => {
-  const sp = p.ask.sp || C.SPECIES.find((s) => s.el.includes(p.ask.el!))!.id;
-  const b = { id: ++nextId, level: Math.max(p.ask.minLv ?? 1, 5), mut: !!p.ask.mut, sp, name: `thú ${nextId}`, apt: [1, 1, 1, 1, 1], cls: 2, power: 50, size: 1, cm: 100, pers: 0, skills: [], stats: [10, 10, 10, 10, 10], size_: 1, ...over } as unknown as G.Beast;
+  const sp = p.ask.sp || (p.ask.el ? C.SPECIES.find((s) => s.el.includes(p.ask.el!))!.id : C.SPECIES[0].id);
+  const b = { id: ++nextId, level: Math.max(p.ask.minLv ?? 1, 5), mut: !!p.ask.mut, elite: p.ask.elite || undefined, sp, name: `thú ${nextId}`, apt: [1, 1, 1, 1, 1], cls: 2, power: 50, size: 1, cm: 100, pers: 0, skills: [], stats: [10, 10, 10, 10, 10], size_: 1, ...over } as unknown as G.Beast;
   st.beasts.push(b); return b;
 };
 const post = (st: G.GameState, tier: number) => st.work!.list.find((p) => p.tier === tier)!;
@@ -30,19 +30,25 @@ test('work: every species has exactly one element, so "the right element and the
   assert.equal(new Set(C.SPECIES.map((s) => s.el[0])).size, 8);
 });
 
-test('work: the four tiers ask the four things: an element, a species, a species with a level, a Dị Biến with an element or a species', () => {
+test('work: the four tiers ask at most two things: an element; an element and a size; a species or a Tinh Anh; a Dị Biến of an element', () => {
+  let species = 0, elite = 0;
   for (let seed = 1; seed <= 40; seed++) {
-    for (const [realm, sub] of [[0, 0], [1, 2], [3, 1]]) {
+    for (const [realm, sub] of [[0, 0], [1, 2], [3, 1], [6, 3]]) {
       const st = fresh(seed, realm, sub), L = lvl(st), at = J.speciesAt(L), els = J.elementsAt(L);
       for (const p of st.work!.list) {
         const a = p.ask;
-        if (p.tier === 0) { assert.ok(a.el && els.includes(a.el) && !a.sp && a.minLv === undefined && !a.mut); }
-        if (p.tier === 1) { assert.ok(a.sp && at.includes(a.sp) && !a.el && a.minLv === undefined && !a.mut); }
-        if (p.tier === 2) {
-          assert.ok(a.sp && a.minLv !== undefined && !a.el && !a.mut); assert.ok(a.minLv >= Math.max(1, L - 3) && a.minLv <= L);
-          assert.ok(C.ZONES.some((z) => z.minLevel <= L && (z.species[a.sp!] || 0) > 0 && z.lv[1] >= a.minLv!), 'some zone the player can reach has that species at that level');
+        assert.ok(WK.askCount(a) >= 1 && WK.askCount(a) <= 2, JSON.stringify(a)); assert.equal(a.minLv, undefined, 'no level is asked any more');
+        assert.ok(!WK.isLegacy(p) && WK.isOpen(p));
+        if (p.tier === 0) { assert.ok(a.el && els.includes(a.el) && !a.sp && !a.mut && !a.elite && a.minCls === undefined && a.maxCls === undefined); }
+        if (p.tier === 1) {
+          assert.ok(a.el && els.includes(a.el) && !a.sp && !a.mut && !a.elite);
+          assert.ok(WK.SIZE_ASKS.some((z) => z.minCls === a.minCls && z.maxCls === a.maxCls), 'one of the size asks');
         }
-        if (p.tier === 3) { assert.equal(a.mut, true); assert.ok(!!a.el !== !!a.sp, 'an element or a species, not both'); assert.ok(a.el ? els.includes(a.el) : at.includes(a.sp!)); }
+        if (p.tier === 2) {
+          assert.ok(!a.mut && !a.el && a.minCls === undefined && a.maxCls === undefined);
+          assert.ok(!!a.sp !== !!a.elite, 'a species, or a Tinh Anh of any species'); if (a.sp) { assert.ok(at.includes(a.sp)); species++; } else elite++;
+        }
+        if (p.tier === 3) { assert.equal(a.mut, true); assert.ok(a.el && els.includes(a.el) && !a.sp && !a.elite); }
         assert.ok(p.secs >= WK.BASE_SECS[p.tier] * 0.79 && p.secs <= WK.BASE_SECS[p.tier] * 1.21);
         assert.equal(p.secs % 60, 0);
       }
@@ -50,10 +56,45 @@ test('work: the four tiers ask the four things: an element, a species, a species
       assert.notEqual(JSON.stringify(t0[0].ask), JSON.stringify(t0[1].ask), 'two easy places never ask the same'); assert.notEqual(JSON.stringify(t1[0].ask), JSON.stringify(t1[1].ask));
     }
   }
+  assert.ok(species > elite && elite > 0, `species ${species}, Tinh Anh ${elite}`);
 });
 
-test('work: a creature fits what is asked, a Dị Biến only the special work, and a species the level', () => {
-  const b = { sp: C.SPECIES[0].id, level: 10, mut: false }, el = C.SPECIES[0].el[0], other = C.SPECIES.find((s) => s.el[0] !== el)!;
+test('work: the size asks of Vừa take about three creatures in four, so the right element and a size is easier than the right species', () => {
+  // the share of each size class (from the size distribution of the balance), and the share a size ask takes
+  const share = [0.06, 0.197, 0.463, 0.256, 0.024];
+  for (const z of WK.SIZE_ASKS) {
+    const p = share.reduce((s, x, c) => s + (WK.fits(z, { sp: C.SPECIES[0].id, level: 1, mut: false, cls: c }) ? x : 0), 0);
+    assert.ok(p > 0.65 && p < 0.8, `${JSON.stringify(z)} ${p}`);
+  }
+});
+
+test('work: a free posting of an older save that asks too much is replaced on the next tick; one with a creature at work stays', () => {
+  const st = fresh(31), list = st.work!.list, sp = C.SPECIES[0].id;
+  const i1 = list.findIndex((p) => p.tier === 1), i2 = list.findIndex((p) => p.tier === 2), i3 = list.findIndex((p) => p.tier === 3);
+  list[i1] = { ...list[i1], ask: { sp } };                       // Vừa: a species
+  list[i2] = { ...list[i2], ask: { sp, minLv: 3 } };             // Khó: a species and a level, a creature already at work
+  list[i3] = { ...list[i3], ask: { mut: true, sp } };            // Đặc biệt: a Dị Biến of one species
+  const old1 = list[i1].id, old3 = list[i3].id;
+  assert.ok(WK.isLegacy(list[i1]) && WK.isLegacy(list[i3]) && !WK.isOpen(list[i1]));
+  const w = workerFor(st, list[i2]); list[i2].beast = w.id; list[i2].start = st.clock; list[i2].end = st.clock + list[i2].secs * 1000;
+  assert.ok(!WK.isLegacy(list[i2]) && WK.isOpen(list[i2]), 'a creature is at work on it: it stays');
+  assert.equal(G.workSend(st, old1, workerFor(st, list[i1]).id).code, 'E_WORK_GONE');
+  G.settle(st, 1);
+  const now = st.work!.list;
+  assert.notEqual(now[i1].id, old1); assert.notEqual(now[i3].id, old3); assert.ok(now[i1].ask.el && !now[i1].ask.sp); assert.ok(now[i3].ask.mut && now[i3].ask.el && !now[i3].ask.sp);
+  assert.equal(now[i2].beast, w.id); assert.deepEqual(now[i2].ask, { sp, minLv: 3 });
+  st.clock = now[i2].end!; assert.ok(G.workCollect(st, now[i2].id).ok, 'and it can be collected as before');
+  // a species alone at Khó is still a posting of now
+  assert.ok(!WK.isLegacy({ tier: 2, ask: { sp } }));
+});
+
+test('work: a creature fits what is asked: the element, the species, the size, a Tinh Anh, a Dị Biến (and the level of an older posting)', () => {
+  const b = { sp: C.SPECIES[0].id, level: 10, mut: false, cls: 2 }, el = C.SPECIES[0].el[0], other = C.SPECIES.find((s) => s.el[0] !== el)!;
+  assert.ok(WK.fits({ el, minCls: 2 }, b) && WK.fits({ el, maxCls: 2 }, b));
+  assert.ok(WK.fits({ el, minCls: 2 }, { ...b, cls: 4 }) && !WK.fits({ el, minCls: 2 }, { ...b, cls: 1 }));
+  assert.ok(WK.fits({ el, maxCls: 2 }, { ...b, cls: 0 }) && !WK.fits({ el, maxCls: 2 }, { ...b, cls: 3 }));
+  assert.ok(!WK.fits({ el: other.el[0], minCls: 2 }, b), 'the element still counts');
+  assert.ok(!WK.fits({ elite: true }, b) && WK.fits({ elite: true }, { ...b, elite: true }) && WK.fits({ el }, { ...b, elite: true }), 'only a Tinh Anh for a Tinh Anh posting; a Tinh Anh may do any other');
   assert.ok(WK.fits({ el }, b)); assert.ok(!WK.fits({ el: other.el[0] }, b));
   assert.ok(WK.fits({ sp: b.sp }, b)); assert.ok(!WK.fits({ sp: other.id }, b));
   assert.ok(WK.fits({ sp: b.sp, minLv: 10 }, b)); assert.ok(!WK.fits({ sp: b.sp, minLv: 11 }, b));
@@ -82,12 +123,13 @@ test('work: the special work gives two goods, the others one or none, all of the
 test('work: send a creature that fits, it is busy until the pay is collected, and it cannot do two works at once', () => {
   const st = fresh(11), p = post(st, 1), b = workerFor(st, p);
   assert.equal(G.workSend(st, p.id, 99999).code, 'E_NOT_FOUND');
-  const wrong = workerFor(st, p, { sp: C.SPECIES.find((s) => s.id !== p.ask.sp)!.id }); assert.equal(G.workSend(st, p.id, wrong.id).code, 'E_WORK_FIT');
+  const wrong = workerFor(st, p, { sp: C.SPECIES.find((s) => !s.el.includes(p.ask.el!))!.id }); assert.equal(G.workSend(st, p.id, wrong.id).code, 'E_WORK_FIT');
+  const off = workerFor(st, p, { cls: p.ask.minCls !== undefined ? p.ask.minCls - 1 : p.ask.maxCls! + 1 }); assert.equal(G.workSend(st, p.id, off.id).code, 'E_WORK_FIT', 'the wrong size');
   assert.equal(G.workSend(st, p.id, 'x').code, 'E_BAD_REQUEST'); assert.equal(G.workSend(st, 'nope', b.id).code, 'E_WORK_GONE');
   const t = st.clock; assert.ok(G.workSend(st, p.id, b.id).ok);
   assert.equal(p.beast, b.id); assert.equal(p.start, t); assert.equal(p.end, t + p.secs * 1000); assert.equal(WK.stageOf(p, st.clock), 'run');
   assert.equal(G.workSend(st, p.id, b.id).code, 'E_WORK_GONE', 'a posting takes one creature');
-  const twin = st.work!.list.find((q) => q !== p && q.tier === 1)!; const same = workerFor(st, twin, { sp: twin.ask.sp });
+  const twin = st.work!.list.find((q) => q !== p && q.tier === 1)!; const same = workerFor(st, twin);
   assert.ok(G.workSend(st, twin.id, same.id).ok);
   // the same creature cannot take a second posting
   const el = post(st, 0); b.sp = C.SPECIES.find((s) => s.el[0] === el.ask.el)!.id; assert.equal(G.workSend(st, el.id, b.id).code, 'E_BEAST_BUSY');
@@ -168,6 +210,8 @@ test('work: the words: what is asked, in plain Vietnamese', () => {
   const sp = C.SPECIES[0];
   assert.match(WK.askText({ el: 'Hỏa' }), /hệ Hỏa/); assert.match(WK.askText({ sp: sp.id }), new RegExp(sp.name));
   assert.match(WK.askText({ sp: sp.id, minLv: 9 }), /từ cấp 9/); assert.match(WK.askText({ mut: true, el: 'Thủy' }), /Dị Biến hệ Thủy/); assert.match(WK.askText({ mut: true, sp: sp.id }), /Dị Biến/);
+  assert.equal(WK.askText({ el: 'Hỏa', minCls: 2 }), 'linh thú hệ Hỏa, cỡ Vừa trở lên'); assert.equal(WK.askText({ el: 'Mộc', maxCls: 2 }), 'linh thú hệ Mộc, cỡ Vừa trở xuống');
+  assert.match(WK.askText({ elite: true }), /Tinh Anh, loài nào cũng được/); assert.equal(WK.askShort({ elite: true }), 'Tinh Anh'); assert.equal(WK.askShort({ el: 'Hỏa', minCls: 2 }), 'Hệ Hỏa');
   assert.equal(WK.askArt({ el: 'Hỏa' }), ''); assert.ok(WK.askArt({ sp: sp.id }).length > 0);
   const st = fresh(20); for (const p of st.work!.list) { assert.ok(p.job.length > 3); assert.ok(WK.lineOf(p).length > 10); }
 });
