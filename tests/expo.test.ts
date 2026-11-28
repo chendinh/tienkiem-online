@@ -177,7 +177,7 @@ test('expo: gifts fit the kind of cultivator and the rarity of the piece', () =>
   for (const arch of C.NPC_TITLES) { for (let i = 0; i < 3000; i++) { const g = XP.giftOf(arch, 'love', x, `${arch}${i}`); if (g) { assert.equal(g.kind, XP.GIFT_OF[arch]); assert.equal(g.tier, 3); got[arch] = (got[arch] || 0) + 1; } } assert.ok(got[arch] > 40 && got[arch] < 180, `${arch}: ${got[arch]} gifts in 3000 loves`); }
   assert.equal(XP.giftOf('Kiếm Tu', 'like', x, 'k'), null); assert.equal(XP.giftOf('Kiếm Tu', null, x, 'k'), null); assert.equal(XP.giftOf('Kiếm Tu', 'sad', x, 'k'), null);
   assert.equal(XP.giftOf('Kiếm Tu', 'love', { ...x, tier: 0 }, 'a0') === null || XP.giftOf('Kiếm Tu', 'love', { ...x, tier: 0 }, 'a0')!.tier === 0, true);
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map(XP.pillGrade), [0, 0, 0, 1, 2, 2]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(XP.pillGrade), [0, 0, 0, 1, 1, 1]);
   for (let i = 0; i < 40; i++) { const b = XP.bookFor('Hỏa', 2, 10, `b${i}`); if (b) { assert.ok(C.slug(b) && require('../lib/arts').isTech(b)); assert.ok(require('../lib/arts').TECHS[b].tier <= 2); } }
 });
 
@@ -556,10 +556,10 @@ test('expo: a rich merchant is rare, always asks to buy the first piece it passe
   assert.ok(seen, 'a rich merchant asked within a few hours');
 });
 
-test('expo: a Linh Thú is worth its Level, its size and its strength to a buyer, far more than the pen pays', () => {
+test('expo: a Linh Thú is worth its Level, its size and its strength to a buyer, never less than the pen pays', () => {
   const st = fresh(63);
   const plain = beast(st, 9001, { level: 30, cls: 2, power: 7800 }), big = beast(st, 9002, { level: 30, cls: 4, power: 7800 }), strong = beast(st, 9003, { level: 30, cls: 2, power: 20000 });
-  assert.ok(G.beastWorth(plain) >= G.releaseValue(plain) * 4, `${G.beastWorth(plain)} vs ${G.releaseValue(plain)}`);
+  assert.ok(G.beastWorth(plain) >= G.releaseValue(plain), `${G.beastWorth(plain)} vs ${G.releaseValue(plain)}`);
   assert.ok(G.beastWorth(big) > G.beastWorth(plain) && G.beastWorth(strong) > G.beastWorth(plain));
   assert.ok(G.beastWorth(beast(st, 9004, { level: 50, cls: 2, power: 220000 })) > G.beastWorth(plain), 'a higher Level is worth more');
   assert.ok(G.expoSet(st, 0, 'beast', plain.id).ok); assert.equal(st.expo!.stands[0]!.extra, Math.round(G.beastWorth(plain) * XP.DEFAULT_MARKUP));

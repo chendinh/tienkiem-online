@@ -127,11 +127,13 @@ export const BALANCE = {
   // (and the same less below, within ±victoryCultGapMax), times the reward multiplier of the foe (elite 2, Tu Sĩ 1.5)
   victoryCultTicks: 2, victoryCultPerLevel: 0.25, victoryCultGap: 0.1, victoryCultGapMax: 0.3,
   dissolveValueByTier: [1, 3, 10, 40, 200, 1000],
-  releaseBase: 2,
+  releaseBase: 20,   // x10 on 2026-11-28 (a strong creature was worth a few hundred Linh Thạch)
+  releaseMutationMin: 10_000,   // a Dị Biến is never worth less
   releaseSizeFactors: [0.8, 0.9, 1, 1.2, 1.5],
   releaseMutationFactor: 5,
   sellBackRatio: 0.5,
   pillRestore: [0.3, 0.6, 1],
+  pillTopDrop: 0.05,   // a pill found in a zone of grade-3 pills is grade 2, except this share (2026-11-28: grade 3 pills were too common)
   ledgerRetentionDays: 90,
   ledgerMaxRows: 1500,
   confirmPurchaseThreshold: 1000,

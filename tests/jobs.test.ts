@@ -370,3 +370,10 @@ test('jobs: the Party is worked out once, and the spare creatures come first, we
   assert.deepEqual(order, [...spare, ...rest]);   // the Party and the framed one come last
   assert.equal(J.isSpare({ id: 3 }, keep), false); assert.equal(J.isSpare({ id: 1 }, keep), false); assert.equal(J.isSpare({ id: 4 }, keep), true);
 });
+
+test('jobs: a Linh Thú is priced by Level, size and strength; a Dị Biến is never under 10,000; a beast buyer pays 3 times the price', () => {
+  const sp = C.SPECIES[0].id, a = mkBeast(1, sp, 10), b = mkBeast(2, sp, 30), strong = mkBeast(3, sp, 30, { power: 30 * 10 * 5 }), m = mkBeast(4, sp, 1, { mut: true });
+  assert.ok(G.releaseValue(b) > G.releaseValue(a)); assert.ok(G.releaseValue(strong) >= G.releaseValue(b));
+  assert.ok(G.releaseValue(m) >= 10_000);
+  assert.equal(J.MULT.beast, 300); assert.equal(J.payFor(J.MULT.beast, 1000), 3000);
+});

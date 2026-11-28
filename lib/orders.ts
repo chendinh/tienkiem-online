@@ -79,7 +79,7 @@ const wantsKey = (parts: Part[]) => parts.map((p) => [p.want.tier, p.want.slot, 
 // ---- goods on top (all are things the shop sells; the worth stays small next to the shop price of the same thing)
 const ONE_EXTRA: Extra[] = [{ kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 1, n: 2 }, { kind: 'mat', id: 'ngoc', n: 4 }, { kind: 'mat', id: 'hoatinh', n: 3 }];
 const SET_EXTRA: Extra[] = [{ kind: 'taming', idx: 0, n: 3 }, { kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 0, n: 3 }, { kind: 'hp', idx: 1, n: 2 }, { kind: 'mat', id: 'truc', n: 4 }, { kind: 'mat', id: 'ngoc', n: 3 }];
-const vipExtras = (realm: number): Extra[] => [{ kind: 'taming', idx: 2, n: 2 }, { kind: 'hp', idx: 2, n: 3 }, { kind: 'trib', n: 1 }, ...(realm >= 0 && realm <= 1 ? [{ kind: 'bt' as const, idx: realm, n: 1 }] : [])];
+const vipExtras = (realm: number): Extra[] => [{ kind: 'taming', idx: 2, n: 2 }, { kind: 'hp', idx: 2, n: 1 }, { kind: 'trib', n: 1 }, ...(realm >= 0 && realm <= 1 ? [{ kind: 'bt' as const, idx: realm, n: 1 }] : [])];
 // The shop's id of a piece of goods (its name, price and picture are the shop's), and the number of it.
 export const extraId = (x: Extra): string => (x.kind === 'mat' ? `mat:${x.id}` : x.kind === 'trib' ? 'trib' : `${x.kind}${x.idx}`);
 export function extraName(x: Extra): string {

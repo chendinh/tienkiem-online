@@ -105,7 +105,7 @@ export function beastGifts(need: number, key: string): O.Extra[] {
 const MAT_EXTRA: O.Extra[][] = [
   [{ kind: 'hp', idx: 0, n: 2 }, { kind: 'taming', idx: 0, n: 1 }, { kind: 'hp', idx: 1, n: 1 }],
   [{ kind: 'hp', idx: 1, n: 2 }, { kind: 'taming', idx: 1, n: 1 }, { kind: 'hp', idx: 0, n: 4 }],
-  [{ kind: 'hp', idx: 1, n: 3 }, { kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 2, n: 1 }],
+  [{ kind: 'hp', idx: 1, n: 3 }, { kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 0, n: 8 }],   // grades 1 and 2 only (2026-11-28: grade 3 was too common)
 ];
 const scaled = (x: O.Extra, k: number): O.Extra => ({ ...x, n: Math.max(1, Math.round(x.n * k)) });
 /** The goods a pill buyer gives: materials worth (at the full price of the material) at most 40% of the gap between the shop price of the pills and what the buyer pays for them, so buying pills at the shop to hand them over always loses. */

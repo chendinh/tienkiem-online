@@ -41,6 +41,8 @@ export const boxCount = (b: Box): number => (b.stones > 0 ? 1 : 0) + b.weapons.l
 export const INTERVAL_SEC = [0, 0, 0, 5.5, 5, 4.5, 4];
 /** The pace the pay was tuned at when a visitor came every 90 to 56 seconds. A visitor now pays this share of what one of those paid, so a busier stage changes the show and not what an hour is worth. */
 const TUNED_SEC = [0, 0, 0, 90, 78, 66, 56];
+/** The Linh Thạch of the looks were halved on 2026-11-28 (too much money came in). Sales and gifts are not touched. */
+export const PAY_CUT = 0.5;
 export const payScale = (open: number): number => { const k = Math.max(MIN_OPEN, Math.min(STANDS, open)); return INTERVAL_SEC[k] / TUNED_SEC[k]; };
 
 // ---- what a stand holds, seen by the visitors: the same numbers for a piece of equipment and a Linh Thú
@@ -97,7 +99,7 @@ export const stoneShare = (r: Reaction | null, x: Exhibit, gen: number): number 
 /** Whole Linh Thạch for one look. `scale` (payScale) shrinks it for a busy stage; `u` (0 to 1, drawn from the visit's key) rounds up or down so the average stays exactly right even when a look is worth less than one. Alone, `u` 0.5 is plain rounding. */
 export const stonesFor = (r: Reaction | null, x: Exhibit, gen: number, scale = 1, u = 0.5): number => {
   const s = stoneShare(r, x, gen);
-  return s > 0 ? Math.floor(s * scale + u) : 0;
+  return s > 0 ? Math.floor(s * scale * PAY_CUT + u) : 0;
 };
 /** What each kind of cultivator gives when it is moved: weapons, pills or a Bí Công. */
 export const GIFT_OF: Record<string, 'weapon' | 'pill' | 'book'> = { 'Kiếm Tu': 'weapon', 'Thể Tu': 'weapon', 'Đan Sư': 'pill', 'Tán Tu': 'pill', 'Phù Sư': 'book', 'Ma Tu': 'book' };
@@ -109,7 +111,7 @@ export function giftOf(arch: string, r: Reaction | null, x: Exhibit, key: string
   if (!p || hash32(`xp|${key}`) % 100000 >= p * 100 * scale) return null;   // `scale`: payScale, as for the stones
   return { kind: GIFT_OF[arch] || 'pill', tier: Math.max(0, Math.min(3, x.tier - 1)) };
 }
-export const pillGrade = (tier: number): number => (tier <= 2 ? 0 : tier === 3 ? 1 : 2);
+export const pillGrade = (tier: number): number => (tier <= 2 ? 0 : 1);   // grade 1 or 2, never 3 (2026-11-28: grade 3 was too common)
 /** The Bí Công a visitor brings: of the visitor's favourite element, of a rarity the piece deserves, and one the player could use soon. Worked out from the key alone. */
 export function bookFor(el: string, tier: number, level: number, key: string): string | null {
   const classes = A.CLASSES_BY_EL[el] || A.CLASSES_BY_EL.Kim;

@@ -39,7 +39,7 @@ const GOODS: O.Extra[][] = [
 ];
 const BIG_GOODS: [O.Extra[], O.Extra[]] = [
   [{ kind: 'taming', idx: 2, n: 2 }, { kind: 'taming', idx: 1, n: 5 }],
-  [{ kind: 'hp', idx: 2, n: 2 }, { kind: 'hp', idx: 1, n: 6 }, { kind: 'trib', n: 1 }],
+  [{ kind: 'hp', idx: 1, n: 4 }, { kind: 'hp', idx: 1, n: 6 }, { kind: 'trib', n: 1 }],   // no grade-3 pill (2026-11-28: there were too many of them)
 ];
 const goodsOf = (tier: Tier, key: string): O.Extra[] | undefined => {
   if (tier === 3) return [pick(BIG_GOODS[0], `wg0|${key}`), pick(BIG_GOODS[1], `wg1|${key}`)];

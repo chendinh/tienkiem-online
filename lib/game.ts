@@ -335,7 +335,12 @@ export const dissolveValue = (it: Item) => B.dissolveValueByTier[it.tier] * it.l
 const BEAST_WORTH = [3, 6, 12, 40, 150, 600];
 const plainPower = (level: number) => { const s = [0, 1, 2, 3, 4].map((j) => baseStat(level, j) * (1 + TUNE.z * level)); return Math.max(1, s[2] + s[3] + s[4] + s[0] / 8); };
 export const beastWorth = (b: Beast): number => Math.max(releaseValue(b), Math.round(b.level * BEAST_WORTH[XP.beastTier(b.cls, b.mut)] * clamp(b.power / plainPower(b.level), 0.5, 3)));
-export const releaseValue = (b: Beast) => Math.floor(B.releaseBase * b.level * aptTotal(b) * B.releaseSizeFactors[b.cls] * (b.mut ? B.releaseMutationFactor : 1));
+/** What a Linh Thú is worth (the pen pays it, a buyer of Tìm thú pays 3 times it): its Level, aptitudes and size, times how strong it is against a plain creature of its
+ *  Level (0.5 to 3 times). A Dị Biến is worth 5 times that and never less than releaseMutationMin. Ten times what it was before 2026-11-28 (too low). */
+export const releaseValue = (b: Beast) => {
+  const v = Math.floor(B.releaseBase * b.level * aptTotal(b) * B.releaseSizeFactors[b.cls] * clamp(b.power / plainPower(b.level), 0.5, 3) * (b.mut ? B.releaseMutationFactor : 1));
+  return b.mut ? Math.max(B.releaseMutationMin, v) : v;
+};
 // A dissolved Thiên or Tiên item goes to the shared relic pool (the server stores it): only its look, not its numbers.
 function shareRelic(st: GameState, it: Item) {
   if (it.tier >= 5 && it.art) { const q = st.relicQ || (st.relicQ = []); if (q.length < 50) q.push({ op: 'give', tier: it.tier, slot: it.slot, base: it.base, el: it.el, art: it.art, name: it.name, ...(it.tien ? { tien: it.tien } : {}) }); }
@@ -1555,7 +1560,7 @@ function dropOnce(st: GameState, zone: C.Zone, srcLevel: number, luckBonus: numb
     case 'item': { const it = genItem(st, srcLevel, undefined, undefined, luckBonus); giveItem(st, it, rep, from); taskHit(st, { kind: 'item', tier: it.tier, slot: it.slot, base: it.base }, rep); break; }
     case 'stones': { const x = earn(st, int(g, 'loot', e.q[0], e.q[1]) * Math.max(1, Math.floor(srcLevel / 2)), 'drop', rep); chips.push(`+${x} Linh Thạch`); break; }
     case 'taming': { const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.taming[e.grade] += x; if (rep) rep.gain.taming += x; chips.push(`+${x} Khế Ước Phù`); break; }
-    case 'pill': { const x = int(g, 'loot', e.q[0], e.q[1]), gr = Math.min(2, Math.max(e.grade, zone.pill ?? 0)); st.inv.hp[gr] += x; if (rep) rep.gain.hp += x; chips.push(`+${x} Hồi Khí Đan${gr ? ` hạng ${gr + 1}` : ''}`); break; }   // the grade is the zone's (Zone.pill)
+    case 'pill': { const x = int(g, 'loot', e.q[0], e.q[1]), gr = Math.max(e.grade, zone.pill ?? 0) >= 2 && next(g, 'loot') < B.pillTopDrop ? 2 : Math.min(1, Math.max(e.grade, zone.pill ?? 0)); st.inv.hp[gr] += x; if (rep) rep.gain.hp += x; chips.push(`+${x} Hồi Khí Đan${gr ? ` hạng ${gr + 1}` : ''}`); break; }   // the grade is the zone's (Zone.pill)
     case 'material': { const m = zone.materials[weighted(g, 'loot', zone.materials.map((x) => x.w))]; const x = int(g, 'loot', e.q[0], e.q[1]); st.inv.mat[m.id] = (st.inv.mat[m.id] || 0) + x; if (rep) rep.mats[m.id] = (rep.mats[m.id] || 0) + x; chips.push(`+${x} ${C.MAT(m.id).name}`); break; }
     default: break;
   }
