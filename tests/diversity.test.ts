@@ -1,12 +1,12 @@
 // Báo cáo độ đa dạng (Requirement 25): from a fixed seed, make many creatures, Tu Sĩ and Pháp Khí with the game's own rules, sum each up as a fingerprint,
 // and count how many are exact copies of another one. A rule change that makes everything come out the same fails here, before it reaches the players.
-// No AI, no database: only the generators. N per kind is small (2000) so the whole suite stays quick.
+// No AI, no database: only the generators. N per kind is 2000 (DIVERSITY_N=10000 for a bigger run; copies of a Phàm grow with N, its kinds are few by design).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../lib/game';
 import * as C from '../lib/content';
 
-const N = 2000, SEED = 20261128;
+const N = Number(process.env.DIVERSITY_N) || 2000, SEED = 20261128;
 /** Share of the sample that has the same fingerprint as an earlier one (0 = all different). */
 const dupRate = (keys: string[]) => (keys.length - new Set(keys).size) / keys.length;
 /** A fresh game whose player stands in the middle of the zone, so the zone's own level range is used. */
