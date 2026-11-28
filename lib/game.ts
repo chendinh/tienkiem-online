@@ -297,7 +297,7 @@ export function genItem(st: GameState, level: number, forceTier?: number, forceS
 }
 
 export function sizeFactors(size: number) { return [1 + B.sizeHpCoef * (size - 1), 1, 1, 1, 1 - B.sizeSpeedCoef * (size - 1)]; }
-function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
+export function genBeast(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, L: number, rep?: Report): Beast {
   const tutor = tutorTame(st);
   const elite = next(st.streams, 'enc') < B.eliteChance && !tutor;
   const g = st.streams, R = rates();
@@ -1581,7 +1581,7 @@ function runMonster(st: GameState, zone: C.Zone, ph: C.Phenomenon | null, rep?: 
 // Defeat: Recovery_State and Thương Thế (lower atk, def and spd for a while).
 function defeated(st: GameState) { st.recovery = true; st.player.injury = B.injuryTicks; }
 const powerOf = (stats: number[]) => stats[2] + stats[3] + stats[4] + Math.round(stats[0] / 8);
-function makeNpc(st: GameState, zone: C.Zone): NpcFoe {
+export function makeNpc(st: GameState, zone: C.Zone): NpcFoe {
   const g = st.streams, L = levelOf(st.player);
   const elite = next(g, 'gen') < B.eliteChance;
   const level = clamp(L + int(g, 'gen', B.npcLevelBonus[0] - 1, B.npcLevelBonus[1]), zone.lv[0], Math.min(zone.lv[1], B.playableLevelCap));
