@@ -171,9 +171,9 @@ export async function buildReport(now = Date.now()): Promise<Report> {
       for (const it of [...(st.bag || []), ...(st.stash || []), ...Object.values(st.eq || {}).filter((x): x is G.Item => !!x)]) held[it.tier] = (held[it.tier] || 0) + 1;
     }
     // beasts
-    const nb = (st.beasts || []).length;
+    const owned = st.beasts ? G.ownedBeasts(st) : [], nb = owned.length;   // with the ones away at work
     bt.total += nb; bt.maxPer = Math.max(bt.maxPer, nb);
-    for (const m of st.beasts || []) {
+    for (const m of owned) {
       if (m.mut) bt.mut++;
       bt.sizes[m.cls] = (bt.sizes[m.cls] || 0) + 1;
       bt.sp.set(m.sp, (bt.sp.get(m.sp) || 0) + 1);

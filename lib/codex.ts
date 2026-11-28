@@ -3,6 +3,7 @@
 import * as C from './content';
 import { MUTATIONS } from './anim';
 import { lookOf } from './zoo';
+import { workersOf } from './work';
 import type { GameState, Item } from './game';
 
 // ---------------------------------------------------------------- the album of artifacts
@@ -40,7 +41,7 @@ export function backfill(st: GameState): void {
 export interface MutSlot { sp: string; look: string; have: boolean }
 export const mutLooks = (st: GameState): Set<string> => {
   const s = new Set<string>();
-  for (const b of st.beasts) { const l = lookOf(b); if (l) s.add(`${b.sp}:${l}`); }
+  for (const b of [...st.beasts, ...workersOf(st.work)]) { const l = lookOf(b); if (l) s.add(`${b.sp}:${l}`); }   // with the ones away at work (lib/work.ts)
   return s;
 };
 export const MUT_LOOKS = MUTATIONS.map((m) => ({ id: m.id, name: m.name }));

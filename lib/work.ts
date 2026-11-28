@@ -13,6 +13,7 @@
 import * as C from './content';
 import * as O from './orders';
 import * as J from './jobs';
+import type { Beast } from './game';
 
 const hash32 = O.hash32, pick = O.pick;
 
@@ -50,9 +51,11 @@ const goodsOf = (tier: Tier, key: string): O.Extra[] | undefined => {
 // `sp` a species, `el` an element, `minCls`/`maxCls` the least/most size class (0 Tí Hon .. 4 Khổng Lồ), `elite` only a Tinh Anh, `mut` only a Dị Biến.
 // `minLv` (the least level) is only in postings of older saves: a creature may still be at work on one.
 export interface Ask { sp?: string; el?: string; minCls?: number; maxCls?: number; elite?: true; mut?: true; minLv?: number }
-// `beast` the creature sent, `start`/`end` the game clock (ms) of when it left and when it is done. `done`: the pay was collected, `left`: sent away (or the creature was called back with nothing).
+// `beast` the id of the creature sent, `start`/`end` the game clock (ms) of when it left and when it is done. `done`: the pay was collected, `left`: sent away (or the creature was called back with nothing).
 // Either one means the place goes to a new posting on the server's next tick.
-export interface Post { id: string; tier: Tier; who: O.Buyer; job: string; line: number; ask: Ask; secs: number; stones: number; extra?: O.Extra[]; beast?: number; start?: number; end?: number; done?: boolean; left?: boolean /* only in saves from before a posting could no longer be sent away */ }
+// `worker`: the creature itself while it is away (2026-11-28). It leaves the pen (st.beasts) when it is sent and comes back when the pay is collected: it does not fight, takes no place
+// in the pen and costs no upkeep meanwhile. Only a creature that is not in the Party is sent. A save from before kept the creature in the pen: `ensureWork` moves it out on the next tick.
+export interface Post { id: string; tier: Tier; who: O.Buyer; job: string; line: number; ask: Ask; secs: number; stones: number; extra?: O.Extra[]; beast?: number; worker?: Beast; start?: number; end?: number; done?: boolean; left?: boolean /* only in saves from before a posting could no longer be sent away */ }
 export interface WorkBoard { v: 1; n: number; list: Post[] }
 export const isBoard = (b: any): b is WorkBoard => !!b && b.v === BOARD_VERSION && Array.isArray(b.list) && typeof b.n === 'number';
 /** A free posting of an older save that asks more than the postings of now (a level, a Dị Biến of one species, a species at Vừa): replaced on the next tick. */
@@ -64,6 +67,8 @@ export const stageOf = (p: Post, clock: number): Stage => (!isOpen(p) ? 'gone' :
 export const postsOf = (b: WorkBoard | undefined): Post[] => (isBoard(b) ? b.list : []);
 /** The creatures that are busy with a posting (sent and not yet collected). */
 export const bookedIds = (b: WorkBoard | undefined): Set<number> => new Set(postsOf(b).filter((p) => isOpen(p) && p.beast !== undefined).map((p) => p.beast!));
+/** The creatures away at work (out of the pen), in the order of the board. */
+export const workersOf = (b: WorkBoard | undefined): Beast[] => postsOf(b).flatMap((p) => (p.worker ? [p.worker] : []));
 
 // ---- who can do what
 type BeastLike = { sp: string; level: number; mut: boolean; cls?: number; elite?: boolean };
@@ -84,9 +89,6 @@ export function candidates<T extends BeastLike & { id: number; power: number }>(
   return beasts.filter((b) => !booked.has(b.id) && !busy.has(b.id) && fits(p.ask, b)).sort((a, b) => Number(a.mut) - Number(b.mut) || a.power - b.power || a.id - b.id);
 }
 
-/** The creature put forward for a posting: the first candidate (the weakest, Dị Biến last) that is not in the Party. Never one of the Party: when only those fit,
- *  nothing is put forward and the player picks one on purpose (2026-11-28). */
-export const bestFor = <T extends { id: number }>(cands: T[], party: ReadonlySet<number>): T | undefined => cands.find((b) => !party.has(b.id));
 // ---- making a posting
 /** The size asks of a Vừa posting: about three creatures in four of an element are of one of them (Vừa is the most common size, then Lớn and Nhỏ). */
 export const SIZE_ASKS: { minCls?: number; maxCls?: number }[] = [{ minCls: 2 }, { maxCls: 2 }];

@@ -93,7 +93,7 @@ async function readAcct(id: string): Promise<AccountFile | null> {
 // The Dị Biến beasts of a player (Linh Thú Viên): read without settling the journey, so a page that asks every few seconds stays cheap.
 export async function mutantsOf(id: string): Promise<G.Beast[] | null> {
   const a = await readAcct(id);
-  return a?.state ? a.state.beasts.filter((b) => b.mut) : null;
+  return a?.state ? G.ownedBeasts(a.state).filter((b) => b.mut) : null;   // with the ones away at work
 }
 const AVATAR_URL = /^\/api\/img\/[a-f0-9]{20}$/;
 function cleanAvatar(a: any): G.Avatar | null {

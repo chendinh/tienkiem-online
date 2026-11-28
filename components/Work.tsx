@@ -70,13 +70,9 @@ const askNote = (a: WK.Ask): string =>
   a.mut ? 'Chỉ Linh Thú Dị Biến mới làm được' : a.elite ? 'Chỉ Linh Thú Tinh Anh mới làm được' : WK.sizeText(a) ? 'Xem cỡ ở ô của từng con · làm xong thú vẫn là của ngươi' : 'Làm xong thú vẫn là của ngươi';
 const stars = (t: WK.Tier) => (t === 3 ? '✦' : '★'.repeat(t + 1));
 
-/** The creature picked for the player when the list opens: the weakest that fits and is not in the Party (the strong ones fight), a Dị Biến only when nothing else fits
- *  (`cands` comes weakest first, Dị Biến last). The pay does not depend on the creature, so the one that is missed least is the best one to send.
- *  A creature of the Party is never picked for the player (2026-11-28): when only those fit, nothing is picked and the player chooses one on purpose. */
-const bestOf = (cands: Beast[], party: ReadonlySet<number>): Beast | undefined => WK.bestFor(cands, party);
 
 /** A creature seen up close before it is sent: its picture, Level, Chiến Lực and numbers, and the button that picks it. */
-function BeastPeek({ b, inParty, picked, onPick, onClose }: { b: Beast; inParty: boolean; picked: boolean; onPick: () => void; onClose: () => void }) {
+function BeastPeek({ b, picked, onPick, onClose }: { b: Beast; picked: boolean; onPick: () => void; onClose: () => void }) {
   const look = useLookPic(b, true), sp = SP(b.sp);
   if (typeof document === 'undefined') return null;
   return createPortal(
@@ -86,10 +82,10 @@ function BeastPeek({ b, inParty, picked, onPick, onClose }: { b: Beast; inParty:
         <div className="zoomPic"><PanZoom><Img src={look || C.monsterArt(b.sp, b.mut)} className="fill" fb={<ElIcon el={sp.el[0]} size={80} />} /></PanZoom></div>
         <div className="zoomInfo">
           <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={b} /> {b.elite ? 'Tinh Anh ' : ''}{b.name}</h2>
-          <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {fmt(b.power)}</span>{inParty && <span className="chip">★ xuất chiến</span>}</div>
+          <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {fmt(b.power)}</span></div>
           <SizeMeter b={b} />
           <ul className="itLines big"><li>Sinh Lực {b.stats[0]}</li><li>Công Kích {b.stats[2]}</li><li>Phòng Ngự {b.stats[3]}</li><li>Thân Pháp {b.stats[4]}</li></ul>
-          {inParty && <div className="hint">Con này đang trong đội xuất chiến. Đi làm vẫn ra trận bình thường, chỉ không bán hay giao được đến khi nhận thưởng.</div>}
+          <div className="hint">Đi làm thì con này rời chuồng, không ra trận, đến khi ngươi nhận thưởng thì về lại chuồng.</div>
         </div>
         <div className="eqAct">
           <button type="button" className="btn hot" disabled={picked} onClick={onPick}><Icon name="check" size={15} /> {picked ? 'Đã chọn' : 'Chọn con này'}</button>
@@ -102,18 +98,17 @@ function BeastPeek({ b, inParty, picked, onPick, onClose }: { b: Beast; inParty:
 }
 
 type Finish = { done: (stones: number, gift: string, card: Element | null) => void; sure: (stones: number) => void; undo: () => void };
-function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: GS; act: Act; p: WK.Post; now: number; cands: Beast[]; party: ReadonlySet<number>; fin?: Fin; finish: Finish; onErr: (m: string) => void }) {
+function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act: Act; p: WK.Post; now: number; cands: Beast[]; fin?: Fin; finish: Finish; onErr: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [pickId, setPickId] = useState<number | null>(null), [peek, setPeek] = useState<Beast | null>(null);
   useWatch();
   useEffect(() => { setOpen(false); setPeek(null); }, [p.id]);   // the card belongs to a place: when a new posting takes it, the list of creatures starts closed
-  // the creature picked: the player's own choice while it still fits, else the best one (so the button below is ready the moment the list opens)
-  const picked = cands.find((b) => b.id === pickId) || bestOf(cands, party);
-  // the Party comes last in the list and is not counted on the button: it is there to be chosen on purpose, never put forward
-  const list = useMemo(() => [...cands.filter((b) => !party.has(b.id)), ...cands.filter((b) => party.has(b.id))], [cands, party]);
-  const spare = list.length - cands.filter((b) => party.has(b.id)).length;
+  // the creature picked: the player's own choice while it still fits, else the best one: the weakest that fits, a Dị Biến only when nothing else does (`cands` comes weakest
+  // first, Dị Biến last, and never holds a creature of the Party). The pay does not depend on the creature, so the one that is missed least is the best one to send.
+  const picked = cands.find((b) => b.id === pickId) || cands[0];
   const sent = going.get(p.id), real = WK.stageOf(p, st.clock), leaving = real === 'free' && sent !== undefined ? st.beasts.find((b) => b.id === sent) : undefined;
-  const stage = leaving ? 'run' : real, worker = leaving || (p.beast !== undefined ? st.beasts.find((b) => b.id === p.beast) : undefined);
+  // the creature at work is kept on the posting (it left the pen); a save not yet moved still has it in the pen
+  const stage = leaving ? 'run' : real, worker = leaving || p.worker || (p.beast !== undefined ? st.beasts.find((b) => b.id === p.beast) : undefined);
   const total = p.secs * 1000, left = Math.max(0, (p.end ?? 0) - now), pct = leaving ? 0 : p.start !== undefined && p.end !== undefined ? Math.min(100, Math.round((100 * (now - p.start)) / total)) : 0;
   const gone = stage === 'gone';
 
@@ -154,17 +149,15 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
         <>
           {open && (
             <>
-              <div className="hint wkPickHint">{spare > 0
-                ? 'Đã chọn sẵn con hợp nhất (con yếu nhất hợp việc, không lấy con trong đội xuất chiến). Bấm vào ảnh để xem kỹ, bấm vào ô để đổi con khác.'
-                : 'Chỉ có con trong đội xuất chiến (★) hợp việc này. Nếu vẫn muốn cử, bấm vào ô để chọn.'}</div>
+              <div className="hint wkPickHint">Đã chọn sẵn con hợp nhất (con yếu nhất hợp việc). Con trong đội xuất chiến không đi làm. Bấm vào ảnh để xem kỹ, bấm vào ô để đổi con khác.</div>
               <div className="ordPick wkPick" role="radiogroup" aria-label="Chọn Linh Thú đi làm">
-                {list.map((b) => {
+                {cands.map((b) => {
                   const on = picked?.id === b.id;
                   return (
                     <div key={b.id} role="radio" aria-checked={on} tabIndex={0} className={`ordIt wkPickIt${on ? ' on' : ''}`} onClick={() => setPickId(b.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPickId(b.id); } }}>
                       {on && <i className="wkPickMark" aria-hidden="true"><Icon name="check" size={12} /></i>}
                       <span className="wkPickPic" onClick={(e) => e.stopPropagation()}><BeastArt b={b} box={84} mine onOpen={() => setPeek(b)} /></span>
-                      <b className="wkPickNm">{party.has(b.id) ? '★ ' : ''}{b.mut ? '✦ ' : ''}{b.name}</b>
+                      <b className="wkPickNm">{b.mut ? '✦ ' : ''}{b.name}</b>
                       <small>Lv{b.level}{WK.sizeText(p.ask) ? ` · ${C.SIZE_CLASS[b.cls]}` : ''} · <Icon name="atk" size={11} /> {fmt(b.power)}</small>
                     </div>
                   );
@@ -179,8 +172,8 @@ function PostCard({ st, act, p, now, cands, party, fin, finish, onErr }: { st: G
                 <button type="button" className="btn hot" disabled={!picked} onClick={() => picked && send(picked)}>{picked ? `Cử ${picked.name} đi làm` : 'Chọn một con'}</button>
               </div>
             )
-            : <button type="button" className={`btn${spare > 0 ? '' : ' ghost'}`} disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{spare > 0 ? `Cử Linh Thú đi làm (${spare} con hợp)` : cands.length > 0 ? `Chỉ con xuất chiến hợp (${cands.length})` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : p.ask.elite ? 'Chưa có Tinh Anh nào hợp' : 'Chưa có con nào hợp'}</button>}
-          {peek && <BeastPeek b={peek} inParty={party.has(peek.id)} picked={picked?.id === peek.id} onPick={() => { setPickId(peek.id); setPeek(null); }} onClose={() => setPeek(null)} />}
+            : <button type="button" className="btn" disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{cands.length > 0 ? `Cử Linh Thú đi làm (${cands.length} con hợp)` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : p.ask.elite ? 'Chưa có Tinh Anh nào hợp' : 'Chưa có con nào hợp'}</button>}
+          {peek && <BeastPeek b={peek} picked={picked?.id === peek.id} onPick={() => { setPickId(peek.id); setPeek(null); }} onClose={() => setPeek(null)} />}
         </>
       )}
       {(stage === 'run' || stage === 'ready') && (
@@ -205,8 +198,8 @@ export function WorkPanel({ st, act }: { st: GS; act: Act }) {
   const { fin, mark, patch, clear } = useFin(), cue = useCue();
   const now = useGameNow(st.clock, list.some((p) => WK.stageOf(p, st.clock) === 'run'));
   const booked = useMemo(() => WK.bookedIds(st.work), [st.work]);
-  const stands = useMemo(() => standIds(st), [st.expo]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const party = useMemo(() => J.partyOf(st.beasts, st.caps.party), [st.beasts, st.caps.party]);
+  // the Party never goes to work: it is left out of the creatures offered, with the ones on a stand of Triển Lãm
+  const away = useMemo(() => { const s = new Set(standIds(st)); for (const id of J.partyOf(st.beasts, st.caps.party)) s.add(id); return s; }, [st.expo, st.beasts, st.caps.party]);   // eslint-disable-line react-hooks/exhaustive-deps
   const finishOf = (slot: number): Finish => ({
     done: (stones, gift, card) => { mark(slot, { stones, gift: gift || undefined }); afterPaint(() => cue.jobDone(card, `+${fmt(stones)} Linh Thạch`)); },
     sure: (stones) => patch(slot, { stones }),
@@ -215,12 +208,12 @@ export function WorkPanel({ st, act }: { st: GS; act: Act }) {
   if (!list.length) return <div className="empty">Việc đang được đưa lên bảng, đợi vài giây rồi xem lại.</div>;
   return (
     <div className="ordPanel">
-      <div className="hint">Cử Linh Thú hợp yêu cầu đi làm: đã cử là làm đến xong, không gọi về được, việc cũng không bỏ qua được. Thú làm cả lúc ngươi không mở game, vẫn ra trận, chỉ không bán, giao hay bày được cho đến khi nhận thưởng. Việc Đặc biệt chỉ Linh Thú Dị Biến làm được, thưởng rất hậu.</div>
+      <div className="hint">Cử Linh Thú hợp yêu cầu đi làm: đã cử là làm đến xong, không gọi về được, việc cũng không bỏ qua được. Thú làm cả lúc ngươi không mở game. Đi làm thì thú rời chuồng: không ra trận, không chiếm chỗ, không tốn phí nuôi, nhận thưởng xong thì về chuồng. Con trong đội xuất chiến không đi làm. Việc Đặc biệt chỉ Linh Thú Dị Biến làm được, thưởng rất hậu.</div>
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">
         {list.map((p, slot) => (
-          <PostCard key={slot} st={st} act={act} p={p} now={now} party={party} fin={fin[slot]} onErr={setErr} finish={finishOf(slot)}
-            cands={WK.stageOf(p, st.clock) === 'free' ? WK.candidates(p, st.beasts, booked, stands) : []} />
+          <PostCard key={slot} st={st} act={act} p={p} now={now} fin={fin[slot]} onErr={setErr} finish={finishOf(slot)}
+            cands={WK.stageOf(p, st.clock) === 'free' ? WK.candidates(p, st.beasts, booked, away) : []} />
         ))}
       </div>
     </div>

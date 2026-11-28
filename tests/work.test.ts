@@ -7,9 +7,11 @@ import * as C from '../lib/content';
 import { PURE_INTENTS, SERVER_FIRST } from '../lib/intents';
 
 const T0 = 1_800_000_000_000;
-const fresh = (seed = 42, realm = 2, sub = 1) => { const st = G.newGame(seed, 'f', T0); st.player.realm = realm; st.player.sub = sub; G.settle(st, 1); return st; };   // one tick makes the board
-const lvl = (st: G.GameState) => G.levelOf(st.player);
 let nextId = 9000;
+/** Three strong creatures in the pen: the Party, which never goes to work (so the weaker creatures the tests make are free to go). */
+const strong = (st: G.GameState) => { for (let i = 0; i < 3; i++) st.beasts.push({ id: ++nextId, level: 1, mut: false, sp: C.SPECIES[0].id, name: `mạnh ${nextId}`, apt: [1, 1, 1, 1, 1], cls: 2, power: 1_000_000 + i, size: 1, cm: 100, pers: 0, skills: [], stats: [10, 10, 10, 10, 10], size_: 1 } as unknown as G.Beast); };
+const fresh = (seed = 42, realm = 2, sub = 1) => { const st = G.newGame(seed, 'f', T0); st.player.realm = realm; st.player.sub = sub; G.settle(st, 1); strong(st); return st; };   // one tick makes the board
+const lvl = (st: G.GameState) => G.levelOf(st.player);
 /** A creature that fits a posting (the species or the element it asks, the size, the Tinh Anh and the Dị Biến it needs; cỡ Vừa fits every size asked), put in the pen. */
 const workerFor = (st: G.GameState, p: WK.Post, over: Partial<G.Beast> = {}): G.Beast => {
   const sp = p.ask.sp || (p.ask.el ? C.SPECIES.find((s) => s.el.includes(p.ask.el!))!.id : C.SPECIES[0].id);
@@ -83,7 +85,8 @@ test('work: a free posting of an older save that asks too much is replaced on th
   const now = st.work!.list;
   assert.notEqual(now[i1].id, old1); assert.notEqual(now[i3].id, old3); assert.ok(now[i1].ask.el && !now[i1].ask.sp); assert.ok(now[i3].ask.mut && now[i3].ask.el && !now[i3].ask.sp);
   assert.equal(now[i2].beast, w.id); assert.deepEqual(now[i2].ask, { sp, minLv: 3 });
-  st.clock = now[i2].end!; assert.ok(G.workCollect(st, now[i2].id).ok, 'and it can be collected as before');
+  assert.equal(now[i2].worker?.id, w.id, 'a save from before keeps the creature at work on the posting'); assert.ok(!st.beasts.some((x) => x.id === w.id), 'out of the pen');
+  st.clock = now[i2].end!; assert.ok(G.workCollect(st, now[i2].id).ok, 'and it can be collected as before'); assert.ok(st.beasts.some((x) => x.id === w.id), 'and it is back in the pen');
   // a species alone at Khó is still a posting of now
   assert.ok(!WK.isLegacy({ tier: 2, ask: { sp } }));
 });
@@ -132,13 +135,13 @@ test('work: send a creature that fits, it is busy until the pay is collected, an
   const twin = st.work!.list.find((q) => q !== p && q.tier === 1)!; const same = workerFor(st, twin);
   assert.ok(G.workSend(st, twin.id, same.id).ok);
   // the same creature cannot take a second posting
-  const el = post(st, 0); b.sp = C.SPECIES.find((s) => s.el[0] === el.ask.el)!.id; assert.equal(G.workSend(st, el.id, b.id).code, 'E_BEAST_BUSY');
+  const el = post(st, 0); b.sp = C.SPECIES.find((s) => s.el[0] === el.ask.el)!.id; assert.equal(G.workSend(st, el.id, b.id).code, 'E_NOT_FOUND', 'it is not in the pen any more');
 });
 
 test('work: a creature on a stand of Triển Lãm cannot go to work, and one at work cannot be put on a stand', () => {
   const st = fresh(12), p = post(st, 1), b = workerFor(st, p), c = workerFor(st, p);
   assert.ok(G.expoSet(st, 0, 'beast', c.id).ok); assert.equal(G.workSend(st, p.id, c.id).code, 'E_BEAST_BUSY');
-  assert.ok(G.workSend(st, p.id, b.id).ok); assert.equal(G.expoSet(st, 1, 'beast', b.id).code, 'E_BEAST_BUSY');
+  assert.ok(G.workSend(st, p.id, b.id).ok); assert.equal(G.expoSet(st, 1, 'beast', b.id).code, 'E_NOT_FOUND', 'it left the pen');
 });
 
 test('work: collect only when the time is up; then the Linh Thạch and the goods come and the creature is free', () => {
@@ -165,19 +168,47 @@ test('work: a finished place gets a new posting of the same kind on the next tic
 
 test('work: a creature at work cannot be sold, let go in bulk or handed over to a buyer of Tìm thú', () => {
   const st = fresh(15), p = post(st, 1), b = workerFor(st, p, { power: 1 }); assert.ok(G.workSend(st, p.id, b.id).ok);
-  assert.equal(G.releaseBeast(st, b.id).code, 'E_BEAST_BUSY');
-  const spare = workerFor(st, p, { power: 2 }); const before = st.beasts.length;
-  for (let i = 0; i < 6; i++) workerFor(st, p, { power: 100 + i });   // the Party is stronger than the two
-  G.releaseMany(st); assert.ok(st.beasts.some((x) => x.id === b.id), 'bulk release keeps it'); assert.ok(!st.beasts.some((x) => x.id === spare.id)); assert.ok(st.beasts.length > before - 1);
+  assert.notEqual(G.releaseBeast(st, b.id).ok, true);
+  const spare = workerFor(st, p, { power: 2 });
+  for (let i = 0; i < 6; i++) workerFor(st, p, { power: 100 + i });
+  G.releaseMany(st); assert.equal(p.worker?.id, b.id, 'bulk release does not reach it'); assert.ok(!st.beasts.some((x) => x.id === spare.id));
   const j = st.jobs!.list.find((x) => x.type === 'beast')!; j.ask = { t: 'beast', want: [{ el: J.speciesEls(b.sp)[0], n: 1, got: 0 }] }; j.need = 1;
-  assert.equal(G.fillJob(st, j.id, { ids: [b.id] }).code, 'E_BEAST_BUSY');
+  assert.notEqual(G.fillJob(st, j.id, { ids: [b.id] }).ok, true);
+  assert.ok(G.ownedBeasts(st).some((x) => x.id === b.id), 'it is still the player\'s');
+  // a save from before this rule still has the creature in the pen: it is locked there the same way
+  const q = st.work!.list.find((x) => x !== p && WK.isOpen(x) && x.beast === undefined)!, old = workerFor(st, q, { power: 3 });
+  q.beast = old.id; q.start = st.clock; q.end = st.clock + 60_000;
+  assert.equal(G.releaseBeast(st, old.id).code, 'E_BEAST_BUSY'); assert.equal(G.workSend(st, p.id, old.id).code, 'E_WORK_GONE');
+});
+
+test('work: a creature at work leaves the pen: it does not fight, takes no place and costs no upkeep, and it comes back with the pay', () => {
+  const st = fresh(24), p = post(st, 1), b = workerFor(st, p, { level: 40 }), n = st.beasts.length, due = G.upkeepDue(st);
+  assert.ok(G.workSend(st, p.id, b.id).ok);
+  assert.equal(st.beasts.length, n - 1); assert.equal(p.worker, b); assert.ok(G.upkeepDue(st) < due, 'no upkeep while it works');
+  assert.ok(!G.bestParty(st).some((x) => x.id === b.id)); assert.ok(G.ownedBeasts(st).some((x) => x.id === b.id), 'still counted as the player\'s');
+  assert.equal(G.ownedBeasts(st).length, n);
+  st.clock = p.end!; assert.ok(G.workCollect(st, p.id).ok);
+  assert.equal(st.beasts.length, n); assert.equal(p.worker, undefined); assert.equal(G.ownedBeasts(st).length, n, 'not counted twice');
+});
+
+test('work: the creatures that fight (the Party) never go to work', () => {
+  const st = fresh(22), p = post(st, 1);
+  for (const b of G.bestParty(st)) b.sp = workerFor(st, p).sp;   // the Party fits the posting
+  const top = G.bestParty(st)[0]; assert.equal(G.workSend(st, p.id, top.id).code, 'E_WORK_PARTY');
+  assert.ok(st.beasts.some((x) => x.id === top.id)); assert.equal(p.beast, undefined);
+});
+
+test('work: a creature is never lost: one left on a posting that is gone goes back to the pen', () => {
+  const st = fresh(23), p = post(st, 1), b = workerFor(st, p); assert.ok(G.workSend(st, p.id, b.id).ok);
+  p.done = true; G.settle(st, 1);
+  assert.ok(st.beasts.some((x) => x.id === b.id)); assert.ok(!st.work!.list.some((x) => x.worker));
 });
 
 test('work: no way out: a posting cannot be sent away and a creature at work cannot be called back', () => {
   assert.equal((G as any).workDismiss, undefined); assert.equal(PURE_INTENTS.workDismiss, undefined);   // neither the engine nor the server table has it
   const st = fresh(16), p = post(st, 1), b = workerFor(st, p);
   assert.ok(G.workSend(st, p.id, b.id).ok);
-  assert.equal(G.releaseBeast(st, b.id).code, 'E_BEAST_BUSY');   // locked until the pay is collected
+  assert.equal(G.releaseBeast(st, b.id).code, 'E_NOT_FOUND');   // out of the pen until the pay is collected
   G.settle(st, 12); const q = st.work!.list.find((x) => x.id === p.id)!; assert.equal(q.beast, b.id); assert.ok(WK.isOpen(q));   // nothing takes it off the board
   st.clock = q.end!; assert.ok(G.workCollect(st, q.id).ok); assert.ok(!WK.bookedIds(st.work).has(b.id));   // only finishing frees it
   // a saved posting that was sent away before this rule is still replaced by a new one
@@ -194,17 +225,9 @@ test('work: only a Dị Biến can do the special work, and its pay is the bigge
 
 test('work: the candidates are the free creatures that fit, the weakest first and the Dị Biến last', () => {
   const st = fresh(18), p = post(st, 0), a = workerFor(st, p, { power: 30 }), b = workerFor(st, p, { power: 10 }), m = workerFor(st, p, { power: 5, mut: true });
-  const busy = workerFor(st, p, { power: 1 });
-  assert.deepEqual(WK.candidates(p, st.beasts, new Set([busy.id])).map((x) => x.id), [b.id, a.id, m.id]);
-  assert.deepEqual(WK.candidates(p, st.beasts, new Set(), new Set([a.id])).map((x) => x.id), [busy.id, b.id, m.id]);
-});
-
-test('work: a creature of the Party is never put forward, even when it is the only one that fits', () => {
-  const st = fresh(21), p = post(st, 0), weak = workerFor(st, p, { power: 5 }), mid = workerFor(st, p, { power: 20 }), strong = workerFor(st, p, { power: 900 });
-  const cands = WK.candidates(p, st.beasts, new Set());
-  assert.equal(WK.bestFor(cands, new Set()), weak);
-  assert.equal(WK.bestFor(cands, new Set([weak.id, strong.id])), mid, 'the weakest that is not in the Party');
-  assert.equal(WK.bestFor(cands, new Set(cands.map((b) => b.id))), undefined, 'only the Party fits: nothing is put forward');
+  const busy = workerFor(st, p, { power: 1 }), mine = [a, b, m, busy];
+  assert.deepEqual(WK.candidates(p, mine, new Set([busy.id])).map((x) => x.id), [b.id, a.id, m.id]);
+  assert.deepEqual(WK.candidates(p, mine, new Set(), new Set([a.id])).map((x) => x.id), [busy.id, b.id, m.id]);
 });
 
 test('work: durations and the actions are pure intents', () => {
@@ -235,5 +258,5 @@ test('work: sending a creature waits for the server, which runs the same handler
   const w = structuredClone(saved); const r = PURE_INTENTS.workSend(w, body); assert.ok(r.ok, r.msg);
   const again = JSON.parse(JSON.stringify(w)) as G.GameState; G.settleTo(again, again.clock + 3 * 3600_000);
   const q = again.work!.list.find((x) => x.id === p.id); assert.ok(q && q.beast === b.id, 'the creature is still at the posting');
-  assert.ok(again.beasts.some((x) => x.id === b.id), 'and still in the pen');
+  assert.equal(q!.worker?.id, b.id, 'kept on the posting, out of the pen'); assert.ok(!again.beasts.some((x) => x.id === b.id));
 });

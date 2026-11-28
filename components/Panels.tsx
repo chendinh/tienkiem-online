@@ -595,7 +595,7 @@ export function DecisionBar({ st, act, onOpenBreak }: { st: GS; act: Act; onOpen
 // ---------- Chuồng Linh Thú (the pen): compact tiles, one popup per creature
 // One tile of the pen. The panel is drawn again on every change of the game, most of which leave the pen as it is: a tile is drawn again only when what it shows changes
 // (the creature, whether it fights). The pen, its tiles and its popup, has nothing to do with Công việc (2026-11-28): most players never take those jobs, and the pen should
-// stay light for them. Tìm thú and Thú đi làm are seen in Công việc; a creature at work that is sold is refused by the rule itself (releaseBeast: E_BEAST_BUSY), in words.
+// stay light for them. Tìm thú and Thú đi làm are seen in Công việc; a creature at work is not in the pen at all (it is kept on its posting until the pay is collected).
 type PenTileProps = { b: Beast; inParty: boolean; onOpen: (id: number) => void };
 const beastKey = (b: Beast) => `${b.id}|${b.sp}|${b.name}|${b.level}|${b.cls}|${b.mut ? 1 : 0}|${b.size}`;
 const samePenTile = (a: PenTileProps, c: PenTileProps) => a.inParty === c.inParty && a.onOpen === c.onOpen && beastKey(a.b) === beastKey(c.b);
@@ -621,7 +621,7 @@ export function PenPanel({ st, act, say }: { st: GS; act: Act; say: (t: string, 
   const framed = (id: number) => !!st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === id;
   const frameOne = async (b: Beast) => { const r = await act('showcase', framed(b.id) ? { kind: 'none' } : { kind: 'beast', id: b.id }); say(r.msg, r.ok); };
   const sellMany = async () => {
-    if (!(await askConfirm({ title: 'Bán hàng loạt', body: 'Bán mọi Linh Thú không phải Dị Biến, không nằm trong đội xuất chiến và không đang đi làm?', ok: 'Bán hết', danger: true }))) return;
+    if (!(await askConfirm({ title: 'Bán hàng loạt', body: 'Bán mọi Linh Thú trong chuồng không phải Dị Biến và không nằm trong đội xuất chiến?', ok: 'Bán hết', danger: true }))) return;
     const r = await act('releaseMany'); say(r.msg, r.ok);
   };
   const due = upkeepDue(st);

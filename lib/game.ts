@@ -427,7 +427,7 @@ export function showcaseOf(st: GameState): ShowView {
   const s = st.player.showcase;
   if (!s) return null;
   if (s.kind === 'item') { const f = findIn(st, s.id); return f ? { kind: 'item', item: f.it } : null; }
-  const b = st.beasts.find((x) => x.id === s.id);
+  const b = ownedBeasts(st).find((x) => x.id === s.id);   // a framed creature away at work stays in its frame
   return b ? { kind: 'beast', beast: b } : null;
 }
 export function setShowcase(st: GameState, kind: unknown, id: unknown): Res {
@@ -1351,34 +1351,53 @@ export function gearFor(st: GameState, level: number, key: string): Item {
 function ensureWork(st: GameState): WK.WorkBoard {
   if (!WK.isBoard(st.work)) return (st.work = WK.newBoard(st.seed, { level: levelOf(st.player) }));
   const b = st.work, opt = { level: levelOf(st.player) };
+  for (const p of b.list) {
+    // a save from before the creatures at work left the pen: move the one at work out of it now
+    if (WK.isOpen(p) && p.beast !== undefined && !p.worker) { const i = st.beasts.findIndex((x) => x.id === p.beast); if (i >= 0) p.worker = st.beasts.splice(i, 1)[0]; }
+    // never lose a creature: one still held by a posting that is over goes back to the pen before the posting is replaced
+    if (!WK.isOpen(p) && p.worker) { if (!st.beasts.some((x) => x.id === p.worker!.id)) st.beasts.push(p.worker); delete p.worker; }
+  }
   b.list.forEach((p, i) => { if (!WK.isOpen(p)) b.list[i] = WK.makePost(i, b.n++, st.seed, b.list, opt); });
   return b;
 }
+/** Every creature the player owns: the pen and the ones away at work. For what counts them all (the rankings, the album of looks, the frame, Linh Thú Viên);
+ *  what happens in the pen (fights, the Party, selling, the place it takes) looks at `st.beasts` only. */
+export const ownedBeasts = (st: GameState): Beast[] => {
+  const away = WK.workersOf(st.work);
+  if (!away.length) return st.beasts;
+  const inPen = new Set(st.beasts.map((b) => b.id));
+  return [...st.beasts, ...away.filter((b) => !inPen.has(b.id))];
+};
 const workPost = (st: GameState, id: unknown): WK.Post | undefined => (WK.isBoard(st.work) ? st.work.list.find((x) => x.id === id) : undefined);
 /** A creature is busy when it is out at work or stands on a stand of Triển Lãm. */
 const beastBusy = (st: GameState, id: number): boolean => WK.bookedIds(st.work).has(id) || (XP.isExpo(st.expo) && st.expo.stands.some((s) => !!s && s.kind === 'beast' && s.id === id));
-/** Send a creature to a posting that fits it. It works until `secs` have passed on the game clock; it keeps going out to fight meanwhile. */
+/** Send a creature to a posting that fits it. It works until `secs` have passed on the game clock. It leaves the pen meanwhile (it is kept on the posting, `worker`):
+ *  it does not fight, takes no place in the pen and costs no upkeep. A creature of the Party never goes: the ones that fight stay (2026-11-28). */
 export function workSend(st: GameState, id: unknown, beastId: unknown): Res {
   const p = workPost(st, id);
   if (!p || !WK.isOpen(p) || p.beast !== undefined) return fail('E_WORK_GONE');
   if (!Number.isInteger(beastId)) return fail('E_BAD_REQUEST');
-  const b = st.beasts.find((x) => x.id === beastId);
+  const i = st.beasts.findIndex((x) => x.id === beastId), b = st.beasts[i];
   if (!b) return fail('E_NOT_FOUND');
   if (!WK.fits(p.ask, b)) return fail('E_WORK_FIT');
   if (beastBusy(st, b.id)) return fail('E_BEAST_BUSY');
-  p.beast = b.id; p.start = st.clock; p.end = st.clock + p.secs * 1000;
-  return ok(`${b.name} đi làm cho ${p.who.name}.`);
+  if (bestParty(st).some((x) => x.id === b.id)) return fail('E_WORK_PARTY');
+  st.beasts.splice(i, 1);
+  p.beast = b.id; p.worker = b; p.start = st.clock; p.end = st.clock + p.secs * 1000;
+  return ok(`${b.name} rời chuồng đi làm cho ${p.who.name}.`);
 }
 /** The time is up: pay the Linh Thạch and the goods. The creature is free again and the place gets a new posting on the server's next tick. */
 export function workCollect(st: GameState, id: unknown): Res {
   const p = workPost(st, id);
   if (!p || !WK.isOpen(p) || p.beast === undefined) return fail('E_WORK_GONE');
   if (st.clock < (p.end ?? Infinity)) return fail('E_WORK_NOT_YET');
-  const name = st.beasts.find((b) => b.id === p.beast)?.name || 'Linh Thú';
+  const w = p.worker, name = (w || st.beasts.find((b) => b.id === p.beast))?.name || 'Linh Thú';
+  // the creature comes back to the pen, even when the pen is full meanwhile (taming waits until there is room again)
+  if (w) { if (!st.beasts.some((x) => x.id === w.id)) st.beasts.push(w); delete p.worker; }
   p.done = true;
   const stones = earn(st, p.stones, 'work');
   for (const x of p.extra || []) giveExtra(st, x);
-  return ok(`${name} làm xong việc cho ${p.who.name}, nhận ${stones} Linh Thạch.`, { stones, goods: WK.goodsText(p), tier: p.tier });
+  return ok(`${name} làm xong việc cho ${p.who.name} và về chuồng, nhận ${stones} Linh Thạch.`, { stones, goods: WK.goodsText(p), tier: p.tier });
 }
 /** The visitors whose time has come (server tick only: it makes pieces for the box): one about every 5 seconds, so usually one a tick and now and then two or three. A few seconds of work at most, even for 12 offline hours of visitors. */
 function runExpo(st: GameState) {
