@@ -1,7 +1,7 @@
 'use client';
 import { ModalClose } from './ds/ModalClose';
 import { askConfirm, Toast } from './ds/Dialog';
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent as RKey, type MutableRefObject } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent as RKey, type MutableRefObject } from 'react';
 import * as C from '@/lib/content';
 import type { Item } from '@/lib/game';
 import { levelOf, dissolveValue } from '@/lib/game';
@@ -217,6 +217,33 @@ export function ItemPopup({ st, eqx }: { st: GS; eqx: Eqx }) {
   );
 }
 
+// One cell of the bag or the Kho Tạm. The panel is drawn again on every change of the game (a poll, a fight, a creature tamed), most of which leave the bag as it is:
+// a cell is drawn again only when what it shows changes (the item, the piece worn in its slot, the level that makes it too high, the slot under the mouse).
+// It does not look at the Tìm đồ buyers (2026-11-28): most players never take those jobs, and the bag should stay light for them; the buyers are seen in Công việc.
+type TileProps = { it: Item; from: 'bag' | 'stash'; cur: number | null; tooHigh: boolean; match: boolean; eqx: Eqx };
+const itemKey = (it: Item) => `${it.id}|${it.base}|${it.slot}|${it.name}|${it.tier}|${it.level}|${it.el}|${it.power}|${it.locked ? 1 : 0}|${it.art ?? ''}|${it.tien ?? ''}|${it.rel ?? ''}`;
+// the callbacks of `eqx` keep their identity (useCallback, state setters), so a cell does not need to be drawn again when the object around them is new
+const sameTile = (a: TileProps, b: TileProps) => a.from === b.from && a.cur === b.cur && a.tooHigh === b.tooHigh && a.match === b.match && itemKey(a.it) === itemKey(b.it);
+const BagTile = memo(function BagTile({ it, from, cur, tooHigh, match, eqx }: TileProps) {
+  const d = cur === null ? null : it.power - cur;
+  const mark = d === null ? '+' : d > 0 ? '▲' : d < 0 ? '▼' : '=', cls = d === null || d > 0 ? 'up' : d < 0 ? 'down' : '';
+  return (
+    <div className={`bagTile t${it.tier} ${match ? 'match' : ''} ${tooHigh ? 'toohigh' : ''}`}
+      role="button" tabIndex={0} draggable style={{ '--rc': C.RCOLOR[it.tier] } as CSSProperties}
+      aria-label={`${it.name}, ${C.RARITY[it.tier]}, ${C.SLOT_VI[it.slot]}`}
+      title={`${it.name}\n${C.RARITY[it.tier]} · Lv${it.level} · ${C.SLOT_VI[it.slot]} · ⚔ ${it.power}`}
+      onDragStart={(e) => eqx.dragStart(e, { from, id: it.id, slot: it.slot })} onDragEnd={eqx.dragEnd}
+      onMouseEnter={() => eqx.setHot(it.slot)} onMouseLeave={() => eqx.setHot('')}
+      onClick={() => eqx.open(it.id)} onKeyDown={keyAct(() => eqx.open(it.id))}>
+      <ItemIcon it={it} size="fit" />
+      <i className="rim" aria-hidden="true" />
+      <b className={`cmpb ${cls}`}>{mark}</b>
+      {tooHigh && <u className="lvb">Lv{it.level}</u>}
+      {it.locked && <em className="lockB"><Icon name="lock" size={11} /></em>}
+    </div>
+  );
+}, sameTile);
+
 export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
   const L = levelOf(st.player);
   const { held, setHeld, hot, dragging } = eqx;
@@ -232,27 +259,9 @@ export function EquipPanel({ st, eqx }: { st: GS; eqx: Eqx }) {
     p.n++; p.stones += dissolveValue(it); return p;
   }, { n: 0, kept: 0, locked: 0, stones: 0 });
   const fromEq = !!held && held.from === 'eq';
-  const tile = (it: Item, from: 'bag' | 'stash') => {
-    const cur = st.eq[it.slot], d = cur ? it.power - cur.power : null, tooHigh = it.level > L;
-    const mark = d === null ? '+' : d > 0 ? '▲' : d < 0 ? '▼' : '=', cls = d === null || d > 0 ? 'up' : d < 0 ? 'down' : '';
-    const asked = O.wantedBy(st.orders, it).length > 0;
-    return (
-      <div key={it.id} className={`bagTile t${it.tier} ${hot && hot === it.slot ? 'match' : ''} ${tooHigh ? 'toohigh' : ''}`}
-        role="button" tabIndex={0} draggable style={{ '--rc': C.RCOLOR[it.tier] } as CSSProperties}
-        aria-label={`${it.name}, ${C.RARITY[it.tier]}, ${C.SLOT_VI[it.slot]}`}
-        title={`${it.name}\n${C.RARITY[it.tier]} · Lv${it.level} · ${C.SLOT_VI[it.slot]} · ⚔ ${it.power}`}
-        onDragStart={(e) => eqx.dragStart(e, { from, id: it.id, slot: it.slot })} onDragEnd={eqx.dragEnd}
-        onMouseEnter={() => eqx.setHot(it.slot)} onMouseLeave={() => eqx.setHot('')}
-        onClick={() => eqx.open(it.id)} onKeyDown={keyAct(() => eqx.open(it.id))}>
-        <ItemIcon it={it} size="fit" />
-        <i className="rim" aria-hidden="true" />
-        <b className={`cmpb ${cls}`}>{mark}</b>
-        {tooHigh && <u className="lvb">Lv{it.level}</u>}
-        {it.locked && <em className="lockB"><Icon name="lock" size={11} /></em>}
-        {asked && <i className="reqMark" title="Công việc Tìm đồ đang cần món này"><Icon name="scroll" size={10} /></i>}
-      </div>
-    );
-  };
+  const tile = (it: Item, from: 'bag' | 'stash') => (
+    <BagTile key={it.id} it={it} from={from} cur={st.eq[it.slot]?.power ?? null} tooHigh={it.level > L} match={!!hot && hot === it.slot} eqx={eqx} />
+  );
   const cells = Math.max(12, Math.ceil(st.bag.length / 6) * 6);
   return (
     <div className="eqPanel">

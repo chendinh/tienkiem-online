@@ -94,7 +94,6 @@
   .penTile { position: relative; }
   .penTile .reqMark { position: absolute; left: 4px; top: 4px; z-index: 4; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-style: normal; color: var(--ink-900, #0b1117); background: var(--gold-300); box-shadow: 0 0 8px -1px var(--gold-300); }
   .penTile .reqMark.lockMark { color: var(--text-1, #f3ead6); background: rgb(40 48 60 / 0.92); box-shadow: 0 0 0 1px var(--line-gold-strong, #c9a24a); }
-  .bagTile .reqMark { position: absolute; left: 2px; bottom: 2px; z-index: 4; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-style: normal; color: var(--ink-900, #0b1117); background: var(--gold-300); box-shadow: 0 0 8px -1px var(--gold-300); }
   /* Tìm thú, Đặt đan, Nguyên liệu (components/JobCards.tsx): what is asked, how much of it is handed over, and the creatures to pick from */
   .jobAsk { display: flex; align-items: center; gap: var(--sp-3); }
   .jobAskImg { flex: none; display: grid; place-items: center; border-radius: var(--r-sm); object-fit: cover; overflow: hidden; background: rgb(0 0 0 / 0.3); border: 1px solid var(--line); color: var(--gold-300); }
