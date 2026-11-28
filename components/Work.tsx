@@ -1,20 +1,18 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import * as C from '@/lib/content';
 import * as J from '@/lib/jobs';
 import * as O from '@/lib/orders';
 import * as XP from '@/lib/expo';
 import * as WK from '@/lib/work';
 import type { GS } from '@/lib/client/types';
-import { SP, type Beast } from '@/lib/game';
-import { useLookPic } from '@/lib/useLookPic';
+import type { Beast } from '@/lib/game';
 import { Icon } from './ds/Icon';
-import { ModalClose } from './ds/ModalClose';
 import { ElIcon } from './Icons';
-import { BeastArt, ElChip, Img, LookTag, PanZoom, SizeMeter, fmt } from './ui';
+import { BeastArt, Img, fmt } from './ui';
 import type { Act } from './Panels';
 import { DoneSeal, afterPaint, keepInView, useFin, type Fin } from './JobDone';
+import { BeastPeek } from './BeastPeek';
 import { useCue } from './fx/Cue';
 
 // Thú đi làm: the sixth kind of Công việc (rules in lib/work.ts and lib/game.ts workSend, workCollect). A posting cannot be sent away and a creature at work cannot be called back: both stay until the work is done and collected. Collecting runs on the screen at once; sending waits for the server.
@@ -70,32 +68,6 @@ const askNote = (a: WK.Ask): string =>
   a.mut ? 'Chỉ Linh Thú Dị Biến mới làm được' : a.elite ? 'Chỉ Linh Thú Tinh Anh mới làm được' : WK.sizeText(a) ? 'Xem cỡ ở ô của từng con · làm xong thú vẫn là của ngươi' : 'Làm xong thú vẫn là của ngươi';
 const stars = (t: WK.Tier) => (t === 3 ? '✦' : '★'.repeat(t + 1));
 
-
-/** A creature seen up close before it is sent: its picture, Level, Chiến Lực and numbers, and the button that picks it. */
-function BeastPeek({ b, picked, onPick, onClose }: { b: Beast; picked: boolean; onPick: () => void; onClose: () => void }) {
-  const look = useLookPic(b, true), sp = SP(b.sp);
-  if (typeof document === 'undefined') return null;
-  return createPortal(
-    <div className="modal zoom" onClick={onClose} role="dialog" aria-modal="true" aria-label={b.name}>
-      <ModalClose onClose={onClose} />
-      <div className="modalBody zoomBody" onClick={(e) => e.stopPropagation()}>
-        <div className="zoomPic"><PanZoom><Img src={look || C.monsterArt(b.sp, b.mut)} className="fill" fb={<ElIcon el={sp.el[0]} size={80} />} /></PanZoom></div>
-        <div className="zoomInfo">
-          <h2>{b.mut && <em className="mutBadge">✦ Dị Biến</em>}<LookTag b={b} /> {b.elite ? 'Tinh Anh ' : ''}{b.name}</h2>
-          <div className="chips"><span className="chip">Lv{b.level}</span><ElChip el={sp.el[0]} /><span className="chip">{C.PERS[b.pers].n}</span><span className="chip gold"><Icon name="atk" size={13} /> {fmt(b.power)}</span></div>
-          <SizeMeter b={b} />
-          <ul className="itLines big"><li>Sinh Lực {b.stats[0]}</li><li>Công Kích {b.stats[2]}</li><li>Phòng Ngự {b.stats[3]}</li><li>Thân Pháp {b.stats[4]}</li></ul>
-          <div className="hint">Đi làm thì con này rời chuồng, không ra trận, đến khi ngươi nhận thưởng thì về lại chuồng.</div>
-        </div>
-        <div className="eqAct">
-          <button type="button" className="btn hot" disabled={picked} onClick={onPick}><Icon name="check" size={15} /> {picked ? 'Đã chọn' : 'Chọn con này'}</button>
-          <button type="button" className="btn ghost" onClick={onClose}>Đóng</button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
 
 type Finish = { done: (stones: number, gift: string, card: Element | null) => void; sure: (stones: number) => void; undo: () => void };
 function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act: Act; p: WK.Post; now: number; cands: Beast[]; fin?: Fin; finish: Finish; onErr: (m: string) => void }) {
@@ -173,7 +145,7 @@ function PostCard({ st, act, p, now, cands, fin, finish, onErr }: { st: GS; act:
               </div>
             )
             : <button type="button" className="btn" disabled={cands.length === 0} onClick={() => { onErr(''); setPickId(null); setOpen(true); }}>{cands.length > 0 ? `Cử Linh Thú đi làm (${cands.length} con hợp)` : p.ask.mut ? 'Chưa có Dị Biến nào hợp' : p.ask.elite ? 'Chưa có Tinh Anh nào hợp' : 'Chưa có con nào hợp'}</button>}
-          {peek && <BeastPeek b={peek} picked={picked?.id === peek.id} onPick={() => { setPickId(peek.id); setPeek(null); }} onClose={() => setPeek(null)} />}
+          {peek && <BeastPeek b={peek} picked={picked?.id === peek.id} note="Đi làm thì con này rời chuồng, không ra trận, đến khi ngươi nhận thưởng thì về lại chuồng." onPick={() => { setPickId(peek.id); setPeek(null); }} onClose={() => setPeek(null)} />}
         </>
       )}
       {(stage === 'run' || stage === 'ready') && (

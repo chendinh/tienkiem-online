@@ -107,11 +107,19 @@
   .sealRank { color: #f3c46b; }
   .jobBar { height: 6px; border-radius: var(--r-pill); background: rgb(0 0 0 / 0.35); overflow: hidden; }
   .jobBar i { display: block; height: 100%; border-radius: inherit; background: var(--gold-300); transition: width 0.25s ease; }
-  .jobBeasts { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
-  .jobBeast { min-width: 0; }
-  .jobBeast small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .jobBeast:disabled { opacity: 0.38; cursor: default; filter: grayscale(0.6); }   /* its element is already full for this buyer */
-  .jobBeastEl { display: inline-flex; align-items: center; gap: 2px; }
+  /* Tìm thú: the creatures to hand over, big tiles easy to tap on a phone. The tile picks (or changes the pick), the picture opens the creature up close. */
+  .jobBeasts { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); max-height: 380px; overflow-y: auto; padding: 2px; }
+  .jobBeast { position: relative; min-width: 0; min-height: 150px; align-content: start; padding: 8px 4px 10px; border-width: 2px; transition: border-color 0.15s, background 0.15s; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .jobBeast:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 1px; }
+  .jobBeast.on { box-shadow: 0 0 12px -4px var(--gold-300); }
+  .jobBeast.off { opacity: 0.38; cursor: default; filter: grayscale(0.6); }   /* no place for it with this buyer, even in place of one picked */
+  .jobBeast small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; }
+  .jobBeastPic { display: inline-flex; }
+  .jobBeastNm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); font-size: var(--fs-xs); font-weight: 600; }
+  .jobBeastPay { display: inline-flex; align-items: center; gap: 3px; color: var(--gold-200); font-weight: 600; }
+  .jobBeastMark { position: absolute; right: 4px; top: 4px; z-index: 2; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--ink-900, #0b1117); background: var(--gold-300); font-style: normal; }
+  .jobBeastHeld { position: absolute; left: 4px; top: 4px; z-index: 2; padding: 1px 6px; border-radius: var(--r-pill); font-size: 0.62rem; font-style: normal; color: var(--text-1); background: rgb(0 0 0 / 0.6); }
+  .jobBeastEl { display: inline-flex; align-items: center; gap: 3px; }
   .jobBeastEl i, .jobElPic i { display: inline-grid; place-items: center; font-style: normal; color: var(--el); }
   /* Tìm thú: the signs of the elements asked (one big, or two or three smaller), and a chip per element with how many came */
   .jobElPic { gap: 0; }

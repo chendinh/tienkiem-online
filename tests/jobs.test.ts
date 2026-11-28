@@ -137,6 +137,20 @@ test('jobs: a buyer of several elements takes them in any order, each element on
   assert.ok(r.ok && j.done, r.msg); assert.deepEqual(st.beasts.map((b) => b.id), [2]);
 });
 
+test('jobs: picking beasts: one tap adds, puts back, or changes the pick when there is no room (the one picked longest ago gives way)', () => {
+  const e1 = SOLO[0].el[0], e2 = SOLO.find((s) => s.el[0] !== e1)!.el[0], a1 = spOfEl(e1), a2 = spOfEl(e2);
+  const bs = [mkBeast(1, a1), mkBeast(2, a1), mkBeast(3, a2), mkBeast(4, a2), mkBeast(5, a2)], of = new Map(bs.map((b) => [b.id, b])), [b1, b2, b3, b4, b5] = bs;
+  const one = byEl([e1, 1]);
+  assert.deepEqual(J.tapPick(one, of, [], b1), [1]);
+  assert.deepEqual(J.tapPick(one, of, [1], b2), [2], 'asked once: a tap on another one changes the pick');
+  assert.deepEqual(J.tapPick(one, of, [1], b1), [], 'a tap on the picked one puts it back');
+  const two = byEl([e1, 1], [e2, 2]);
+  assert.deepEqual(J.tapPick(two, of, [1, 3], b4), [1, 3, 4], 'room: added');
+  assert.deepEqual(J.tapPick(two, of, [1, 3, 4], b5), [1, 4, 5], 'no room: the oldest of its element gives way, not the one of the other element');
+  assert.deepEqual(J.tapPick(two, of, [1, 3, 4], b2), [3, 4, 2]);
+  const cur = [1]; assert.equal(J.tapPick(byEl([e2, 1]), of, cur, b2), cur, 'an element not asked: nothing changes');
+});
+
 test('jobs: a beast buyer saved before the asks went by element is replaced on the next tick; what it paid stays', () => {
   const st = fresh(11); G.settle(st, 2);
   const b = board(st), at = b.list.findIndex((x) => x.type === 'beast'), sp = C.SPECIES[0].id;

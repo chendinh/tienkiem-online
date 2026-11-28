@@ -211,6 +211,15 @@ export function assignBeasts(want: BeastWant[], beasts: BeastLike[]): number[] |
 }
 /** Can `b` be added to the creatures already chosen for this buyer (every one of them still finding a place)? */
 export const canAdd = (a: Ask, chosen: BeastLike[], b: BeastLike): boolean => a.t === 'beast' && assignBeasts(wantsOf(a), [...chosen, b]) !== null;
+/** The creatures picked (ids, in the order they were picked) after a tap on `b`: put back if it was picked; else added when there is room, else put in place of the one
+ *  picked longest ago that makes room (one tap changes the pick, no need to put one back first); else the same array, unchanged. `of` turns ids into creatures. */
+export function tapPick<T extends BeastLike & { id: number }>(a: Ask, of: ReadonlyMap<number, T>, cur: number[], b: T): number[] {
+  const beasts = (ids: number[]) => ids.flatMap((id) => { const x = of.get(id); return x ? [x] : []; });
+  if (cur.includes(b.id)) return cur.filter((x) => x !== b.id);
+  if (canAdd(a, beasts(cur), b)) return [...cur, b.id];
+  for (let i = 0; i < cur.length; i++) { const rest = cur.filter((_, k) => k !== i); if (canAdd(a, beasts(rest), b)) return [...rest, b.id]; }
+  return cur;
+}
 /** The ids of the strongest `size` creatures: the Party that goes out to fight. Sorted once by the caller, never once per creature.
  *  The caller adds the creatures that must not go by themselves either (the framed one, the ones on a stand of Triển Lãm) to the same set: `keep`. */
 export const partyOf = (beasts: { id: number; power: number }[], size: number): Set<number> => new Set(beasts.slice().sort((a, b) => b.power - a.power).slice(0, size).map((b) => b.id));

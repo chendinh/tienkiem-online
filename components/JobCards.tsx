@@ -14,11 +14,13 @@ import { BeastArt, Img, fmt } from './ui';
 import type { Act } from './Panels';
 import { DoneSeal, afterPaint, keepInView, useFin, type Fin } from './JobDone';
 import { useCue } from './fx/Cue';
+import { BeastPeek } from './BeastPeek';
 
 // Tìm thú, Đặt đan and Nguyên liệu: the three kinds of Công việc that ask for a NUMBER of something (the rules are in lib/jobs.ts and lib/game.ts fillJob).
 // A buyer stays until all that was asked has been handed over; the player gives what there is, every unit is paid at once, and nothing is lost by stopping half way.
-// Beasts are asked by element (1 to 3 elements, any species) and picked one by one: the weak spare ones are ready, the Party stays unless picked on purpose,
-// and a creature whose element is already full cannot be picked (lib/jobs.ts assignBeasts places a creature of two elements where there is room); pills and materials are handed over with one button (as many as there are, up to what is asked).
+// Beasts are asked by element (1 to 3 elements, any species) and picked on big tiles: the weak spare ones are ready, the Party is never listed (2026-11-28), a tap on a tile picks it or
+// puts it in place of the one picked longest ago when there is no room (lib/jobs.ts assignBeasts places a creature of two elements where there is room), a tap on a picked one puts it
+// back, and a tap on the picture opens the creature up close. Pills and materials are handed over with one button (as many as there are, up to what is asked).
 const times = (m: number) => String(m / 100).replace('.', ',');
 const board = (st: GS, t: J.JobType): J.Job[] => J.ofType(st.jobs, t);
 
@@ -73,14 +75,16 @@ function ElParts({ a }: { a: J.Ask }) {
 
 // What a card tells its list about a hand-over that finishes the job: `done` starts the seal at once, `sure` brings the real figures, `undo` takes the seal away.
 type Finish = { done: (stones: number, card: Element | null, rankUp?: number) => void; sure: (stones: number, rankUp?: number) => void; undo: () => void };
-function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j: J.Job; hold: Hold; fin?: Fin; finish: Finish; onErr: (m: string) => void }) {
+function JobCard({ st, act, j, hold, party, fin, finish, onErr }: { st: GS; act: Act; j: J.Job; hold: Hold; party: Hold; fin?: Fin; finish: Finish; onErr: (m: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [sel, setSel] = useState<number[]>([]);
-  useEffect(() => { setOpen(false); setSel([]); }, [j.id]);   // the card belongs to a slot: when a new buyer takes the place, the picker starts closed
+  const [sel, setSel] = useState<number[]>([]), [peek, setPeek] = useState<Beast | null>(null);
+  useEffect(() => { setOpen(false); setSel([]); setPeek(null); }, [j.id]);   // the card belongs to a slot: when a new buyer takes the place, the picker starts closed
   const gone = !J.isOpen(j), left = J.left(j), a = j.ask;
   const spare = (b: Beast) => J.isSpare(b, hold);
-  // a creature at work cannot be handed over at all, so it is not listed; the Party (and a framed creature, one on a stand) comes last and is never put forward
-  const cands = useMemo(() => { if (j.type !== 'beast') return []; const working = WK.bookedIds(st.work); return J.beastCands(j, st.beasts.filter((b) => !working.has(b.id)), hold); }, [j, st.beasts, st.work, hold]);
+  // the Party is never listed: the creatures that fight are not handed over from here. A creature at work is not in the pen (a save from before still has it there,
+  // locked). A framed creature or one on a stand comes last and is never put forward.
+  const cands = useMemo(() => { if (j.type !== 'beast') return []; const working = WK.bookedIds(st.work); return J.beastCands(j, st.beasts.filter((b) => !working.has(b.id) && !party.has(b.id)), hold); }, [j, st.beasts, st.work, hold, party]);
+  const byId = useMemo(() => new Map(cands.map((b) => [b.id, b])), [cands]);
   const have = j.type === 'beast' ? cands.length : stockOf(st, a), take = j.type === 'beast' ? sel.length : Math.min(have, left);
   const spareN = j.type === 'beast' ? cands.filter((b) => J.isSpare(b, hold)).length : 0;
   const unit = a.t === 'beast' ? 0 : J.unitValue(a);
@@ -90,12 +94,11 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
   const sumNow = j.type === 'beast' ? chosen.reduce((s, b) => s + releaseValue(b), 0) : take * unit;
   const pay = (j.type === 'beast' ? chosen.reduce((s, b) => s + payUnit(b), 0) : take * payUnit()) + (full ? J.payFor(j.bonus, j.sum + sumNow) : 0);
 
-  // which creatures can still be added to the ones chosen (every element asked has room for so many, a creature of two elements goes where there is room)
-  const fits = useMemo(() => {
+  // which creatures a tap can pick: added to the ones chosen, or put in place of one of them (every element asked has room for so many, a creature of two elements goes where there is room)
+  const takes = useMemo(() => {
     if (j.type !== 'beast') return new Set<number>();
-    const now = cands.filter((b) => sel.includes(b.id));
-    return new Set(cands.filter((b) => !sel.includes(b.id) && J.canAdd(a, now, b)).map((b) => b.id));
-  }, [j.type, a, cands, sel]);
+    return new Set(cands.filter((b) => !sel.includes(b.id) && J.tapPick(a, byId, sel, b) !== sel).map((b) => b.id));
+  }, [j.type, a, cands, byId, sel]);
   const start = () => {
     onErr('');
     if (open) { setOpen(false); return; }
@@ -104,7 +107,7 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
     setSel(pickd.map((b) => b.id));
     setOpen(true);
   };
-  const toggle = (id: number) => setSel((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : fits.has(id) ? [...cur, id] : cur));
+  const pick = (b: Beast) => setSel((cur) => J.tapPick(a, byId, cur, b));
   const give = async (card: Element | null) => {
     // This hand-over finishes the job: the seal starts in the same screen update as the new numbers (waiting for the answer put it one whole redraw late)
     keepInView(card);   // the picker folds and the new buyer comes: the card stays in view
@@ -115,10 +118,10 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
     setOpen(false); onErr('');
     if (r.data && r.data.done) { if (closing) finish.sure(r.data.stones, r.data.rankUp); else finish.done(r.data.stones, card, r.data.rankUp); }
   };
-  // a beast the player wants to hand over but that is in the Party or framed asks a second time
+  // a beast the player wants to hand over but that is framed or on a stand asks a second time
   const giveBeasts = async (card: Element | null) => {
     const risky = chosen.filter((b) => !spare(b));
-    if (risky.length && !(await askConfirm({ title: 'Giao Linh Thú đang xuất chiến', body: `${risky.map((b) => b.name).join(', ')} đang ở trong đội xuất chiến, trong khung trưng bày hoặc trên bệ Triển Lãm. Giao đi thì không lấy lại được.`, ok: 'Vẫn giao', danger: true }))) return;
+    if (risky.length && !(await askConfirm({ title: 'Giao Linh Thú đang trưng bày', body: `${risky.map((b) => b.name).join(', ')} đang trong khung trưng bày hoặc trên bệ Triển Lãm. Giao đi thì không lấy lại được.`, ok: 'Vẫn giao', danger: true }))) return;
     await give(card);
   };
 
@@ -152,20 +155,35 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
       {gone ? <div className="ordDone"><Icon name="check" size={14} /> {j.done ? 'Khách đã đủ hàng, đang có khách mới tới' : 'Khách đã rời đi'}</div> : (
         <>
           {open && j.type === 'beast' && (
-            <div className="ordPick jobBeasts" role="group" aria-label="Chọn Linh Thú để giao">
-              {cands.map((b) => (
-                <button key={b.id} type="button" className={`ordIt jobBeast${sel.includes(b.id) ? ' on' : ''}`} aria-pressed={sel.includes(b.id)} disabled={!sel.includes(b.id) && !fits.has(b.id)} onClick={() => toggle(b.id)}>
-                  <BeastArt b={b} box={48} />
-                  <small className="jobBeastEl">{J.speciesEls(b.sp).map((el) => <i key={el} style={elStyle(el)}><ElIcon el={el} size={11} /></i>)}{spare(b) ? '' : '★ '}Lv{b.level}</small>
-                  <small>+{fmt(payUnit(b))}</small>
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="hint wkPickHint">Đã chọn sẵn những con yếu nhất hợp yêu cầu. Bấm vào ô để chọn hoặc đổi con, bấm lại con đã chọn để bỏ, bấm vào ảnh để xem kỹ. Con đang xuất chiến không có trong danh sách.</div>
+              <div className="ordPick jobBeasts" role="group" aria-label="Chọn Linh Thú để giao">
+                {cands.map((b) => {
+                  const on = sel.includes(b.id), off = !on && !takes.has(b.id);
+                  return (
+                    <div key={b.id} role="checkbox" aria-checked={on} aria-disabled={off} tabIndex={off ? -1 : 0} className={`ordIt jobBeast${on ? ' on' : ''}${off ? ' off' : ''}`}
+                      onClick={() => { if (!off) pick(b); }} onKeyDown={(e) => { if (!off && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(b); } }}>
+                      {on && <i className="jobBeastMark" aria-hidden="true"><Icon name="check" size={12} /></i>}
+                      {!spare(b) && <em className="jobBeastHeld">Đang trưng</em>}
+                      <span className="jobBeastPic" onClick={(e) => e.stopPropagation()}><BeastArt b={b} box={76} mine onOpen={() => setPeek(b)} /></span>
+                      <b className="jobBeastNm">{b.name}</b>
+                      <small className="jobBeastEl">{J.speciesEls(b.sp).map((el) => <i key={el} style={elStyle(el)}><ElIcon el={el} size={12} /></i>)} Lv{b.level}</small>
+                      <small className="jobBeastPay">+{fmt(payUnit(b))} <Icon name="stone" size={11} /></small>
+                    </div>
+                  );
+                })}
+              </div>
+              {peek && (
+                <BeastPeek b={peek} picked={sel.includes(peek.id)} undo can={takes.has(peek.id)} why="Hệ này đã đủ"
+                  note={`Giao con này khách trả +${fmt(payUnit(peek))} Linh Thạch. Giao rồi thì không lấy lại được.${spare(peek) ? '' : ' Con này đang được trưng bày.'}`}
+                  onPick={() => { pick(peek); setPeek(null); }} onClose={() => setPeek(null)} />
+              )}
+            </>
           )}
           {open && j.type === 'beast'
             ? <div className="ordBtns"><button type="button" className="btn" onClick={() => setOpen(false)}>Thôi</button><button type="button" className="btn hot" disabled={sel.length === 0} onClick={(e) => giveBeasts(e.currentTarget.closest('.ordCard'))}>Giao {sel.length} con · +{fmt(pay)} <Icon name="stone" size={14} /></button></div>
             : j.type === 'beast'
-              ? <button type="button" className={`btn${spareN > 0 || have === 0 ? '' : ' ghost'}`} disabled={have === 0} onClick={start}>{spareN > 0 ? `Giao nộp (${spareN} con hợp)` : have > 0 ? `Chỉ con đang giữ (★) hợp (${have})` : 'Chưa có con nào hợp'}</button>
+              ? <button type="button" className={`btn${spareN > 0 || have === 0 ? '' : ' ghost'}`} disabled={have === 0} onClick={start}>{spareN > 0 ? `Giao nộp (${spareN} con hợp)` : have > 0 ? `Chỉ con đang trưng bày hợp (${have})` : 'Chưa có con nào hợp'}</button>
               : <button type="button" className="btn" disabled={have === 0} onClick={(e) => give(e.currentTarget.closest('.ordCard'))}>{have > 0 ? `Giao ${take}${have < left ? ` (ngươi có ${have})` : ''} · +${fmt(pay)}` : `Chưa có ${a.t === 'pill' ? 'viên đan' : 'nguyên liệu'} nào`}</button>}
           {j.type !== 'beast' && have === 0 && <div className="hint">{a.t === 'pill' ? 'Luyện Hồi Khí Đan bằng nguyên liệu thu được khi đi thám hiểm.' : 'Nguyên liệu rơi ra khi thám hiểm, mỗi vùng một loại.'}</div>}
         </>
@@ -189,6 +207,7 @@ function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; h
   const list = board(st, type), [err, setErr] = useState('');
   const { fin, mark, patch, clear } = useFin(), cue = useCue();
   const hold = useMemo(() => (type === 'beast' ? holdOf(st) : NOBODY), [type, st.beasts, st.caps.party, st.player.showcase, st.expo, st.work]);
+  const party = useMemo(() => (type === 'beast' ? J.partyOf(st.beasts, st.caps.party) : NOBODY), [type, st.beasts, st.caps.party]);   // never listed
   const rankName = (r?: number) => (r === undefined ? undefined : J.RANK_NAME[r]);
   const finishOf = (slot: number, j: J.Job): Finish => ({
     done: (stones, card, rankUp) => {   // the seal now, the sound and the floating line on the next paint
@@ -207,7 +226,7 @@ function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; h
       {err && <div className="hint ordWarn" role="alert">{err}</div>}
       <div className="ordList">
         {list.map((j, slot) => (
-          <JobCard key={slot} st={st} act={act} j={j} hold={hold} fin={fin[slot]} onErr={setErr} finish={finishOf(slot, j)} />
+          <JobCard key={slot} st={st} act={act} j={j} hold={hold} party={party} fin={fin[slot]} onErr={setErr} finish={finishOf(slot, j)} />
         ))}
       </div>
     </div>
