@@ -4,6 +4,7 @@ import * as G from '../lib/game';
 import * as C from '../lib/content';
 import * as J from '../lib/jobs';
 import * as O from '../lib/orders';
+import * as D from '../lib/daily';
 import { BALANCE as B } from '../lib/balance';
 
 const T0 = 1_800_000_000_000;
@@ -167,6 +168,21 @@ test('jobs: the gifts of a beast buyer grow with the order: Huyền always, Đ�
   // bigger orders give more
   const worth = (need: number) => { let v = 0; for (let k = 0; k < 300; k++) for (const x of J.beastGifts(need, `w${k}`)) v += x.n * (C.SHOP_ITEM(O.extraId(x))?.price || 0); return v / 300; };
   assert.ok(worth(2) < worth(4) && worth(4) < worth(6), `${worth(2)} ${worth(4)} ${worth(6)}`);
+});
+
+test('jobs: a creature of a day that came after the first look-up is known by its element (the server reloads the days while it runs)', () => {
+  const el = SOLO[0].el[0], id = 'dailyjob1';
+  assert.deepEqual(J.speciesEls(id), [], 'not known yet');   // the look-up is built now, before the day is loaded
+  const day = new Date(T0).toISOString().slice(0, 10), sp = { ...SOLO[0], id, el: [el], day, zones: [], legend: '', en: 'Daily Job' } as any;
+  D.setDaily([{ day, title: 't', chronicle: 'c', tales: {}, beast: sp }]);
+  try {
+    assert.deepEqual(J.speciesEls(id), [el]);
+    const st = fresh(12), j = mk('beast', byEl([el, 1]), { need: 1, bonus: J.MULT.beastBonus, gifts: J.beastGifts(1, 'd') });
+    withBoard(st, j); st.beasts = [mkBeast(77, id)];
+    const r = G.fillJob(st, j.id, { ids: [77] });
+    assert.ok(r.ok && j.done, r.msg);
+  } finally { D.setDaily([]); }
+  assert.deepEqual(J.speciesEls(id), [], 'gone again once the day is gone');
 });
 
 test('jobs: a framed beast that is handed over leaves the frame; more beasts than asked is refused', () => {

@@ -63,10 +63,17 @@ const zonesAt = (level: number) => C.ZONES.filter((z) => z.minLevel <= level);
 export const speciesAt = (level: number): string[] => uniq(zonesAt(level).flatMap((z) => Object.entries(z.species).filter(([, w]) => w > 0).map(([id]) => id)));
 export const matsAt = (level: number): string[] => uniq(zonesAt(level).flatMap((z) => z.materials.map((m) => m.id)));
 type SpLite = { id: string; name: string; el: string[] };
-let SP_BY_ID: Map<string, SpLite> | null = null;
-/** A species by id (the fixed ones and the daily ones). Looked up in a Map built once: this runs for every creature of the pen on every redraw. */
+let SP_BY_ID: Map<string, SpLite> | null = null, SP_FOR: unknown = null;
+/** A species by id (the fixed ones and the daily ones). Looked up in a Map, as this runs for every creature of the pen on every redraw.
+ *  The Map is built again whenever the daily registry is replaced (`setDaily` makes a new list: the server reloads it every few minutes, the browser once the
+ *  page has it). Built only once, it missed the creatures of the days that came after (2026-11-28: the server refused a new creature the browser had accepted). */
 const spOf = (id: string): SpLite | undefined => {
-  if (!SP_BY_ID) { SP_BY_ID = new Map(); for (const s of D.dailySpecies()) SP_BY_ID.set(s.id, s as SpLite); for (const s of C.SPECIES) SP_BY_ID.set(s.id, s as SpLite); }
+  const reg = D.dailyPacks();
+  if (!SP_BY_ID || SP_FOR !== reg) {
+    SP_BY_ID = new Map(); SP_FOR = reg;
+    for (const s of D.dailySpecies()) SP_BY_ID.set(s.id, s as SpLite);
+    for (const s of C.SPECIES) SP_BY_ID.set(s.id, s as SpLite);
+  }
   return SP_BY_ID.get(id);
 };
 /** The name and the elements of a species (Thú đi làm, lib/work.ts, asks for creatures the same way). */
