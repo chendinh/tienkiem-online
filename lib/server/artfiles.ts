@@ -27,3 +27,17 @@ export function missingArt(jobs: ArtJob[], have: Set<string>, drawn: { has(k: st
   // an empty list of shipped files means the list could not be read: then everything would look missing and the button would pay for the whole game
   return { total: jobs.length, shipped, drawn: done, missing, listOk: have.size > 0 };
 }
+
+/** Where a fixed picture that is not a shipped file is sent (app/api/art), or null (404: the game shows its stand-in).
+ *  `rel` is the path under /art ('books/x.jpg'). A picture the server drew goes to its place in the database. A small copy ('monsters/sm/x.jpg', made by `npm run thumbs`
+ *  from a shipped file) that is not there is made from the big picture instead: the one the server drew, as the small copy /api/img makes ('?s=sm'), or the shipped big file.
+ *  (The four beasts of Hợp Thể were drawn on the server: they had no small copy, so no picture in a fight, 2026-11-28.) */
+export function artTarget(rel: string, drawn: { get(k: string): string | undefined }, shipped: { has(k: string): boolean }): string | null {
+  const id = drawn.get(`art|${rel}`);
+  if (id) return `/api/img/${id}`;
+  const m = /^(.*\/)?sm\/([^/]+)$/.exec(rel);
+  if (!m) return null;
+  const big = `${m[1] || ''}${m[2]}`, bigId = drawn.get(`art|${big}`);
+  if (bigId) return `/api/img/${bigId}?s=sm`;
+  return shipped.has(big) ? `/art/${big}` : null;
+}

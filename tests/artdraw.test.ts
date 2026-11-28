@@ -6,7 +6,7 @@ import path from 'node:path';
 import { artJobs, artKey, artKeyOfSpec, ART_GROUPS, DRAW_POINTS, takeBatch, pointsOf, commonLooks, missingLooks, wantedDrawable, fixedTodos, drawOrder, blockedBy } from '../lib/artjobs';
 import { keyOfSpec } from '../lib/assetKey';
 import * as C from '../lib/content';
-import { missingArt, shippedArt } from '../lib/server/artfiles';
+import { missingArt, shippedArt, artTarget } from '../lib/server/artfiles';
 import * as A from '../lib/arts';
 
 test('every fixed picture is a job with its own file path and its own key', () => {
@@ -147,4 +147,14 @@ test('art: the owner\'s button draws the interface pictures first, then item ico
   const kinds = order.map((t) => (t.dest && t.dest.startsWith('/art/ui/') ? 'ui' : t.group === 'looks' ? 'looks' : 'fixed'));
   assert.deepEqual(kinds, ['ui', 'ui', 'looks', 'looks', 'looks', 'fixed', 'fixed']);
   assert.ok(order[0].dest!.startsWith('/art/ui/expo_'));
+});
+
+test('a picture the server drew is found by its path, and its missing small copy is made from it (the beasts of Hợp Thể in a fight)', () => {
+  const sp = 'tatphuong', drawn = new Map([[`art|monsters/${sp}.jpg`, 'a'.repeat(20)], ['art|books/x.jpg', 'b'.repeat(20)]]), shipped = new Set(['monsters/kimlong.jpg']);
+  assert.equal(C.monsterArt(sp, false, true), `/art/monsters/sm/${sp}.jpg`);
+  assert.equal(artTarget(`monsters/${sp}.jpg`, drawn, shipped), `/api/img/${'a'.repeat(20)}`);
+  assert.equal(artTarget(`monsters/sm/${sp}.jpg`, drawn, shipped), `/api/img/${'a'.repeat(20)}?s=sm`, 'the small copy, made from the drawn picture');
+  assert.equal(artTarget('monsters/sm/kimlong.jpg', drawn, shipped), '/art/monsters/kimlong.jpg', 'a shipped big file without its small copy');
+  assert.equal(artTarget(`monsters/sm/${sp}_mut.jpg`, drawn, shipped), null, 'nothing drawn: the stand-in');
+  assert.equal(artTarget('books/x.jpg', drawn, shipped), `/api/img/${'b'.repeat(20)}`); assert.equal(artTarget('books/y.jpg', drawn, shipped), null);
 });
