@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import * as C from '@/lib/content';
 import * as J from '@/lib/jobs';
 import * as O from '@/lib/orders';
@@ -17,7 +17,8 @@ import { useCue } from './fx/Cue';
 
 // Tìm thú, Đặt đan and Nguyên liệu: the three kinds of Công việc that ask for a NUMBER of something (the rules are in lib/jobs.ts and lib/game.ts fillJob).
 // A buyer stays until all that was asked has been handed over; the player gives what there is, every unit is paid at once, and nothing is lost by stopping half way.
-// Beasts are picked one by one (the weak spare ones are ready, the Party stays unless picked on purpose); pills and materials are handed over with one button (as many as there are, up to what is asked).
+// Beasts are asked by element (1 to 3 elements, any species) and picked one by one: the weak spare ones are ready, the Party stays unless picked on purpose,
+// and a creature whose element is already full cannot be picked (lib/jobs.ts assignBeasts places a creature of two elements where there is room); pills and materials are handed over with one button (as many as there are, up to what is asked).
 const times = (m: number) => String(m / 100).replace('.', ',');
 const board = (st: GS, t: J.JobType): J.Job[] => J.ofType(st.jobs, t);
 
@@ -44,11 +45,30 @@ export const readyCount = (st: GS, t: J.JobType): number => {
 };
 
 // ---- one card
+const elStyle = (el: string) => ({ '--el': C.EL[el]?.color || 'var(--gold-300)' }) as CSSProperties;
 function AskPic({ a, size }: { a: J.Ask; size: number }) {
-  const art = J.askArt(a);
-  return art
-    ? <Img src={art} className="jobAskImg" style={{ width: size, height: size }} fb={a.t === 'beast' && a.sp ? <ElIcon el={J.speciesEl(a.sp) || 'Kim'} size={Math.round(size * 0.6)} /> : <Icon name="stone" size={Math.round(size * 0.6)} />} />
-    : <span className="jobAskImg" style={{ width: size, height: size }}>{a.t === 'beast' && a.el ? <ElIcon el={a.el} size={Math.round(size * 0.65)} /> : <Icon name="stone" size={Math.round(size * 0.5)} />}</span>;
+  const art = J.askArt(a), els = J.wantsOf(a);
+  if (art) return <Img src={art} className="jobAskImg" style={{ width: size, height: size }} fb={<Icon name="stone" size={Math.round(size * 0.6)} />} />;
+  // beasts: the signs of the elements asked, one big sign or two or three smaller ones
+  return (
+    <span className={`jobAskImg jobElPic n${els.length}`} style={{ width: size, height: size }}>
+      {els.length ? els.map((w) => <i key={w.el} style={elStyle(w.el)}><ElIcon el={w.el} size={Math.round(size * (els.length === 1 ? 0.62 : els.length === 2 ? 0.42 : 0.36))} /></i>) : <Icon name="paw" size={Math.round(size * 0.5)} />}
+    </span>
+  );
+}
+/** The elements a beast buyer asks for, each with how many came: a chip per element, green when it is full. */
+function ElParts({ a }: { a: J.Ask }) {
+  const els = J.wantsOf(a);
+  if (!els.length) return null;
+  return (
+    <div className="jobEls" role="list" aria-label="Các hệ khách cần">
+      {els.map((w) => (
+        <span key={w.el} role="listitem" className={`jobEl${w.got >= w.n ? ' full' : ''}`} style={elStyle(w.el)}>
+          <ElIcon el={w.el} size={13} /> {w.el} <b>{w.got}/{w.n}</b>{w.got >= w.n && <Icon name="check" size={11} />}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 // What a card tells its list about a hand-over that finishes the job: `done` starts the seal at once, `sure` brings the real figures, `undo` takes the seal away.
@@ -68,13 +88,21 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
   const sumNow = j.type === 'beast' ? chosen.reduce((s, b) => s + releaseValue(b), 0) : take * unit;
   const pay = (j.type === 'beast' ? chosen.reduce((s, b) => s + payUnit(b), 0) : take * payUnit()) + (full ? J.payFor(j.bonus, j.sum + sumNow) : 0);
 
+  // which creatures can still be added to the ones chosen (every element asked has room for so many, a creature of two elements goes where there is room)
+  const fits = useMemo(() => {
+    if (j.type !== 'beast') return new Set<number>();
+    const now = cands.filter((b) => sel.includes(b.id));
+    return new Set(cands.filter((b) => !sel.includes(b.id) && J.canAdd(a, now, b)).map((b) => b.id));
+  }, [j.type, a, cands, sel]);
   const start = () => {
     onErr('');
     if (open) { setOpen(false); return; }
-    setSel(cands.filter(spare).slice(0, left).map((b) => b.id));   // the spare ones are ready; the Party is never put forward by itself
+    const pickd: Beast[] = [];   // the spare ones are ready, the weakest first, as many as fit; the Party is never put forward by itself
+    for (const b of cands) if (pickd.length < left && spare(b) && J.canAdd(a, pickd, b)) pickd.push(b);
+    setSel(pickd.map((b) => b.id));
     setOpen(true);
   };
-  const toggle = (id: number) => setSel((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < left ? [...cur, id] : cur));
+  const toggle = (id: number) => setSel((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : fits.has(id) ? [...cur, id] : cur));
   const give = async (card: Element | null) => {
     // This hand-over finishes the job: the seal starts in the same screen update as the new numbers (waiting for the answer put it one whole redraw late)
     keepInView(card);   // the picker folds and the new buyer comes: the card stays in view
@@ -102,14 +130,21 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
       <p className="ordLine">“{J.lineOf(j)}”</p>
       <div className="jobAsk">
         <AskPic a={a} size={52} />
-        <div className="jobAskTx"><b>{J.askText(j)}</b><small>Đã giao {j.got}/{j.need}</small></div>
+        <div className="jobAskTx">
+          {a.t === 'beast' ? <><b>Cần {j.need} linh thú theo hệ</b><small>Loài nào cũng được · đã giao {j.got}/{j.need}</small></> : <><b>{J.askText(j)}</b><small>Đã giao {j.got}/{j.need}</small></>}
+        </div>
       </div>
+      <ElParts a={a} />
       <div className="jobBar" role="progressbar" aria-valuemin={0} aria-valuemax={j.need} aria-valuenow={j.got}><i style={{ width: `${Math.min(100, Math.round((100 * j.got) / j.need))}%` }} /></div>
       <div className="ordPay">
         {a.t === 'beast'
           ? <span>Mỗi con trả <b>gấp {times(j.mult)}</b> giá bán{j.bonus > 0 && <>, đủ hàng thưởng thêm <b>gấp {times(j.bonus)}</b></>}</span>
           : <span>Mỗi {a.t === 'pill' ? 'viên' : 'cái'} trả <b>{fmt(payUnit())}</b> <Icon name="stone" size={13} />{j.bonus > 0 && <>, đủ hàng thưởng thêm <b>{Math.round(j.bonus)}%</b></>}</span>}
-        {j.extra && <span className="ordExtra">{j.bonus > 0 || j.need > 1 ? 'Đủ hàng tặng' : 'Tặng'} <Img src={O.extraArt(j.extra)} className="ordExImg" fb="✦" /><b>{O.extraName(j.extra)} ×{j.extra.n}</b></span>}
+        {J.giftsOf(j).length > 0 && (
+          <span className="ordExtra ordGifts">{j.bonus > 0 || j.need > 1 ? 'Đủ hàng tặng' : 'Tặng'}
+            {J.giftsOf(j).map((x, i) => <span key={i} className="ordGift"><Img src={O.extraArt(x)} className="ordExImg" fb="✦" /><b>{O.extraName(x)} ×{x.n}</b></span>)}
+          </span>
+        )}
       </div>
       {j.paid > 0 && <div className="ordDone"><Icon name="stone" size={13} /> Đã nhận {fmt(j.paid)} Linh Thạch từ khách này</div>}
       {gone ? <div className="ordDone"><Icon name="check" size={14} /> {j.done ? 'Khách đã đủ hàng, đang có khách mới tới' : 'Khách đã rời đi'}</div> : (
@@ -117,9 +152,9 @@ function JobCard({ st, act, j, hold, fin, finish, onErr }: { st: GS; act: Act; j
           {open && j.type === 'beast' && (
             <div className="ordPick jobBeasts" role="group" aria-label="Chọn Linh Thú để giao">
               {cands.map((b) => (
-                <button key={b.id} type="button" className={`ordIt jobBeast${sel.includes(b.id) ? ' on' : ''}`} aria-pressed={sel.includes(b.id)} onClick={() => toggle(b.id)}>
+                <button key={b.id} type="button" className={`ordIt jobBeast${sel.includes(b.id) ? ' on' : ''}`} aria-pressed={sel.includes(b.id)} disabled={!sel.includes(b.id) && !fits.has(b.id)} onClick={() => toggle(b.id)}>
                   <BeastArt b={b} box={48} />
-                  <small>{spare(b) ? '' : '★ '}Lv{b.level} · {C.SIZE_CLASS[b.cls]}</small>
+                  <small className="jobBeastEl">{J.speciesEls(b.sp).map((el) => <i key={el} style={elStyle(el)}><ElIcon el={el} size={11} /></i>)}{spare(b) ? '' : '★ '}Lv{b.level}</small>
                   <small>+{fmt(payUnit(b))}</small>
                 </button>
               ))}
@@ -156,7 +191,7 @@ function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; h
   const finishOf = (slot: number, j: J.Job): Finish => ({
     done: (stones, card, rankUp) => {   // the seal now, the sound and the floating line on the next paint
       const rank = rankName(rankUp);
-      mark(slot, { stones, gift: j.extra ? `${j.extra.n} ${O.extraName(j.extra)}` : undefined, rank });
+      mark(slot, { stones, gift: J.giftsText(j) || undefined, rank });
       afterPaint(() => cue.jobDone(card, `+${fmt(stones)} Linh Thạch${rank ? ` · Lên bậc ${rank}` : ''}`));
     },
     sure: (stones, rankUp) => patch(slot, { stones, rank: rankName(rankUp) }),
@@ -176,6 +211,6 @@ function JobList({ st, act, type, hint }: { st: GS; act: Act; type: J.JobType; h
     </div>
   );
 }
-export const BeastJobs = ({ st, act }: { st: GS; act: Act }) => <JobList st={st} act={act} type="beast" hint="Khách ở lại đến khi ngươi giao đủ. Mỗi con giao được trả ngay gấp đôi giá bán, giao đủ thì thưởng thêm. Linh Thú Dị Biến không giao được, và các con dư được chọn sẵn, đội xuất chiến thì ngươi tự chọn." />;
+export const BeastJobs = ({ st, act }: { st: GS; act: Act }) => <JobList st={st} act={act} type="beast" hint="Khách cần linh thú theo hệ, loài nào cũng được. Mỗi con giao được trả ngay gấp ba giá bán; giao đủ thì thưởng thêm gấp đôi, tặng Khế Ước Phù hạng Huyền trở lên và Hồi Khí Đan. Linh Thú Dị Biến không giao được; các con dư được chọn sẵn, đội xuất chiến thì ngươi tự chọn." />;
 export const PillJobs = ({ st, act }: { st: GS; act: Act }) => <JobList st={st} act={act} type="pill" hint="Khách thu đan của ngươi giá cao hơn giá thu mua của tiệm. Giao bao nhiêu có bấy nhiêu, đủ thì có thêm nguyên liệu. Làm xong càng nhiều việc, bậc càng cao: đơn lớn hơn, đan hạng cao hơn, nguyên liệu tặng hiếm hơn." />;
 export const MatJobs = ({ st, act }: { st: GS; act: Act }) => <JobList st={st} act={act} type="mat" hint="Khách thu nguyên liệu gấp đôi giá tiệm trở lên. Gom đủ số khách cần thì thưởng thêm và có quà. Làm xong càng nhiều việc, bậc càng cao: đơn lớn hơn, nguyên liệu hiếm hơn, thưởng hậu hơn." />;

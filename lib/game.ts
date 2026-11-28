@@ -1135,12 +1135,16 @@ export function fillJob(st: GameState, id: any, a: any): Res {
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > want || !ids.every((x) => Number.isInteger(x)) || new Set(ids).size !== ids.length) return fail('E_BAD_REQUEST');
     const bs = ids.map((x: number) => st.beasts.find((b) => b.id === x));
     const busy = WK.bookedIds(st.work);
-    for (const b of bs) { if (!b) return fail('E_NOT_FOUND'); if (b.mut) return fail('E_MUTANT'); if (busy.has(b.id)) return fail('E_BEAST_BUSY'); if (!J.beastMatches(j.ask, b)) return fail('E_JOB_GIVE'); }
-    for (const b of bs as Beast[]) {
+    for (const b of bs) { if (!b) return fail('E_NOT_FOUND'); if (b.mut) return fail('E_MUTANT'); if (busy.has(b.id)) return fail('E_BEAST_BUSY'); }
+    // every creature must find a place among the elements still short (a creature of two elements goes where there is room)
+    const parts = J.wantsOf(j.ask), places = J.assignBeasts(parts, bs as Beast[]);
+    if (!places) return fail('E_JOB_GIVE');
+    (bs as Beast[]).forEach((b, i) => {
       st.beasts.splice(st.beasts.findIndex((x) => x.id === b.id), 1);
       if (st.player.showcase && st.player.showcase.kind === 'beast' && st.player.showcase.id === b.id) delete st.player.showcase;
+      parts[places[i]].got++;
       const v = releaseValue(b); sum += v; pay += J.payFor(j.mult, v); n++;
-    }
+    });
   } else {
     const ask = j.ask;
     const have = ask.t === 'pill' ? st.inv.hp[ask.grade] || 0 : ask.t === 'mat' ? st.inv.mat[ask.id] || 0 : 0;
@@ -1155,14 +1159,15 @@ export function fillJob(st: GameState, id: any, a: any): Res {
   const complete = j.got >= j.need;
   let rankUp: number | undefined;
   if (complete) {
-    pay += J.payFor(j.bonus, j.sum); j.done = true; if (j.extra) giveExtra(st, j.extra);
+    pay += J.payFor(j.bonus, j.sum); j.done = true; for (const x of J.giftsOf(j)) giveExtra(st, x);
     const board = st.jobs as J.JobBoard, before = J.doneOf(board, j.type);   // one more finished in this kind: the next buyers of it are bigger once the rank goes up
     board.done = { ...(board.done || {}), [j.type]: before + 1 };
     if (J.RANKED.includes(j.type) && J.rankOf(before + 1) > J.rankOf(before)) rankUp = J.rankOf(before + 1);
   }
   const paid = earn(st, pay, 'job');
   j.paid += paid;
-  const end = complete ? ` Khách đã đủ hàng${j.bonus ? ', thưởng thêm' : ''}${j.extra ? ` và ${j.extra.n} ${O.extraName(j.extra)}` : ''}.${rankUp !== undefined ? ` Lên bậc ${J.RANK_NAME[rankUp]}: việc sau sẽ lớn hơn và thưởng hậu hơn.` : ''}` : ` Còn thiếu ${J.left(j)}.`;
+  const gifts = J.giftsText(j);
+  const end = complete ? ` Khách đã đủ hàng${j.bonus ? ', thưởng thêm' : ''}${gifts ? ` và tặng ${gifts}` : ''}.${rankUp !== undefined ? ` Lên bậc ${J.RANK_NAME[rankUp]}: việc sau sẽ lớn hơn và thưởng hậu hơn.` : ''}` : ` Còn thiếu ${J.leftText(j)}.`;
   return ok(`${j.who.name} nhận ${n}, trả ${paid} Linh Thạch.${end}`, { stones: paid, done: complete, n, ...(rankUp !== undefined ? { rankUp } : {}) });
 }
 // Send a buyer away (the place goes to a new buyer on the server's next tick). What was already handed over stays paid; only the bonus and the goods are lost.

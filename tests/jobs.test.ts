@@ -13,6 +13,11 @@ const mkBeast = (id: number, sp: string, level = 5, over: Partial<G.Beast> = {})
 // A buyer made by hand.
 const mk = (type: J.JobType, ask: J.Ask, over: Partial<J.Job> = {}): J.Job => ({ id: `${type}0-0`, type, who: { name: 'Lý Vân', g: 'f', arch: 'Đan Sư' }, line: 0, ask, need: 3, got: 0, mult: J.MULT[type], bonus: 0, sum: 0, paid: 0, done: false, ...over });
 const withBoard = (st: G.GameState, ...list: J.Job[]) => { st.jobs = { v: 1, n: 100, list }; return st; };
+// A beast ask by element: [element, how many] pairs.
+const byEl = (...ps: [string, number][]): J.Ask => ({ t: 'beast', want: ps.map(([el, n]) => ({ el, n, got: 0 })) });
+// Species of one element only, a different element each.
+const SOLO = C.SPECIES.filter((s) => s.el.length === 1);
+const spOfEl = (el: string, skip: string[] = []) => SOLO.find((s) => s.el[0] === el && !skip.includes(s.id))!.id;
 
 test('jobs: the same seed always gives the same board, and another seed another one', () => {
   assert.deepEqual(J.newBoard(123, { level: 5 }), J.newBoard(123, { level: 5 }));
@@ -25,7 +30,7 @@ test('jobs: the board has 2 buyers of each kind, no two of a kind ask for the sa
     assert.equal(b.v, 1); assert.deepEqual(b.list.map((j) => j.type), J.LAYOUT); assert.equal(b.n, b.list.length);
     assert.equal(new Set(b.list.map((j) => j.id)).size, b.list.length);
     for (const t of ['beast', 'pill', 'mat'] as const) {
-      const keys = b.list.filter((j) => j.type === t).map((j) => JSON.stringify(j.ask));
+      const keys = b.list.filter((j) => j.type === t).map((j) => J.askKey(j.ask));
       assert.equal(new Set(keys).size, keys.length, `seed ${seed} level ${level}: two ${t} buyers ask for the same thing`);
     }
   }
@@ -42,10 +47,20 @@ test('jobs: what a buyer asks for is something the player can find at their leve
         assert.ok(j.got === 0 && j.sum === 0 && j.paid === 0 && !j.done && !j.left && j.need >= 1);
         const a = j.ask;
         if (a.t === 'beast') {
-          assert.ok(a.sp || a.el); assert.ok(!a.sp || sps.includes(a.sp), `${a.sp} is not found at level ${level}`);
-          assert.ok(j.need >= 1 && j.need <= 3);
-          if (a.el) assert.equal(j.need, 3, 'a buyer of an element wants three');
-          assert.ok(!j.bonus || j.need >= 2, 'the bonus is for a buyer who wants more than one');
+          // by element only: 1 to 3 different elements, each found at this level, any species
+          assert.ok(a.want.length >= 1 && a.want.length <= 3 && !('sp' in a) && !('minCls' in a));
+          assert.equal(new Set(a.want.map((w) => w.el)).size, a.want.length, 'the elements of a buyer are different');
+          for (const w of a.want) {
+            assert.ok(w.got === 0 && w.n >= 1 && w.n <= 4);
+            assert.ok(sps.some((id) => J.speciesEls(id).includes(w.el)), `no creature of ${w.el} lives at level ${level}`);
+          }
+          assert.equal(j.need, a.want.reduce((s, w) => s + w.n, 0)); assert.ok(j.need >= 2 && j.need <= 6, `need ${j.need}`);
+          assert.equal(j.mult, J.MULT.beast); assert.equal(j.bonus, J.MULT.beastBonus); assert.equal(j.extra, undefined);
+          // always a Khế Ước Phù of grade Huyền or higher, and Hồi Khí Đan of grade 1 or 2
+          const g = J.giftsOf(j);
+          assert.ok(g.some((x) => x.kind === 'taming' && x.idx >= 1 && x.n >= 1), 'a Khế Ước Phù of Huyền or higher');
+          assert.ok(g.some((x) => x.kind === 'hp' && x.idx <= 1 && x.n >= 1), 'Hồi Khí Đan of grade 1 or 2');
+          assert.ok(!g.some((x) => x.kind === 'taming' && x.idx === 3) || j.need >= 5, 'Thiên only for the biggest orders');
         } else if (a.t === 'pill') { assert.ok(grades.includes(a.grade)); assert.ok(j.need >= 2 && j.need <= 10); assert.equal(j.bonus, 0); }
         else { assert.ok(mats.includes(a.id), `${a.id} is not found at level ${level}`); assert.ok(j.need >= 3 && j.need <= 50); assert.ok(J.unitValue(a) * j.need <= 100); }
         assert.ok(J.askText(j).length > 0 && J.askShort(a).length > 0 && J.lineOf(j).length > 0);
@@ -55,22 +70,33 @@ test('jobs: what a buyer asks for is something the player can find at their leve
   }
 });
 
-test('jobs: a Dị Biến is never asked for and never taken; the size and the element are looked at', () => {
-  const sp = C.SPECIES[0], big = mkBeast(1, sp.id, 5, { cls: 4 }), small = mkBeast(2, sp.id, 5, { cls: 1 }), mut = mkBeast(3, sp.id, 5, { mut: true });
-  assert.ok(J.beastMatches({ t: 'beast', sp: sp.id }, big) && !J.beastMatches({ t: 'beast', sp: sp.id }, mut));
-  assert.ok(J.beastMatches({ t: 'beast', sp: sp.id, minCls: 3 }, big) && !J.beastMatches({ t: 'beast', sp: sp.id, minCls: 3 }, small));
-  assert.ok(J.beastMatches({ t: 'beast', el: sp.el[0] }, small) && !J.beastMatches({ t: 'beast', el: sp.el[0] }, mut));
-  const other = C.SPECIES.find((s) => !s.el.includes(sp.el[0]))!;
-  assert.ok(!J.beastMatches({ t: 'beast', el: sp.el[0] }, mkBeast(4, other.id)));
-  assert.ok(!J.beastMatches({ t: 'beast', sp: other.id }, big));
+test('jobs: a beast buyer takes any species and any size of the elements asked, never a Dị Biến, and each element only as many as asked', () => {
+  const e1 = SOLO[0].el[0], e2 = SOLO.find((s) => s.el[0] !== e1)!.el[0], e3 = SOLO.find((s) => s.el[0] !== e1 && s.el[0] !== e2)!.el[0];
+  const a1 = spOfEl(e1), a1b = spOfEl(e1, [a1]), a2 = spOfEl(e2), a3 = spOfEl(e3);
+  const ask = byEl([e1, 1], [e2, 2]), want = J.wantsOf(ask);
+  assert.ok(J.beastMatches(ask, mkBeast(1, a1)) && J.beastMatches(ask, mkBeast(2, a1b)) && J.beastMatches(ask, mkBeast(3, a2)), 'any species of the element');
+  assert.ok(J.beastMatches(ask, mkBeast(4, a1, 5, { cls: 0 })) && J.beastMatches(ask, mkBeast(5, a1, 5, { cls: 4 })), 'any size');
+  assert.ok(!J.beastMatches(ask, mkBeast(6, a1, 5, { mut: true })) && !J.beastMatches(ask, mkBeast(7, a3)), 'never a Dị Biến, never another element');
+  // where each creature goes, whatever the order
+  assert.deepEqual(J.assignBeasts(want, [mkBeast(1, a1), mkBeast(3, a2), mkBeast(8, a2)]), [0, 1, 1]);
+  assert.deepEqual(J.assignBeasts(want, [mkBeast(3, a2), mkBeast(1, a1)]), [1, 0]);
+  assert.equal(J.assignBeasts(want, [mkBeast(1, a1), mkBeast(2, a1b)]), null, 'two of an element asked once');
+  assert.equal(J.assignBeasts(want, [mkBeast(7, a3)]), null);
+  assert.equal(J.assignBeasts(want, [mkBeast(6, a1, 5, { mut: true })]), null);
+  assert.equal(J.assignBeasts(want, [1, 2, 3, 4].map((i) => mkBeast(i, a2))), null, 'more than the whole order');
+  assert.ok(J.canAdd(ask, [mkBeast(1, a1)], mkBeast(3, a2)) && !J.canAdd(ask, [mkBeast(1, a1)], mkBeast(2, a1b)));
+  // once an element is full its creatures no longer fit, the others still do
+  want[0].got = 1;
+  assert.ok(!J.beastMatches(ask, mkBeast(2, a1b)) && J.beastMatches(ask, mkBeast(3, a2)));
+  assert.equal(J.leftText(mk('beast', ask, { need: 3, got: 1 })), `2 con hệ ${e2}`);
 });
 
-test('jobs: handing over beasts pays each at once, the last pays the bonus and the goods, and the beasts go', () => {
-  const st = fresh(7), sp = C.SPECIES[0].id;
-  const j = mk('beast', { t: 'beast', sp }, { need: 3, bonus: J.MULT.beastBonus, extra: { kind: 'taming', idx: 0, n: 3 } });
+test('jobs: handing over beasts pays each at once, the last pays the bonus and the gifts, and the beasts go', () => {
+  const st = fresh(7), el = SOLO[0].el[0], sp = spOfEl(el), sp2 = spOfEl(el, [sp]);
+  const j = mk('beast', byEl([el, 3]), { need: 3, bonus: J.MULT.beastBonus, gifts: [{ kind: 'taming', idx: 1, n: 2 }, { kind: 'hp', idx: 0, n: 3 }] });
   withBoard(st, j);
-  st.beasts = [mkBeast(11, sp, 5), mkBeast(12, sp, 9), mkBeast(13, sp, 4), mkBeast(14, sp, 2, { mut: true }), mkBeast(15, 'zzz')];
-  const s0 = st.stones, t0 = st.inv.taming[0];
+  st.beasts = [mkBeast(11, sp, 5), mkBeast(12, sp2, 9), mkBeast(13, sp, 4), mkBeast(14, sp, 2, { mut: true }), mkBeast(15, 'zzz')];
+  const s0 = st.stones, t0 = st.inv.taming[1], h0 = st.inv.hp[0];
   // refusals leave everything as it was
   const snap = structuredClone(st);
   for (const [ids, code] of [[[14], 'E_MUTANT'], [[15], 'E_JOB_GIVE'], [[99], 'E_NOT_FOUND'], [[], 'E_BAD_REQUEST'], [[11, 11], 'E_BAD_REQUEST'], [[11, 12, 13, 11], 'E_BAD_REQUEST']] as const) {
@@ -83,19 +109,69 @@ test('jobs: handing over beasts pays each at once, the last pays the bonus and t
   const v = (id: number) => G.releaseValue(st.beasts.find((b) => b.id === id)!);
   const first = J.payFor(j.mult, v(11)) + J.payFor(j.mult, v(12)), sum2 = v(11) + v(12);
   let r = G.fillJob(st, j.id, { ids: [11, 12] });
-  assert.ok(r.ok, r.msg); assert.equal(st.stones - s0, first); assert.equal(j.got, 2); assert.ok(!j.done);
+  assert.ok(r.ok, r.msg); assert.equal(st.stones - s0, first); assert.equal(j.got, 2); assert.equal(J.wantsOf(j.ask)[0].got, 2); assert.ok(!j.done);
   assert.deepEqual(st.beasts.map((b) => b.id), [13, 14, 15]);
+  assert.match(r.msg, new RegExp(`Còn thiếu 1 con hệ ${el}`));
   // the last one
   const last = J.payFor(j.mult, v(13)), bonus = J.payFor(j.bonus, sum2 + v(13));
   r = G.fillJob(st, j.id, { ids: [13] });
   assert.ok(r.ok, r.msg); assert.equal(st.stones - s0, first + last + bonus); assert.ok(j.done); assert.equal(j.paid, first + last + bonus);
-  assert.equal(st.inv.taming[0], t0 + 3);
+  assert.equal(st.inv.taming[1], t0 + 2); assert.equal(st.inv.hp[0], h0 + 3);
+  assert.match(r.msg, /tặng 2 .+ và 3 /);
   assert.equal(G.fillJob(st, j.id, { ids: [13] }).code, 'E_JOB_GONE');   // a buyer that is done takes nothing more
 });
 
+test('jobs: a buyer of several elements takes them in any order, each element only as many as asked', () => {
+  const st = fresh(10), e1 = SOLO[0].el[0], e2 = SOLO.find((s) => s.el[0] !== e1)!.el[0], a1 = spOfEl(e1), a2 = spOfEl(e2);
+  const j = mk('beast', byEl([e1, 1], [e2, 2]), { need: 3, bonus: J.MULT.beastBonus, gifts: J.beastGifts(3, 'x') });
+  withBoard(st, j);
+  st.beasts = [mkBeast(1, a1), mkBeast(2, a1), mkBeast(3, a2), mkBeast(4, a2)];
+  const snap = structuredClone(st);
+  assert.equal(G.fillJob(st, j.id, { ids: [1, 2] }).code, 'E_JOB_GIVE', 'two of an element asked once');
+  assert.deepEqual(st, snap);
+  assert.ok(G.fillJob(st, j.id, { ids: [3, 1] }).ok);
+  assert.deepEqual(J.wantsOf(j.ask).map((w) => w.got), [1, 1]); assert.equal(j.got, 2);
+  assert.equal(G.fillJob(st, j.id, { ids: [2] }).code, 'E_JOB_GIVE', 'its element is full now');
+  const r = G.fillJob(st, j.id, { ids: [4] });
+  assert.ok(r.ok && j.done, r.msg); assert.deepEqual(st.beasts.map((b) => b.id), [2]);
+});
+
+test('jobs: a beast buyer saved before the asks went by element is replaced on the next tick; what it paid stays', () => {
+  const st = fresh(11); G.settle(st, 2);
+  const b = board(st), at = b.list.findIndex((x) => x.type === 'beast'), sp = C.SPECIES[0].id;
+  const old = { ...b.list[at], ask: { t: 'beast', sp, minCls: 3 } as any, need: 2, got: 1, paid: 500, extra: { kind: 'taming', idx: 0, n: 3 } as O.Extra, gifts: undefined };
+  b.list[at] = old;
+  assert.ok(J.isLegacy(old) && !J.isOpen(old));
+  st.beasts = [mkBeast(901, sp)];
+  const s0 = st.stones;
+  assert.equal(G.fillJob(st, old.id, { ids: [901] }).code, 'E_JOB_GONE');
+  assert.equal(J.beastWantedBy(b, st.beasts[0]).some((x) => x.id === old.id), false, 'no mark in the pen for it');
+  G.settle(st, 1);
+  const nj = board(st).list[at];
+  assert.notEqual(nj.id, old.id); assert.ok(J.isOpen(nj) && J.wantsOf(nj.ask).length > 0);
+  assert.ok(st.stones >= s0, 'nothing is taken back');
+  assert.equal(J.isLegacy(mk('beast', { t: 'beast', el: 'Hỏa' } as any)), true);
+});
+
+test('jobs: the gifts of a beast buyer grow with the order: Huyền always, Địa sometimes, Thiên rarely and only for the biggest', () => {
+  let dia = 0, thien = 0, n = 0;
+  for (let k = 0; k < 600; k++) for (const need of [2, 3, 4, 5, 6]) {
+    const g = J.beastGifts(need, `t${k}`), tam = g.find((x) => x.kind === 'taming') as { idx: number; n: number }, hp = g.find((x) => x.kind === 'hp') as { idx: number; n: number };
+    n++; assert.equal(g.length, 2);
+    assert.ok(tam.idx >= 1 && tam.idx <= 3 && tam.n >= 1); assert.ok(hp.idx === 0 || hp.idx === 1); assert.ok(hp.n >= 2);
+    if (tam.idx === 1) assert.equal(tam.n, 1 + Math.ceil(need / 2));
+    if (tam.idx === 2) dia++;
+    if (tam.idx === 3) { thien++; assert.ok(need >= 5); }
+  }
+  assert.ok(dia / n > 0.1 && dia / n < 0.4, `Địa ${dia / n}`); assert.ok(thien > 0 && thien / n < 0.06, `Thiên ${thien / n}`);
+  // bigger orders give more
+  const worth = (need: number) => { let v = 0; for (let k = 0; k < 300; k++) for (const x of J.beastGifts(need, `w${k}`)) v += x.n * (C.SHOP_ITEM(O.extraId(x))?.price || 0); return v / 300; };
+  assert.ok(worth(2) < worth(4) && worth(4) < worth(6), `${worth(2)} ${worth(4)} ${worth(6)}`);
+});
+
 test('jobs: a framed beast that is handed over leaves the frame; more beasts than asked is refused', () => {
-  const st = fresh(8), sp = C.SPECIES[0].id;
-  withBoard(st, mk('beast', { t: 'beast', sp }, { need: 1 }));
+  const st = fresh(8), el = SOLO[0].el[0], sp = spOfEl(el);
+  withBoard(st, mk('beast', byEl([el, 1]), { need: 1 }));
   st.beasts = [mkBeast(21, sp, 6), mkBeast(22, sp, 6)];
   st.player.showcase = { kind: 'beast', id: 21 };
   assert.equal(G.fillJob(st, 'beast0-0', { ids: [21, 22] }).code, 'E_BAD_REQUEST');
@@ -152,7 +228,7 @@ test('jobs: an old save without the board gets one, and the board survives a cop
 
 test('jobs: "Bán nhanh" sells every spare creature as before, whether a buyer waits for it or not', () => {
   const st = fresh(14), sp = C.SPECIES[0].id, other = C.SPECIES[1].id;
-  withBoard(st, mk('beast', { t: 'beast', sp }, { need: 2 }));
+  withBoard(st, mk('beast', byEl([C.SPECIES[0].el[0], 2]), { need: 2 }));
   st.beasts = [mkBeast(1, other, 50), mkBeast(2, other, 40), mkBeast(3, other, 30), mkBeast(4, sp, 20), mkBeast(5, sp, 10), mkBeast(6, sp, 5), mkBeast(7, sp, 3)];
   const r = G.releaseMany(st);
   assert.ok(r.ok, r.msg);
@@ -181,7 +257,7 @@ test('jobs: the buyers stay out of the economy: buying pills only to hand them o
 
 test('jobs: beasts and materials are paid more than selling them, but within a fixed multiple', () => {
   assert.ok(J.MULT.beast > 100 && J.MULT.beast <= 300 && J.MULT.mat > 100 && J.MULT.mat <= 300);
-  assert.ok(J.MULT.beastBonus <= 100 && J.MULT.matBonus <= 100);
+  assert.ok(J.MULT.beastBonus <= 200 && J.MULT.matBonus <= 100);
   const b = mkBeast(1, C.SPECIES[0].id, 20, { cls: 4 });
   assert.equal(J.payFor(J.MULT.beast, G.releaseValue(b)), Math.floor((G.releaseValue(b) * J.MULT.beast) / 100));
   assert.ok(B.sellBackRatio > 0 && B.sellBackRatio < 1);
@@ -249,14 +325,14 @@ test('jobs: finishing a buyer counts for its kind, a rank-up is told, and the ne
 });
 
 test('jobs: the Party is worked out once, and the spare creatures come first, weakest first', () => {
-  const beasts = [mkBeast(1, 'x', 9), mkBeast(2, 'x', 3), mkBeast(3, 'x', 6), mkBeast(4, 'x', 1), mkBeast(5, 'x', 8)];
+  const x = C.SPECIES[0].id, beasts = [mkBeast(1, x, 9), mkBeast(2, x, 3), mkBeast(3, x, 6), mkBeast(4, x, 1), mkBeast(5, x, 8)];
   const party = J.partyOf(beasts, 2);
   assert.deepEqual([...party].sort(), [1, 5]);   // the two strongest
   const keep = new Set([...party, 3]);   // plus the framed one
   assert.equal(J.partyOf(beasts, 0).size, 0);
   assert.equal(J.partyOf([], 3).size, 0);
   assert.equal(beasts.map((b) => b.id).join(), '1,2,3,4,5');   // the pen itself is not reordered
-  const j = mk('beast', { t: 'beast', sp: 'x' });
+  const j = mk('beast', byEl([C.SPECIES[0].el[0], 5]), { need: 5 });
   const order = J.beastCands(j, beasts, keep).map((b) => b.id);
   assert.deepEqual(order, [4, 2, 3, 5, 1]);   // spare ones weakest first, then the framed one and the Party by power
   const spare = order.filter((id) => J.isSpare({ id }, keep)), rest = order.filter((id) => !J.isSpare({ id }, keep));

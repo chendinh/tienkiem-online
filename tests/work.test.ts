@@ -127,7 +127,7 @@ test('work: a creature at work cannot be sold, let go in bulk or handed over to 
   const spare = workerFor(st, p, { power: 2 }); const before = st.beasts.length;
   for (let i = 0; i < 6; i++) workerFor(st, p, { power: 100 + i });   // the Party is stronger than the two
   G.releaseMany(st); assert.ok(st.beasts.some((x) => x.id === b.id), 'bulk release keeps it'); assert.ok(!st.beasts.some((x) => x.id === spare.id)); assert.ok(st.beasts.length > before - 1);
-  const j = st.jobs!.list.find((x) => x.type === 'beast')!; j.ask = { t: 'beast', sp: b.sp }; j.need = 1;
+  const j = st.jobs!.list.find((x) => x.type === 'beast')!; j.ask = { t: 'beast', want: [{ el: J.speciesEls(b.sp)[0], n: 1, got: 0 }] }; j.need = 1;
   assert.equal(G.fillJob(st, j.id, { ids: [b.id] }).code, 'E_BEAST_BUSY');
 });
 
